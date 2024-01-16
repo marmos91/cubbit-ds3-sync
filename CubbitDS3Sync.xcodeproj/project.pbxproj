@@ -232,7 +232,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		D54775C32B57181D00DABCD4 /* CubbitDS3Sync.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CubbitDS3Sync.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D54775C32B57181D00DABCD4 /* Cubbit DS3.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Cubbit DS3.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D54775C62B57181D00DABCD4 /* CubbitDS3SyncApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CubbitDS3SyncApp.swift; sourceTree = "<group>"; };
 		D54775CC2B57181E00DABCD4 /* CubbitDS3Sync.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CubbitDS3Sync.entitlements; sourceTree = "<group>"; };
 		D54775D52B57185100DABCD4 /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -384,7 +384,7 @@
 		D54775C42B57181D00DABCD4 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				D54775C32B57181D00DABCD4 /* CubbitDS3Sync.app */,
+				D54775C32B57181D00DABCD4 /* Cubbit DS3.app */,
 				D5A221432B571F1700F1413B /* DS3Lib.framework */,
 				D5A222432B57211500F1413B /* Provider.appex */,
 			);
@@ -849,7 +849,7 @@
 				D5A2223D2B57203A00F1413B /* SotoS3 */,
 			);
 			productName = CubbitDS3Sync;
-			productReference = D54775C32B57181D00DABCD4 /* CubbitDS3Sync.app */;
+			productReference = D54775C32B57181D00DABCD4 /* Cubbit DS3.app */;
 			productType = "com.apple.product-type.application";
 		};
 		D5A221422B571F1700F1413B /* DS3Lib */ = {
@@ -1288,6 +1288,7 @@
 				INFOPLIST_FILE = CubbitDS3Sync/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Cubbit DS3";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_LSUIElement = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -1305,7 +1306,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.CubbitDS3Sync;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Cubbit DS3";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1331,6 +1332,7 @@
 				INFOPLIST_FILE = CubbitDS3Sync/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Cubbit DS3";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_LSUIElement = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -1348,7 +1350,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.CubbitDS3Sync;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Cubbit DS3";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SWIFT_EMIT_LOC_STRINGS = YES;
