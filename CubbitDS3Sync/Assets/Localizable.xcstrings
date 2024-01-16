@@ -25,6 +25,9 @@
     "Cannot retrieve cookies" : {
       "comment" : "The cookies authentication error"
     },
+    "Choose a name for your drive. The name you choose will be displayed in the finder" : {
+
+    },
     "Continue" : {
       "comment" : "Continue button"
     },
@@ -97,6 +100,9 @@
     "Password:" : {
 
     },
+    "Please select a DS3 Project to start. Inside your project you will select a Bucket to sync with your local drive" : {
+
+    },
     "Preferences" : {
       "comment" : "Tray open preferences"
     },
@@ -119,9 +125,6 @@
       "comment" : "Retry"
     },
     "Select an IAM user & bucket to continue. You can manage buckets and IAM users from the [Cubbit DS3 Console](https://console.cubbit.eu)" : {
-
-    },
-    "Select role & bucket or folder..... utilizza la Cubbit Console per creare o gestire i tuoi progetti." : {
 
     },
     "Sign up" : {
