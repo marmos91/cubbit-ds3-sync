@@ -130,10 +130,66 @@
 		D5A2223A2B571FEE00F1413B /* Nunito-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D5A222022B571FEE00F1413B /* Nunito-Regular.ttf */; };
 		D5A2223B2B571FEE00F1413B /* Nunito-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D5A222032B571FEE00F1413B /* Nunito-Bold.ttf */; };
 		D5A2223E2B57203A00F1413B /* SotoS3 in Frameworks */ = {isa = PBXBuildFile; productRef = D5A2223D2B57203A00F1413B /* SotoS3 */; };
+		D5A222462B57211500F1413B /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D5A222452B57211500F1413B /* UniformTypeIdentifiers.framework */; };
+		D5A222492B57211500F1413B /* FileProviderExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222482B57211500F1413B /* FileProviderExtension.swift */; };
+		D5A222522B57211500F1413B /* Provider.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D5A222432B57211500F1413B /* Provider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D5A222582B57214C00F1413B /* SotoS3 in Frameworks */ = {isa = PBXBuildFile; productRef = D5A222572B57214C00F1413B /* SotoS3 */; };
+		D5A222592B57215300F1413B /* DS3Lib.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D5A221432B571F1700F1413B /* DS3Lib.framework */; };
+		D5A2225A2B57215300F1413B /* DS3Lib.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = D5A221432B571F1700F1413B /* DS3Lib.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		D5A2225E2B57216800F1413B /* DS3SDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2214F2B571F5100F1413B /* DS3SDK.swift */; };
+		D5A2225F2B57216B00F1413B /* DS3Authentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221532B571F5100F1413B /* DS3Authentication.swift */; };
+		D5A222602B57216F00F1413B /* NSFIleProvider+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216C2B571F5100F1413B /* NSFIleProvider+Extensions.swift */; };
+		D5A222612B57216F00F1413B /* JWT.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216B2B571F5100F1413B /* JWT.swift */; };
+		D5A222622B57216F00F1413B /* System.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216D2B571F5100F1413B /* System.swift */; };
+		D5A222632B57216F00F1413B /* ApiKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216A2B571F5100F1413B /* ApiKeys.swift */; };
+		D5A222642B57216F00F1413B /* URLs+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216E2B571F5100F1413B /* URLs+Extensions.swift */; };
+		D5A222652B57216F00F1413B /* DateFormatter+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221692B571F5100F1413B /* DateFormatter+Extensions.swift */; };
+		D5A222662B57216F00F1413B /* Bundle+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216F2B571F5100F1413B /* Bundle+Extensions.swift */; };
+		D5A222672B57217400F1413B /* SharedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221662B571F5100F1413B /* SharedData.swift */; };
+		D5A222682B57217400F1413B /* SharedData+accountSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221672B571F5100F1413B /* SharedData+accountSession.swift */; };
+		D5A222692B57217400F1413B /* SharedData+ds3Drive.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221642B571F5100F1413B /* SharedData+ds3Drive.swift */; };
+		D5A2226A2B57217400F1413B /* SharedData+Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221632B571F5100F1413B /* SharedData+Errors.swift */; };
+		D5A2226B2B57217400F1413B /* SharedData+account.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221612B571F5100F1413B /* SharedData+account.swift */; };
+		D5A2226C2B57217400F1413B /* SharedData+apiKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221652B571F5100F1413B /* SharedData+apiKeys.swift */; };
+		D5A2226D2B57217400F1413B /* SharedData+syncAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221622B571F5100F1413B /* SharedData+syncAnchor.swift */; };
+		D5A2226E2B57217900F1413B /* SyncAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221572B571F5100F1413B /* SyncAnchor.swift */; };
+		D5A2226F2B57217900F1413B /* IAMUser.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221562B571F5100F1413B /* IAMUser.swift */; };
+		D5A222702B57217900F1413B /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2215E2B571F5100F1413B /* Account.swift */; };
+		D5A222712B57217900F1413B /* DS3APIKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2215C2B571F5100F1413B /* DS3APIKey.swift */; };
+		D5A222722B57217900F1413B /* RefreshToken.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2215D2B571F5100F1413B /* RefreshToken.swift */; };
+		D5A222732B57217900F1413B /* AccountSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221582B571F5100F1413B /* AccountSession.swift */; };
+		D5A222742B57217900F1413B /* Challenge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221592B571F5100F1413B /* Challenge.swift */; };
+		D5A222752B57217900F1413B /* DS3Drive.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2215B2B571F5100F1413B /* DS3Drive.swift */; };
+		D5A222762B57217900F1413B /* Token.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2215F2B571F5100F1413B /* Token.swift */; };
+		D5A222772B57217900F1413B /* Bucket.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221552B571F5100F1413B /* Bucket.swift */; };
+		D5A222782B57217900F1413B /* Project.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2215A2B571F5100F1413B /* Project.swift */; };
+		D5A222792B57217E00F1413B /* DefaultSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221512B571F5100F1413B /* DefaultSettings.swift */; };
+		D5A2227A2B57217E00F1413B /* URLs.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221522B571F5100F1413B /* URLs.swift */; };
+		D5A222862B5721CC00F1413B /* FileProviderExtension+Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2227C2B5721CC00F1413B /* FileProviderExtension+Errors.swift */; };
+		D5A222882B5721CC00F1413B /* S3Enumerator+S3.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2227F2B5721CC00F1413B /* S3Enumerator+S3.swift */; };
+		D5A222892B5721CC00F1413B /* S3Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222802B5721CC00F1413B /* S3Item.swift */; };
+		D5A2228A2B5721CC00F1413B /* S3Enumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222812B5721CC00F1413B /* S3Enumerator.swift */; };
+		D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */; };
+		D5A2228C2B5721CC00F1413B /* Provider.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D5A222832B5721CC00F1413B /* Provider.xcassets */; };
+		D5A2228E2B5721CC00F1413B /* FileProviderExtension+S3.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222852B5721CC00F1413B /* FileProviderExtension+S3.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		D5A221472B571F1700F1413B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D54775BB2B57181D00DABCD4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D5A221422B571F1700F1413B;
+			remoteInfo = DS3Lib;
+		};
+		D5A222502B57211500F1413B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D54775BB2B57181D00DABCD4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D5A222422B57211500F1413B;
+			remoteInfo = Provider;
+		};
+		D5A2225B2B57215300F1413B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = D54775BB2B57181D00DABCD4 /* Project object */;
 			proxyType = 1;
@@ -150,6 +206,28 @@
 			dstSubfolderSpec = 10;
 			files = (
 				D5A2214B2B571F1700F1413B /* DS3Lib.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D5A222562B57211500F1413B /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				D5A222522B57211500F1413B /* Provider.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D5A2225D2B57215300F1413B /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				D5A2225A2B57215300F1413B /* DS3Lib.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -252,6 +330,18 @@
 		D5A222002B571FEE00F1413B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D5A222022B571FEE00F1413B /* Nunito-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Nunito-Regular.ttf"; sourceTree = "<group>"; };
 		D5A222032B571FEE00F1413B /* Nunito-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Nunito-Bold.ttf"; sourceTree = "<group>"; };
+		D5A222432B57211500F1413B /* Provider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = Provider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D5A222452B57211500F1413B /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
+		D5A222482B57211500F1413B /* FileProviderExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileProviderExtension.swift; sourceTree = "<group>"; };
+		D5A2224E2B57211500F1413B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D5A2227C2B5721CC00F1413B /* FileProviderExtension+Errors.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+Errors.swift"; sourceTree = "<group>"; };
+		D5A2227E2B5721CC00F1413B /* Provider.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = Provider.entitlements; sourceTree = "<group>"; };
+		D5A2227F2B5721CC00F1413B /* S3Enumerator+S3.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "S3Enumerator+S3.swift"; sourceTree = "<group>"; };
+		D5A222802B5721CC00F1413B /* S3Item.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = S3Item.swift; sourceTree = "<group>"; };
+		D5A222812B5721CC00F1413B /* S3Enumerator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = S3Enumerator.swift; sourceTree = "<group>"; };
+		D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "S3Item+Metadata.swift"; sourceTree = "<group>"; };
+		D5A222832B5721CC00F1413B /* Provider.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Provider.xcassets; sourceTree = "<group>"; };
+		D5A222852B5721CC00F1413B /* FileProviderExtension+S3.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+S3.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -271,6 +361,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D5A222402B57211500F1413B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5A222592B57215300F1413B /* DS3Lib.framework in Frameworks */,
+				D5A222462B57211500F1413B /* UniformTypeIdentifiers.framework in Frameworks */,
+				D5A222582B57214C00F1413B /* SotoS3 in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -282,6 +382,8 @@
 				D5A221352B571CB000F1413B /* .gitignore */,
 				D54775C52B57181D00DABCD4 /* CubbitDS3Sync */,
 				D5A221442B571F1700F1413B /* DS3Lib */,
+				D5A222472B57211500F1413B /* Provider */,
+				D5A222442B57211500F1413B /* Frameworks */,
 				D54775C42B57181D00DABCD4 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -291,6 +393,7 @@
 			children = (
 				D54775C32B57181D00DABCD4 /* CubbitDS3Sync.app */,
 				D5A221432B571F1700F1413B /* DS3Lib.framework */,
+				D5A222432B57211500F1413B /* Provider.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -711,6 +814,31 @@
 			path = Fonts;
 			sourceTree = "<group>";
 		};
+		D5A222442B57211500F1413B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D5A222452B57211500F1413B /* UniformTypeIdentifiers.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		D5A222472B57211500F1413B /* Provider */ = {
+			isa = PBXGroup;
+			children = (
+				D5A222482B57211500F1413B /* FileProviderExtension.swift */,
+				D5A2227C2B5721CC00F1413B /* FileProviderExtension+Errors.swift */,
+				D5A222852B5721CC00F1413B /* FileProviderExtension+S3.swift */,
+				D5A222802B5721CC00F1413B /* S3Item.swift */,
+				D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */,
+				D5A222812B5721CC00F1413B /* S3Enumerator.swift */,
+				D5A2227F2B5721CC00F1413B /* S3Enumerator+S3.swift */,
+				D5A222832B5721CC00F1413B /* Provider.xcassets */,
+				D5A2227E2B5721CC00F1413B /* Provider.entitlements */,
+				D5A2224E2B57211500F1413B /* Info.plist */,
+			);
+			path = Provider;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -733,11 +861,13 @@
 				D54775C02B57181D00DABCD4 /* Frameworks */,
 				D54775C12B57181D00DABCD4 /* Resources */,
 				D5A2214A2B571F1700F1413B /* Embed Frameworks */,
+				D5A222562B57211500F1413B /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				D5A221482B571F1700F1413B /* PBXTargetDependency */,
+				D5A222512B57211500F1413B /* PBXTargetDependency */,
 			);
 			name = CubbitDS3Sync;
 			packageProductDependencies = (
@@ -765,6 +895,28 @@
 			productReference = D5A221432B571F1700F1413B /* DS3Lib.framework */;
 			productType = "com.apple.product-type.framework";
 		};
+		D5A222422B57211500F1413B /* Provider */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D5A222532B57211500F1413B /* Build configuration list for PBXNativeTarget "Provider" */;
+			buildPhases = (
+				D5A2223F2B57211500F1413B /* Sources */,
+				D5A222402B57211500F1413B /* Frameworks */,
+				D5A222412B57211500F1413B /* Resources */,
+				D5A2225D2B57215300F1413B /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D5A2225C2B57215300F1413B /* PBXTargetDependency */,
+			);
+			name = Provider;
+			packageProductDependencies = (
+				D5A222572B57214C00F1413B /* SotoS3 */,
+			);
+			productName = Provider;
+			productReference = D5A222432B57211500F1413B /* Provider.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -781,6 +933,9 @@
 					D5A221422B571F1700F1413B = {
 						CreatedOnToolsVersion = 15.2;
 						LastSwiftMigration = 1520;
+					};
+					D5A222422B57211500F1413B = {
+						CreatedOnToolsVersion = 15.2;
 					};
 				};
 			};
@@ -802,6 +957,7 @@
 			targets = (
 				D54775C22B57181D00DABCD4 /* CubbitDS3Sync */,
 				D5A221422B571F1700F1413B /* DS3Lib */,
+				D5A222422B57211500F1413B /* Provider */,
 			);
 		};
 /* End PBXProject section */
@@ -827,6 +983,14 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D5A222412B57211500F1413B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5A2228C2B5721CC00F1413B /* Provider.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -957,6 +1121,49 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D5A2223F2B57211500F1413B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5A222492B57211500F1413B /* FileProviderExtension.swift in Sources */,
+				D5A222742B57217900F1413B /* Challenge.swift in Sources */,
+				D5A222892B5721CC00F1413B /* S3Item.swift in Sources */,
+				D5A222702B57217900F1413B /* Account.swift in Sources */,
+				D5A2228E2B5721CC00F1413B /* FileProviderExtension+S3.swift in Sources */,
+				D5A2226B2B57217400F1413B /* SharedData+account.swift in Sources */,
+				D5A222712B57217900F1413B /* DS3APIKey.swift in Sources */,
+				D5A222722B57217900F1413B /* RefreshToken.swift in Sources */,
+				D5A2226E2B57217900F1413B /* SyncAnchor.swift in Sources */,
+				D5A222632B57216F00F1413B /* ApiKeys.swift in Sources */,
+				D5A222662B57216F00F1413B /* Bundle+Extensions.swift in Sources */,
+				D5A2228A2B5721CC00F1413B /* S3Enumerator.swift in Sources */,
+				D5A222862B5721CC00F1413B /* FileProviderExtension+Errors.swift in Sources */,
+				D5A222642B57216F00F1413B /* URLs+Extensions.swift in Sources */,
+				D5A2227A2B57217E00F1413B /* URLs.swift in Sources */,
+				D5A222612B57216F00F1413B /* JWT.swift in Sources */,
+				D5A2226D2B57217400F1413B /* SharedData+syncAnchor.swift in Sources */,
+				D5A222622B57216F00F1413B /* System.swift in Sources */,
+				D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */,
+				D5A222762B57217900F1413B /* Token.swift in Sources */,
+				D5A2226C2B57217400F1413B /* SharedData+apiKeys.swift in Sources */,
+				D5A222882B5721CC00F1413B /* S3Enumerator+S3.swift in Sources */,
+				D5A2226F2B57217900F1413B /* IAMUser.swift in Sources */,
+				D5A222602B57216F00F1413B /* NSFIleProvider+Extensions.swift in Sources */,
+				D5A2225F2B57216B00F1413B /* DS3Authentication.swift in Sources */,
+				D5A222652B57216F00F1413B /* DateFormatter+Extensions.swift in Sources */,
+				D5A222732B57217900F1413B /* AccountSession.swift in Sources */,
+				D5A222772B57217900F1413B /* Bucket.swift in Sources */,
+				D5A222782B57217900F1413B /* Project.swift in Sources */,
+				D5A2226A2B57217400F1413B /* SharedData+Errors.swift in Sources */,
+				D5A222682B57217400F1413B /* SharedData+accountSession.swift in Sources */,
+				D5A222792B57217E00F1413B /* DefaultSettings.swift in Sources */,
+				D5A222692B57217400F1413B /* SharedData+ds3Drive.swift in Sources */,
+				D5A222752B57217900F1413B /* DS3Drive.swift in Sources */,
+				D5A2225E2B57216800F1413B /* DS3SDK.swift in Sources */,
+				D5A222672B57217400F1413B /* SharedData.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -964,6 +1171,16 @@
 			isa = PBXTargetDependency;
 			target = D5A221422B571F1700F1413B /* DS3Lib */;
 			targetProxy = D5A221472B571F1700F1413B /* PBXContainerItemProxy */;
+		};
+		D5A222512B57211500F1413B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D5A222422B57211500F1413B /* Provider */;
+			targetProxy = D5A222502B57211500F1413B /* PBXContainerItemProxy */;
+		};
+		D5A2225C2B57215300F1413B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D5A221422B571F1700F1413B /* DS3Lib */;
+			targetProxy = D5A2225B2B57215300F1413B /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1097,7 +1314,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = CubbitDS3Sync/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Cubbit DS3 Sync";
+				INFOPLIST_KEY_CFBundleDisplayName = "Cubbit DS3";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -1139,7 +1356,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = CubbitDS3Sync/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Cubbit DS3 Sync";
+				INFOPLIST_KEY_CFBundleDisplayName = "Cubbit DS3";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -1239,6 +1456,62 @@
 			};
 			name = Release;
 		};
+		D5A222542B57211500F1413B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Provider/Provider.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = X889956QSM;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Provider/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Provider;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.CubbitDS3Sync.Provider;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		D5A222552B57211500F1413B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Provider/Provider.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = X889956QSM;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Provider/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Provider;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.CubbitDS3Sync.Provider;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1269,6 +1542,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		D5A222532B57211500F1413B /* Build configuration list for PBXNativeTarget "Provider" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D5A222542B57211500F1413B /* Debug */,
+				D5A222552B57211500F1413B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -1284,6 +1566,11 @@
 
 /* Begin XCSwiftPackageProductDependency section */
 		D5A2223D2B57203A00F1413B /* SotoS3 */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D5A2223C2B57203A00F1413B /* XCRemoteSwiftPackageReference "soto" */;
+			productName = SotoS3;
+		};
+		D5A222572B57214C00F1413B /* SotoS3 */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = D5A2223C2B57203A00F1413B /* XCRemoteSwiftPackageReference "soto" */;
 			productName = SotoS3;
