@@ -12,7 +12,7 @@ struct SyncRecapSidebarView: View {
                     .fontWeight(.bold)
                     .padding(.bottom, 10)
                 
-                Text("Select role & bucket or folder..... utilizza la Cubbit Console per creare o gestire i tuoi progetti.")
+                Text("Choose a name for your drive. The name you choose will be displayed in the finder")
                     .font(.custom("Nunito", size: 14))
                 
             }

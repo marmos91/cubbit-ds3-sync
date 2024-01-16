@@ -31,7 +31,7 @@ struct TrayMenuView: View {
                 TrayMenuItem(
                     title: NSLocalizedString("Add a new Drive", comment: "Tray menu add new drive")
                 ) {
-                    openWindow(id: "io.cubbit.ds3sync.drive.new")
+                    openWindow(id: "io.cubbit.CubbitDS3Sync.drive.new")
                 }
                 
                 Divider()
@@ -47,7 +47,7 @@ struct TrayMenuView: View {
                 TrayMenuItem(
                     title: NSLocalizedString("Preferences", comment: "Tray open preferences")
                 ) {
-                    openWindow(id: "io.cubbit.ds3sync.preferences")
+                    openWindow(id: "io.cubbit.CubbitDS3Sync.preferences")
                 }
                 
                 Divider()
@@ -68,7 +68,7 @@ struct TrayMenuView: View {
                 
                 Divider()
                 
-                TrayMenuFooterView(version: "1.1.1")
+                TrayMenuFooterView(version: DefaultSettings.appVersion)
             }
         }
         .frame(

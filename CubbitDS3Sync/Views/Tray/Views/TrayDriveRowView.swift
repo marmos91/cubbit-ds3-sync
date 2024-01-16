@@ -85,7 +85,7 @@ struct TrayDriveRowView: View {
                     }
                     
                     Button("Manage") {
-                        openWindow(id: "io.cubbit.ds3sync.drive.manage", value: self.drive)
+                        openWindow(id: "io.cubbit.CubbitDS3Sync.drive.manage", value: self.drive)
                     }
                     
                     Button("Refresh") {

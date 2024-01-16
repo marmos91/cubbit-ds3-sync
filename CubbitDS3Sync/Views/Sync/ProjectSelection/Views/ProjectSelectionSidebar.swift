@@ -12,7 +12,7 @@ struct ProjectSelectionSidebar: View {
                     .fontWeight(.bold)
                     .padding(.bottom, 5.0)
                 
-                Text("Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s")
+                Text("Please select a DS3 Project to start. Inside your project you will select a Bucket to sync with your local drive")
                     .font(.custom("Nunito", size: 14))
             }
             .padding()

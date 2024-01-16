@@ -33,7 +33,7 @@ struct ds3syncApp: App {
         
         // MARK: - Manage drive
         
-        WindowGroup(id: "io.cubbit.ds3sync.drive.manage", for: DS3Drive.self) { $ds3Drive in
+        WindowGroup(id: "io.cubbit.CubbitDS3Sync.drive.manage", for: DS3Drive.self) { $ds3Drive in
             if ds3Drive != nil {
                ManageDS3DriveView(ds3Drive: ds3Drive!)
                     .environment(ds3DriveManager)
@@ -44,7 +44,7 @@ struct ds3syncApp: App {
         
         // MARK: - Preferences
         
-        Window("Preferences", id: "io.cubbit.ds3sync.preferences") {
+        Window("Preferences", id: "io.cubbit.CubbitDS3Sync.preferences") {
             if ds3Authentication.account != nil {
                 PreferencesView(
                     preferencesViewModel: PreferencesViewModel(
@@ -58,7 +58,7 @@ struct ds3syncApp: App {
        
         // MARK: - Add new drive
         
-        Window("Add new Drive", id: "io.cubbit.ds3sync.drive.new") {
+        Window("Add new Drive", id: "io.cubbit.CubbitDS3Sync.drive.new") {
             SetupSyncView()
                 .environment(ds3Authentication)
                 .environment(ds3DriveManager)

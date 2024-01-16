@@ -104,7 +104,6 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
     ) {
         Task {
             do {
-                let anchorDate = anchor.toDate()
                 let prefix: String? = self.drive.syncAnchor.prefix
                 
                 if self.parent == .trashContainer {
