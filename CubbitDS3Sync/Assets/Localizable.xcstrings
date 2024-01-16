@@ -1,0 +1,183 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "(If you decide not to start Cubbit at startup, you will not be able to view the synchronized disks)" : {
+
+    },
+    "2F Authentication:" : {
+
+    },
+    "Add a new Drive" : {
+      "comment" : "Tray menu add new drive"
+    },
+    "Add new Drive" : {
+
+    },
+    "An error occurred: %@" : {
+
+    },
+    "Bucket:" : {
+
+    },
+    "Cannot convert time string" : {
+      "comment" : "The time conversion error"
+    },
+    "Cannot retrieve cookies" : {
+      "comment" : "The cookies authentication error"
+    },
+    "Continue" : {
+      "comment" : "Continue button"
+    },
+    "Disabled" : {
+
+    },
+    "Disconnect" : {
+
+    },
+    "Disconnect account" : {
+
+    },
+    "Drive name:" : {
+
+    },
+    "DS3 Object Storage Log in" : {
+      "comment" : "The h1 of the login page"
+    },
+    "Edit on web console" : {
+      "comment" : "Edit on web console button"
+    },
+    "Email" : {
+      "comment" : "Email placeholder"
+    },
+    "Email:" : {
+
+    },
+    "Enabled" : {
+
+    },
+    "Folder:" : {
+
+    },
+    "Forgot your password?" : {
+      "comment" : "Forgot your password link"
+    },
+    "Hello" : {
+
+    },
+    "Help" : {
+      "comment" : "Tray menu help"
+    },
+    "IAM Role:" : {
+
+    },
+    "Loading..." : {
+      "comment" : "Loading"
+    },
+    "Log in" : {
+      "comment" : "Login button"
+    },
+    "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s" : {
+
+    },
+    "Manage" : {
+
+    },
+    "Name:" : {
+
+    },
+    "Next" : {
+
+    },
+    "Open web console " : {
+      "comment" : "Tray menu open console button"
+    },
+    "Password" : {
+      "comment" : "Password placeholder"
+    },
+    "Password:" : {
+
+    },
+    "Preferences" : {
+      "comment" : "Tray open preferences"
+    },
+    "Project name:" : {
+
+    },
+    "Project:" : {
+
+    },
+    "Quit" : {
+      "comment" : "Tray menu quit"
+    },
+    "Recap: confirm your information to create your drive" : {
+
+    },
+    "Refresh" : {
+
+    },
+    "Retry" : {
+      "comment" : "Retry"
+    },
+    "Select an IAM user & bucket to continue. You can manage buckets and IAM users from the [Cubbit DS3 Console](https://console.cubbit.eu)" : {
+
+    },
+    "Select role & bucket or folder..... utilizza la Cubbit Console per creare o gestire i tuoi progetti." : {
+
+    },
+    "Sign up" : {
+      "comment" : "Sign up button text"
+    },
+    "Start Cubbit DS3 sync at login" : {
+
+    },
+    "Sync" : {
+      "comment" : "Complete sync button"
+    },
+    "Sync folder" : {
+
+    },
+    "Sync Projects" : {
+
+    },
+    "The provided URL (url ?? \"\") is invalid." : {
+      "comment" : "The invalidURL error"
+    },
+    "The session token expired" : {
+      "comment" : "Token expiration error"
+    },
+    "There was an error while converting JSON data." : {
+      "comment" : "The JSON conversion error"
+    },
+    "There was an error while encoding/decoding data." : {
+      "comment" : "The encoding authentication error"
+    },
+    "There was an error with the server.\nPlease try again later" : {
+      "comment" : "The server error"
+    },
+    "Version %@" : {
+
+    },
+    "View in Finder" : {
+
+    },
+    "View in web console" : {
+
+    },
+    "World" : {
+
+    },
+    "You are already logged in" : {
+      "comment" : "The already logged in error"
+    },
+    "You are already logged out" : {
+      "comment" : "The already logged out error"
+    },
+    "You haven't created any projects yet, create your project on [the console](https://console.cubbit.eu/) and then come back here to synchronize it." : {
+
+    },
+    "You need to be logged in to perform this operation" : {
+      "comment" : "The authentication already logged error"
+    }
+  },
+  "version" : "1.0"
+}
