@@ -1,5 +1,7 @@
 # Cubbit DS3 Sync
 
+[![Xcode - Build and Analyze](https://github.com/marmos91/cubbit-ds3-sync/actions/workflows/build.yml/badge.svg)](https://github.com/marmos91/cubbit-ds3-sync/actions/workflows/build.yml)
+
 Welcome to the Cubbit DS3 Sync repository!
 This repository contains the source code of the Cubbit DS3 Sync application.
 
