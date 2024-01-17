@@ -44,12 +44,8 @@ struct SetupSyncView: View {
                     syncSetupViewModel.selectSyncSetupStep(.anchorSelection)
                 }
                 .onComplete { ds3Drive in
-                    do {
-                        try ds3DriveManager.add(drive: ds3Drive)
-                        dismiss()
-                    } catch {
-                        print("An error occurred while saving drive \(error)")
-                    }
+                    ds3DriveManager.add(drive: ds3Drive)
+                    dismiss()
                 }
             }
         }

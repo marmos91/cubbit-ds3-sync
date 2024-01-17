@@ -57,27 +57,11 @@ struct TrayDriveRowView: View {
                 
                 Menu {        
                     Button("Disconnect") {
-                        do {
-                            try self.ds3DriveManager.disconnect(driveWithId: self.drive.id)
-                        } catch {
-                            print("An error occurred while disconnecting drive")
-                        }
+                        self.ds3DriveManager.disconnect(driveWithId: self.drive.id)
                     }
                     
                     Button("View in Finder") {
-//                        let finderURL =  self.ds3DriveManager.finderPath(
-//                            forDrive: self.drive
-//                        )
-                        
                         self.ds3DriveManager.openFinder(forDrive: self.drive)
-                        
-//                        print("Opening Finder at \(finderURL.path)")
-//                        
-//                        NSWorkspace.shared.open(
-//                            URL(
-//                                fileURLWithPath: finderURL.path
-//                            )
-//                        )
                     }
                     
                     Button("View in web console") {

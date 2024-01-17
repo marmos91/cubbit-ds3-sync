@@ -1,7 +1,10 @@
 import Foundation
 import SwiftUI
+import os.log
 
 @Observable class ProjectSelectionViewModel {
+    private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "ProjectSelectionViewModel")
+    
     var authentication: DS3Authentication
     var ds3SDK: DS3SDK
     
@@ -24,15 +27,15 @@ import SwiftUI
         defer { self.loading = false }
         
         do {
-            print("Loading DS3 projects")
+            self.logger.debug("Loading DS3 projects")
             self.projects = try await self.ds3SDK.getRemoteProjects()
-            print("\(self.projects.count) DS3 projects loaded")
+            self.logger.debug("\(self.projects.count) DS3 projects loaded")
         }
         catch DS3AuthenticationError.serverError {
             try self.authentication.logout()
         }
         catch {
-            print("An error occurred while loading projects: \(error)")
+            self.logger.error("An error occurred while loading projects: \(error)")
             self.error = error
         }
 }

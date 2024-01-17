@@ -96,11 +96,7 @@ struct PreferencesView: View {
                         Toggle(isOn: $startAtLogin) {
                             Text("Start Cubbit DS3 sync at login")
                         }.onChange(of: self.startAtLogin) {
-                            do {
-                                try self.preferencesViewModel.setStartAtLogin(self.startAtLogin)
-                            } catch {
-                                print(error)
-                            }
+                            self.preferencesViewModel.setStartAtLogin(self.startAtLogin)
                         }
                         
                         Text("(If you decide not to start Cubbit at startup, you will not be able to view the synchronized disks)")

@@ -1,4 +1,5 @@
 import Foundation
+import os.log
 
 enum DS3SDKError: Error, LocalizedError {
     case invalidURL(url: String? = nil)
@@ -9,6 +10,7 @@ enum DS3SDKError: Error, LocalizedError {
 
 @Observable class DS3SDK {
     private var authentication: DS3Authentication
+    private let logger: Logger = Logger(subsystem: "com.cubbit.CubbitDS3Sync", category: "DS3SDK")
     
     init(
         withAuthentication authentication: DS3Authentication
@@ -35,7 +37,10 @@ enum DS3SDKError: Error, LocalizedError {
         
         let (responseData, response) = try await URLSession.shared.data(for: request)
         
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw DS3AuthenticationError.serverError }
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            self.logger.error("An error occurred. Status code is \((response as! HTTPURLResponse).statusCode) Response is: \(String(data: responseData, encoding: .utf8)!)")
+            throw DS3AuthenticationError.serverError
+        }
         guard let projects = try? JSONDecoder().decode([Project].self, from: responseData) else { throw DS3AuthenticationError.jsonConversion }
         
         return projects
@@ -60,7 +65,10 @@ enum DS3SDKError: Error, LocalizedError {
         
         let (responseData, response) = try await URLSession.shared.data(for: request)
         
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw DS3SDKError.serverError }
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            self.logger.error("An error occurred. Status code is \((response as! HTTPURLResponse).statusCode) Response is: \(String(data: responseData, encoding: .utf8)!)")
+            throw DS3SDKError.serverError
+        }
         guard let apiKeys = try? JSONDecoder().decode([DS3ApiKey].self, from: responseData) else { throw DS3SDKError.jsonConversion }
         
         return apiKeys
@@ -85,7 +93,10 @@ enum DS3SDKError: Error, LocalizedError {
         
         let (_, response) = try await URLSession.shared.data(for: request)
         
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw DS3SDKError.serverError }
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            self.logger.error("An error occurred. Status code is \((response as! HTTPURLResponse).statusCode)")
+            throw DS3SDKError.serverError
+        }
     }
     
     /// Load API keys for the given iam user and ds3 project from disk, if already available. Otherwise creates a new pair and save it to disk
@@ -120,7 +131,10 @@ enum DS3SDKError: Error, LocalizedError {
         
         let (responseData, response) = try await URLSession.shared.data(for: request)
         
-        guard (response as? HTTPURLResponse)?.statusCode == 201 else { throw DS3SDKError.serverError }
+        guard (response as? HTTPURLResponse)?.statusCode == 201 else {
+            self.logger.error("An error occurred. Status code is \((response as! HTTPURLResponse).statusCode) Response is: \(String(data: responseData, encoding: .utf8)!)")
+            throw DS3SDKError.serverError
+        }
         guard let newApiKeys = try? JSONDecoder().decode(DS3ApiKey.self, from: responseData) else { throw DS3SDKError.jsonConversion }
         
         apiKeys.append(newApiKeys)

@@ -1,8 +1,13 @@
 import Foundation
 import SwiftUI
 import SotoS3
+import os.log
 
 @Observable class SyncAnchorSelectionViewModel {
+    typealias Logger = os.Logger
+    
+    private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "SyncAnchorSelectionViewModel")
+    
     var project: Project
     var authentication: DS3Authentication
     var ds3Sdk: DS3SDK
@@ -40,7 +45,7 @@ import SotoS3
         do {
             try self.s3Client?.client.syncShutdown()
         } catch {
-            print("Fatal: cannot shutdown S3 client")
+            self.logger.error("Fatal: cannot shutdown S3 client")
         }
     }
     
@@ -53,7 +58,7 @@ import SotoS3
         do {
             // TODO: Improve errors
             
-            print("Listing buckets for project \(self.project.name)")
+            self.logger.debug("Listing buckets for project \(self.project.name)")
           
             await self.initializeAWSIfNecessary()
             
@@ -88,7 +93,7 @@ import SotoS3
             
             guard self.selectedBucket != nil else { fatalError("You need to select a Bucket before listing folders") }
                         
-            print("Listing objects for bucket \(self.selectedBucket!.name) and prefix \(self.selectedPrefix?.removingPercentEncoding ?? "no-prefix")")
+            self.logger.debug("Listing objects for bucket \(self.selectedBucket!.name) and prefix \(self.selectedPrefix?.removingPercentEncoding ?? "no-prefix")")
             
             await self.initializeAWSIfNecessary()
             
@@ -109,7 +114,7 @@ import SotoS3
                 }
             }
         } catch {
-            print("An error occurred while listing objects \(error)")
+            self.logger.error("An error occurred while listing objects \(error)")
             self.error = error
         }
     }
@@ -128,7 +133,7 @@ import SotoS3
             
             self.s3Client = S3(client: awsClient, endpoint: self.authentication.account!.endpointGateway)
         } catch {
-            print("An error occurred while initializing AWS \(error)")
+            self.logger.error("An error occurred while initializing AWS \(error)")
             self.error = error
         }
     }

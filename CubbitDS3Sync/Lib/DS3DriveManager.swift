@@ -10,7 +10,7 @@ enum DS3DriveManagerError: Error {
 
 @Observable class DS3DriveManager {
     var drives: [DS3Drive]
-    var logger = Logger(subsystem: "io.cubbit.ds3sync", category: "ds3DriveManager")
+    var logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "DS3DriveManager")
     
     init() {
         self.drives = DS3DriveManager.loadFromDiskOrCreateNew()
@@ -20,7 +20,7 @@ enum DS3DriveManagerError: Error {
     func cleanFileProvider(callback: @escaping () -> Void = {}) {
         NSFileProviderManager.removeAllDomains { error in
             if error != nil {
-                print(error?.localizedDescription ?? "Unknown error")
+                self.logger.error("An error occurred: \(error?.localizedDescription ?? "Unknown error")")
             }
             
             self.logger.info("All domains removed")
@@ -57,14 +57,14 @@ enum DS3DriveManagerError: Error {
                 
                 NSFileProviderManager.add(domain) { error in
                     if error != nil {
-                        print(error?.localizedDescription ?? "Unknown error")
+                        self.logger.error("An error occurred: \(error?.localizedDescription ?? "Unknown error")")
                     }
                     
                     self.logger.info("Domain \(domain.displayName) added")
                     
                     NSFileProviderManager(for: domain)?.signalEnumerator(for: .rootContainer) { error in
                         if error != nil {
-                            print("An error occurred: \(error?.localizedDescription ?? "Unknown error") ")
+                            self.logger.error("An error occurred: \(error?.localizedDescription ?? "Unknown error")")
                         }
                         
                         self.logger.info("Enumerator signaled for domain \(domain.displayName)")
@@ -86,7 +86,7 @@ enum DS3DriveManagerError: Error {
         
         NSFileProviderManager(for: domain)?.reimportItems(below: .rootContainer) { error in
             if error != nil {
-                print("An error occurred: \(error?.localizedDescription ?? "Unknown error") ")
+                self.logger.error("An error occurred: \(error?.localizedDescription ?? "Unknown error")")
             }
             
             self.logger.info("Enumerator signaled for domain \(domain.displayName)")
@@ -95,7 +95,7 @@ enum DS3DriveManagerError: Error {
     
     func pause(driveWithId id: UUID) throws {
         if let index = self.drives.firstIndex(where: {$0.id == id}) {
-            print("Pausing drive with id \(id)")
+            self.logger.debug("Pausing drive with id \(id)")
             
             self.drives[index].status = .pause
             try self.persist()
@@ -106,7 +106,7 @@ enum DS3DriveManagerError: Error {
     
     func resume(driveWithId id: UUID) throws {
         if let index = self.drives.firstIndex(where: {$0.id == id}) {
-            print("Resuming drive with id \(id)")
+            self.logger.debug("Resuming drive with id \(id)")
             
             self.drives[index].status = .idle
             try self.persist()
@@ -115,25 +115,25 @@ enum DS3DriveManagerError: Error {
         }
     }
     
-    func disconnect(driveWithId id: UUID) throws {
+    func disconnect(driveWithId id: UUID){
         if let index = self.drives.firstIndex(where: {$0.id == id}) {
-            print("Disconnecting drive with id \(id)")
+            self.logger.info("Disconnecting drive with id \(id)")
             
             let removedDrive = self.drives.remove(at: index)
             
             NSFileProviderManager.remove(self.domain(forDrive: removedDrive)) { error in
                 if error != nil {
-                    print("An error occurred: \(error?.localizedDescription ?? "Unknown error") ")
+                    self.logger.error("An error occurred: \(error?.localizedDescription ?? "Unknown error")")
                 }
                 
                 do {
                     try self.persist()
                 } catch {
-                    print("An error occurred: \(error.localizedDescription) ")
+                    self.logger.error("An error occurred: \(error)")
                 }
             }
         } else {
-            throw DS3DriveManagerError.driveNotFound
+            self.logger.error("Drive with id \(id) not found")
         }
     }
     
@@ -146,18 +146,27 @@ enum DS3DriveManagerError: Error {
         )
     }
     
-    func add(drive: DS3Drive) throws {
-        self.drives.append(drive)
-        try self.persist()
-        self.syncFileProvider()
+    func add(drive: DS3Drive) {
+        do {
+            self.drives.append(drive)
+            try self.persist()
+            self.syncFileProvider()
+        } catch {
+            self.logger.error("An error occurred while adding drive with id \(drive.id): \(error)")
+        }
     }
     
-    func update(drive: DS3Drive) throws {
-        if let index = self.drives.firstIndex(where: {$0.id == drive.id}) {
-            self.drives[index] = drive
-            try self.persist()
-        } else {
-            throw DS3DriveManagerError.driveNotFound
+    func update(drive: DS3Drive) {
+        do {
+            if let index = self.drives.firstIndex(where: {$0.id == drive.id}) {
+                self.drives[index] = drive
+                try self.persist()
+            } else {
+                throw DS3DriveManagerError.driveNotFound
+            }
+        }
+        catch {
+            self.logger.error("An error occurred while updating drive with id \(drive.id): \(error)")
         }
     }
     

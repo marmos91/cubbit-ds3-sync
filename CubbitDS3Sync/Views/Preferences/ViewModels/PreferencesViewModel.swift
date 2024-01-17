@@ -1,9 +1,11 @@
 import SwiftUI
 import Foundation
 import ServiceManagement
+import os.log
 
 @Observable class PreferencesViewModel {
     var account: Account
+    let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "PreferencesViewModel")
     
     init(account: Account) {
         self.account = account
@@ -37,13 +39,17 @@ import ServiceManagement
         return UUID().uuidString
     }
     
-    func setStartAtLogin(_ value: Bool) throws {        
-        let smAppService = SMAppService()
-        
-        if value {
-            try smAppService.register()
-        } else {
-            try smAppService.unregister()
+    func setStartAtLogin(_ value: Bool) {
+        do {
+            let smAppService = SMAppService()
+            
+            if value {
+                try smAppService.register()
+            } else {
+                try smAppService.unregister()
+            }
+        } catch {
+            self.logger.error("An error occurred while setting login item: \(error)")
         }
     }
 }
