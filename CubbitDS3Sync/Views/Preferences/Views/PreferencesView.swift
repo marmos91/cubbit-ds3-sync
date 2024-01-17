@@ -55,7 +55,8 @@ struct PreferencesView: View {
                         CubbitTextField(
                             placeholder: preferencesViewModel.formatPassword(),
                             text: .constant(preferencesViewModel.formatPassword()),
-                            isSecure: true
+                            isSecure: true,
+                            canShowPassword: false
                         )
                         .disabled(true)
                     }

@@ -6,6 +6,7 @@ struct IconTextField: View {
     var error: Error? = nil
     
     @Binding var text: String
+    @State var shouldShowPassword = false
     
     var isSecure = false
     
@@ -19,8 +20,20 @@ struct IconTextField: View {
             }
             
             if isSecure {
-                SecureField(placeholder, text: $text)
-                    .textFieldStyle(PlainTextFieldStyle())
+                if shouldShowPassword {
+                    TextField(placeholder, text: $text)
+                        .textFieldStyle(PlainTextFieldStyle())
+                } else {
+                    SecureField(placeholder, text: $text)
+                        .textFieldStyle(PlainTextFieldStyle())
+                }
+                
+                Image(.showPasswordIcon)
+                    .resizable()
+                    .frame(width: 16, height: 16, alignment: .trailing)
+                    .onTapGesture {
+                        shouldShowPassword = !shouldShowPassword
+                    }
             } else {
                 TextField(placeholder, text: $text)
                     .textFieldStyle(PlainTextFieldStyle())
