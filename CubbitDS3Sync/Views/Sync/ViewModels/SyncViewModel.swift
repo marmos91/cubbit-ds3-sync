@@ -25,4 +25,10 @@ enum SyncSetupStep {
     func selectSyncSetupStep(_ step: SyncSetupStep) {
         self.setupStep = step
     }
+    
+    func reset() {
+        self.selectedProject = nil
+        self.selectedSyncAnchor = nil
+        self.setupStep = .projectSelection
+    }
 }

@@ -55,6 +55,9 @@ struct SetupSyncView: View {
             minHeight: 480,
             maxHeight: 480
         )
+        .onWillDisappear {
+            self.syncSetupViewModel.reset()
+        }
     }
 }
 
