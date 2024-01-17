@@ -2,11 +2,11 @@ import SwiftUI
 
 @main
 struct ds3syncApp: App {
+    @AppStorage(DefaultSettings.UserDefaultsKeys.tutorial) var tutorialShown: Bool = DefaultSettings.tutorialShown
+    
     @State var showTrayIcon: Bool = true
     @State var ds3Authentication: DS3Authentication = DS3Authentication.loadFromPersistenceOrCreateNew()
     var ds3DriveManager = DS3DriveManager()
-    
-    @AppStorage(DefaultSettings.UserDefaultsKeys.tutorial) var tutorialShown: Bool = DefaultSettings.tutorialShown
     
     var body: some Scene {
         // MARK: - Main view
@@ -35,7 +35,7 @@ struct ds3syncApp: App {
         
         WindowGroup(id: "io.cubbit.CubbitDS3Sync.drive.manage", for: DS3Drive.self) { $ds3Drive in
             if ds3Drive != nil {
-               ManageDS3DriveView(ds3Drive: ds3Drive!)
+                ManageDS3DriveView(ds3Drive: ds3Drive!)
                     .environment(ds3DriveManager)
             }
         }
@@ -55,7 +55,7 @@ struct ds3syncApp: App {
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
-       
+        
         // MARK: - Add new drive
         
         Window("Add new Drive", id: "io.cubbit.CubbitDS3Sync.drive.new") {
@@ -66,8 +66,9 @@ struct ds3syncApp: App {
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
         
+#if os(macOS)
         // MARK: - Tray Menu
-
+        
         MenuBarExtra(isInserted: $showTrayIcon) {
             TrayMenuView()
                 .environment(ds3Authentication)
@@ -77,5 +78,6 @@ struct ds3syncApp: App {
         }
         .menuBarExtraStyle(.window)
         .commandsRemoved()
+#endif
     }
 }

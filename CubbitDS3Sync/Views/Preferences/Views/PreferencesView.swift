@@ -110,11 +110,7 @@ struct PreferencesView: View {
                 .padding(.bottom)
                 
                 Button("Disconnect account") {
-                    do {
-                        try preferencesViewModel.disconnectAccount()
-                    } catch {
-                        print(error)
-                    }
+                    preferencesViewModel.disconnectAccount()
                 }
                 .frame(width: 200)
                 .buttonStyle(OutlineButtonStyle())

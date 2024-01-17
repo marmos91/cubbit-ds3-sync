@@ -9,11 +9,15 @@ import ServiceManagement
         self.account = account
     }
     
-    func disconnectAccount() throws {
-        try SharedData.shared.deleteAccountFromPersistence()
-        try SharedData.shared.deleteAccountSessionFromPersistence()
-        try SharedData.shared.deleteDS3DrivesFromPersistence()
-        try SharedData.shared.deleteDS3APIKeysFromPersistence()
+    func disconnectAccount() {
+        do {
+            UserDefaults.standard.removeObject(forKey: DefaultSettings.UserDefaultsKeys.tutorial)
+            
+            try SharedData.shared.deleteAccountFromPersistence()
+            try SharedData.shared.deleteAccountSessionFromPersistence()
+            try SharedData.shared.deleteDS3DrivesFromPersistence()
+            try SharedData.shared.deleteDS3APIKeysFromPersistence()
+        } catch { }
         
         NSApplication.shared.terminate(self)
     }

@@ -449,12 +449,12 @@
 		D5A221602B571F5100F1413B /* SharedData */ = {
 			isa = PBXGroup;
 			children = (
+				D5A221662B571F5100F1413B /* SharedData.swift */,
 				D5A221612B571F5100F1413B /* SharedData+account.swift */,
 				D5A221622B571F5100F1413B /* SharedData+syncAnchor.swift */,
 				D5A221632B571F5100F1413B /* SharedData+Errors.swift */,
 				D5A221642B571F5100F1413B /* SharedData+ds3Drive.swift */,
 				D5A221652B571F5100F1413B /* SharedData+apiKeys.swift */,
-				D5A221662B571F5100F1413B /* SharedData.swift */,
 				D5A221672B571F5100F1413B /* SharedData+accountSession.swift */,
 			);
 			path = SharedData;
