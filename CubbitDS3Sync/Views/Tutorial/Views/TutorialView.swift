@@ -23,7 +23,6 @@ struct TutorialView: View {
             Image(vm.slides[vm.currentSlideIndex].imageName).padding(.top, 50.0)
             
             VStack(alignment: .leading) {
-                
                 Text(vm.slides[vm.currentSlideIndex].title)
                     .font(.custom("Nunito", size: 16))
                     .fontWeight(/*@START_MENU_TOKEN@*/.bold/*@END_MENU_TOKEN@*/)
