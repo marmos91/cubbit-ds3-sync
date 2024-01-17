@@ -1,6 +1,0 @@
-uses: sersoft-gmbh/xcodebuild-action@v3
-with:
-  project: CubbitDS3Sync.xcodeproj
-  scheme: CubbitDS3Sync
-  destination: platform=macOS
-  action: build
