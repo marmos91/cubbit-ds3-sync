@@ -29,7 +29,8 @@ struct TrayMenuView: View {
                     .environment(ds3DriveManager)
                 
                 TrayMenuItem(
-                    title: NSLocalizedString("Add a new Drive", comment: "Tray menu add new drive")
+                    title: NSLocalizedString("Add a new Drive", comment: "Tray menu add new drive"),
+                    enabled: ds3DriveManager.drives.count < DefaultSettings.maxDrives
                 ) {
                     openWindow(id: "io.cubbit.CubbitDS3Sync.drive.new")
                 }

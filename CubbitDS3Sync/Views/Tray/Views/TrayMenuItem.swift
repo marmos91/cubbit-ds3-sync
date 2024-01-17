@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TrayMenuItem: View {
     var title: String
+    var enabled = true
     var action: (() -> Void)?
     
     @State var isHover: Bool = false
@@ -10,16 +11,19 @@ struct TrayMenuItem: View {
         HStack {
             Text(title)
                 .font(.custom("Nunito", size: 14))
+                .foregroundColor(enabled ? .white : .darkWhite)
             
             Spacer()
         }
         .padding()
         .frame(height: 40)
         .background {
-            Color(isHover ? .hover : .clear)
+            Color(enabled && isHover ? .hover : .clear)
         }
         .onTapGesture {
-            action?()
+            if enabled {
+                action?()
+            }
         }
         .onHover { isHover in
             self.isHover = isHover
@@ -38,6 +42,7 @@ struct TrayMenuItem: View {
 
 #Preview {
     TrayMenuItem(
-        title: "Add new Drive"
+        title: "Add new Drive",
+        enabled: false
     )
 }

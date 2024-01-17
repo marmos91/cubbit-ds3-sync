@@ -9,6 +9,8 @@ enum DefaultSettings {
     static let startAtLogin = true
     static let tutorialShown = false
     
+    static let maxDrives = 3
+    
     enum UserDefaultsKeys {
         static let appUUID = "appUUID"
         static let tutorial = "tutorialShown"
