@@ -49,7 +49,7 @@ enum DefaultSettings {
     }
     
     enum S3 {
-        static let listBatchSize = 1000
+        static let listBatchSize = 2000
         static let delimiter: Character = "/"
         static let multipartUploadPartSize = 5 * 1024 * 1024
         static let multipartThreshold = 5 * 1024 * 1024

@@ -356,16 +356,25 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         }
         
         switch containerItemIdentifier {
-            case .trashContainer:
-                // NOTE: ignoring trash container
-                break
+        case .trashContainer:
+            // NOTE: ignoring trash container
+            break
             
-            default:
-                return S3Enumerator(
-                    parent: containerItemIdentifier,
-                    s3: self.s3!,
-                    drive: self.drive!
-                )
+        case .workingSet:
+            // NOTE: The system is requesting the whole working set (probably to index it via spotlight
+            return WorkingSetS3Enumerator(
+                parent: containerItemIdentifier,
+                s3: self.s3!,
+                drive: self.drive!
+            )
+            
+        default:
+            // NOTE: The user is navigating the finder
+            return S3Enumerator(
+                parent: containerItemIdentifier,
+                s3: self.s3!,
+                drive: self.drive!
+            )
         }
         
         throw EnumeratorError.unsopported

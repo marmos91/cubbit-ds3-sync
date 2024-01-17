@@ -11,12 +11,14 @@ enum EnumeratorError: Error {
 class S3Enumerator: NSObject, NSFileProviderEnumerator {
     typealias Logger = os.Logger
     
-    private let logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "S3Enumerator")
+    let logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "S3Enumerator")
+    
     private let parent: NSFileProviderItemIdentifier
     private let anchor = SharedData.shared.loadSyncAnchorOrCreate()
     
     private let s3: S3
     private var drive: DS3Drive
+    private let recursively: Bool
     
     // TODO: Support skipped files
 //    static let untrackedTypes: [UTType] = [
@@ -34,11 +36,13 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
     init(
         parent: NSFileProviderItemIdentifier,
         s3: S3,
-        drive: DS3Drive
+        drive: DS3Drive,
+        recursive: Bool = false
     ) {
         self.parent = parent
         self.s3 = s3
         self.drive = drive
+        self.recursively = recursive
         
         switch self.parent {
         case .rootContainer, .trashContainer, .workingSet:
@@ -74,15 +78,13 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
                     withS3: self.s3,
                     forDrive: self.drive,
                     withPrefix: prefix,
+                    recursively: self.recursively,
                     withContinuationToken: page.toContinuationToken()
                 )
                 
-                guard let items = items else {
-                    // If no items are returned should finish enumeration
-                    return observer.finishEnumerating(upTo: nil)
+                if items.count > 0 {
+                    observer.didEnumerate(items)
                 }
-                
-                observer.didEnumerate(items)
                 
                 var page: NSFileProviderPage?
             
@@ -116,22 +118,22 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
                     withS3: self.s3,
                     forDrive: self.drive,
                     withPrefix: prefix,
+                    recursively: self.recursively,
                     fromDate: anchor.toDate()
                 )
+
+                var newAnchor = anchor
                 
-                guard let changedItems = changedItems else {
-                    return observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
+                if changedItems.count > 0 {
+                    observer.didUpdate(changedItems)
+                    newAnchor = NSFileProviderSyncAnchor(Date())
+                    
+                    SharedData.shared.persistSyncAnchor(newAnchor)
                 }
-                
-                observer.didUpdate(changedItems)
                 
                 // TODO: process remotely deleted files
                 // Notify the observer about deletions
                 // observer.didDeleteItems(withIdentifiers: deletions)
-
-                let newAnchor = NSFileProviderSyncAnchor(Date())
-                
-                SharedData.shared.persistSyncAnchor(newAnchor)
 
                 observer.finishEnumeratingChanges(upTo: newAnchor, moreComing: false)
             } catch {
@@ -142,19 +144,14 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
     }
 }
 
-// TODO: Divide enumerators and handle recursion correctly
-//class WorkingSetEnumerator: ItemEnumerator {
-//    init(connection: DomainConnection) {
-//        // Enumerate everything from the root, recursively.
-//        super.init(enumeratedItemIdentifier: .rootContainer, connection: connection, recursive: true)
-//    }
-//}
-//
-//class TrashEnumerator: ItemEnumerator {
-//    init(connection: DomainConnection) {
-//        // Enumerate everything from the trash. This isn't recursive;
-//        // the File Provider framework asks for subitems if relevant.
-//        super.init(enumeratedItemIdentifier: .trashContainer, connection: connection, recursive: false)
-//    }
-//}
-//
+class WorkingSetS3Enumerator: S3Enumerator {
+    init(
+        parent: NSFileProviderItemIdentifier,
+        s3: S3,
+        drive: DS3Drive
+    ) {
+        // Enumerate everything from the root, recursively.
+        
+        super.init(parent: parent, s3: s3, drive: drive, recursive: true)
+    }
+}
