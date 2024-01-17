@@ -98,7 +98,8 @@ class S3Item: NSObject, NSFileProviderItem {
             .allowsReading,
             .allowsRenaming,
             .allowsReparenting,
-            .allowsWriting
+            .allowsWriting,
+            .allowsExcludingFromSync
         ]
         
         return capabilities

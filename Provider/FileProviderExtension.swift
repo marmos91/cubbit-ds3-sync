@@ -2,7 +2,6 @@ import FileProvider
 import os.log
 import SotoS3
 
-// TODO: Add Error to presentable extension (check FruitBasket)
 class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO: handle thumbnails NSFileProviderThumbnailing (check FruitBasket project) */
 /* TODO: Handle suppression NSFileProviderUserInteractionSuppressing*/
 {
