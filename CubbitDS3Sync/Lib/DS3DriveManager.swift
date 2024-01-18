@@ -30,16 +30,22 @@ enum DS3DriveManagerError: Error {
     }
     
     func openFinder(forDrive drive: DS3Drive) {
-        if let driveURL = self.finderPath(forDrive: drive) {
-            NSWorkspace.shared.activateFileViewerSelecting([driveURL])
+        let domain = NSFileProviderDomain(
+            identifier: NSFileProviderDomainIdentifier(
+                rawValue: drive.id.uuidString
+            ),
+            displayName: drive.name
+        )
+        
+        NSFileProviderManager(for: domain)?.getUserVisibleURL(for: .rootContainer) { url, error in
+            guard error != nil else { return }
+            guard let url = url else { return }
+            
+            if url.startAccessingSecurityScopedResource() {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+                url.stopAccessingSecurityScopedResource()
+            }
         }
-    }
-    
-    func finderPath(forDrive drive: DS3Drive) -> URL? {
-        return realHomeDirectory()?
-            .appendingPathComponent("Library")
-            .appendingPathComponent("CloudStorage")
-            .appendingPathComponent("CubbitDS3-\(drive.name)")
     }
     
     func syncFileProvider() {
