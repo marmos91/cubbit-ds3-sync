@@ -91,10 +91,10 @@ enum DS3SDKError: Error, LocalizedError {
         
         request.httpMethod = "DELETE"
         
-        let (_, response) = try await URLSession.shared.data(for: request)
+        let (responseData, response) = try await URLSession.shared.data(for: request)
         
         guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            self.logger.error("An error occurred. Status code is \((response as! HTTPURLResponse).statusCode)")
+            self.logger.error("An error occurred. Status code is \((response as! HTTPURLResponse).statusCode) Response is \(String(data: responseData, encoding: .utf8)!)")
             throw DS3SDKError.serverError
         }
     }
