@@ -40,6 +40,9 @@ struct MFAView: View {
                             placeholder: "2FA 6-digit code",
                             text: $tfaCode
                         )
+                        .onSubmit {
+                            self.loginWithMFA()
+                        }
                         
                         Button("Log in") {
                             self.loginWithMFA()
