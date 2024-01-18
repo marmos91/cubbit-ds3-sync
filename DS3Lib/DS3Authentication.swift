@@ -305,8 +305,11 @@ struct DS3LoginRequest: Codable {
     }
     
     func deleteFromDisk() throws {
+        UserDefaults.standard.removeObject(forKey: DefaultSettings.UserDefaultsKeys.tutorial)
         try SharedData.shared.deleteAccountSessionFromPersistence()
         try SharedData.shared.deleteAccountFromPersistence()
+        try SharedData.shared.deleteDS3DrivesFromPersistence()
+        try SharedData.shared.deleteDS3APIKeysFromPersistence()
     }
    
     
