@@ -5,7 +5,7 @@ struct TrayMenuFooterView: View {
     
     var body: some View {
         ZStack {
-            Color(.sidebarBackground)
+            Color(.darkMainStandard)
                 .ignoresSafeArea()
             
             HStack {

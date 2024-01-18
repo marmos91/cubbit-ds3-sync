@@ -14,7 +14,7 @@ struct PrimaryButtonStyle: ButtonStyle {
                     .fill(
                         isEnabled ?
                         (configuration.isPressed || isHover) ? Color(.buttonPrimaryColorHover) : Color(.buttonPrimary) :
-                        Color(.textFieldBackground)
+                        Color(.darkMainTop)
                     )
             )
             .onHover {
@@ -52,10 +52,10 @@ struct OutlineButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(
                         isEnabled ?
-                          (configuration.isPressed || isHover) ? Color(.textFieldBorder) : Color(.clear) :
-                          Color(.textFieldBackground)
+                          (configuration.isPressed || isHover) ? Color(.darkMainBorder) : Color(.clear) :
+                          Color(.darkMainTop)
                     )
-                    .stroke(Color(.textFieldBorder), lineWidth: 1)
+                    .stroke(Color(.darkMainBorder), lineWidth: 1)
                 
             )
             .onHover { hovering in

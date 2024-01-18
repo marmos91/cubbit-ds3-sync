@@ -3,7 +3,7 @@ import SwiftUI
 struct ProjectSelectionSidebar: View {
     var body: some View {
         ZStack {
-            Color(.sidebarBackground)
+            Color(.darkMainStandard)
                 .ignoresSafeArea()
             
             VStack(alignment: .leading) {

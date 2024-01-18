@@ -5,7 +5,7 @@ struct BucketSelectionSidebarView: View {
     
     var body: some View {
         ZStack {
-            Color(.sidebarBackground)
+            Color(.darkMainStandard)
                 .ignoresSafeArea()
 
                 VStack(alignment: .leading) {
@@ -28,7 +28,7 @@ struct BucketSelectionSidebarView: View {
                 }
                 .padding(20.0)
         }
-        .border(width: 1, edges: [.trailing], color: .textFieldBorder)
+        .border(width: 1, edges: [.trailing], color: .darkMainBorder)
         .frame(width: 240)
     }
 }

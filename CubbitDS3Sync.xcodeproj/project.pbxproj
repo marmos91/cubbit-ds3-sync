@@ -538,9 +538,9 @@
 		D5A221B42B571FED00F1413B /* Tutorial */ = {
 			isa = PBXGroup;
 			children = (
-				D5A221B52B571FED00F1413B /* ViewModels */,
 				D5A221B72B571FED00F1413B /* Models */,
 				D5A221B92B571FED00F1413B /* Views */,
+				D5A221B52B571FED00F1413B /* ViewModels */,
 			);
 			path = Tutorial;
 			sourceTree = "<group>";

@@ -16,14 +16,14 @@ struct ProjectSelectionFooter: View {
             .frame(maxWidth: 95, maxHeight: 32, alignment: .trailing)
             .padding()
         }
-        .background(Color(.sidebarBackground))
+        .background(Color(.darkMainStandard))
         .overlay(
             Rectangle().frame(
                 width: nil,
                 height: 1,
                 alignment: .top
             )
-            .foregroundColor(Color(.textFieldBorder)), alignment: .top)
+            .foregroundColor(Color(.darkMainBorder)), alignment: .top)
     }
     
     func buttonDisabled() -> Bool {

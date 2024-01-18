@@ -40,7 +40,7 @@ struct ProjectView: View {
                         .fill(Color(.hover))
                 } else {
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color(.textFieldBorder))
+                        .stroke(Color(.darkMainBorder))
                 }
             }
             

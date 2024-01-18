@@ -16,7 +16,7 @@ struct IconButtonView: View {
         .buttonStyle(.plain)
         .background {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(.textFieldBackground, lineWidth: 1)
+                .stroke(.darkMainTop, lineWidth: 1)
                 .if(isHover) { view in
                     view.fill(.hover)
                 }

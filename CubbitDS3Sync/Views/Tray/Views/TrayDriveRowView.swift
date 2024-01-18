@@ -100,7 +100,7 @@ struct TrayDriveRowView: View {
         }
         .padding(.horizontal, 16)
         .background(
-            Color(isHover ? .hover : .sidebarBackground)
+            Color(isHover ? .hover : .darkMainStandard)
         )
         
         // TODO: Add file status?
