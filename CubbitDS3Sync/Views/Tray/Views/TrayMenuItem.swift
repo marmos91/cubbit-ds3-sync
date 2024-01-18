@@ -18,7 +18,7 @@ struct TrayMenuItem: View {
         .padding()
         .frame(height: 40)
         .background {
-            Color(enabled && isHover ? .hover : .clear)
+            Color(isHover ? .hover : .clear)
         }
         .onTapGesture {
             if enabled {
@@ -26,7 +26,9 @@ struct TrayMenuItem: View {
             }
         }
         .onHover { isHover in
-            self.isHover = isHover
+            if enabled {
+                self.isHover = isHover
+            }
         }
         .onChange(of: isHover) {
             DispatchQueue.main.async {

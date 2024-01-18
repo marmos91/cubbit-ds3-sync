@@ -38,7 +38,6 @@ struct TrayDriveRowView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(drive.name)
                         .font(.custom("Nunito", size: 14))
-                        .fontWeight(.bold)
                         .padding(.bottom, 2)
                     
                     Text(self.formatDriveName())

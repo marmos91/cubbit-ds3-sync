@@ -29,8 +29,8 @@ struct TrayMenuView: View {
                     .environment(ds3DriveManager)
                 
                 TrayMenuItem(
-                    title: NSLocalizedString("Add a new Drive", comment: "Tray menu add new drive"),
-                    enabled: ds3DriveManager.drives.count < DefaultSettings.maxDrives
+                    title: self.canAddMoreDrives() ? NSLocalizedString("Add a new Drive", comment: "Tray menu add new drive") : NSLocalizedString("You have reached the maximum number of Drives", comment: "Tray menu add new drive disabled"),
+                    enabled: self.canAddMoreDrives()
                 ) {
                     openWindow(id: "io.cubbit.CubbitDS3Sync.drive.new")
                 }
@@ -76,6 +76,10 @@ struct TrayMenuView: View {
             maxWidth: 400
         )
         .fixedSize(horizontal: true, vertical: true)
+    }
+    
+    func canAddMoreDrives() -> Bool {
+        return ds3DriveManager.drives.count < DefaultSettings.maxDrives
     }
 }
 

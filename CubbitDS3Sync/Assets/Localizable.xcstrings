@@ -175,6 +175,9 @@
     "You are already logged out" : {
       "comment" : "The already logged out error"
     },
+    "You have reached the maximum number of Drives" : {
+      "comment" : "Tray menu add new drive disabled"
+    },
     "You haven't created any projects yet, create your project on [the console](https://console.cubbit.eu/) and then come back here to synchronize it." : {
 
     },
