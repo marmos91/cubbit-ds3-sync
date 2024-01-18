@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D546D5462B5916CC00231120 /* NoBucketsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D546D5452B5916CC00231120 /* NoBucketsView.swift */; };
 		D54775C72B57181D00DABCD4 /* CubbitDS3SyncApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54775C62B57181D00DABCD4 /* CubbitDS3SyncApp.swift */; };
 		D54775D72B57185100DABCD4 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = D54775D52B57185100DABCD4 /* README.md */; };
 		D54775D82B57185100DABCD4 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = D54775D62B57185100DABCD4 /* LICENSE */; };
@@ -232,6 +233,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D546D5452B5916CC00231120 /* NoBucketsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoBucketsView.swift; sourceTree = "<group>"; };
 		D54775C32B57181D00DABCD4 /* Cubbit DS3.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Cubbit DS3.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D54775C62B57181D00DABCD4 /* CubbitDS3SyncApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CubbitDS3SyncApp.swift; sourceTree = "<group>"; };
 		D54775CC2B57181E00DABCD4 /* CubbitDS3Sync.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CubbitDS3Sync.entitlements; sourceTree = "<group>"; };
@@ -639,8 +641,8 @@
 		D5A221D32B571FED00F1413B /* SyncAnchorSelection */ = {
 			isa = PBXGroup;
 			children = (
-				D5A221D42B571FED00F1413B /* ViewModels */,
 				D5A221D62B571FED00F1413B /* Views */,
+				D5A221D42B571FED00F1413B /* ViewModels */,
 			);
 			path = SyncAnchorSelection;
 			sourceTree = "<group>";
@@ -663,6 +665,7 @@
 				D5A221DB2B571FED00F1413B /* BucketSelectionFooterView.swift */,
 				D5A221DC2B571FED00F1413B /* BucketSelectionSidebarView.swift */,
 				D5A221DD2B571FED00F1413B /* IAMUsersDropdownView.swift */,
+				D546D5452B5916CC00231120 /* NoBucketsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -1005,6 +1008,7 @@
 				D5A222362B571FEE00F1413B /* Signature.swift in Sources */,
 				D5A221A72B571F8300F1413B /* DS3Drive.swift in Sources */,
 				D5A2222C2B571FEE00F1413B /* ProjectSelectionFooter.swift in Sources */,
+				D546D5462B5916CC00231120 /* NoBucketsView.swift in Sources */,
 				D5A221932B571F7900F1413B /* JWT.swift in Sources */,
 				D5A222282B571FEE00F1413B /* ProjectSelectorErrorView.swift in Sources */,
 				D5A221A52B571F8300F1413B /* Token.swift in Sources */,

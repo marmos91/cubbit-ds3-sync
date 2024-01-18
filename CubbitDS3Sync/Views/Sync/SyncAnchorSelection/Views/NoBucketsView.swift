@@ -1,45 +1,38 @@
 import SwiftUI
 
-struct SyncAnchorSelectorView: View {
+struct NoBucketsView: View {
     @Environment(SyncAnchorSelectionViewModel.self) var syncAnchorSelectionModel: SyncAnchorSelectionViewModel
-    
+
     var body: some View {
-        ZStack {
-            Color(.background)
-                .ignoresSafeArea()
+        HStack(spacing: 0) {
+            Spacer()
             
-            if syncAnchorSelectionModel.loading {
-                LoadingView()
-            } else {
-                if syncAnchorSelectionModel.buckets.count == 0 {
-                    NoBucketsView()
-                        .environment(syncAnchorSelectionModel)
-                        .padding(100)
-                } else {
-                    ScrollView(.horizontal, showsIndicators: true) {
-                    
-                        HStack {
-                            BucketSelectionColumn()
-                                .environment(syncAnchorSelectionModel)
-                            
-                            if syncAnchorSelectionModel.shouldDisplayObjectNavigator() {
-                                DS3ObjectNavigatorView()
-                                    .environment(syncAnchorSelectionModel)
-                            }
-                        }
+            VStack(spacing: 16.0) {
+                Image(.bucketIcon)
+                
+                Text("You haven't created any bucket yet, create your first bucket on [the console](https://console.cubbit.eu/) and then come back here to synchronize it.")
+                    .font(.custom("Nunito", size: 14))
+                    .multilineTextAlignment(.center)
+                
+                Button("Refresh") {
+                    Task {
+                        await self.syncAnchorSelectionModel.loadBuckets()
                     }
                 }
             }
-        }
-        .task {
-            await syncAnchorSelectionModel.loadBuckets()
+            .padding()
+            .overlay {
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color(.errorBorder), lineWidth: 1)
+            }
+            
+            Spacer()
         }
     }
 }
 
 #Preview {
-    // TODO: Remove hardcoded values
-    SyncAnchorSelectorView()
+    NoBucketsView()
         .environment(
             SyncAnchorSelectionViewModel(
                 project: Project(
@@ -63,4 +56,5 @@ struct SyncAnchorSelectorView: View {
                 authentication: DS3Authentication.loadFromPersistenceOrCreateNew()
             )
         )
+        .padding()
 }

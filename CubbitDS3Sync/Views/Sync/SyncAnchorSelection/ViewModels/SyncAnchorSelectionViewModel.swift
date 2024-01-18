@@ -57,8 +57,6 @@ import os.log
         
         do {
             // TODO: Improve errors
-            
-            self.logger.debug("Listing buckets for project \(self.project.name)")
           
             await self.initializeAWSIfNecessary()
             
