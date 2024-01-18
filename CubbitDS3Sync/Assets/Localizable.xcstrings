@@ -16,6 +16,9 @@
     "An error occurred: %@" : {
 
     },
+    "Authentication code" : {
+
+    },
     "Bucket:" : {
 
     },
@@ -64,6 +67,9 @@
     "Enabled" : {
 
     },
+    "Enter the code from your authenticator app" : {
+
+    },
     "Folder:" : {
 
     },
@@ -93,6 +99,9 @@
     },
     "Manage" : {
 
+    },
+    "Missing 2FA code" : {
+      "comment" : "Missing 2FA code"
     },
     "Name:" : {
 
@@ -168,6 +177,9 @@
     },
     "There was an error with the server.\nPlease try again later" : {
       "comment" : "The server error"
+    },
+    "Two-factor authentication (2FA)" : {
+
     },
     "Version %@" : {
 

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D512EEBC2B59631400F550EC /* MFAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D512EEBB2B59631400F550EC /* MFAView.swift */; };
 		D546D5462B5916CC00231120 /* NoBucketsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D546D5452B5916CC00231120 /* NoBucketsView.swift */; };
 		D546D5482B59214200231120 /* BucketErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D546D5472B59214200231120 /* BucketErrorView.swift */; };
 		D54775C72B57181D00DABCD4 /* CubbitDS3SyncApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54775C62B57181D00DABCD4 /* CubbitDS3SyncApp.swift */; };
@@ -234,6 +235,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D512EEBB2B59631400F550EC /* MFAView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MFAView.swift; sourceTree = "<group>"; };
 		D546D5452B5916CC00231120 /* NoBucketsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoBucketsView.swift; sourceTree = "<group>"; };
 		D546D5472B59214200231120 /* BucketErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BucketErrorView.swift; sourceTree = "<group>"; };
 		D54775C32B57181D00DABCD4 /* Cubbit DS3.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Cubbit DS3.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -772,6 +774,7 @@
 			isa = PBXGroup;
 			children = (
 				D5A221FD2B571FED00F1413B /* LoginView.swift */,
+				D512EEBB2B59631400F550EC /* MFAView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -1020,6 +1023,7 @@
 				D5A2219F2B571F8300F1413B /* Project.swift in Sources */,
 				D5A221992B571F7E00F1413B /* SharedData.swift in Sources */,
 				D5A2218D2B571F7200F1413B /* DS3Authentication.swift in Sources */,
+				D512EEBC2B59631400F550EC /* MFAView.swift in Sources */,
 				D5A221942B571F7900F1413B /* ApiKeys.swift in Sources */,
 				D5A222182B571FEE00F1413B /* LinkView.swift in Sources */,
 				D5A222152B571FEE00F1413B /* IconButtonView.swift in Sources */,

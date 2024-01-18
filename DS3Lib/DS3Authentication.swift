@@ -1,6 +1,7 @@
 import Foundation
 import CryptoKit
 import SwiftUI
+import os.log
 
 enum DS3AuthenticationError: Error, LocalizedError {
     case invalidURL(url: String? = nil)
@@ -13,6 +14,7 @@ enum DS3AuthenticationError: Error, LocalizedError {
     case alreadyLoggedIn
     case alreadyLoggedOut
     case tokenExpired
+    case missing2FA
     
     var errorDescription: String? {
         switch self {
@@ -36,8 +38,14 @@ enum DS3AuthenticationError: Error, LocalizedError {
             return NSLocalizedString("You are already logged out", comment: "The already logged out error")
         case .tokenExpired:
             return NSLocalizedString("The session token expired", comment: "Token expiration error")
+        case .missing2FA:
+            return NSLocalizedString("Missing 2FA code", comment: "Missing 2FA code")
         }
     }
+}
+
+enum APIError {
+    static let Missing2FA = "missing two factor code"
 }
 
 struct DS3ChallengeRequest: Codable {
@@ -47,9 +55,22 @@ struct DS3ChallengeRequest: Codable {
 struct DS3LoginRequest: Codable {
     var email: String
     var signedChallenge: String
+    var tfaCode: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case email
+        case signedChallenge
+        case tfaCode = "tfa_code"
+    }
+}
+
+struct DS3Missing2FAResponse: Codable {
+    var message: String
 }
 
 @Observable final class DS3Authentication {
+    private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.DS3Lib", category: "DS3Authentication")
+    
     var accountSession: AccountSession?
     var account: Account?
     
@@ -91,6 +112,8 @@ struct DS3LoginRequest: Codable {
         }
         
         var request = URLRequest(url: url)
+        
+        self.logger.debug("Forging IAM token for user \(user.id)")
 
         request.allHTTPHeaderFields = [
             "Content-Type": "application/json",
@@ -134,6 +157,8 @@ struct DS3LoginRequest: Codable {
         let expiration = session.token.expDate
 
         if force || (now > expiration) {
+            self.logger.debug("Refreshing access token")
+            
             guard let url = URL(string: CubbitAPIURLs.IAM.auth.tokenRefreshURL) else { throw DS3AuthenticationError.invalidURL() }
             
             var request = URLRequest(url: url)
@@ -171,12 +196,12 @@ struct DS3LoginRequest: Codable {
     ///  - Parameters:
     ///   - email: the email to login with
     ///   - password: the password to login with
-    func login(email: String, password: String) async throws {
+    func login(email: String, password: String, withTfaToken tfaCode: String? = nil) async throws {
         guard self.isNotLogged else { throw DS3AuthenticationError.alreadyLoggedIn }
         
         let challenge = try await self.getChallenge(email: email)
         let signedChallenge = try self.signChallenge(challenge: challenge, password: password)
-        let accountSession = try await self.getAccountSession(email: email, signedChallengeBase64: signedChallenge)
+        let accountSession = try await self.getAccountSession(email: email, signedChallengeBase64: signedChallenge, withTfaToken: tfaCode)
         
         self.accountSession = accountSession
         self.isLogged = true
@@ -202,6 +227,8 @@ struct DS3LoginRequest: Codable {
         
         let challengeRequestBody = DS3ChallengeRequest(email: email)
         
+        self.logger.debug("Retrieving challenge for email \(email)")
+        
         let encoder = JSONEncoder()
         guard let data = try? encoder.encode(challengeRequestBody) else { throw DS3AuthenticationError.jsonConversion}
         
@@ -215,6 +242,8 @@ struct DS3LoginRequest: Codable {
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw DS3AuthenticationError.serverError }
         guard let challenge = try? JSONDecoder().decode(Challenge.self, from: responseData) else { throw DS3AuthenticationError.jsonConversion }
         
+        self.logger.debug("Challenge retrieved")
+        
         return challenge
     }
     
@@ -227,6 +256,8 @@ struct DS3LoginRequest: Codable {
         guard let passwordBuffer = password.data(using: .utf8) else { throw DS3AuthenticationError.encoding }
         guard let saltBuffer = challenge.salt.data(using: .utf8) else { throw DS3AuthenticationError.encoding }
         
+        self.logger.debug("Signing challenge")
+        
         let buffer = passwordBuffer + saltBuffer
         
         var sha = SHA256()
@@ -237,6 +268,8 @@ struct DS3LoginRequest: Codable {
         
         let signedChallenge = try keychain.signature(for: challenge.challenge.data(using: .utf8)!)
         
+        self.logger.debug("Challenge signed")
+        
         return signedChallenge.base64EncodedString()
     }
     
@@ -245,10 +278,12 @@ struct DS3LoginRequest: Codable {
     ///   - email: the email related to the account session to retrieve
     ///   - signedChallengeBase64: the signed challenge to use for signin in the account
     /// - Returns: the session for the provided email
-    func getAccountSession(email: String, signedChallengeBase64: String) async throws -> AccountSession {
+    func getAccountSession(email: String, signedChallengeBase64: String, withTfaToken tfaCode: String? = nil) async throws -> AccountSession {
         guard let url = URL(string: CubbitAPIURLs.IAM.auth.signinURL) else { throw DS3AuthenticationError.invalidURL(url: CubbitAPIURLs.IAM.auth.signinURL) }
         
-        let accountSessionRequest = DS3LoginRequest(email: email, signedChallenge: signedChallengeBase64)
+        let accountSessionRequest = DS3LoginRequest(email: email, signedChallenge: signedChallengeBase64, tfaCode: tfaCode)
+        
+        self.logger.debug("Getting account session for email \(email)")
         
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
@@ -261,7 +296,15 @@ struct DS3LoginRequest: Codable {
         
         let (responseData, response) = try await URLSession.shared.data(for: request)
         
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw DS3AuthenticationError.serverError }
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            if let MFAResponse = try? JSONDecoder().decode(DS3Missing2FAResponse.self, from: responseData) {
+                if MFAResponse.message == APIError.Missing2FA {
+                    throw DS3AuthenticationError.missing2FA
+                }
+            }
+            
+            throw DS3AuthenticationError.serverError
+        }
         guard let token = try? JSONDecoder().decode(Token.self, from: responseData) else { throw DS3AuthenticationError.jsonConversion }
         
         guard
@@ -272,6 +315,8 @@ struct DS3LoginRequest: Codable {
         let cookies = HTTPCookie.cookies(withResponseHeaderFields: fields, for: url)
         
         guard let refreshToken = cookies.first(where: {$0.name == "_refresh"})?.value else { throw DS3AuthenticationError.cookies }
+        
+        self.logger.debug("Account session retrieved")
         
         return AccountSession(token: token, refreshToken: refreshToken)
     }
