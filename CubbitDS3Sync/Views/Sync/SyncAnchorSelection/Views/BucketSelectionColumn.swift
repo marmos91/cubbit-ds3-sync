@@ -20,7 +20,6 @@ struct BucketSelectionColumn: View {
         .padding(.leading, 20)
         .padding(.trailing, 10.0)
         .frame(maxHeight: .infinity, alignment: .top)
-        .border(width: 1, edges: [.trailing], color: Color(.textFieldBorder))
     }
 }
 #Preview {

@@ -29,11 +29,7 @@ struct ProjectSelectionView: View {
                     }
                     .environment(projectSelectionViewModel)
             }.task {
-                do {
-                    try await  projectSelectionViewModel.loadProjects()
-                } catch {
-                    // TODO: Handle error!
-                }
+                await projectSelectionViewModel.loadProjects()
             }
         }
     }

@@ -7,8 +7,8 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     case missingBuckets
     case noBucketSelected
     case noIAMUserSelected
-    case DS3ClientError(Swift.Error)
-    case DS3ServerError(Swift.Error)
+    case DS3ClientError
+    case DS3ServerError
     
     var errorDescription: String? {
         switch self {
@@ -45,6 +45,7 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     var selectedPrefix: String? = nil
     
     var error: Error? = nil
+    var authenticationError: DS3AuthenticationError? = nil
     
     init(
         project: Project,
@@ -99,10 +100,12 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
                 
                 await self.listFoldersForCurrentBucket()
             }
-        } catch let error as AWSClientError {
-            self.error = SyncAnchorSelectionError.DS3ClientError(error)
-        } catch let error as AWSServerError {
-            self.error = SyncAnchorSelectionError.DS3ServerError(error)
+        } catch is AWSClientError {
+            self.error = SyncAnchorSelectionError.DS3ClientError
+        } catch is AWSServerError {
+            self.error = SyncAnchorSelectionError.DS3ServerError
+        } catch let error as DS3AuthenticationError {
+            self.authenticationError = error
         } catch {
             self.logger.error("An error occurred while loading buckets \(error)")
             self.error = error

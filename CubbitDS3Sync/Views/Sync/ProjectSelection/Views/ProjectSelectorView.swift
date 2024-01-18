@@ -4,12 +4,9 @@ struct ProjectSelectorView: View {
     @Environment(ProjectSelectionViewModel.self) var projectSelectionViewModel: ProjectSelectionViewModel
     
     var body: some View {
-        if projectSelectionViewModel.error != nil {
-            ProjectSelectorErrorView(error: projectSelectionViewModel.error!).onRetry {
-                Task {
-                    try await projectSelectionViewModel.loadProjects()
-                }
-            }
+        if self.shouldDisplayError() {
+            ProjectSelectorErrorView()
+                .environment(projectSelectionViewModel)
         } else {
             if projectSelectionViewModel.projects.count == 0 {
                 NoProjectsView()
@@ -32,6 +29,10 @@ struct ProjectSelectorView: View {
                 .padding(30.0)
             }
         }
+    }
+    
+    func shouldDisplayError() -> Bool {
+        return projectSelectionViewModel.error != nil || projectSelectionViewModel.authenticationError != nil
     }
 }
 

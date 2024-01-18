@@ -11,7 +11,7 @@ struct SyncAnchorSelectorView: View {
             if syncAnchorSelectionModel.loading {
                 LoadingView()
             } else {
-                if syncAnchorSelectionModel.error != nil {
+                if self.shouldDisplayError() {
                     BucketErrorView()
                         .environment(syncAnchorSelectionModel)
                         .padding(100)
@@ -22,12 +22,13 @@ struct SyncAnchorSelectorView: View {
                             .padding(100)
                     } else {
                         ScrollView(.horizontal, showsIndicators: true) {
-                        
                             HStack {
                                 BucketSelectionColumn()
                                     .environment(syncAnchorSelectionModel)
                                 
                                 if syncAnchorSelectionModel.shouldDisplayObjectNavigator() {
+                                    Divider()
+                                    
                                     DS3ObjectNavigatorView()
                                         .environment(syncAnchorSelectionModel)
                                 }
@@ -40,6 +41,10 @@ struct SyncAnchorSelectorView: View {
         .task {
             await syncAnchorSelectionModel.loadBuckets()
         }
+    }
+    
+    func shouldDisplayError() -> Bool {
+        return syncAnchorSelectionModel.error != nil || syncAnchorSelectionModel.authenticationError != nil
     }
 }
 

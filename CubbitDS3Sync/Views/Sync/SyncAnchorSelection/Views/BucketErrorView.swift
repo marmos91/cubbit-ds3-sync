@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct BucketErrorView: View {
-    @Environment(SyncAnchorSelectionViewModel.self) var syncAnchorSelectionModel: SyncAnchorSelectionViewModel
+    @Environment(SyncAnchorSelectionViewModel.self) var syncAnchorSelectionViewModel: SyncAnchorSelectionViewModel
     
     var body: some View {
         HStack(spacing: 0) {
@@ -10,13 +10,27 @@ struct BucketErrorView: View {
             VStack(spacing: 16.0) {
                 Image(.bucketIcon)
                 
-                Text(syncAnchorSelectionModel.error?.localizedDescription ?? "No error")
-                    .font(.custom("Nunito", size: 14))
-                    .multilineTextAlignment(.center)
+                if syncAnchorSelectionViewModel.authenticationError != nil {
+                    Text(syncAnchorSelectionViewModel.authenticationError?.localizedDescription ?? "No error")
+                        .font(.custom("Nunito", size: 14))
+                        .multilineTextAlignment(.center)
+                    
+                    Button("Logout") {
+                        Task {
+                            try self.syncAnchorSelectionViewModel.authentication.logout()
+                        }
+                    }
+                }
                 
-                Button("Retry") {
-                    Task {
-                        await self.syncAnchorSelectionModel.loadBuckets()
+                if syncAnchorSelectionViewModel.error != nil {
+                    Text(syncAnchorSelectionViewModel.error?.localizedDescription ?? "No error")
+                        .font(.custom("Nunito", size: 14))
+                        .multilineTextAlignment(.center)
+                    
+                    Button("Retry") {
+                        Task {
+                            await self.syncAnchorSelectionViewModel.loadBuckets()
+                        }
                     }
                 }
             }

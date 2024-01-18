@@ -511,8 +511,8 @@
 		D5A221AF2B571FED00F1413B /* Preferences */ = {
 			isa = PBXGroup;
 			children = (
-				D5A221B02B571FED00F1413B /* ViewModels */,
 				D5A221B22B571FED00F1413B /* Views */,
+				D5A221B02B571FED00F1413B /* ViewModels */,
 			);
 			path = Preferences;
 			sourceTree = "<group>";

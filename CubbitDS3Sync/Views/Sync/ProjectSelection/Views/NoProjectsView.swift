@@ -15,7 +15,7 @@ struct NoProjectsView: View {
                 
                 Button("Refresh") {
                     Task {
-                        try await self.projectSelectionViewModel.loadProjects()
+                        await self.projectSelectionViewModel.loadProjects()
                     }
                 }
             }

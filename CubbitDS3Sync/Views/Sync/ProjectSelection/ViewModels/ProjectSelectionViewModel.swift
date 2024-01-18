@@ -11,6 +11,7 @@ import os.log
     var projects: [Project] = []
     var loading: Bool = true
     var error: Error? = nil
+    var authenticationError: Error? = nil
     var selectedProject: Project? = nil
     
     init(authentication: DS3Authentication, projects: [Project] = []) {
@@ -22,7 +23,7 @@ import os.log
     /// Load projects from IAM service
     /// - Parameter authentication: authentication library to use to authenticate
     @MainActor
-    func loadProjects() async throws {
+    func loadProjects() async {
         self.loading = true
         defer { self.loading = false }
         
@@ -31,14 +32,15 @@ import os.log
             try await Task.sleep(for: .seconds(0.5))
             self.projects = try await self.ds3SDK.getRemoteProjects()
         }
-        catch DS3AuthenticationError.serverError {
-            try self.authentication.logout()
+        catch let error as DS3AuthenticationError {
+            self.logger.error("An authentication error occurred while loading projects: \(error)")
+            self.authenticationError = error
         }
         catch {
             self.logger.error("An error occurred while loading projects: \(error)")
             self.error = error
         }
-}
+    }
     
     /// Selects the project to display in the sync setup, given its ID
     func selectProject(project: Project) {

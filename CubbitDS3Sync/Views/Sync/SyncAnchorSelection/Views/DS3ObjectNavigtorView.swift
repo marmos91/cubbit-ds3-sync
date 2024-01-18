@@ -25,7 +25,6 @@ struct DS3ObjectNavigtorColumView: View {
             .padding(.trailing, 10.0)
         }
         .frame(maxHeight: .infinity, alignment: .top)
-        .border(width: 1, edges: [.trailing], color: Color(.textFieldBorder))
     }
     
     func cleanFolderName(_ folderName: String) -> String {
@@ -68,6 +67,8 @@ struct DS3ObjectNavigatorView: View {
                                 folders: syncAnchorSelectionViewModel.folders[prefix] ?? [],
                                 prefix: prefix
                             )
+                            
+                            Divider()
                         }
                     }
                 }
