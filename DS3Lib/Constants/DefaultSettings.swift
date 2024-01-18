@@ -6,7 +6,7 @@ enum DefaultSettings {
     static let apiKeyNamePrefix = "DS3Sync-for-macOS"
     
     static let syncSetup = false
-    static let startAtLogin = true
+    static let loginItemSet = false
     static let tutorialShown = false
     
     static let maxDrives = 3
@@ -15,6 +15,7 @@ enum DefaultSettings {
         static let appUUID = "appUUID"
         static let tutorial = "tutorialShown"
         static let syncAnchor = "syncAnchor"
+        static let loginItemSet = "loginItemSet"
     }
     
     static let appUUID = {

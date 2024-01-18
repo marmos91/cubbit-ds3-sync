@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct PreferencesView: View {
+    @AppStorage(DefaultSettings.UserDefaultsKeys.loginItemSet) var loginItemSet: Bool = DefaultSettings.loginItemSet
+    
     @State var startAtLogin: Bool = DefaultSettings.appIsLoginItem
     var preferencesViewModel: PreferencesViewModel
     
@@ -19,7 +21,6 @@ struct PreferencesView: View {
                 }
                 
                 BorderedSectionView {
-
                     VStack(alignment: .leading) {
                         Text("Name:")
                             .font(.custom("Nunito", size: 12))
@@ -97,6 +98,7 @@ struct PreferencesView: View {
                             Text("Start Cubbit DS3 sync at login")
                         }.onChange(of: self.startAtLogin) {
                             self.preferencesViewModel.setStartAtLogin(self.startAtLogin)
+                            self.loginItemSet = true
                         }
                         
                         Text("(If you decide not to start Cubbit at startup, you will not be able to view the synchronized disks)")

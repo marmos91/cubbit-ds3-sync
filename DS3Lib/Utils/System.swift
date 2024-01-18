@@ -1,4 +1,5 @@
 import Foundation
+import ServiceManagement
 
 @discardableResult
 public func throwErrno<T: SignedInteger>(_ block: () throws -> T) throws -> T {
@@ -34,4 +35,14 @@ func throwErrnoOrError<T: SignedInteger>(_ block: (/* errorOrNil */ inout Error?
 func realHomeDirectory() -> URL? {
     guard let pw = getpwuid(getuid()) else { return nil }
     return URL(fileURLWithFileSystemRepresentation: pw.pointee.pw_dir, isDirectory: true, relativeTo: nil)
+}
+
+func setLoginItem(_ value: Bool) throws {
+    let smAppService = SMAppService()
+    
+    if value {
+        try smAppService.register()
+    } else {
+        try smAppService.unregister()
+    }
 }

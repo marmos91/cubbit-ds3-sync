@@ -1,8 +1,12 @@
 import SwiftUI
+import os.log
 
 @main
 struct ds3syncApp: App {
     @AppStorage(DefaultSettings.UserDefaultsKeys.tutorial) var tutorialShown: Bool = DefaultSettings.tutorialShown
+    @AppStorage(DefaultSettings.UserDefaultsKeys.loginItemSet) var loginItemSet: Bool = DefaultSettings.loginItemSet
+    
+    private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "MainApp")
     
     @State var showTrayIcon: Bool = true
     @State var ds3Authentication: DS3Authentication = DS3Authentication.loadFromPersistenceOrCreateNew()
@@ -79,5 +83,15 @@ struct ds3syncApp: App {
         .menuBarExtraStyle(.window)
         .commandsRemoved()
 #endif
+    }
+    
+    init() {
+        if !loginItemSet {
+            do {
+                try setLoginItem(true)
+            } catch {
+                self.logger.error("An error occurred while setting the app as login item: \(error)")
+            }
+        }
     }
 }
