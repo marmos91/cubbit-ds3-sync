@@ -5,6 +5,7 @@ struct SyncRecapMainView: View {
     
     var onBack: (() -> Void)?
     var onComplete: ((DS3Drive) -> Void)?
+    var shouldDisplayBack: Bool = true
     
     var body: some View {
         ZStack {
@@ -16,7 +17,7 @@ struct SyncRecapMainView: View {
                     .environment(syncRecapViewModel)
                 
                 SyncRecapFooterView(
-                    shouldDisplayBack: false
+                    shouldDisplayBack: shouldDisplayBack
                 )
                 .onBack {
                     onBack?()

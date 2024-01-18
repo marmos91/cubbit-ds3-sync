@@ -18,10 +18,10 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
             return NSLocalizedString("You need to select a bucket first", comment: "Bucket not selected")
         case .noIAMUserSelected:
             return NSLocalizedString("You need to select an IAM user first", comment: "IAM not selected")
-        case .DS3ClientError(let error):
+        case .DS3ClientError:
             return NSLocalizedString("DS3 Client error. Please try refreshing credentials", comment: "DS3 client error")
-        case .DS3ServerError(let error):
-            return NSLocalizedString("DS3 Server error: \(error.localizedDescription). Please retry later", comment: "DS3 server error")
+        case .DS3ServerError:
+            return NSLocalizedString("DS3 Server error. Please retry later", comment: "DS3 server error")
         }
     }
 }
@@ -37,7 +37,7 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     var s3Client: S3?
     
     var buckets: [Bucket] = []
-    var loading: Bool = false
+    var loading: Bool = true
     var selectedIAMUser: IAMUser?
     var selectedBucket: Bucket? = nil
     

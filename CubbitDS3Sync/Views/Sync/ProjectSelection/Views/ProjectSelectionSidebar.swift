@@ -7,7 +7,7 @@ struct ProjectSelectionSidebar: View {
                 .ignoresSafeArea()
             
             VStack(alignment: .leading) {
-                Text("Sync folder")
+                Text("Select DS3 Project")
                     .font(.custom("Nunito", size: 16))
                     .fontWeight(.bold)
                     .padding(.bottom, 5.0)

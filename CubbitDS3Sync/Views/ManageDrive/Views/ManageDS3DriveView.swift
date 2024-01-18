@@ -7,7 +7,7 @@ struct ManageDS3DriveView: View {
     var ds3Drive: DS3Drive
     
     var body: some View {
-        SyncRecapMainView()
+        SyncRecapMainView(shouldDisplayBack: false)
             .onComplete {
                 self.ds3DriveManager.update(drive: $0)
                 dismiss()

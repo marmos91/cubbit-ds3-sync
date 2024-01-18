@@ -11,7 +11,6 @@ struct SyncAnchorSelectorView: View {
             if syncAnchorSelectionModel.loading {
                 LoadingView()
             } else {
-                
                 if syncAnchorSelectionModel.error != nil {
                     BucketErrorView()
                         .environment(syncAnchorSelectionModel)

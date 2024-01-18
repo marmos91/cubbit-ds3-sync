@@ -49,7 +49,7 @@
     "DS3 Object Storage Log in" : {
       "comment" : "The h1 of the login page"
     },
-    "DS3 Server error: (error.localizedDescription). Please retry later" : {
+    "DS3 Server error. Please retry later" : {
       "comment" : "DS3 server error"
     },
     "Edit on web console" : {
@@ -136,6 +136,9 @@
     "Select an IAM user & bucket to continue. You can manage buckets and IAM users from the [Cubbit DS3 Console](https://console.cubbit.eu)" : {
 
     },
+    "Select DS3 Project" : {
+
+    },
     "Sign up" : {
       "comment" : "Sign up button text"
     },
@@ -144,9 +147,6 @@
     },
     "Sync" : {
       "comment" : "Complete sync button"
-    },
-    "Sync folder" : {
-
     },
     "Sync Projects" : {
 
