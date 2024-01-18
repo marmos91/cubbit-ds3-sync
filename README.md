@@ -2,12 +2,19 @@
 
 [![Xcode - Build and Analyze](https://github.com/marmos91/cubbit-ds3-sync/actions/workflows/build.yml/badge.svg)](https://github.com/marmos91/cubbit-ds3-sync/actions/workflows/build.yml)
 
-Welcome to the Cubbit DS3 Sync repository!
+<p align="center">
+  <img alt="Cubbit" src="/Assets/Logo.png?raw=true" width="480">
+</p>
+
+<p align="center">Welcome to Cubbit DS3 Sync!</p>
+
 This repository contains the source code of the Cubbit DS3 Sync application.
 
 ## What is Cubbit DS3 Sync?
 
 Cubbit DS3 Sync is a desktop application that allows you to synchronize your files with your Cubbit DS3 account.
+
+![App](/Assets/App.png)
 
 ## How to build
 
