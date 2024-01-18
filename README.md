@@ -6,9 +6,31 @@
   <img alt="Cubbit" src="/Assets/Logo.png?raw=true" width="480">
 </p>
 
-<p align="center">Welcome to Cubbit DS3 Sync!</p>
+## Welcome to Cubbit DS3 Sync!
 
 This repository contains the source code of the Cubbit DS3 Sync application.
+
+![App](/Assets/App.png)
+
+## What is Cubbit DS3 Sync?
+
+Cubbit DS3 Sync is a desktop application that synchronizes your files with your Cubbit DS3 account.
+
+## How to build
+
+To build the application please follow the steps below:
+
+![Sync](/Assets/Tutorial1.png)
+
+### Prerequisites
+
+- MacOS 14 or later
+- XCode 15.0 or later
+
+### Build
+
+To build the project you need to specify your own provisioning profile and signing certificate in the `Signing & Capabilities` tab of the project settings.
+Please ensure that the App Group of the main app matches the one of the FileProvider
 
 ## Assets
 
@@ -18,25 +40,6 @@ To download the assets you need to use Git LFS
 git lfs install
 git lfs pull
 ```
-
-## What is Cubbit DS3 Sync?
-
-Cubbit DS3 Sync is a desktop application that allows you to synchronize your files with your Cubbit DS3 account.
-
-![App](/Assets/App.png)
-
-## How to build
-
-To build the application please follow the steps below:
-
-### Prerequisites
-
-- MacOS 14 or later
-- XCode 15.0 or later
-
-### Build
-
-In order to build the project you need to specify your own provisioning profile and signing certificate in the `Signing & Capabilities` tab of the project settings.
 
 ## How to contribute
 
