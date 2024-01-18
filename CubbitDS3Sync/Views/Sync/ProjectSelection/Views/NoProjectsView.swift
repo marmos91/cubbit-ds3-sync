@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct NoProjectsView: View {
+    @Environment(ProjectSelectionViewModel.self) var projectSelectionViewModel: ProjectSelectionViewModel
+    
     var body: some View {
         HStack(spacing: 0) {
             Spacer()
@@ -9,6 +11,12 @@ struct NoProjectsView: View {
                 
                 Text("You haven't created any projects yet, create your project on [the console](https://console.cubbit.eu/) and then come back here to synchronize it.")
                     .font(.custom("Nunito", size: 14))
+                
+                Button("Refresh") {
+                    Task {
+                        try await self.projectSelectionViewModel.loadProjects()
+                    }
+                }
             }
             .padding()
             .overlay {
@@ -21,5 +29,11 @@ struct NoProjectsView: View {
 }
 
 #Preview {
-    NoProjectsView().padding()
+    NoProjectsView()
+        .environment(
+            ProjectSelectionViewModel(
+                authentication: DS3Authentication.loadFromPersistenceOrCreateNew()
+            )
+        )
+        .padding()
 }

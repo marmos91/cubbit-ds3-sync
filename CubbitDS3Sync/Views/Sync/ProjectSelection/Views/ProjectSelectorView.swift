@@ -12,7 +12,9 @@ struct ProjectSelectorView: View {
             }
         } else {
             if projectSelectionViewModel.projects.count == 0 {
-                NoProjectsView().padding(100.0)
+                NoProjectsView()
+                    .environment(projectSelectionViewModel)
+                    .padding(100.0)
             } else {
                 ScrollView(showsIndicators: false) {
                     ForEach(projectSelectionViewModel.projects) { project in

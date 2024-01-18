@@ -687,11 +687,11 @@
 		D5A221E12B571FED00F1413B /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				D5A221E62B571FED00F1413B /* ProjectSelectionView.swift */,
+				D5A221E42B571FED00F1413B /* ProjectSelectorView.swift */,
 				D5A221E22B571FED00F1413B /* NoProjectsView.swift */,
 				D5A221E32B571FED00F1413B /* ProjectEmblemView.swift */,
-				D5A221E42B571FED00F1413B /* ProjectSelectorView.swift */,
 				D5A221E52B571FED00F1413B /* ProjectSelectorErrorView.swift */,
-				D5A221E62B571FED00F1413B /* ProjectSelectionView.swift */,
 				D5A221E72B571FED00F1413B /* ProjectSelectionSidebar.swift */,
 				D5A221E82B571FED00F1413B /* ProjectView.swift */,
 				D5A221E92B571FED00F1413B /* ProjectSelectionFooter.swift */,

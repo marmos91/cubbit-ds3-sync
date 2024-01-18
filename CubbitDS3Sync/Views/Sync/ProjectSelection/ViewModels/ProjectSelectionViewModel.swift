@@ -27,9 +27,9 @@ import os.log
         defer { self.loading = false }
         
         do {
-            self.logger.debug("Loading DS3 projects")
+            // NOTE: Slow it down a little to improve UX
+            try await Task.sleep(for: .seconds(0.5))
             self.projects = try await self.ds3SDK.getRemoteProjects()
-            self.logger.debug("\(self.projects.count) DS3 projects loaded")
         }
         catch DS3AuthenticationError.serverError {
             try self.authentication.logout()
