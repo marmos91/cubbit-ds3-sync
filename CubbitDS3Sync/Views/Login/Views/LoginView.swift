@@ -37,6 +37,15 @@ struct LoginView: View {
                     text: $password,
                     isSecure: true
                 )
+                .onSubmit {
+                    Task {
+                        try await loginViewModel.login(
+                            withAuthentication: self.ds3Authentication,
+                            email: email,
+                            password: password
+                        )
+                    }
+                }
                 
                 Button(loginViewModel.isLoading ? NSLocalizedString("Loading...", comment: "Loading") : NSLocalizedString("Log in", comment: "Login button")) {
                     
