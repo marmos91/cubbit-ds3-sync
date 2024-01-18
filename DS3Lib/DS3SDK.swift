@@ -93,7 +93,7 @@ enum DS3SDKError: Error, LocalizedError {
         
         let (responseData, response) = try await URLSession.shared.data(for: request)
         
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+        guard (response as? HTTPURLResponse)?.statusCode == 200 || (response as? HTTPURLResponse)?.statusCode == 204 else {
             self.logger.error("An error occurred. Status code is \((response as! HTTPURLResponse).statusCode) Response is \(String(data: responseData, encoding: .utf8)!)")
             throw DS3SDKError.serverError
         }
