@@ -41,6 +41,17 @@ git lfs install
 git lfs pull
 ```
 
+## Next features
+
+The next features we are going to support will be
+
+- Support versioned buckets
+- Support object locking
+- Implement sync status in the tray menu
+- Add support for thumbnails
+- Add support for Zero Knowledge drives
+- Support ACL public links
+
 ## How to contribute
 
 You are free to contribute to the project by opening a pull request. Please make sure to follow the [contribution guidelines](CONTRIBUTING.md).
