@@ -10,6 +10,15 @@
 
 This repository contains the source code of the Cubbit DS3 Sync application.
 
+## Assets
+
+To download the assets you need to use Git LFS
+
+```
+git lfs install
+git lfs pull
+```
+
 ## What is Cubbit DS3 Sync?
 
 Cubbit DS3 Sync is a desktop application that allows you to synchronize your files with your Cubbit DS3 account.
