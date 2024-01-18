@@ -103,23 +103,49 @@ enum DS3SDKError: Error, LocalizedError {
     func loadOrCreateDS3APIKeys(forIAMUser user: IAMUser, ds3ProjectName: String) async throws -> DS3ApiKey {
         let apiKeyName = apiKeyName(forUser: user, projectName: ds3ProjectName)
         
-        var apiKeys = (try? SharedData.shared.loadDS3APIKeysFromPersistence()) ?? []
-        
-        if let apiKey = apiKeys.first(where: {$0.name == apiKeyName}) {
-            return apiKey
-        }
+        let localApiKeys = (try? SharedData.shared.loadDS3APIKeysFromPersistence()) ?? []
+        let localApiKey = localApiKeys.first(where: {$0.name == apiKeyName})
         
         let iamToken = try await authentication.forgeIAMToken(forIAMUser: user)
         
-        let existingApiKeys = try await self.getRemoteApiKeys(forIAMUser: user)
+        let remoteApiKeys = try await self.getRemoteApiKeys(forIAMUser: user)
+        let remoteApiKey = remoteApiKeys.first(where: {$0.name == apiKeyName})
         
-        if let apiKey = existingApiKeys.first(where: {$0.name == apiKeyName}) {
-            try await self.deleteApiKey(apiKey, forIAMUser: user)
+        if localApiKey == nil {
+            if remoteApiKey != nil {
+                // If local does not exists and remote with name exists, delete remote and generate a new one
+                self.logger.debug("Deleting remote API key since it is not found locally")
+                try await self.deleteApiKey(remoteApiKey!, forIAMUser: user)
+            }
+                        
+            return try await self.generateDS3APIKey(forIAMUser: user, iamToken: iamToken, apiKeyName: apiKeyName)
+        } else {
+            // If local key exists already
+            if remoteApiKey != nil {
+                if localApiKey == remoteApiKey {
+                    // If local matches remote return local without generating
+                    self.logger.debug("Returning existing API key since it matches the remote one")
+                    return localApiKey!
+                }
+                
+                // Otherwise create a new key
+                return try await self.generateDS3APIKey(forIAMUser: user, iamToken: iamToken, apiKeyName: apiKeyName)
+            } else {
+                self.logger.debug("Deleting local key since it is not found remotely")
+                // If local exists and remote does not, delete local and generate a new one
+                try SharedData.shared.deleteDS3APIKeyFromPersistence(withName: localApiKey!.name)
+                
+                return try await self.generateDS3APIKey(forIAMUser: user, iamToken: iamToken, apiKeyName: apiKeyName)
+            }
         }
-        
+    }
+    
+    func generateDS3APIKey(forIAMUser user: IAMUser, iamToken: Token, apiKeyName: String) async throws -> DS3ApiKey {
         guard let url = URL(string: "\(CubbitAPIURLs.keyvault.createKeyURL)/\(apiKeyName)?user_id=\(user.id)") else {
             throw DS3SDKError.invalidURL(url: CubbitAPIURLs.IAM.auth.challengeURL)
         }
+        
+        self.logger.debug("Generating new API Key for IAM user: \(user.username)")
         
         var request = URLRequest(url: url)
         
@@ -135,12 +161,13 @@ enum DS3SDKError: Error, LocalizedError {
             self.logger.error("An error occurred. Status code is \((response as! HTTPURLResponse).statusCode) Response is: \(String(data: responseData, encoding: .utf8)!)")
             throw DS3SDKError.serverError
         }
-        guard let newApiKeys = try? JSONDecoder().decode(DS3ApiKey.self, from: responseData) else { throw DS3SDKError.jsonConversion }
+        guard let newApiKey = try? JSONDecoder().decode(DS3ApiKey.self, from: responseData) else { throw DS3SDKError.jsonConversion }
         
-        apiKeys.append(newApiKeys)
+        var localApiKeys = (try? SharedData.shared.loadDS3APIKeysFromPersistence()) ?? []
+        localApiKeys.append(newApiKey)
         
-        try SharedData.shared.persistDS3APIKeys(apiKeys)
+        try SharedData.shared.persistDS3APIKeys(localApiKeys)
         
-        return newApiKeys
+        return newApiKey
     }
 }

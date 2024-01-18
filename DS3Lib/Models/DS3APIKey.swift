@@ -1,6 +1,6 @@
 import Foundation
 
-struct DS3ApiKey: Codable {
+struct DS3ApiKey: Codable, Equatable {
     var name: String
     var apiKey: String
     var secretKey: String?
@@ -11,6 +11,11 @@ struct DS3ApiKey: Codable {
         case apiKey = "api_key"
         case secretKey = "secret_key"
         case createdAt = "created_at"
+    }
+    
+    static func == (lhs: DS3ApiKey, rhs: DS3ApiKey) -> Bool {
+        return lhs.name == rhs.name &&
+            lhs.apiKey == rhs.apiKey
     }
     
     // MARK: - Codable

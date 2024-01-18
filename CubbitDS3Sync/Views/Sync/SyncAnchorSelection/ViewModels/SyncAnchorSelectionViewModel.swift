@@ -3,6 +3,29 @@ import SwiftUI
 import SotoS3
 import os.log
 
+enum SyncAnchorSelectionError: Error, LocalizedError {
+    case missingBuckets
+    case noBucketSelected
+    case noIAMUserSelected
+    case DS3ClientError(Swift.Error)
+    case DS3ServerError(Swift.Error)
+    
+    var errorDescription: String? {
+        switch self {
+        case .missingBuckets:
+            return NSLocalizedString("No buckets found in server response", comment: "Missing buckets in response")
+        case .noBucketSelected:
+            return NSLocalizedString("You need to select a bucket first", comment: "Bucket not selected")
+        case .noIAMUserSelected:
+            return NSLocalizedString("You need to select an IAM user first", comment: "IAM not selected")
+        case .DS3ClientError(let error):
+            return NSLocalizedString("DS3 Client error. Please try refreshing credentials", comment: "DS3 client error")
+        case .DS3ServerError(let error):
+            return NSLocalizedString("DS3 Server error: \(error.localizedDescription). Please retry later", comment: "DS3 server error")
+        }
+    }
+}
+
 @Observable class SyncAnchorSelectionViewModel {
     typealias Logger = os.Logger
     
@@ -52,17 +75,18 @@ import os.log
     @MainActor
     func loadBuckets() async {
         self.loading = true
+        self.error = nil
         
         defer { self.loading = false }
         
         do {
-            // TODO: Improve errors
-          
-            await self.initializeAWSIfNecessary()
+            try await self.initializeAWSIfNecessary()
+            
+            self.logger.debug("Loading buckets for project \(self.project.name)")
             
             let bucketsResponse = try await self.s3Client!.listBuckets()
             
-            guard let s3Buckets = bucketsResponse.buckets else { fatalError("Cannot find buckets inside bucket response") }
+            guard let s3Buckets = bucketsResponse.buckets else { throw SyncAnchorSelectionError.missingBuckets }
             
             let buckets = s3Buckets.map { s3bucket in
                 return Bucket(name: s3bucket.name ?? "<No name>")
@@ -75,7 +99,12 @@ import os.log
                 
                 await self.listFoldersForCurrentBucket()
             }
+        } catch let error as AWSClientError {
+            self.error = SyncAnchorSelectionError.DS3ClientError(error)
+        } catch let error as AWSServerError {
+            self.error = SyncAnchorSelectionError.DS3ServerError(error)
         } catch {
+            self.logger.error("An error occurred while loading buckets \(error)")
             self.error = error
         }
     }
@@ -83,17 +112,16 @@ import os.log
     @MainActor
     func listFoldersForCurrentBucket() async {
         self.loading = true
+        self.error = nil
         
         defer { self.loading = false }
         
         do {
-            // TODO: Improve errors
-            
-            guard self.selectedBucket != nil else { fatalError("You need to select a Bucket before listing folders") }
+            guard self.selectedBucket != nil else { throw SyncAnchorSelectionError.noBucketSelected }
                         
             self.logger.debug("Listing objects for bucket \(self.selectedBucket!.name) and prefix \(self.selectedPrefix?.removingPercentEncoding ?? "no-prefix")")
             
-            await self.initializeAWSIfNecessary()
+            try await self.initializeAWSIfNecessary()
             
             let listObjectRequest = S3.ListObjectsV2Request(
                 bucket: self.selectedBucket!.name,
@@ -117,35 +145,32 @@ import os.log
         }
     }
     
-    func initializeAWSIfNecessary() async {
-        guard self.s3Client == nil else { return }
+    func initializeAWSIfNecessary() async throws {
         guard self.authentication.account != nil else { return }
         
-        do {
-            // TODO: Improve error
-            guard self.selectedIAMUser != nil else { fatalError("You need to select a IAM user") }
-            
-            let apiKeys = try await self.ds3Sdk.loadOrCreateDS3APIKeys(forIAMUser: self.selectedIAMUser!, ds3ProjectName: self.project.name)
-            
-            let awsClient = AWSClient(credentialProvider: .static(accessKeyId: apiKeys.apiKey, secretAccessKey: apiKeys.secretKey!), httpClientProvider: .createNew)
-            
-            self.s3Client = S3(client: awsClient, endpoint: self.authentication.account!.endpointGateway)
-        } catch {
-            self.logger.error("An error occurred while initializing AWS \(error)")
-            self.error = error
+        if self.s3Client != nil {
+            try self.s3Client!.client.syncShutdown()
         }
+        
+        guard self.selectedIAMUser != nil else { throw SyncAnchorSelectionError.noIAMUserSelected }
+        
+        self.logger.debug("Initializing S3Client for project \(self.project.name) and user \(self.selectedIAMUser!.username)")
+        
+        let apiKeys = try await self.ds3Sdk.loadOrCreateDS3APIKeys(forIAMUser: self.selectedIAMUser!, ds3ProjectName: self.project.name)
+        
+        let awsClient = AWSClient(credentialProvider: .static(accessKeyId: apiKeys.apiKey, secretAccessKey: apiKeys.secretKey!), httpClientProvider: .createNew)
+        
+        self.s3Client = S3(client: awsClient, endpoint: self.authentication.account!.endpointGateway)
     }
     
-    func selectIAMUser(withID id: String) {
+    func selectIAMUser(withID id: String) async throws {
         guard self.project.users.count > 0 else { return }
         
         guard let index = self.project.users.lastIndex(where: {$0.id == id}) else { return }
         
         self.selectedIAMUser = self.project.users[index]
         
-        Task {
-            await self.initializeAWSIfNecessary()
-        }
+        try await self.initializeAWSIfNecessary()
     }
     
     func cleanFoldersIfNeeded() {
@@ -164,15 +189,13 @@ import os.log
         }
     }
     
-    func selectFolder(withPrefix prefix: String) {
+    func selectFolder(withPrefix prefix: String) async {
         self.selectedPrefix = prefix
         
-        Task {
-            await self.listFoldersForCurrentBucket()
-        }
+        await self.listFoldersForCurrentBucket()
     }
     
-    func selectBucket(withName name: String) {
+    func selectBucket(withName name: String) async {
         guard self.buckets.count > 0 else { return }
         
         guard let index = self.buckets.lastIndex(where: {$0.name == name}) else { return }
@@ -181,9 +204,7 @@ import os.log
         self.selectedPrefix = nil
         self.folders = [:]
         
-        Task {
-            await self.listFoldersForCurrentBucket()
-        }
+        await self.listFoldersForCurrentBucket()
     }
     
     func selectBucket(_ bucket: Bucket?) {

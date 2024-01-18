@@ -9,7 +9,9 @@ struct IAMUsersDropdownView: View {
         Menu {
             ForEach(syncAnchorSelectionViewModel.project.users, id: \.id) { option in
                 Button {
-                    syncAnchorSelectionViewModel.selectIAMUser(withID: option.id)
+                    Task {
+                        try await syncAnchorSelectionViewModel.selectIAMUser(withID: option.id)
+                    }
                 } label: {
                     Text(option.username)
                         .font(.custom("Nunito", size: 14))

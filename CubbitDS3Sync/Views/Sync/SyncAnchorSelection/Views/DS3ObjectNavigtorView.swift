@@ -15,7 +15,9 @@ struct DS3ObjectNavigtorColumView: View {
                         name: self.cleanFolderName(folderName),
                         selected: folderSelected(folderName)
                     ) {
-                        syncAnchorSelectionViewModel.selectFolder(withPrefix: folderName)
+                        Task {
+                            await syncAnchorSelectionViewModel.selectFolder(withPrefix: folderName)
+                        }
                     }
                 }
             }

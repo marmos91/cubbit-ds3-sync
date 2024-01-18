@@ -11,20 +11,27 @@ struct SyncAnchorSelectorView: View {
             if syncAnchorSelectionModel.loading {
                 LoadingView()
             } else {
-                if syncAnchorSelectionModel.buckets.count == 0 {
-                    NoBucketsView()
+                
+                if syncAnchorSelectionModel.error != nil {
+                    BucketErrorView()
                         .environment(syncAnchorSelectionModel)
                         .padding(100)
                 } else {
-                    ScrollView(.horizontal, showsIndicators: true) {
-                    
-                        HStack {
-                            BucketSelectionColumn()
-                                .environment(syncAnchorSelectionModel)
-                            
-                            if syncAnchorSelectionModel.shouldDisplayObjectNavigator() {
-                                DS3ObjectNavigatorView()
+                    if syncAnchorSelectionModel.buckets.count == 0 {
+                        NoBucketsView()
+                            .environment(syncAnchorSelectionModel)
+                            .padding(100)
+                    } else {
+                        ScrollView(.horizontal, showsIndicators: true) {
+                        
+                            HStack {
+                                BucketSelectionColumn()
                                     .environment(syncAnchorSelectionModel)
+                                
+                                if syncAnchorSelectionModel.shouldDisplayObjectNavigator() {
+                                    DS3ObjectNavigatorView()
+                                        .environment(syncAnchorSelectionModel)
+                                }
                             }
                         }
                     }

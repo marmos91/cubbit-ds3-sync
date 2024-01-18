@@ -43,8 +43,14 @@
     "Drive name:" : {
 
     },
+    "DS3 Client error. Please try refreshing credentials" : {
+      "comment" : "DS3 client error"
+    },
     "DS3 Object Storage Log in" : {
       "comment" : "The h1 of the login page"
+    },
+    "DS3 Server error: (error.localizedDescription). Please retry later" : {
+      "comment" : "DS3 server error"
     },
     "Edit on web console" : {
       "comment" : "Edit on web console button"
@@ -90,6 +96,9 @@
     },
     "Next" : {
 
+    },
+    "No buckets found in server response" : {
+      "comment" : "Missing buckets in response"
     },
     "Open web console " : {
       "comment" : "Tray menu open console button"
@@ -186,6 +195,12 @@
     },
     "You need to be logged in to perform this operation" : {
       "comment" : "The authentication already logged error"
+    },
+    "You need to select a bucket first" : {
+      "comment" : "Bucket not selected"
+    },
+    "You need to select an IAM user first" : {
+      "comment" : "IAM not selected"
     }
   },
   "version" : "1.0"

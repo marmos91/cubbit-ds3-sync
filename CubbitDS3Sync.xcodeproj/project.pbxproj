@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		D546D5462B5916CC00231120 /* NoBucketsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D546D5452B5916CC00231120 /* NoBucketsView.swift */; };
+		D546D5482B59214200231120 /* BucketErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D546D5472B59214200231120 /* BucketErrorView.swift */; };
 		D54775C72B57181D00DABCD4 /* CubbitDS3SyncApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54775C62B57181D00DABCD4 /* CubbitDS3SyncApp.swift */; };
 		D54775D72B57185100DABCD4 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = D54775D52B57185100DABCD4 /* README.md */; };
 		D54775D82B57185100DABCD4 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = D54775D62B57185100DABCD4 /* LICENSE */; };
@@ -234,6 +235,7 @@
 
 /* Begin PBXFileReference section */
 		D546D5452B5916CC00231120 /* NoBucketsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoBucketsView.swift; sourceTree = "<group>"; };
+		D546D5472B59214200231120 /* BucketErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BucketErrorView.swift; sourceTree = "<group>"; };
 		D54775C32B57181D00DABCD4 /* Cubbit DS3.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Cubbit DS3.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D54775C62B57181D00DABCD4 /* CubbitDS3SyncApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CubbitDS3SyncApp.swift; sourceTree = "<group>"; };
 		D54775CC2B57181E00DABCD4 /* CubbitDS3Sync.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CubbitDS3Sync.entitlements; sourceTree = "<group>"; };
@@ -666,6 +668,7 @@
 				D5A221DC2B571FED00F1413B /* BucketSelectionSidebarView.swift */,
 				D5A221DD2B571FED00F1413B /* IAMUsersDropdownView.swift */,
 				D546D5452B5916CC00231120 /* NoBucketsView.swift */,
+				D546D5472B59214200231120 /* BucketErrorView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -984,6 +987,7 @@
 				D5A2221C2B571FEE00F1413B /* SyncAnchorSelectionViewModel.swift in Sources */,
 				D5A2220D2B571FEE00F1413B /* TrayMenuFooterView.swift in Sources */,
 				D5A222202B571FEE00F1413B /* SyncAnchorSelectorView.swift in Sources */,
+				D546D5482B59214200231120 /* BucketErrorView.swift in Sources */,
 				D5A2219E2B571F8300F1413B /* RefreshToken.swift in Sources */,
 				D5A2220B2B571FEE00F1413B /* TrayMenuView.swift in Sources */,
 				D5A222222B571FEE00F1413B /* BucketSelectionSidebarView.swift in Sources */,

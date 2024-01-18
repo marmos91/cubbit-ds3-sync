@@ -11,7 +11,9 @@ struct BucketSelectionColumn: View {
                     name: bucket.name,
                     selected: syncAnchorSelectionViewModel.selectedBucket == bucket
                 ) {
-                    syncAnchorSelectionViewModel.selectBucket(withName: bucket.name)
+                    Task {
+                        await syncAnchorSelectionViewModel.selectBucket(withName: bucket.name)
+                    }
                 }
             }
         }

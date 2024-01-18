@@ -46,4 +46,16 @@ extension SharedData {
         
         try FileManager.default.removeItem(at: apiKeysURL)
     }
+    
+    func deleteDS3APIKeyFromPersistence(withName apiKeyName: String) throws {
+        var apiKeys = try loadDS3APIKeysFromPersistence()
+        
+        guard let apiKeyIndex = apiKeys.firstIndex(where: {$0.name == apiKeyName}) else {
+            throw SharedDataError.apiKeyNotFound
+        }
+        
+        apiKeys.remove(at: apiKeyIndex)
+        
+        try persistDS3APIKeys(apiKeys)
+    }
 }
