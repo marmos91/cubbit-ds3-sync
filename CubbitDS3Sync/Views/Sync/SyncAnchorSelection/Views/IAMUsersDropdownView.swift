@@ -34,7 +34,7 @@ struct IAMUsersDropdownView: View {
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(lineWidth: 1)
-                .fill(Color(.textFieldBorder))
+                .fill(Color(.darkMainBorder))
                 .frame(maxWidth: .infinity, maxHeight: 32)
 
         )

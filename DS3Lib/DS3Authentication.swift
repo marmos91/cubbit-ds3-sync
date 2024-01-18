@@ -213,6 +213,8 @@ struct DS3Missing2FAResponse: Codable {
     func logout() throws {
         guard self.isLogged else { throw DS3AuthenticationError.alreadyLoggedOut }
         
+        self.logger.debug("Logging out...")
+        
         try self.deleteFromDisk()
         
         self.accountSession = nil

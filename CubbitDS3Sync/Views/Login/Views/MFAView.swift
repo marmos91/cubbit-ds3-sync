@@ -47,6 +47,9 @@ struct MFAView: View {
                         .buttonStyle(PrimaryButtonStyle())
                         .disabled(tfaCode == "")
                         .padding(.vertical)
+                        .onSubmit {
+                            self.loginWithMFA()
+                        }
                     }
                 }
             }

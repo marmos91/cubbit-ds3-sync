@@ -11,7 +11,7 @@ struct BorderedSectionView<Content: View>: View {
         .padding(.horizontal)
         .background {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(.textFieldBorder, lineWidth: 1)
+                .stroke(.darkMainBorder, lineWidth: 1)
                 .frame(maxWidth: .infinity)
         }
     }

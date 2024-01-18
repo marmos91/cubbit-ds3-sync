@@ -43,7 +43,7 @@ struct IconTextField: View {
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(lineWidth: 1)
-                .fill(error != nil ? Color.red : Color(.textFieldBorder))
+                .fill(error != nil ? Color.red : Color(.darkMainBorder))
                 .frame(maxWidth: .infinity, maxHeight: 32)
         )
     }

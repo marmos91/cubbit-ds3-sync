@@ -38,7 +38,7 @@ struct CubbitTextField: View {
         .frame(height: 32)
         .background {
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color(.sidebarBackground))
+                .fill(Color(.darkMainStandard))
         }
     }
 }

@@ -14,6 +14,11 @@ struct SyncRecapMainView: View {
             
             VStack(spacing: 0) {
                 SyncRecapNameSelectionView()
+                    .onComplete {
+                        if let ds3Drive = syncRecapViewModel.getDS3Drive() {
+                            onComplete?(ds3Drive)
+                        }
+                    }
                     .environment(syncRecapViewModel)
                 
                 SyncRecapFooterView(

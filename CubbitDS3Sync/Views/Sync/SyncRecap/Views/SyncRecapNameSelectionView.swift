@@ -3,6 +3,8 @@ import SwiftUI
 struct SyncRecapNameSelectionView: View {
     @Environment(SyncRecapViewModel.self) var syncRecapViewModel: SyncRecapViewModel
     
+    var onComplete: (() -> Void)?
+    
     var body: some View {
         VStack(alignment: .leading) {
             VStack(alignment: .leading) {
@@ -17,7 +19,11 @@ struct SyncRecapNameSelectionView: View {
                     } set: {
                         syncRecapViewModel.setDS3DriveName($0)
                     }
-                )
+                ).onSubmit {
+                    if let ds3DriveName = syncRecapViewModel.ds3DriveName, ds3DriveName.count > 0 {
+                        onComplete?()
+                    }
+                }
             }
             .padding(.vertical, 5)
             
@@ -64,6 +70,12 @@ struct SyncRecapNameSelectionView: View {
         }
         .padding(.vertical)
         .frame(width: 400)
+    }
+    
+    func onComplete(_ action: @escaping () -> Void) -> Self {
+        var copy = self
+        copy.onComplete = action
+        return copy
     }
 }
 
