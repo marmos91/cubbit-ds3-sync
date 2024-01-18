@@ -29,7 +29,7 @@ enum DS3DriveManagerError: Error {
         }
     }
     
-    func openFinder(forDrive drive: DS3Drive) {
+    func openFinder(forDrive drive: DS3Drive) async throws {
         let domain = NSFileProviderDomain(
             identifier: NSFileProviderDomainIdentifier(
                 rawValue: drive.id.uuidString
@@ -37,15 +37,15 @@ enum DS3DriveManagerError: Error {
             displayName: drive.name
         )
         
-        NSFileProviderManager(for: domain)?.getUserVisibleURL(for: .rootContainer) { url, error in
-            guard error != nil else { return }
-            guard let url = url else { return }
+        let url = try await NSFileProviderManager(for: domain)?.getUserVisibleURL(for: .rootContainer)
+        
+        guard let url = url else { return }
             
-            if url.startAccessingSecurityScopedResource() {
-                NSWorkspace.shared.activateFileViewerSelecting([url])
-                url.stopAccessingSecurityScopedResource()
-            }
-        }
+        self.logger.debug("Opening finder at url \(url.path())")
+        
+        let _ = url.startAccessingSecurityScopedResource()
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+        url.stopAccessingSecurityScopedResource()
     }
     
     func syncFileProvider() {

@@ -60,7 +60,9 @@ struct TrayDriveRowView: View {
                     }
                     
                     Button("View in Finder") {
-                        self.ds3DriveManager.openFinder(forDrive: self.drive)
+                        Task {
+                            try await self.ds3DriveManager.openFinder(forDrive: self.drive)
+                        }
                     }
                     
                     Button("View in web console") {
