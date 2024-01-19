@@ -259,13 +259,14 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         }
         
         if newContents == nil {
+            // TODO: Handle metadata changes
             completionHandler(item, NSFileProviderItemFields(), false, nil)
             return Progress()
         }
         
         // TODO: Handle versioning
-        // TODO: Handle metadata changes
         // TODO: Is it handling folders?
+        // TODO: Handle renaming
         
         self.logger.debug("Should upload modified file \(item.filename, privacy: .public)")
         
