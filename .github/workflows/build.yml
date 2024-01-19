@@ -27,11 +27,12 @@ jobs:
         run: |
           # create variables
           CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          PP_PATH=$RUNNER_TEMP/build_pp.provisionprofile
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
           # import certificate and provisioning profile from secrets
           echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-          echo -n "$CUBBITDS3_DEVELOPMENT_PROVISIONING_PROFILE_BASE4" | base64 --decode -o $PP_PATH
+          echo -n "$CUBBITDS3_DEVELOPMENT_PROVISIONING_PROFILE_BASE64" | base64 --decode -o $PP_PATH
           echo -n "$CUBBITDS3_DEVELOPMENT_PROVIDER_PROVISIONING_PROFILE_BASE64" | base64 --decode -o $PP_PATH
 
           # create temporary keychain
