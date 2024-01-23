@@ -74,6 +74,8 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
             do {
                 let prefix: String? = self.drive.syncAnchor.prefix
                 
+                self.logger.debug("Enumerating items for prefix \(prefix ?? "nil")")
+                
                 let (items, continuationToken) = try await S3Lib.listS3Items(
                     withS3: self.s3,
                     forDrive: self.drive,
@@ -108,28 +110,35 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
             do {
                 let prefix: String? = self.drive.syncAnchor.prefix
                 
+                self.logger.debug("Enumerating changes for prefix \(prefix ?? "nil")")
+                
                 if self.parent == .trashContainer {
                     // NOTE: skipping trash
                     return observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
                 }
-        
+                 
                 // Fetch changes from the server since the anchor timestamp
                 let (changedItems, _) = try await S3Lib.listS3Items(
                     withS3: self.s3,
                     forDrive: self.drive,
                     withPrefix: prefix,
                     recursively: self.recursively,
-                    fromDate: anchor.toDate()
+                    fromDate: anchor.toDate(),
+                    withLogger: self.logger
                 )
 
                 var newAnchor = anchor
                 
                 if changedItems.count > 0 {
+                    self.logger.debug("Found \(changedItems.count) changes")
+                    
                     observer.didUpdate(changedItems)
                     newAnchor = NSFileProviderSyncAnchor(Date())
                     
                     SharedData.shared.persistSyncAnchor(newAnchor)
                 }
+                
+                self.logger.debug("Anchor is \(newAnchor.toDate())")
                 
                 // TODO: process remotely deleted files
                 // Notify the observer about deletions

@@ -192,10 +192,10 @@ struct S3Lib {
         withProgress progress: Progress? = nil,
         withLogger logger: Logger? = nil
     ) async throws {
-        if s3Item.documentSize as! Int > DefaultSettings.S3.multipartThreshold {
-            try await self.putS3ItemMultipart(s3Item, withS3: s3, fileURL: fileURL, withProgress: progress, withLogger: logger)
-        } else {
+        if (s3Item.documentSize as! Int) < DefaultSettings.S3.multipartThreshold || s3Item.contentType == .folder {
             try await self.putS3ItemStandard(s3Item, withS3: s3, fileURL: fileURL, withProgress: progress,  withLogger: logger)
+        } else {
+            try await self.putS3ItemMultipart(s3Item, withS3: s3, fileURL: fileURL, withProgress: progress, withLogger: logger)
         }
     }
     
@@ -208,19 +208,23 @@ struct S3Lib {
         withLogger logger: Logger? = nil
     ) async throws {
         var request: S3.PutObjectRequest
+
+        let key = s3Item.itemIdentifier.rawValue.removingPercentEncoding!
         
-        if fileURL != nil {
+        if let fileURL {
             request = S3.PutObjectRequest(
-                body: AWSPayload.data(try! Data(contentsOf: fileURL!)),
+                body: AWSPayload.data(try! Data(contentsOf: fileURL)),
                 bucket: s3Item.drive.syncAnchor.bucket.name,
-                key: s3Item.identifier.rawValue.removingPercentEncoding!
+                key: key
             )
         } else {
             request = S3.PutObjectRequest(
                 bucket: s3Item.drive.syncAnchor.bucket.name,
-                key: s3Item.identifier.rawValue.removingPercentEncoding!
+                key: key
             )
         }
+        
+        logger?.debug("Sending standard PUT request for \(key)")
         
         let _ = try await s3.putObject(request)
         
@@ -239,12 +243,14 @@ struct S3Lib {
             throw FileProviderExtensionError.fileNotFound
         }
         
+        let key = s3Item.itemIdentifier.rawValue.removingPercentEncoding!
+        
         let createMultipartRequest = S3.CreateMultipartUploadRequest(
             bucket: s3Item.drive.syncAnchor.bucket.name,
-            key: s3Item.identifier.rawValue.removingPercentEncoding!
+            key: key
         )
         
-        logger?.debug("Sending CreateMultipart request for \(s3Item.identifier.rawValue.removingPercentEncoding!)")
+        logger?.debug("Sending CreateMultipart request for \(key)")
         
         let createMultipartResponse = try await s3.createMultipartUpload(createMultipartRequest)
         
@@ -256,8 +262,6 @@ struct S3Lib {
         defer { try? fileHandle.close() }
         
         let partSize = DefaultSettings.S3.multipartUploadPartSize
-        
-        logger?.debug("Part Size: \(partSize)")
            
         var offset: Int = 0
         var partNumber: Int = 1
@@ -270,43 +274,68 @@ struct S3Lib {
             logger?.warning("DATA IS EMPTY!")
         }
         
+        var retries = DefaultSettings.S3.maxRetries
+        
         while !data.isEmpty {
-            logger?.debug("Sending \(data.count) bytes for part \(partNumber)")
-            
-            let uploadPartRequest = S3.UploadPartRequest(
-                body: .byteBuffer(ByteBuffer(data: data)),
-                bucket: s3Item.drive.syncAnchor.bucket.name,
-                key: s3Item.identifier.rawValue.removingPercentEncoding!,
-                partNumber: partNumber,
-                uploadId: uploadId
-            )
-            
-            let uploadPartResponse = try await s3.uploadPart(uploadPartRequest)
-            
-            let eTag = uploadPartResponse.eTag ?? ""
-            
-            logger?.debug("Got eTag: \(eTag)")
-            
-            completedParts.append(S3.CompletedPart(eTag: eTag, partNumber: partNumber))
-            
-            offset += data.count
-            partNumber += 1
-            
-            progress?.completedUnitCount += 1
-            
-            data = fileHandle.readData(ofLength: partSize)
+            do {
+                let uploadPartRequest = S3.UploadPartRequest(
+                    body: .byteBuffer(ByteBuffer(data: data)),
+                    bucket: s3Item.drive.syncAnchor.bucket.name,
+                    key: key,
+                    partNumber: partNumber,
+                    uploadId: uploadId
+                )
+                
+                let uploadPartResponse = try await s3.uploadPart(uploadPartRequest)
+                
+                let eTag = uploadPartResponse.eTag ?? ""
+                
+                logger?.debug("Got eTag: \(eTag)")
+                
+                completedParts.append(S3.CompletedPart(eTag: eTag, partNumber: partNumber))
+                
+                offset += data.count
+                partNumber += 1
+                
+                progress?.completedUnitCount += 1
+                
+                data = fileHandle.readData(ofLength: partSize)
+            } catch {
+                if retries == 0 {
+                    try await S3Lib.abortS3MultipartUpload(for: s3Item, withUploadId: uploadId, withS3: s3, withLogger: logger)
+                    throw error
+                }
+                
+                logger?.warning("Error uploading part: \(error), retrying (\(retries) retries remaining)...")
+                
+                retries -= 1
+            }
         }
         
         logger?.debug("Completing multipart upload with parts: \(completedParts)")
         
         let completeMultipartRequest = S3.CompleteMultipartUploadRequest(
             bucket: s3Item.drive.syncAnchor.bucket.name,
-            key: s3Item.identifier.rawValue.removingPercentEncoding!,
+            key: key,
             multipartUpload: S3.CompletedMultipartUpload(parts: completedParts),
             uploadId: uploadId
         )
         
         let _ = try await s3.completeMultipartUpload(completeMultipartRequest)
+    }
+    
+    static func abortS3MultipartUpload(for s3Item: S3Item, withUploadId uploadId: String, withS3 s3: S3, withLogger logger: Logger? = nil) async throws {
+        let key = s3Item.itemIdentifier.rawValue.removingPercentEncoding!
+        
+        logger?.warning("Aborting multipart upload for item with key \(key) and uploadId \(uploadId)")
+        
+        let abortRequest = S3.AbortMultipartUploadRequest(
+            bucket: s3Item.drive.syncAnchor.bucket.name,
+            key: key,
+            uploadId: uploadId
+        )
+        
+        let _ = try await s3.abortMultipartUpload(abortRequest)
     }
 
     @Sendable
@@ -317,7 +346,7 @@ struct S3Lib {
         withLogger logger: Logger? = nil,
         force: Bool = false
     ) async throws {
-        if !force && s3Item.contentType == .folder {
+        if !force && s3Item.isFolder {
             return try await S3Lib.deleteFolder(
                 s3Item,
                 withS3: s3,
@@ -429,7 +458,7 @@ struct S3Lib {
         withProgress progress: Progress? = nil,
         withLogger logger: Logger? = nil
     ) async throws {
-        if s3Item.contentType == .folder {
+        if s3Item.isFolder {
             logger?.debug("Copying folder \(s3Item.itemIdentifier.rawValue) to \(key)")
             return try await S3Lib.copyFolder(
                 s3Item,

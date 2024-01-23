@@ -167,6 +167,13 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             return Progress()
         }
         
+        if options.contains(.mayAlreadyExist) {
+            // TODO: Handle create with overwrite
+            self.logger.warning("Skipping upload for item \(itemTemplate.itemIdentifier.rawValue, privacy: .public)")
+            completionHandler(itemTemplate, NSFileProviderItemFields(), false, NSFileProviderError(.noSuchItem))
+            return Progress()
+        }
+        
         // TODO: Further improve this
         // TODO: Handle symlinks and aliasFiles (check FruitBasket)
         // Symlinks store their payload in the symlinkTargetPath property of
@@ -185,49 +192,30 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
     
         let parentIdentifier = itemTemplate.parentItemIdentifier == .rootContainer ? "" : itemTemplate.parentItemIdentifier.rawValue
         
-        let itemTemplateIsFolder = itemTemplate.contentType == .folder ||
-                                   itemTemplate.contentType == .directory
+        var key = parentIdentifier + itemTemplate.filename
         
-        let key = parentIdentifier + itemTemplate.filename
-        
-        if itemTemplateIsFolder {
-            self.logger.debug("Should create folder for key \(key, privacy: .public)")
-            
-            let folder = S3Item(
-                identifier: NSFileProviderItemIdentifier(key + String(DefaultSettings.S3.delimiter)),
-                drive: self.drive!,
-                objectMetadata: S3Item.Metadata(size: 0)
-            )
-           
-            Task {
-                do {
-                    try await S3Lib.putS3ItemStandard(folder, withS3: self.s3!, withLogger: self.logger)
-                    completionHandler(folder, NSFileProviderItemFields(), false, nil)
-                } catch {
-                    self.logger.error("Folder creation failed with error \(error)")
-                    completionHandler(nil, NSFileProviderItemFields(), false, error)
-                }
+        if let prefix = self.drive!.syncAnchor.prefix {
+            if !key.starts(with: prefix) {
+                key = prefix + key
             }
-            
-            return Progress()
         }
         
-        if options.contains(.mayAlreadyExist) {
-            // TODO: Handle create with overwrite
-            self.logger.warning("Skipping item \(itemTemplate.itemIdentifier.rawValue, privacy: .public)")
-            completionHandler(itemTemplate, NSFileProviderItemFields(), false, NSFileProviderError(.noSuchItem))
-            return Progress()
+        var itemSize = itemTemplate.documentSize ?? 0
+
+        if itemTemplate.contentType == .folder || itemTemplate.contentType == .directory {
+            key += String(DefaultSettings.S3.delimiter)
+            itemSize = 0
         }
         
         let s3Item = S3Item(
             identifier: NSFileProviderItemIdentifier(key),
             drive: self.drive!,
-            objectMetadata: S3Item.Metadata(size: itemTemplate.documentSize!!)
+            objectMetadata: S3Item.Metadata(size: itemSize ?? 0)
         )
         
-        self.logger.debug("Should upload item with key \(key), privacy: .public) and filename \(itemTemplate.filename, privacy: .public) with size \(itemTemplate.documentSize!, privacy: .public)")
+        self.logger.debug("Should upload item with key \(key, privacy: .public) and filename \(itemTemplate.filename, privacy: .public) with size \(itemTemplate.documentSize!, privacy: .public)")
         
-        let numParts = Int64(s3Item.documentSize! as! Int / DefaultSettings.S3.multipartUploadPartSize)
+        let numParts = max(Int64(s3Item.documentSize! as! Int / DefaultSettings.S3.multipartUploadPartSize), 1)
         let progress = Progress(totalUnitCount: numParts)
         
         Task {

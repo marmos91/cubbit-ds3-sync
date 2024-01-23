@@ -50,7 +50,7 @@ enum DS3DriveManagerError: Error {
             NSFileProviderManager.getDomainsWithCompletionHandler { domains, error in
                 if error != nil {
                     self.logger.error("An error occurred: \(error?.localizedDescription ?? "Unknown error")")
-                    continuation.resume(throwing: DS3DriveManagerError.driveNotFound)
+                    return continuation.resume(throwing: DS3DriveManagerError.driveNotFound)
                 }
                 
                 continuation.resume(returning: domains)

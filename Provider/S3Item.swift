@@ -57,7 +57,7 @@ class S3Item: NSObject, NSFileProviderItem {
         
         return NSFileProviderItemIdentifier(parentIdentifier + String(self.separator))
     }
-    
+
     var filename: String {
         let components = self.identifier.rawValue.split(separator: self.separator)
         let name = String(components.last ?? "")
@@ -88,6 +88,10 @@ class S3Item: NSObject, NSFileProviderItem {
         let type: UTType = self.identifier.rawValue.last! == self.separator ? .folder : .item
     
         return type
+    }
+    
+    var isFolder: Bool {
+        return self.contentType == .folder || self.contentType == .directory
     }
     
     var extendedAttributes: [String: Data] {
