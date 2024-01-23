@@ -456,9 +456,10 @@ struct S3Lib {
         toKey key: String,
         withS3 s3: S3,
         withProgress progress: Progress? = nil,
-        withLogger logger: Logger? = nil
+        withLogger logger: Logger? = nil,
+        force: Bool = false
     ) async throws {
-        if s3Item.isFolder {
+        if !force && s3Item.isFolder {
             logger?.debug("Copying folder \(s3Item.itemIdentifier.rawValue) to \(key)")
             return try await S3Lib.copyFolder(
                 s3Item,
@@ -531,5 +532,10 @@ struct S3Lib {
                 )
             }
         } while continuationToken != nil
+        
+        // Copy folder itself
+        let newKey = s3Item.identifier.rawValue.replacingOccurrences(of: prefix, with: newPrefix).removingPercentEncoding!
+        logger?.debug("Copying enclosing folder \(s3Item.identifier.rawValue.removingPercentEncoding!)")
+        try await S3Lib.copyS3Item(s3Item, toKey: newKey, withS3: s3, withProgress: progress, withLogger: logger, force: true)
     }
 }
