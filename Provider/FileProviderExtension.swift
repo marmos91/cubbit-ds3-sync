@@ -17,14 +17,14 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
     private var apiKeys: DS3ApiKey? = nil
     private var endpoint: String? = nil
     
-    let temporaryDirectory: URL
+    let temporaryDirectory: URL?
     
     required init(domain: NSFileProviderDomain) {
         self.enabled = false
         self.domain = domain
-        self.temporaryDirectory = temporaryDirectoryURL()
         
         do {
+            self.temporaryDirectory = try? NSFileProviderManager(for: domain)?.temporaryDirectoryURL()
             self.drive = try SharedData.shared.loadDS3DriveFromPersistence(withDomainIdentifier: domain.identifier)
             self.endpoint = try SharedData.shared.loadAccountFromPersistence().endpointGateway
             self.apiKeys = try SharedData.shared.loadDS3APIKeyFromPersistence(

@@ -102,12 +102,12 @@ struct S3Lib {
     static func getS3Item(
         _ s3Item: S3Item,
         withS3 s3: S3,
-        withTemporaryFolder temporaryFolder: URL,
+        withTemporaryFolder temporaryFolder: URL?,
         withProgress progress: Progress?
     ) async throws -> URL {
         let fileSize: Int64 = .init(truncating: s3Item.documentSize ?? 0)
         
-        let fileURL = temporaryFileURL(withTemporaryFolder: temporaryFolder)
+        let fileURL = try temporaryFileURL(withTemporaryFolder: temporaryFolder)
         let fileHandle = try FileHandle(forWritingTo: fileURL)
         
         var bytesDownloaded: Int64 = 0

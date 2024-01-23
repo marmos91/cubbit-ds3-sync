@@ -1,11 +1,9 @@
 import Foundation
 
-func temporaryDirectoryURL() -> URL {
-    return FileManager.default.temporaryDirectory
-}
-
-func temporaryFileURL(withTemporaryFolder temporaryURL: URL) -> URL {
-    let temporaryFileURL = temporaryURL.appendingPathComponent(UUID().uuidString)
+func temporaryFileURL(withTemporaryFolder temporaryURL: URL?) throws -> URL {
+    guard let temporaryFileURL = temporaryURL?.appendingPathComponent(UUID().uuidString) else {
+        throw URLError(.cannotOpenFile)
+    }
     
     if !FileManager.default.fileExists(atPath: temporaryFileURL.path) {
         FileManager.default.createFile(atPath: temporaryFileURL.path, contents: nil)
