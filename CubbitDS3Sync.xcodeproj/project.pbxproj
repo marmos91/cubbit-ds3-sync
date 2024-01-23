@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		D512EEBC2B59631400F550EC /* MFAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D512EEBB2B59631400F550EC /* MFAView.swift */; };
+		D54002A02B5EAEB000B54E97 /* S3Lib.swift in Sources */ = {isa = PBXBuildFile; fileRef = D540029D2B5EAEB000B54E97 /* S3Lib.swift */; };
 		D546D5462B5916CC00231120 /* NoBucketsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D546D5452B5916CC00231120 /* NoBucketsView.swift */; };
 		D546D5482B59214200231120 /* BucketErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D546D5472B59214200231120 /* BucketErrorView.swift */; };
 		D54775C72B57181D00DABCD4 /* CubbitDS3SyncApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54775C62B57181D00DABCD4 /* CubbitDS3SyncApp.swift */; };
@@ -166,12 +167,10 @@
 		D5A222792B57217E00F1413B /* DefaultSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221512B571F5100F1413B /* DefaultSettings.swift */; };
 		D5A2227A2B57217E00F1413B /* URLs.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221522B571F5100F1413B /* URLs.swift */; };
 		D5A222862B5721CC00F1413B /* FileProviderExtension+Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2227C2B5721CC00F1413B /* FileProviderExtension+Errors.swift */; };
-		D5A222882B5721CC00F1413B /* S3Enumerator+S3.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2227F2B5721CC00F1413B /* S3Enumerator+S3.swift */; };
 		D5A222892B5721CC00F1413B /* S3Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222802B5721CC00F1413B /* S3Item.swift */; };
 		D5A2228A2B5721CC00F1413B /* S3Enumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222812B5721CC00F1413B /* S3Enumerator.swift */; };
 		D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */; };
 		D5A2228C2B5721CC00F1413B /* Provider.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D5A222832B5721CC00F1413B /* Provider.xcassets */; };
-		D5A2228E2B5721CC00F1413B /* FileProviderExtension+S3.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222852B5721CC00F1413B /* FileProviderExtension+S3.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -236,6 +235,7 @@
 
 /* Begin PBXFileReference section */
 		D512EEBB2B59631400F550EC /* MFAView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MFAView.swift; sourceTree = "<group>"; };
+		D540029D2B5EAEB000B54E97 /* S3Lib.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3Lib.swift; sourceTree = "<group>"; };
 		D546D5452B5916CC00231120 /* NoBucketsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoBucketsView.swift; sourceTree = "<group>"; };
 		D546D5472B59214200231120 /* BucketErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BucketErrorView.swift; sourceTree = "<group>"; };
 		D54775C32B57181D00DABCD4 /* Cubbit DS3.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Cubbit DS3.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -336,12 +336,10 @@
 		D5A2224E2B57211500F1413B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D5A2227C2B5721CC00F1413B /* FileProviderExtension+Errors.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+Errors.swift"; sourceTree = "<group>"; };
 		D5A2227E2B5721CC00F1413B /* Provider.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = Provider.entitlements; sourceTree = "<group>"; };
-		D5A2227F2B5721CC00F1413B /* S3Enumerator+S3.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "S3Enumerator+S3.swift"; sourceTree = "<group>"; };
 		D5A222802B5721CC00F1413B /* S3Item.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = S3Item.swift; sourceTree = "<group>"; };
 		D5A222812B5721CC00F1413B /* S3Enumerator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = S3Enumerator.swift; sourceTree = "<group>"; };
 		D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "S3Item+Metadata.swift"; sourceTree = "<group>"; };
 		D5A222832B5721CC00F1413B /* Provider.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Provider.xcassets; sourceTree = "<group>"; };
-		D5A222852B5721CC00F1413B /* FileProviderExtension+S3.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+S3.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -811,11 +809,10 @@
 			children = (
 				D5A222482B57211500F1413B /* FileProviderExtension.swift */,
 				D5A2227C2B5721CC00F1413B /* FileProviderExtension+Errors.swift */,
-				D5A222852B5721CC00F1413B /* FileProviderExtension+S3.swift */,
 				D5A222802B5721CC00F1413B /* S3Item.swift */,
 				D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */,
 				D5A222812B5721CC00F1413B /* S3Enumerator.swift */,
-				D5A2227F2B5721CC00F1413B /* S3Enumerator+S3.swift */,
+				D540029D2B5EAEB000B54E97 /* S3Lib.swift */,
 				D5A222832B5721CC00F1413B /* Provider.xcassets */,
 				D5A2227E2B5721CC00F1413B /* Provider.entitlements */,
 				D5A2224E2B57211500F1413B /* Info.plist */,
@@ -875,6 +872,8 @@
 			dependencies = (
 			);
 			name = DS3Lib;
+			packageProductDependencies = (
+			);
 			productName = DS3Lib;
 			productReference = D5A221432B571F1700F1413B /* DS3Lib.framework */;
 			productType = "com.apple.product-type.framework";
@@ -1109,11 +1108,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D54002A02B5EAEB000B54E97 /* S3Lib.swift in Sources */,
 				D5A222492B57211500F1413B /* FileProviderExtension.swift in Sources */,
 				D5A222742B57217900F1413B /* Challenge.swift in Sources */,
 				D5A222892B5721CC00F1413B /* S3Item.swift in Sources */,
 				D5A222702B57217900F1413B /* Account.swift in Sources */,
-				D5A2228E2B5721CC00F1413B /* FileProviderExtension+S3.swift in Sources */,
 				D5A2226B2B57217400F1413B /* SharedData+account.swift in Sources */,
 				D5A222712B57217900F1413B /* DS3APIKey.swift in Sources */,
 				D5A222722B57217900F1413B /* RefreshToken.swift in Sources */,
@@ -1130,7 +1129,6 @@
 				D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */,
 				D5A222762B57217900F1413B /* Token.swift in Sources */,
 				D5A2226C2B57217400F1413B /* SharedData+apiKeys.swift in Sources */,
-				D5A222882B5721CC00F1413B /* S3Enumerator+S3.swift in Sources */,
 				D5A2226F2B57217900F1413B /* IAMUser.swift in Sources */,
 				D5A222602B57216F00F1413B /* NSFIleProvider+Extensions.swift in Sources */,
 				D5A2225F2B57216B00F1413B /* DS3Authentication.swift in Sources */,

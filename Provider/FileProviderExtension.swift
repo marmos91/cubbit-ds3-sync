@@ -95,7 +95,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             
             Task {
                 do {
-                    let metadata = try await self.remoteS3Item(for: identifier, withS3: self.s3!, drive: self.drive!)
+                    let metadata = try await S3Lib.remoteS3Item(for: identifier, withS3: self.s3!, drive: self.drive!)
                     completionHandler(metadata, nil)
                 } catch {
                     completionHandler(nil, error)
@@ -121,6 +121,9 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             return Progress()
         }
         
+        // TODO: The retrieved content at `fileContents` URL must be a regular file on the same volume as the user-visible URL.
+        // A suitable location can be retrieved using -[NSFileProviderManager temporaryDirectoryURLWithError:].
+        
         // TODO: Is it handling folders?
         // TODO: Check fetchContents in FruitBasket to check if a fork is better. Also check about incremental fetching
         // TODO: Check fetchPartialContents in FruitBasket
@@ -131,8 +134,8 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         
         Task {
             do {
-                let s3Item = try await self.remoteS3Item(for: itemIdentifier, withS3: self.s3!, drive: self.drive!)
-                let fileURL = try await self.getS3Item(s3Item, withS3: self.s3!, withProgress: progress)
+                let s3Item = try await S3Lib.remoteS3Item(for: itemIdentifier, withS3: self.s3!, drive: self.drive!)
+                let fileURL = try await S3Lib.getS3Item(s3Item, withS3: self.s3!, withTemporaryFolder: self.temporaryDirectory, withProgress: progress)
                 
                 self.logger.debug("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize, privacy: .public) downloaded successfully at \(fileURL, privacy: .public)")
                 
@@ -198,7 +201,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
            
             Task {
                 do {
-                    try await self.putS3ItemStandard(folder, withS3: self.s3!, withLogger: self.logger)
+                    try await S3Lib.putS3ItemStandard(folder, withS3: self.s3!, withLogger: self.logger)
                     completionHandler(folder, NSFileProviderItemFields(), false, nil)
                 } catch {
                     self.logger.error("Folder creation failed with error \(error)")
@@ -210,6 +213,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         }
         
         if options.contains(.mayAlreadyExist) {
+            // TODO: Handle create with overwrite
             self.logger.warning("Skipping item \(itemTemplate.itemIdentifier.rawValue, privacy: .public)")
             completionHandler(itemTemplate, NSFileProviderItemFields(), false, NSFileProviderError(.noSuchItem))
             return Progress()
@@ -228,7 +232,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         
         Task {
             do {
-                try await self.putS3Item(s3Item, withS3: self.s3!, fileURL: url, withProgress: progress, withLogger: self.logger)
+                try await S3Lib.putS3Item(s3Item, withS3: self.s3!, fileURL: url, withProgress: progress, withLogger: self.logger)
                 completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
             } catch {
                 self.logger.error("Upload failed with error \(error)")
@@ -258,37 +262,94 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             return Progress()
         }
         
-        if newContents == nil {
-            // TODO: Handle metadata changes
-            completionHandler(item, NSFileProviderItemFields(), false, nil)
-            return Progress()
-        }
-        
-        // TODO: Handle versioning
-        // TODO: Is it handling folders?
-        // TODO: Handle renaming
-        
-        self.logger.debug("Should upload modified file \(item.filename, privacy: .public)")
+        let progress = Progress()
         
         let s3Item = S3Item(
-            identifier: item.itemIdentifier,
-            drive: self.drive!,
-            objectMetadata: S3Item.Metadata(size: item.documentSize!!)
+            from: item,
+            drive: self.drive!
         )
         
-        let numParts = Int64(s3Item.documentSize! as! Int / DefaultSettings.S3.multipartUploadPartSize)
-        let progress = Progress(totalUnitCount: numParts)
+        // TODO: Handle versioning
         
-        Task {
-            do {
-                try await self.putS3Item(s3Item, withS3: self.s3!, fileURL: newContents, withProgress: progress, withLogger: self.logger)
-                completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
-            } catch {
-                self.logger.error("Upload failed with error \(error)")
-                completionHandler(nil, NSFileProviderItemFields(), false, error)
+        self.logger.debug("Should modify file \(s3Item.itemIdentifier.rawValue, privacy: .public)")
+        
+        if changedFields.contains(.contents) {
+            // Modified
+            switch s3Item.contentType {
+            case .symbolicLink:
+                // TODO: Handle symbolic links
+                self.logger.warning("Skipping symbolic link")
+                completionHandler(nil, [], false, FileProviderExtensionError.notImplemented)
+                return Progress()
+            case .folder:
+                // NOTE: This should never happen. You can't edit a folder content
+                self.logger.error("The system requested to modify a folder with contents. This is impossible!")
+                completionHandler(nil, [], false, FileProviderExtensionError.fatal)
+                return progress
+            default:
+                guard let contents = newContents else {
+                    completionHandler(nil, [], false, FileProviderExtensionError.fatal)
+                    return progress
+                }
+                
+                // Should upload new contents
+                self.logger.debug("Should upload modified file \(s3Item.filename, privacy: .public)")
+                
+                // TODO: If the upload succeeds, but the server shouldn't accept new contents (remote timestamp > local timestamp),
+                // inform the completion handler that the system no longer needs to apply the contents,
+                // but that it needs to refetch them.
+                // Report all remaining changes as pending.
+                
+                // TODO: Improve progress management with children
+                let numParts = Int64(s3Item.documentSize! as! Int / DefaultSettings.S3.multipartUploadPartSize)
+                
+                let putProgress = Progress(totalUnitCount: numParts)
+                progress.addChild(putProgress, withPendingUnitCount: numParts)
+                
+                Task {
+                    do {
+                        try await S3Lib.putS3Item(s3Item, withS3: self.s3!, fileURL: contents, withProgress: putProgress, withLogger: self.logger)
+                        completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
+                    } catch {
+                        self.logger.error("Upload failed with error \(error)")
+                        completionHandler(nil, NSFileProviderItemFields(), false, error)
+                    }
+                    
+                    putProgress.completedUnitCount = numParts
+                }
             }
+        } else if changedFields.contains(.filename) {
+            // Renamed
+            switch s3Item.contentType {
+            case .symbolicLink:
+                // TODO: Handle symbolic links
+                self.logger.warning("Skipping symbolic link")
+                completionHandler(nil, [], false, FileProviderExtensionError.notImplemented)
+                return progress
+            default:
+                // File/Folder rename
+                self.logger.debug("Rename detected for \(s3Item.itemIdentifier.rawValue) with name \(item.filename, privacy: .public)")
+                
+                Task {
+                    do {
+                        let s3Item = try await S3Lib.renameS3Item(s3Item, newName: item.filename, withS3: self.s3!, withProgress: progress, withLogger: self.logger)
+                        completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
+                    } catch {
+                        self.logger.error("Rename failed with error \(error)")
+                        completionHandler(nil, NSFileProviderItemFields(), false, error)
+                    }
+                }
+            }
+        } else if changedFields.contains(.parentItemIdentifier) {
+            // Move file/folder
+            self.logger.debug("Move detected for \(s3Item.filename, privacy: .public)")
             
-            progress.completedUnitCount = numParts
+            if options.contains(.mayAlreadyExist) {
+                // TODO: Handle move with overwrite
+            }
+        } else {
+            // Metadata changed
+            self.logger.debug("Metadata change detected for \(s3Item.filename, privacy: .public)")
         }
         
         progress.cancellationHandler = { completionHandler(nil, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)) }
@@ -315,10 +376,9 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             completionHandler(nil)
             return Progress()
         default:
-            self.logger.debug("Should delete file \(identifier.rawValue, privacy: .public)")
+            self.logger.debug("Should delete object \(identifier.rawValue, privacy: .public)")
             
             // TODO: Handle versioning
-            // TODO: Is it handling folders?
             
             let progress = Progress(totalUnitCount: 1)
             
@@ -330,7 +390,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                         objectMetadata: S3Item.Metadata(size: 0)
                     )
                     
-                    try await self.deleteS3Item(s3Item, withS3: self.s3!)
+                    try await S3Lib.deleteS3Item(s3Item, withS3: self.s3!, withProgress: progress, withLogger: self.logger)
                     
                     self.logger.debug("S3Item with identifier \(identifier.rawValue, privacy: .public) deleted successfully")
                     completionHandler(nil)

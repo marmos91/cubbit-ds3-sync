@@ -74,7 +74,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
             do {
                 let prefix: String? = self.drive.syncAnchor.prefix
                 
-                let (items, continuationToken) = try await self.listS3Items(
+                let (items, continuationToken) = try await S3Lib.listS3Items(
                     withS3: self.s3,
                     forDrive: self.drive,
                     withPrefix: prefix,
@@ -114,7 +114,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
                 }
         
                 // Fetch changes from the server since the anchor timestamp
-                let (changedItems, _) = try await self.listS3Items(
+                let (changedItems, _) = try await S3Lib.listS3Items(
                     withS3: self.s3,
                     forDrive: self.drive,
                     withPrefix: prefix,
