@@ -44,8 +44,16 @@ struct SetupSyncView: View {
                     syncSetupViewModel.selectSyncSetupStep(.anchorSelection)
                 }
                 .onComplete { ds3Drive in
-                    ds3DriveManager.add(drive: ds3Drive)
-                    dismiss()
+                    Task {
+                        do {
+                            try await ds3DriveManager.add(drive: ds3Drive)
+                        } catch {
+                            // TODO: Show error
+                            print("Error adding drive: \(error)")
+                        }
+                        
+                        dismiss()
+                    }
                 }
             }
         }

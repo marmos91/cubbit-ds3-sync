@@ -56,7 +56,14 @@ struct TrayDriveRowView: View {
                 
                 Menu {        
                     Button("Disconnect") {
-                        self.ds3DriveManager.disconnect(driveWithId: self.drive.id)
+                        Task {
+                            do {
+                                try await self.ds3DriveManager.disconnect(driveWithId: self.drive.id)
+                            } catch {
+                                // TODO: Show error
+                                print("Error disconnecting drive: \(error)")
+                            }
+                        }
                     }
                     
                     Button("View in Finder") {
@@ -74,7 +81,14 @@ struct TrayDriveRowView: View {
                     }
                     
                     Button("Refresh") {
-                        self.ds3DriveManager.reEnumerate(drive: self.drive)
+                        Task {
+                            do {
+                                try await self.ds3DriveManager.reEnumerate(drive: self.drive)
+                            } catch {
+                                // TODO: Show error
+                                print("Error refreshing drive: \(error)")
+                            }
+                        }
                     }
                 } label: {
                     Image(.settingsIcon)
