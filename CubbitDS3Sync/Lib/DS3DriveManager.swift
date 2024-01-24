@@ -16,6 +16,9 @@ enum DS3DriveManagerError: Error {
         self.drives = DS3DriveManager.loadFromDiskOrCreateNew()
         
         Task {
+            // TODO: remove this call as the enumerateChanges method is correctly implemented!
+            try await self.cleanFileProvider()
+            
             try await self.syncFileProvider()
         }
     }

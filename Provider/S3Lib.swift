@@ -395,6 +395,7 @@ struct S3Lib {
             
             logger?.debug("Deleting \(items.count) items")
             
+            // TODO: Improve this to better handle errors
             await withTaskGroup(of: Void.self) { group in
                 for item in items {
                     group.addTask {
@@ -409,9 +410,11 @@ struct S3Lib {
             }
         } while continuationToken != nil
         
-        // Delete folder itself
-        logger?.debug("Deleting enclosing folder \(s3Item.identifier.rawValue.removingPercentEncoding!)")
-        try await S3Lib.deleteS3Item(s3Item, withS3: s3, withProgress: progress, withLogger: logger, force: true)
+        if items.isEmpty {
+            // Delete folder itself
+            logger?.debug("Deleting enclosing folder \(s3Item.identifier.rawValue.removingPercentEncoding!)")
+            try await S3Lib.deleteS3Item(s3Item, withS3: s3, withProgress: progress, withLogger: logger, force: true)
+        }
     }
     
     @Sendable
@@ -518,6 +521,7 @@ struct S3Lib {
             
             logger?.debug("Should copy \(items.count) items")
             
+            // TODO: Improve this to go in parallel and better handle errors
             for item in items {
                 let newKey = item.identifier.rawValue.replacingOccurrences(of: prefix, with: newPrefix).removingPercentEncoding!
                 
@@ -534,8 +538,10 @@ struct S3Lib {
         } while continuationToken != nil
         
         // Copy folder itself
-        let newKey = s3Item.identifier.rawValue.replacingOccurrences(of: prefix, with: newPrefix).removingPercentEncoding!
-        logger?.debug("Copying enclosing folder \(s3Item.identifier.rawValue.removingPercentEncoding!)")
-        try await S3Lib.copyS3Item(s3Item, toKey: newKey, withS3: s3, withProgress: progress, withLogger: logger, force: true)
+        if items.isEmpty {
+            logger?.debug("Copying enclosing folder \(s3Item.identifier.rawValue.removingPercentEncoding!)")
+            let newKey = s3Item.identifier.rawValue.replacingOccurrences(of: prefix, with: newPrefix).removingPercentEncoding!
+            try await S3Lib.copyS3Item(s3Item, toKey: newKey, withS3: s3, withProgress: progress, withLogger: logger, force: true)
+        }
     }
 }
