@@ -499,6 +499,8 @@ class S3Lib {
             return try await self.s3.putObject(request)
         }
         
+        self.logger.debug("Standard PUT request for \(key) successful")
+        
         progress?.completedUnitCount += 1
     }
 
@@ -548,8 +550,6 @@ class S3Lib {
             self.logger.warning("Data is empty. Should have been processed as standard PUT request.")
         }
         
-        var retries = DefaultSettings.S3.maxRetries
-        
         while !data.isEmpty {
             do {
                 try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
@@ -591,7 +591,11 @@ class S3Lib {
         )
         
         // TODO: Should do something with this?
-        let _ = try await self.s3.completeMultipartUpload(completeMultipartRequest)
+        let _ = try await withRetries(retries: DefaultSettings.S3.maxRetries) {
+            return try await self.s3.completeMultipartUpload(completeMultipartRequest)
+        }
+        
+        self.logger.debug("Multipart upload request for \(key) successful")
     }
     
     /// Aborts a multipart upload for a given S3Item and uploadId

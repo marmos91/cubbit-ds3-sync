@@ -6,7 +6,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
 /* TODO: Handle suppression NSFileProviderUserInteractionSuppressing*/
 {
     typealias Logger = os.Logger
-    
+     
     private var logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "main")
     private let domain: NSFileProviderDomain
     private var enabled: Bool
@@ -19,6 +19,9 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
     private var endpoint: String? = nil
     
     let temporaryDirectory: URL?
+    
+    // Used to debounce status change notifications
+    var debounceTimer: Timer?
     
     required init(domain: NSFileProviderDomain) {
         self.enabled = false
@@ -133,6 +136,8 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         
         let progress = Progress(totalUnitCount: 100)
         
+        self.sendAppStatusNotification(status: .syncing)
+        
         Task {
             do {
                 let s3Item = try await self.s3Lib!.remoteS3Item(for: itemIdentifier, drive: self.drive!)
@@ -140,9 +145,11 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                 
                 self.logger.debug("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize, privacy: .public) downloaded successfully at \(fileURL, privacy: .public)")
                 
+                self.sendAppStatusNotificationWithDebounce(status: .idle)
                 completionHandler(fileURL, s3Item, nil)
             } catch {
                 self.logger.error("Download failed with error \(error)")
+                self.sendAppStatusNotificationWithDebounce(status: .error)
                 completionHandler(nil, nil, error)
             }
             
@@ -183,8 +190,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         // as part of the userInfo on the way back. See DomainService.Entry's
         // database initializer.
         
-        // TODO: Only upload files if they have content (check FruitBasket)
-        
         guard itemTemplate.contentType != .symbolicLink else {
             self.logger.warning("Skipping symbolic link \(itemTemplate.itemIdentifier.rawValue, privacy: .public) upload. Feature not supported")
             completionHandler(itemTemplate, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [:]))
@@ -214,21 +219,22 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             objectMetadata: S3Item.Metadata(size: itemSize ?? 0)
         )
         
-        self.logger.debug("Should upload item with key \(key, privacy: .public) and filename \(itemTemplate.filename, privacy: .public) with size \(itemTemplate.documentSize!, privacy: .public)")
-        
         let numParts = max(Int64(s3Item.documentSize! as! Int / DefaultSettings.S3.multipartUploadPartSize), 1)
         let progress = Progress(totalUnitCount: numParts)
+        self.sendAppStatusNotification(status: .syncing)
         
         Task {
             do {
                 try await self.s3Lib!.putS3Item(s3Item, fileURL: url, withProgress: progress)
-                completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
             } catch {
                 self.logger.error("Upload failed with error \(error)")
+                self.sendAppStatusNotificationWithDebounce(status: .error)
                 completionHandler(nil, NSFileProviderItemFields(), false, error)
             }
             
             progress.completedUnitCount = numParts
+            self.sendAppStatusNotificationWithDebounce(status: .idle)
+            completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
         }
         
         progress.cancellationHandler = { completionHandler(nil, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)) }
@@ -260,8 +266,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         
         // TODO: Handle versioning
         
-        self.logger.debug("Should modify file \(s3Item.itemIdentifier.rawValue, privacy: .public)")
-        
         if changedFields.contains(.contents) {
             // Modified
             switch s3Item.contentType {
@@ -281,9 +285,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                     return progress
                 }
                 
-                // Should upload new contents
-                self.logger.debug("Should upload modified file \(s3Item.filename, privacy: .public)")
-                
                 // TODO: If the upload succeeds, but the server shouldn't accept new contents (remote timestamp > local timestamp),
                 // inform the completion handler that the system no longer needs to apply the contents,
                 // but that it needs to refetch them.
@@ -294,17 +295,20 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                 
                 let putProgress = Progress(totalUnitCount: numParts)
                 progress.addChild(putProgress, withPendingUnitCount: numParts)
+                self.sendAppStatusNotification(status: .syncing)
                 
                 Task {
                     do {
                         try await self.s3Lib!.putS3Item(s3Item, fileURL: contents, withProgress: putProgress)
-                        completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
                     } catch {
                         self.logger.error("Upload failed with error \(error)")
+                        self.sendAppStatusNotificationWithDebounce(status: .error)
                         completionHandler(nil, NSFileProviderItemFields(), false, error)
                     }
                     
                     putProgress.completedUnitCount = numParts
+                    self.sendAppStatusNotificationWithDebounce(status: .idle)
+                    completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
                 }
             }
         } else if changedFields.contains(.filename) {
@@ -319,12 +323,17 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                 // File/Folder rename
                 self.logger.debug("Rename detected for \(s3Item.itemIdentifier.rawValue) with name \(item.filename, privacy: .public)")
                 
+                self.sendAppStatusNotification(status: .syncing)
+                
                 Task {
                     do {
                         let s3Item = try await self.s3Lib!.renameS3Item(s3Item, newName: item.filename, withProgress: progress)
+                        
+                        self.sendAppStatusNotificationWithDebounce(status: .idle)
                         completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
                     } catch {
                         self.logger.error("Rename failed with error \(error)")
+                        self.sendAppStatusNotificationWithDebounce(status: .error)
                         completionHandler(nil, NSFileProviderItemFields(), false, error)
                     }
                 }
@@ -365,11 +374,10 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             completionHandler(nil)
             return Progress()
         default:
-            self.logger.debug("Should delete object \(identifier.rawValue, privacy: .public)")
-            
             // TODO: Handle versioning
             
             let progress = Progress(totalUnitCount: 1)
+            self.sendAppStatusNotification(status: .syncing)
             
             Task {
                 do {
@@ -380,15 +388,17 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                     )
                     
                     try await self.s3Lib!.deleteS3Item(s3Item, withProgress: progress)
-                    
                     self.logger.debug("S3Item with identifier \(identifier.rawValue, privacy: .public) deleted successfully")
-                    completionHandler(nil)
+                    
                 } catch {
                     self.logger.error("An error occurred while deleting file \(identifier.rawValue, privacy: .public): \(error, privacy: .public)")
+                    self.sendAppStatusNotificationWithDebounce(status: .error)
                     completionHandler(error)
                 }
                 
                 progress.completedUnitCount = 1
+                self.sendAppStatusNotificationWithDebounce(status: .idle)
+                completionHandler(nil)
             }
             
             return progress

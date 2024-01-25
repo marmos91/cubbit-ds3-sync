@@ -68,5 +68,7 @@ struct ManageDS3DriveView: View {
             status: .sync
         )
     )
-    .environment(DS3DriveManager())
+    .environment(
+        DS3DriveManager()
+    )
 }

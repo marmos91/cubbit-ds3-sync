@@ -25,7 +25,7 @@ func withRetries<T>(
         } catch {
             retries -= 1
             
-            logger?.error("An error occurred: \(error): remaining retries \(retries)")
+            logger?.error("\(error.localizedDescription): remaining retries \(retries)")
             
             if retries == 0 {
                 throw error

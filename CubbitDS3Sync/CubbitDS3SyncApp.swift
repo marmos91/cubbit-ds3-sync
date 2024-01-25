@@ -10,6 +10,8 @@ struct ds3syncApp: App {
     
     @State var showTrayIcon: Bool = true
     @State var ds3Authentication: DS3Authentication = DS3Authentication.loadFromPersistenceOrCreateNew()
+    
+    var appStatusManager = AppStatusManager()
     var ds3DriveManager = DS3DriveManager()
     
     var body: some Scene {
@@ -78,8 +80,20 @@ struct ds3syncApp: App {
             TrayMenuView()
                 .environment(ds3Authentication)
                 .environment(ds3DriveManager)
+                .environment(appStatusManager)
         } label: {
-            Image(.trayIcon)
+            switch appStatusManager.status {
+            case .idle:
+                Image(.trayIcon)
+            case .syncing:
+                Image(.trayIconSync)
+            case .error:
+                Image(.trayIconError)
+            case .info:
+                Image(.trayIconInfo)
+            case .offline:
+                Image(.trayIconOffline)
+            }
         }
         .menuBarExtraStyle(.window)
         .commandsRemoved()

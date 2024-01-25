@@ -183,7 +183,9 @@ struct TrayDriveRowView: View {
                 status: .sync
             )
         )
-        .environment(DS3DriveManager())
+        .environment(
+            DS3DriveManager()
+        )
         
         Divider()
         
@@ -221,6 +223,8 @@ struct TrayDriveRowView: View {
                 status: .sync
             )
         )
-        .environment(DS3DriveManager())
+        .environment(
+            DS3DriveManager()
+        )
     }
 }

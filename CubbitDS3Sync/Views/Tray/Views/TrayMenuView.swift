@@ -17,7 +17,8 @@ struct TrayDriveSectionView: View {
 struct TrayMenuView: View {
     @Environment(\.openURL) var openURL
     @Environment(\.openWindow) var openWindow
-    @Environment(DS3DriveManager.self) var ds3DriveManager
+    @Environment(DS3DriveManager.self) var ds3DriveManager: DS3DriveManager
+    @Environment(AppStatusManager.self) var appStatusManager: AppStatusManager
     
     var body: some View {
         ZStack {
@@ -69,7 +70,10 @@ struct TrayMenuView: View {
                 
                 Divider()
                 
-                TrayMenuFooterView(version: DefaultSettings.appVersion)
+                TrayMenuFooterView(
+                    status: appStatusManager.status.toString(),
+                    version: DefaultSettings.appVersion
+                )
             }
         }
         .frame(
@@ -85,5 +89,7 @@ struct TrayMenuView: View {
 
 #Preview {
     TrayMenuView()
-        .environment(DS3DriveManager())
+        .environment(
+            DS3DriveManager()
+        )
 }
