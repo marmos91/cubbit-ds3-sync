@@ -142,7 +142,10 @@ class S3Lib {
             key: key
         )
         
-        let response = try await self.s3.headObject(request)
+        let response = try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
+            return try await self.s3.headObject(request)
+        }
+        
         let fileSize = response.contentLength ?? 0
 
         return S3Item(
@@ -187,7 +190,9 @@ class S3Lib {
         )
         
         // TODO: Should we use the response?
-        let _ = try await self.s3.deleteObject(request)
+        let _ = try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
+            return try await self.s3.deleteObject(request)
+        }
         
         deleteProgress.completedUnitCount += 1
     }
@@ -220,17 +225,14 @@ class S3Lib {
             
             self.logger.debug("Deleting \(items.count) items")
             
-            // TODO: Improve this to better handle errors
-            await withTaskGroup(of: Void.self) { group in
-                for item in items {
-                    group.addTask {
-                        do {
-                            try await self.deleteS3Item(item, withProgress: progress)
-                        } catch {
-                            // TODO: Handle error correctly
-                            self.logger.error("An error occurred while deleting \(item.itemIdentifier.rawValue): \(error)")
-                        }
-                    }
+            while !items.isEmpty {
+                let item = items.removeFirst()
+                    
+                try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
+                    return try await self.deleteS3Item(
+                        item,
+                        withProgress: progress
+                    )
                 }
             }
         } while continuationToken != nil
@@ -358,17 +360,19 @@ class S3Lib {
             
             self.logger.debug("Should copy \(items.count) items")
             
-            // TODO: Improve this to go in parallel and better handle errors
-            for item in items {
+            while !items.isEmpty {
+                let item = items.removeFirst()
                 let newKey = item.identifier.rawValue.replacingOccurrences(of: prefix, with: newPrefix).removingPercentEncoding!
                 
                 self.logger.debug("New key is \(newKey)")
                 
-                try await self.copyS3Item(
-                    item,
-                    toKey: newKey,
-                    withProgress: progress
-                )
+                try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
+                    return try await self.copyS3Item(
+                        item,
+                        toKey: newKey,
+                        withProgress: progress
+                    )
+                }
             }
         } while continuationToken != nil
         
@@ -413,21 +417,23 @@ class S3Lib {
         )
         
         do {
-            let _ = try await self.s3.getObjectStreaming(request) { byteBuffer, eventLoop in
-                let bufferSize = Int64(byteBuffer.readableBytes)
-                let bytesToWrite = Data([UInt8](byteBuffer.readableBytesView))
-            
-                fileHandle.write(bytesToWrite)
-                
-                bytesDownloaded += bufferSize
-                
-                if fileSize > 0 {
-                    let percentage = (Double(bytesDownloaded) / Double(fileSize))
+            let _ = try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
+                return try await self.s3.getObjectStreaming(request) { byteBuffer, eventLoop in
+                    let bufferSize = Int64(byteBuffer.readableBytes)
+                    let bytesToWrite = Data([UInt8](byteBuffer.readableBytesView))
                     
-                    progress?.completedUnitCount = Int64(percentage * 100)
+                    fileHandle.write(bytesToWrite)
+                    
+                    bytesDownloaded += bufferSize
+                    
+                    if fileSize > 0 {
+                        let percentage = (Double(bytesDownloaded) / Double(fileSize))
+                        
+                        progress?.completedUnitCount = Int64(percentage * 100)
+                    }
+                    
+                    return eventLoop.makeSucceededFuture(())
                 }
-                
-                return eventLoop.makeSucceededFuture(())
             }
             
             fileHandle.closeFile()
@@ -489,7 +495,9 @@ class S3Lib {
         
         self.logger.debug("Sending standard PUT request for \(key)")
         
-        let _ = try await s3.putObject(request)
+        let _ = try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
+            return try await self.s3.putObject(request)
+        }
         
         progress?.completedUnitCount += 1
     }
@@ -544,37 +552,32 @@ class S3Lib {
         
         while !data.isEmpty {
             do {
-                let uploadPartRequest = S3.UploadPartRequest(
-                    body: .byteBuffer(ByteBuffer(data: data)),
-                    bucket: s3Item.drive.syncAnchor.bucket.name,
-                    key: key,
-                    partNumber: partNumber,
-                    uploadId: uploadId
-                )
-                
-                let uploadPartResponse = try await self.s3.uploadPart(uploadPartRequest)
-                
-                let eTag = uploadPartResponse.eTag ?? ""
-                
-                self.logger.debug("Got eTag: \(eTag)")
-                
-                completedParts.append(S3.CompletedPart(eTag: eTag, partNumber: partNumber))
-                
-                offset += data.count
-                partNumber += 1
-                
-                progress?.completedUnitCount += 1
-                
-                data = fileHandle.readData(ofLength: partSize)
-            } catch {
-                if retries == 0 {
-                    try await self.abortS3MultipartUpload(for: s3Item, withUploadId: uploadId)
-                    throw error
+                try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
+                    let uploadPartRequest = S3.UploadPartRequest(
+                        body: .byteBuffer(ByteBuffer(data: data)),
+                        bucket: s3Item.drive.syncAnchor.bucket.name,
+                        key: key,
+                        partNumber: partNumber,
+                        uploadId: uploadId
+                    )
+                    
+                    let uploadPartResponse = try await self.s3.uploadPart(uploadPartRequest)
+                    
+                    let eTag = uploadPartResponse.eTag ?? ""
+                    
+                    self.logger.debug("Got eTag: \(eTag)")
+                    
+                    completedParts.append(S3.CompletedPart(eTag: eTag, partNumber: partNumber))
+                    
+                    offset += data.count
+                    partNumber += 1
+                    
+                    progress?.completedUnitCount += 1
+                    
+                    data = fileHandle.readData(ofLength: partSize)
                 }
-                
-                self.logger.warning("Error uploading part: \(error), retrying (\(retries) retries remaining)...")
-                
-                retries -= 1
+            } catch {
+                try await self.abortS3MultipartUpload(for: s3Item, withUploadId: uploadId)
             }
         }
         
@@ -610,6 +613,8 @@ class S3Lib {
             uploadId: uploadId
         )
         
-        let _ = try await self.s3.abortMultipartUpload(abortRequest)
+        let _ = try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
+            return try await self.s3.abortMultipartUpload(abortRequest)
+        }
     }
 }

@@ -14,6 +14,8 @@
 		D54775C72B57181D00DABCD4 /* CubbitDS3SyncApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54775C62B57181D00DABCD4 /* CubbitDS3SyncApp.swift */; };
 		D54775D72B57185100DABCD4 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = D54775D52B57185100DABCD4 /* README.md */; };
 		D54775D82B57185100DABCD4 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = D54775D62B57185100DABCD4 /* LICENSE */; };
+		D59B743C2B62690B0088605A /* ControlFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D59B743B2B62690B0088605A /* ControlFlow.swift */; };
+		D59B743D2B62690B0088605A /* ControlFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D59B743B2B62690B0088605A /* ControlFlow.swift */; };
 		D5A221462B571F1700F1413B /* DS3Lib.h in Headers */ = {isa = PBXBuildFile; fileRef = D5A221452B571F1700F1413B /* DS3Lib.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D5A221492B571F1700F1413B /* DS3Lib.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D5A221432B571F1700F1413B /* DS3Lib.framework */; };
 		D5A2214B2B571F1700F1413B /* DS3Lib.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = D5A221432B571F1700F1413B /* DS3Lib.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -243,6 +245,7 @@
 		D54775CC2B57181E00DABCD4 /* CubbitDS3Sync.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CubbitDS3Sync.entitlements; sourceTree = "<group>"; };
 		D54775D52B57185100DABCD4 /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		D54775D62B57185100DABCD4 /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		D59B743B2B62690B0088605A /* ControlFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlFlow.swift; sourceTree = "<group>"; };
 		D5A2213D2B571D5E00F1413B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D5A221432B571F1700F1413B /* DS3Lib.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DS3Lib.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D5A221452B571F1700F1413B /* DS3Lib.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DS3Lib.h; sourceTree = "<group>"; };
@@ -474,6 +477,7 @@
 				D5A2216D2B571F5100F1413B /* System.swift */,
 				D5A2216E2B571F5100F1413B /* URLs+Extensions.swift */,
 				D5A2216F2B571F5100F1413B /* Bundle+Extensions.swift */,
+				D59B743B2B62690B0088605A /* ControlFlow.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -1073,6 +1077,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D5A221772B571F5100F1413B /* AccountSession.swift in Sources */,
+				D59B743C2B62690B0088605A /* ControlFlow.swift in Sources */,
 				D5A221782B571F5100F1413B /* Challenge.swift in Sources */,
 				D5A221752B571F5100F1413B /* IAMUser.swift in Sources */,
 				D5A221792B571F5100F1413B /* Project.swift in Sources */,
@@ -1109,6 +1114,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D54002A02B5EAEB000B54E97 /* S3Lib.swift in Sources */,
+				D59B743D2B62690B0088605A /* ControlFlow.swift in Sources */,
 				D5A222492B57211500F1413B /* FileProviderExtension.swift in Sources */,
 				D5A222742B57217900F1413B /* Challenge.swift in Sources */,
 				D5A222892B5721CC00F1413B /* S3Item.swift in Sources */,
