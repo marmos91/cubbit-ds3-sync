@@ -13,6 +13,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
     
     private var drive: DS3Drive? = nil
     private var s3: S3? = nil
+    private var s3Lib: S3Lib? = nil
     
     private var apiKeys: DS3ApiKey? = nil
     private var endpoint: String? = nil
@@ -45,6 +46,8 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                 endpoint: self.endpoint!,
                 timeout: .seconds(DefaultSettings.S3.timeoutInSeconds)
             )
+            
+            self.s3Lib = S3Lib(withS3: self.s3!)
             
             // TODO: Look for changes in the sharedDefaults to update
 //            observation = observedDefaults.observe(\.blockedProcesses, options: [.initial, .new]) { _, change in
@@ -95,7 +98,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             
             Task {
                 do {
-                    let metadata = try await S3Lib.remoteS3Item(for: identifier, withS3: self.s3!, drive: self.drive!)
+                    let metadata = try await self.s3Lib!.remoteS3Item(for: identifier, drive: self.drive!)
                     completionHandler(metadata, nil)
                 } catch {
                     completionHandler(nil, error)
@@ -134,8 +137,8 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         
         Task {
             do {
-                let s3Item = try await S3Lib.remoteS3Item(for: itemIdentifier, withS3: self.s3!, drive: self.drive!)
-                let fileURL = try await S3Lib.getS3Item(s3Item, withS3: self.s3!, withTemporaryFolder: self.temporaryDirectory, withProgress: progress)
+                let s3Item = try await self.s3Lib!.remoteS3Item(for: itemIdentifier, drive: self.drive!)
+                let fileURL = try await self.s3Lib!.getS3Item(s3Item, withTemporaryFolder: self.temporaryDirectory, withProgress: progress)
                 
                 self.logger.debug("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize, privacy: .public) downloaded successfully at \(fileURL, privacy: .public)")
                 
@@ -220,7 +223,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         
         Task {
             do {
-                try await S3Lib.putS3Item(s3Item, withS3: self.s3!, fileURL: url, withProgress: progress, withLogger: self.logger)
+                try await self.s3Lib!.putS3Item(s3Item, fileURL: url, withProgress: progress)
                 completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
             } catch {
                 self.logger.error("Upload failed with error \(error)")
@@ -296,7 +299,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                 
                 Task {
                     do {
-                        try await S3Lib.putS3Item(s3Item, withS3: self.s3!, fileURL: contents, withProgress: putProgress, withLogger: self.logger)
+                        try await self.s3Lib!.putS3Item(s3Item, fileURL: contents, withProgress: putProgress)
                         completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
                     } catch {
                         self.logger.error("Upload failed with error \(error)")
@@ -320,7 +323,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                 
                 Task {
                     do {
-                        let s3Item = try await S3Lib.renameS3Item(s3Item, newName: item.filename, withS3: self.s3!, withProgress: progress, withLogger: self.logger)
+                        let s3Item = try await self.s3Lib!.renameS3Item(s3Item, newName: item.filename, withProgress: progress)
                         completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
                     } catch {
                         self.logger.error("Rename failed with error \(error)")
@@ -378,7 +381,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                         objectMetadata: S3Item.Metadata(size: 0)
                     )
                     
-                    try await S3Lib.deleteS3Item(s3Item, withS3: self.s3!, withProgress: progress, withLogger: self.logger)
+                    try await self.s3Lib!.deleteS3Item(s3Item, withProgress: progress)
                     
                     self.logger.debug("S3Item with identifier \(identifier.rawValue, privacy: .public) deleted successfully")
                     completionHandler(nil)
@@ -412,7 +415,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             // NOTE: The system is requesting the whole working set (probably to index it via spotlight
             return WorkingSetS3Enumerator(
                 parent: containerItemIdentifier,
-                s3: self.s3!,
+                s3Lib: self.s3Lib!,
                 drive: self.drive!
             )
             
@@ -420,7 +423,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             // NOTE: The user is navigating the finder
             return S3Enumerator(
                 parent: containerItemIdentifier,
-                s3: self.s3!,
+                s3Lib: self.s3Lib!,
                 drive: self.drive!
             )
         }

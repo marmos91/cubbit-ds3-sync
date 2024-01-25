@@ -16,7 +16,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
     private let parent: NSFileProviderItemIdentifier
     private let anchor = SharedData.shared.loadSyncAnchorOrCreate()
     
-    private let s3: S3
+    private let s3Lib: S3Lib
     private var drive: DS3Drive
     private let recursively: Bool
     
@@ -35,12 +35,12 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
     
     init(
         parent: NSFileProviderItemIdentifier,
-        s3: S3,
+        s3Lib: S3Lib,
         drive: DS3Drive,
         recursive: Bool = false
     ) {
         self.parent = parent
-        self.s3 = s3
+        self.s3Lib = s3Lib
         self.drive = drive
         self.recursively = recursive
         
@@ -76,8 +76,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
                 
                 self.logger.debug("Enumerating items for prefix \(prefix ?? "nil")")
                 
-                let (items, continuationToken) = try await S3Lib.listS3Items(
-                    withS3: self.s3,
+                let (items, continuationToken) = try await self.s3Lib.listS3Items(
                     forDrive: self.drive,
                     withPrefix: prefix,
                     recursively: self.recursively,
@@ -118,13 +117,11 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
                 }
                  
                 // Fetch changes from the server since the anchor timestamp
-                let (changedItems, _) = try await S3Lib.listS3Items(
-                    withS3: self.s3,
+                let (changedItems, _) = try await self.s3Lib.listS3Items(
                     forDrive: self.drive,
                     withPrefix: prefix,
                     recursively: self.recursively,
-                    fromDate: anchor.toDate(),
-                    withLogger: self.logger
+                    fromDate: anchor.toDate()
                 )
 
                 var newAnchor = anchor
@@ -156,11 +153,11 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
 class WorkingSetS3Enumerator: S3Enumerator {
     init(
         parent: NSFileProviderItemIdentifier,
-        s3: S3,
+        s3Lib: S3Lib,
         drive: DS3Drive
     ) {
         // Enumerate everything from the root, recursively.
         
-        super.init(parent: parent, s3: s3, drive: drive, recursive: true)
+        super.init(parent: parent, s3Lib: s3Lib, drive: drive, recursive: true)
     }
 }
