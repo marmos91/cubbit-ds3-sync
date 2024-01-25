@@ -1,7 +1,8 @@
 import Foundation
 
 extension FileProviderExtension {
-
+    /// Sends a notification to the app with the current status of the extension debounced. If you want to send the notification immediately, use `sendAppStatusNotification(status: AppStatus)`
+    /// - Parameter status: status to send
     func sendAppStatusNotificationWithDebounce(status: AppStatus) {
         self.debounceTimer?.invalidate()
 
@@ -16,6 +17,8 @@ extension FileProviderExtension {
         }
     }
     
+    /// Sends a notification to the app with the current status of the extension. If you want to debounce the notification, use `sendAppStatusNotificationWithDebounce(status: AppStatus)`
+    /// - Parameter status: the status to sendc
     func sendAppStatusNotification(status: AppStatus) {
         DistributedNotificationCenter
             .default()
