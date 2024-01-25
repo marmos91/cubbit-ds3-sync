@@ -133,8 +133,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         
         let progress = Progress(totalUnitCount: 100)
         
-        self.logger.debug("Should download item with identifier \(itemIdentifier.rawValue, privacy: .public)")
-        
         Task {
             do {
                 let s3Item = try await self.s3Lib!.remoteS3Item(for: itemIdentifier, drive: self.drive!)
