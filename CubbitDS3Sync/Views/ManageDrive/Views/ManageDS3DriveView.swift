@@ -9,7 +9,12 @@ struct ManageDS3DriveView: View {
     var body: some View {
         SyncRecapMainView(shouldDisplayBack: false)
             .onComplete {
-                self.ds3DriveManager.update(drive: $0)
+                do {
+                    try self.ds3DriveManager.update(drive: $0)
+                } catch {
+                    print("Error updating drive: \(error)")
+                }
+                
                 dismiss()
             }
             .environment(

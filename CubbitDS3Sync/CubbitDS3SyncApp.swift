@@ -55,6 +55,7 @@ struct ds3syncApp: App {
                         account: ds3Authentication.account!
                     )
                 )
+                .environment(ds3DriveManager)
             }
         }
         .windowResizability(.contentSize)

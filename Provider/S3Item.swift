@@ -10,9 +10,9 @@ class S3Item: NSObject, NSFileProviderItem {
     let identifier: NSFileProviderItemIdentifier
     
     private let logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "S3Item")
-    private let metadata: S3Item.Metadata
     private let separator = DefaultSettings.S3.delimiter
     
+    let metadata: S3Item.Metadata
     let drive: DS3Drive
     
     init(
@@ -29,6 +29,15 @@ class S3Item: NSObject, NSFileProviderItem {
         } else {
             self.identifier = identifier
         }
+    }
+    
+    init(from item: NSFileProviderItem, drive: DS3Drive) {
+        self.identifier = item.itemIdentifier
+        self.drive = drive
+        self.metadata = S3Item.Metadata(
+            lastModified: item.contentModificationDate as? Date,
+            size: (item.documentSize ?? 0) ?? 0
+        )
     }
     
     var itemIdentifier: NSFileProviderItemIdentifier {
@@ -48,7 +57,7 @@ class S3Item: NSObject, NSFileProviderItem {
         
         return NSFileProviderItemIdentifier(parentIdentifier + String(self.separator))
     }
-    
+
     var filename: String {
         let components = self.identifier.rawValue.split(separator: self.separator)
         let name = String(components.last ?? "")
@@ -79,6 +88,10 @@ class S3Item: NSObject, NSFileProviderItem {
         let type: UTType = self.identifier.rawValue.last! == self.separator ? .folder : .item
     
         return type
+    }
+    
+    var isFolder: Bool {
+        return self.contentType == .folder || self.contentType == .directory
     }
     
     var extendedAttributes: [String: Data] {

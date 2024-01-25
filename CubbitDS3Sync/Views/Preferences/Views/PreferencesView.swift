@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PreferencesView: View {
     @AppStorage(DefaultSettings.UserDefaultsKeys.loginItemSet) var loginItemSet: Bool = DefaultSettings.loginItemSet
+    @Environment(DS3DriveManager.self) var ds3DriveManager: DS3DriveManager
     
     @State var startAtLogin: Bool = DefaultSettings.appIsLoginItem
     var preferencesViewModel: PreferencesViewModel
@@ -109,7 +110,16 @@ struct PreferencesView: View {
                 .padding(.bottom)
                 
                 Button("Disconnect account") {
-                    preferencesViewModel.disconnectAccount()
+                    Task {
+                        do {
+                            try await ds3DriveManager.cleanFileProvider()
+                        } catch {
+                            // TODO: show error
+                            print("Error cleaning file provider: \(error)")
+                        }
+                        
+                        preferencesViewModel.disconnectAccount()
+                    }
                 }
                 .frame(width: 200)
                 .buttonStyle(OutlineButtonStyle())

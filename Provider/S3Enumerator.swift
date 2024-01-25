@@ -16,7 +16,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
     private let parent: NSFileProviderItemIdentifier
     private let anchor = SharedData.shared.loadSyncAnchorOrCreate()
     
-    private let s3: S3
+    private let s3Lib: S3Lib
     private var drive: DS3Drive
     private let recursively: Bool
     
@@ -35,12 +35,12 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
     
     init(
         parent: NSFileProviderItemIdentifier,
-        s3: S3,
+        s3Lib: S3Lib,
         drive: DS3Drive,
         recursive: Bool = false
     ) {
         self.parent = parent
-        self.s3 = s3
+        self.s3Lib = s3Lib
         self.drive = drive
         self.recursively = recursive
         
@@ -74,8 +74,9 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
             do {
                 let prefix: String? = self.drive.syncAnchor.prefix
                 
-                let (items, continuationToken) = try await self.listS3Items(
-                    withS3: self.s3,
+                self.logger.debug("Enumerating items for prefix \(prefix ?? "nil")")
+                
+                let (items, continuationToken) = try await self.s3Lib.listS3Items(
                     forDrive: self.drive,
                     withPrefix: prefix,
                     recursively: self.recursively,
@@ -108,14 +109,15 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
             do {
                 let prefix: String? = self.drive.syncAnchor.prefix
                 
+                self.logger.debug("Enumerating changes for prefix \(prefix ?? "nil")")
+                
                 if self.parent == .trashContainer {
                     // NOTE: skipping trash
                     return observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
                 }
-        
+                 
                 // Fetch changes from the server since the anchor timestamp
-                let (changedItems, _) = try await self.listS3Items(
-                    withS3: self.s3,
+                let (changedItems, _) = try await self.s3Lib.listS3Items(
                     forDrive: self.drive,
                     withPrefix: prefix,
                     recursively: self.recursively,
@@ -125,11 +127,15 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
                 var newAnchor = anchor
                 
                 if changedItems.count > 0 {
+                    self.logger.debug("Found \(changedItems.count) changes")
+                    
                     observer.didUpdate(changedItems)
                     newAnchor = NSFileProviderSyncAnchor(Date())
                     
                     SharedData.shared.persistSyncAnchor(newAnchor)
                 }
+                
+                self.logger.debug("Anchor is \(newAnchor.toDate())")
                 
                 // TODO: process remotely deleted files
                 // Notify the observer about deletions
@@ -147,11 +153,11 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
 class WorkingSetS3Enumerator: S3Enumerator {
     init(
         parent: NSFileProviderItemIdentifier,
-        s3: S3,
+        s3Lib: S3Lib,
         drive: DS3Drive
     ) {
         // Enumerate everything from the root, recursively.
         
-        super.init(parent: parent, s3: s3, drive: drive, recursive: true)
+        super.init(parent: parent, s3Lib: s3Lib, drive: drive, recursive: true)
     }
 }

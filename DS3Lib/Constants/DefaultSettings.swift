@@ -57,5 +57,6 @@ enum DefaultSettings {
         static let multipartUploadPartSize = 5 * 1024 * 1024
         static let multipartThreshold = 5 * 1024 * 1024
         static let timeoutInSeconds: Int64 = 5 * 60
+        static let maxRetries = 5
     }
 }
