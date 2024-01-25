@@ -1,22 +1,9 @@
 import SwiftUI
 
-struct TrayDriveSectionView: View {
-    @Environment(DS3DriveManager.self) var ds3DriveManager: DS3DriveManager
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            ForEach(ds3DriveManager.drives, id: \.self) { drive in
-                TrayDriveRowView(drive: drive)
-                
-                Divider()
-            }
-        }
-    }
-}
-
 struct TrayMenuView: View {
     @Environment(\.openURL) var openURL
     @Environment(\.openWindow) var openWindow
+    
     @Environment(DS3DriveManager.self) var ds3DriveManager: DS3DriveManager
     @Environment(AppStatusManager.self) var appStatusManager: AppStatusManager
     
@@ -26,8 +13,11 @@ struct TrayMenuView: View {
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
-                TrayDriveSectionView()
-                    .environment(ds3DriveManager)
+                ForEach(ds3DriveManager.drives, id: \.id) { drive in
+                    TrayDriveRowView(driveId: drive.id, driveName: drive.name, driveStatus: drive.status)
+                    
+                    Divider()
+                }
                 
                 TrayMenuItem(
                     title: self.canAddMoreDrives() ? NSLocalizedString("Add a new Drive", comment: "Tray menu add new drive") : NSLocalizedString("You have reached the maximum number of Drives", comment: "Tray menu add new drive disabled"),
@@ -90,6 +80,9 @@ struct TrayMenuView: View {
 #Preview {
     TrayMenuView()
         .environment(
-            DS3DriveManager()
+            AppStatusManager.default()
+        )
+        .environment(
+            DS3DriveManager(appStatusManager: AppStatusManager.default())
         )
 }

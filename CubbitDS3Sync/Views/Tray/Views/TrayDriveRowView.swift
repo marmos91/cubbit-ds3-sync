@@ -1,7 +1,9 @@
 import SwiftUI
 
 struct TrayDriveRowView: View {
-    var drive: DS3Drive
+    var driveId: UUID
+    var driveName: String
+    var driveStatus: DS3DriveStatus
     
     @Environment(\.openWindow) var openWindow
     @Environment(\.openURL) var openURL
@@ -12,7 +14,7 @@ struct TrayDriveRowView: View {
     var body: some View {
         HStack {
             HStack {
-                switch drive.status {
+                switch self.driveStatus {
                 case .sync:
                     Image(.driveSyncIcon)
                         .resizable()
@@ -36,11 +38,11 @@ struct TrayDriveRowView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(drive.name)
+                    Text(driveName)
                         .font(.custom("Nunito", size: 14))
                         .padding(.bottom, 2)
                     
-                    Text(self.formatDriveName())
+                    Text(ds3DriveManager.driveSyncAnchorString(driveId: driveId) ?? "")
                         .font(.custom("Nunito", size: 12))
                         .padding(.vertical, 2)
                         .foregroundStyle(Color(.darkWhite))
@@ -58,7 +60,7 @@ struct TrayDriveRowView: View {
                     Button("Disconnect") {
                         Task {
                             do {
-                                try await self.ds3DriveManager.disconnect(driveWithId: self.drive.id)
+                                try await self.ds3DriveManager.disconnect(driveWithId: self.driveId)
                             } catch {
                                 // TODO: Show error
                                 print("Error disconnecting drive: \(error)")
@@ -68,22 +70,24 @@ struct TrayDriveRowView: View {
                     
                     Button("View in Finder") {
                         Task {
-                            try await self.ds3DriveManager.openFinder(forDrive: self.drive)
+                            try await self.ds3DriveManager.openFinder(forDriveId: self.driveId)
                         }
                     }
                     
                     Button("View in web console") {
-                        openURL(URL(string: self.consoleURL())!)
+                        if let consoleURL = ds3DriveManager.consoleURL(driveId: self.driveId) {
+                            openURL(URL(string: consoleURL)!)
+                        }
                     }
                     
                     Button("Manage") {
-                        openWindow(id: "io.cubbit.CubbitDS3Sync.drive.manage", value: self.drive)
+                        openWindow(id: "io.cubbit.CubbitDS3Sync.drive.manage", value: self.driveId)
                     }
                     
                     Button("Refresh") {
                         Task {
                             do {
-                                try await self.ds3DriveManager.reEnumerate(drive: self.drive)
+                                try await self.ds3DriveManager.reEnumerate(driveId: self.driveId)
                             } catch {
                                 // TODO: Show error
                                 print("Error refreshing drive: \(error)")
@@ -109,6 +113,11 @@ struct TrayDriveRowView: View {
                 .fixedSize()
             }
         }
+        .onTapGesture {
+            Task {
+                try await self.ds3DriveManager.openFinder(forDriveId: self.driveId)
+            }
+        }
         .onHover{ hovering in
             isHover = hovering
         }
@@ -118,26 +127,6 @@ struct TrayDriveRowView: View {
         )
         
         // TODO: Add file status?
-    }
-                                
-    func consoleURL() -> String {
-        var url =  "\(ConsoleURLs.projectsURL)/\(self.drive.syncAnchor.project.id)/buckets/\(self.drive.syncAnchor.bucket.name)"
-        
-        if self.drive.syncAnchor.prefix != nil {
-            url += "/\(self.drive.syncAnchor.prefix!)"
-        }
-        
-        return url
-    }
-    
-    func formatDriveName() -> String {
-        var name = drive.syncAnchor.project.name
-        
-        if drive.syncAnchor.prefix != nil {
-            name += "/\(drive.syncAnchor.prefix!)"
-        }
-        
-        return name
     }
                           
     func formatDriveStats() -> String {
@@ -150,81 +139,23 @@ struct TrayDriveRowView: View {
 #Preview {
     VStack(spacing: 0) {
         TrayDriveRowView(
-            drive: DS3Drive(
-                id: UUID(),
-                name: "{Drive name}",
-                syncAnchor: SyncAnchor(
-                    project: Project(
-                        id: "63611af7-0db6-465a-b2f8-2791200b69de",
-                        name: "Moschet personal",
-                        description: "Moschet personal project",
-                        email: "Personal@cubbit.io",
-                        createdAt: "2023-01-27T15:01:02.904417Z",
-                        bannedAt: nil,
-                        imageUrl: nil,
-                        tenantId: "00000000-0000-0000-0000-000000000000",
-                        rootAccountEmail: nil,
-                        users: [
-                            IAMUser(
-                                id: "77d5961c-365d-4d55-a3cb-8f7cf22ce9f6",
-                                username: "ROOT",
-                                isRoot: true
-                            )
-                        ]
-                    ),
-                    IAMUser: IAMUser(
-                        id: "77d5961c-365d-4d55-a3cb-8f7cf22ce9f6",
-                        username: "ROOT",
-                        isRoot: true
-                    ),
-                    bucket: Bucket(name: "{Bucket name}"),
-                    prefix: "Personal"
-                ),
-                status: .sync
-            )
+            driveId: UUID(),
+            driveName: "Test",
+            driveStatus: .sync
         )
         .environment(
-            DS3DriveManager()
+            DS3DriveManager(appStatusManager: AppStatusManager.default())
         )
         
         Divider()
         
         TrayDriveRowView(
-            drive: DS3Drive(
-                id: UUID(),
-                name: "{Drive name}",
-                syncAnchor: SyncAnchor(
-                    project: Project(
-                        id: "63611af7-0db6-465a-b2f8-2791200b69de",
-                        name: "Moschet personal",
-                        description: "Moschet personal project",
-                        email: "Personal@cubbit.io",
-                        createdAt: "2023-01-27T15:01:02.904417Z",
-                        bannedAt: nil,
-                        imageUrl: nil,
-                        tenantId: "00000000-0000-0000-0000-000000000000",
-                        rootAccountEmail: nil,
-                        users: [
-                            IAMUser(
-                                id: "77d5961c-365d-4d55-a3cb-8f7cf22ce9f6",
-                                username: "ROOT",
-                                isRoot: true
-                            )
-                        ]
-                    ),
-                    IAMUser: IAMUser(
-                        id: "77d5961c-365d-4d55-a3cb-8f7cf22ce9f6",
-                        username: "ROOT",
-                        isRoot: true
-                    ),
-                    bucket: Bucket(name: "{Bucket name}"),
-                    prefix: "Cubbit"
-                ),
-                status: .sync
-            )
+            driveId: UUID(),
+            driveName: "Test 2",
+            driveStatus: .idle
         )
         .environment(
-            DS3DriveManager()
+            DS3DriveManager(appStatusManager: AppStatusManager.default())
         )
     }
 }

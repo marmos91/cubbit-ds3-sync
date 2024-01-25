@@ -69,6 +69,6 @@ struct ManageDS3DriveView: View {
         )
     )
     .environment(
-        DS3DriveManager()
+        DS3DriveManager(appStatusManager: AppStatusManager.default())
     )
 }

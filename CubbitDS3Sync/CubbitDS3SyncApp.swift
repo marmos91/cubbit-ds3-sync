@@ -11,8 +11,8 @@ struct ds3syncApp: App {
     @State var showTrayIcon: Bool = true
     @State var ds3Authentication: DS3Authentication = DS3Authentication.loadFromPersistenceOrCreateNew()
     
-    var appStatusManager = AppStatusManager()
-    var ds3DriveManager = DS3DriveManager()
+    var appStatusManager: AppStatusManager = AppStatusManager.default()
+    var ds3DriveManager: DS3DriveManager = DS3DriveManager(appStatusManager: AppStatusManager.default())
     
     var body: some Scene {
         // MARK: - Main view
@@ -39,10 +39,13 @@ struct ds3syncApp: App {
         
         // MARK: - Manage drive
         
-        WindowGroup(id: "io.cubbit.CubbitDS3Sync.drive.manage", for: DS3Drive.self) { $ds3Drive in
-            if ds3Drive != nil {
-                ManageDS3DriveView(ds3Drive: ds3Drive!)
-                    .environment(ds3DriveManager)
+        WindowGroup(id: "io.cubbit.CubbitDS3Sync.drive.manage", for: UUID.self) { $ds3DriveId in
+            if ds3DriveId != nil {
+                if let drive = ds3DriveManager.driveWithID(ds3DriveId!) {
+                    ManageDS3DriveView(ds3Drive: drive)
+                        .environment(ds3DriveManager)
+                }
+                
             }
         }
         .windowResizability(.contentSize)
@@ -101,6 +104,8 @@ struct ds3syncApp: App {
     }
     
     init() {
+        self.ds3DriveManager = DS3DriveManager(appStatusManager: self.appStatusManager)
+        
         if !loginItemSet {
             do {
                 try setLoginItem(true)

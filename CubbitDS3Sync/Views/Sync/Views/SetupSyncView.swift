@@ -73,6 +73,6 @@ struct SetupSyncView: View {
     SetupSyncView()
         .environment(DS3Authentication.loadFromPersistenceOrCreateNew())
         .environment(
-            DS3DriveManager()
+            DS3DriveManager(appStatusManager: AppStatusManager.default())
         )
 }

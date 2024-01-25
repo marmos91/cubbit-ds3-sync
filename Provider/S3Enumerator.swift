@@ -44,13 +44,6 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
         self.drive = drive
         self.recursively = recursive
         
-        switch self.parent {
-        case .rootContainer, .trashContainer, .workingSet:
-            break
-        default:
-            self.drive.syncAnchor.prefix = parent.rawValue
-        }
-        
         super.init()
     }
     

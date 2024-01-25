@@ -13,14 +13,14 @@ struct TrayMenuFooterView: View {
                 Text(status)
                     .font(.custom("Nunito", size: 12))
                     .foregroundStyle(Color(.darkWhite))
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal)
                 
                 Spacer()
                 
                 Text("Version \(version)")
                     .font(.custom("Nunito", size: 12))
                     .foregroundStyle(Color(.darkWhite))
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal)
             }
         }
         .frame(height: 32)

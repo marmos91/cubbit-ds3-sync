@@ -598,9 +598,9 @@
 			isa = PBXGroup;
 			children = (
 				D5A221BD2B571FED00F1413B /* TrayMenuView.swift */,
+				D5A221C02B571FED00F1413B /* TrayDriveRowView.swift */,
 				D5A221BE2B571FED00F1413B /* TrayMenuItem.swift */,
 				D5A221BF2B571FED00F1413B /* TrayMenuFooterView.swift */,
-				D5A221C02B571FED00F1413B /* TrayDriveRowView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -953,6 +953,7 @@
 			mainGroup = D54775BA2B57181D00DABCD4;
 			packageReferences = (
 				D5A2223C2B57203A00F1413B /* XCRemoteSwiftPackageReference "soto" */,
+				D533AA9C2B62B88000EF8BD5 /* XCRemoteSwiftPackageReference "swift-collections" */,
 			);
 			productRefGroup = D54775C42B57181D00DABCD4 /* Products */;
 			projectDirPath = "";
@@ -1586,6 +1587,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		D533AA9C2B62B88000EF8BD5 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-collections.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.6;
+			};
+		};
 		D5A2223C2B57203A00F1413B /* XCRemoteSwiftPackageReference "soto" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/soto-project/soto";

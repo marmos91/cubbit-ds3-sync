@@ -7,17 +7,18 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
 {
     typealias Logger = os.Logger
      
-    private var logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "main")
+    let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "main")
+    
     private let domain: NSFileProviderDomain
     private var enabled: Bool
     
-    private var drive: DS3Drive? = nil
     private var s3: S3? = nil
     private var s3Lib: S3Lib? = nil
     
     private var apiKeys: DS3ApiKey? = nil
     private var endpoint: String? = nil
     
+    var drive: DS3Drive? = nil
     let temporaryDirectory: URL?
     
     // Used to debounce status change notifications
@@ -136,7 +137,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         
         let progress = Progress(totalUnitCount: 100)
         
-        self.sendAppStatusNotification(status: .syncing)
+        self.sendDriveChangedNotification(status: .sync)
         
         Task {
             do {
@@ -145,11 +146,11 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                 
                 self.logger.debug("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize, privacy: .public) downloaded successfully at \(fileURL, privacy: .public)")
                 
-                self.sendAppStatusNotificationWithDebounce(status: .idle)
+                self.sendDriveChangedNotificationWithDebounce(status: .idle)
                 completionHandler(fileURL, s3Item, nil)
             } catch {
                 self.logger.error("Download failed with error \(error)")
-                self.sendAppStatusNotificationWithDebounce(status: .error)
+                self.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(nil, nil, error)
             }
             
@@ -221,19 +222,19 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         
         let numParts = max(Int64(s3Item.documentSize! as! Int / DefaultSettings.S3.multipartUploadPartSize), 1)
         let progress = Progress(totalUnitCount: numParts)
-        self.sendAppStatusNotification(status: .syncing)
+        self.sendDriveChangedNotification(status: .sync)
         
         Task {
             do {
                 try await self.s3Lib!.putS3Item(s3Item, fileURL: url, withProgress: progress)
             } catch {
                 self.logger.error("Upload failed with error \(error)")
-                self.sendAppStatusNotificationWithDebounce(status: .error)
+                self.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(nil, NSFileProviderItemFields(), false, error)
             }
             
             progress.completedUnitCount = numParts
-            self.sendAppStatusNotificationWithDebounce(status: .idle)
+            self.sendDriveChangedNotificationWithDebounce(status: .idle)
             completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
         }
         
@@ -295,19 +296,20 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                 
                 let putProgress = Progress(totalUnitCount: numParts)
                 progress.addChild(putProgress, withPendingUnitCount: numParts)
-                self.sendAppStatusNotification(status: .syncing)
+                
+                self.sendDriveChangedNotification(status: .sync)
                 
                 Task {
                     do {
                         try await self.s3Lib!.putS3Item(s3Item, fileURL: contents, withProgress: putProgress)
                     } catch {
                         self.logger.error("Upload failed with error \(error)")
-                        self.sendAppStatusNotificationWithDebounce(status: .error)
+                        self.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(nil, NSFileProviderItemFields(), false, error)
                     }
                     
                     putProgress.completedUnitCount = numParts
-                    self.sendAppStatusNotificationWithDebounce(status: .idle)
+                    self.sendDriveChangedNotificationWithDebounce(status: .idle)
                     completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
                 }
             }
@@ -323,17 +325,17 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                 // File/Folder rename
                 self.logger.debug("Rename detected for \(s3Item.itemIdentifier.rawValue) with name \(item.filename, privacy: .public)")
                 
-                self.sendAppStatusNotification(status: .syncing)
+                self.sendDriveChangedNotification(status: .sync)
                 
                 Task {
                     do {
                         let s3Item = try await self.s3Lib!.renameS3Item(s3Item, newName: item.filename, withProgress: progress)
                         
-                        self.sendAppStatusNotificationWithDebounce(status: .idle)
+                        self.sendDriveChangedNotificationWithDebounce(status: .idle)
                         completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
                     } catch {
                         self.logger.error("Rename failed with error \(error)")
-                        self.sendAppStatusNotificationWithDebounce(status: .error)
+                        self.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(nil, NSFileProviderItemFields(), false, error)
                     }
                 }
@@ -377,7 +379,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             // TODO: Handle versioning
             
             let progress = Progress(totalUnitCount: 1)
-            self.sendAppStatusNotification(status: .syncing)
+            self.sendDriveChangedNotification(status: .sync)
             
             Task {
                 do {
@@ -392,12 +394,12 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                     
                 } catch {
                     self.logger.error("An error occurred while deleting file \(identifier.rawValue, privacy: .public): \(error, privacy: .public)")
-                    self.sendAppStatusNotificationWithDebounce(status: .error)
+                    self.sendDriveChangedNotificationWithDebounce(status: .error)
                     completionHandler(error)
                 }
                 
                 progress.completedUnitCount = 1
-                self.sendAppStatusNotificationWithDebounce(status: .idle)
+                self.sendDriveChangedNotificationWithDebounce(status: .idle)
                 completionHandler(nil)
             }
             
