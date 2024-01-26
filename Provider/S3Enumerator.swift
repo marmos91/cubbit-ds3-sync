@@ -20,6 +20,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
     private var drive: DS3Drive
     private let recursively: Bool
     private let notificationManager: NotificationManager
+    private var prefix: String?
     
     // TODO: Support skipped files
 //    static let untrackedTypes: [UTType] = [
@@ -46,6 +47,14 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
         self.drive = drive
         self.recursively = recursive
         self.notificationManager = notificationManager
+        self.prefix = self.drive.syncAnchor.prefix
+        
+        switch self.parent {
+        case .rootContainer, .trashContainer, .workingSet:
+            break
+        default:
+            self.prefix = parent.rawValue
+        }
         
         super.init()
     }
@@ -70,7 +79,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
             self.notificationManager.sendDriveChangedNotification(status: .sync)
             
             do {
-                let prefix: String? = self.drive.syncAnchor.prefix
+                let prefix: String? = self.prefix
                 
                 self.logger.debug("Enumerating items for prefix \(prefix ?? "nil")")
                 
@@ -109,7 +118,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
             self.notificationManager.sendDriveChangedNotification(status: .sync)
             
             do {
-                let prefix: String? = self.drive.syncAnchor.prefix
+                let prefix: String? = self.prefix
                 
                 self.logger.debug("Enumerating changes for prefix \(prefix ?? "nil")")
                 

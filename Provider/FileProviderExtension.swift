@@ -358,7 +358,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                     self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .idle)
                     completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
                 } catch let error as SotoS3.S3ErrorType {
-                    // TODO: Check why this fails
+                    // TODO: Check why this fails with NoSuchKey
                     self.logger.error("Move failed with S3 error code \(error.errorCode)")
                 }
                 catch {
