@@ -290,7 +290,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                 // but that it needs to refetch them.
                 // Report all remaining changes as pending.
                 
-                // TODO: Improve progress management with children
                 let numParts = Int64(s3Item.documentSize! as! Int / DefaultSettings.S3.multipartUploadPartSize)
                 
                 let putProgress = Progress(totalUnitCount: numParts)
@@ -341,16 +340,37 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             }
         } else if changedFields.contains(.parentItemIdentifier) {
             // Move file/folder
-            self.logger.debug("Move detected for \(s3Item.filename, privacy: .public)")
+            self.logger.debug("Move detected for key \(s3Item.itemIdentifier.rawValue) from \(s3Item.parentItemIdentifier.rawValue) to \(item.parentItemIdentifier.rawValue)")
             
-            if options.contains(.mayAlreadyExist) {
-                // TODO: Handle move with overwrite
-                completionHandler(nil, [], false, FileProviderExtensionError.notImplemented)
+//            if options.contains(.mayAlreadyExist) {
+//                // TODO: Handle move with overwrite
+//                completionHandler(nil, [], false, FileProviderExtensionError.notImplemented)
+//            }
+            
+            self.notificationManager!.sendDriveChangedNotification(status: .sync)
+            
+            Task {
+                do {
+                    let newKey = item.parentItemIdentifier.rawValue + s3Item.filename
+                    
+                    let s3Item = try await self.s3Lib!.moveS3Item(s3Item, toKey: newKey, withProgress: progress)
+                    
+                    self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .idle)
+                    completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
+                } catch let error as SotoS3.S3ErrorType {
+                    // TODO: Check why this fails
+                    self.logger.error("Move failed with S3 error code \(error.errorCode)")
+                }
+                catch {
+                    self.logger.error("Move failed with error \(error)")
+                    self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .error)
+                    completionHandler(nil, NSFileProviderItemFields(), false, error)
+                }
             }
         } else {
             // Metadata changed
-            self.logger.debug("Metadata change detected for \(s3Item.filename, privacy: .public)")
-            completionHandler(nil, [], false, FileProviderExtensionError.notImplemented)
+            self.logger.debug("Metadata change detected for \(s3Item.filename, privacy: .public). Skipping...")
+            completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
         }
         
         progress.cancellationHandler = { completionHandler(nil, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)) }

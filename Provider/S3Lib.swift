@@ -222,12 +222,7 @@ class S3Lib {
             while !items.isEmpty {
                 let item = items.removeFirst()
                     
-                try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
-                    return try await self.deleteS3Item(
-                        item,
-                        withProgress: progress
-                    )
-                }
+                try await self.deleteS3Item(item, withProgress: progress)
             }
         } while continuationToken != nil
         
@@ -255,13 +250,7 @@ class S3Lib {
         
         self.logger.debug("Renaming s3Item \(s3Item.identifier.rawValue.removingPercentEncoding!) to \(newKey)")
         
-        try await self.moveS3Item(s3Item, toKey: newKey, withProgress: progress)
-        
-        return S3Item(
-            identifier: NSFileProviderItemIdentifier(newKey),
-            drive: s3Item.drive,
-            objectMetadata: s3Item.metadata
-        )
+        return try await self.moveS3Item(s3Item, toKey: newKey, withProgress: progress)
     }
     
     /// Moves a remote S3Item to a new location. If a folder is passed, it will be moved recursively.
@@ -274,11 +263,17 @@ class S3Lib {
         _ s3Item: S3Item,
         toKey key: String,
         withProgress progress: Progress? = nil
-    ) async throws {
+    ) async throws -> S3Item {
         self.logger.debug("Moving \(s3Item.itemIdentifier.rawValue) to \(key)")
         
         try await self.copyS3Item(s3Item, toKey: key, withProgress: progress)
         try await self.deleteS3Item(s3Item, withProgress: progress)
+        
+        return S3Item(
+            identifier: NSFileProviderItemIdentifier(key),
+            drive: s3Item.drive,
+            objectMetadata: s3Item.metadata
+        )
     }
     
     /// Copies a remote S3Item to a new location. If a folder is passed, it will be copied recursively.
@@ -358,13 +353,11 @@ class S3Lib {
                 
                 self.logger.debug("New key is \(newKey)")
                 
-                try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
-                    return try await self.copyS3Item(
-                        item,
-                        toKey: newKey,
-                        withProgress: progress
-                    )
-                }
+                return try await self.copyS3Item(
+                    item,
+                    toKey: newKey,
+                    withProgress: progress
+                )
             }
         } while continuationToken != nil
         
