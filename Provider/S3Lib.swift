@@ -47,8 +47,6 @@ class S3Lib {
         var items: [S3Item] = []
         
         if let commonPrefixes = response.commonPrefixes {
-            self.logger.debug("Parsing \(commonPrefixes.count) commonPrefixes")
-            
             for commonPrefix in commonPrefixes {
                 guard let commonPrefix = commonPrefix.prefix?.removingPercentEncoding else {
                     continue
@@ -67,8 +65,6 @@ class S3Lib {
         }
         
         if let contents = response.contents {
-            self.logger.debug("Parsing \(contents.count) contents")
-            
             for object in contents {
                 guard let key = object.key?.removingPercentEncoding else {
                     continue
@@ -190,9 +186,7 @@ class S3Lib {
         )
         
         // TODO: Should we use the response?
-        let _ = try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
-            return try await self.s3.deleteObject(request)
-        }
+        let _ = try await self.s3.deleteObject(request)
         
         deleteProgress.completedUnitCount += 1
     }
@@ -358,8 +352,6 @@ class S3Lib {
                 break
             }
             
-            self.logger.debug("Should copy \(items.count) items")
-            
             while !items.isEmpty {
                 let item = items.removeFirst()
                 let newKey = item.identifier.rawValue.replacingOccurrences(of: prefix, with: newPrefix).removingPercentEncoding!
@@ -499,8 +491,6 @@ class S3Lib {
             return try await self.s3.putObject(request)
         }
         
-        self.logger.debug("Standard PUT request for \(key) successful")
-        
         progress?.completedUnitCount += 1
     }
 
@@ -526,7 +516,7 @@ class S3Lib {
             key: key
         )
         
-        self.logger.debug("Sending CreateMultipart request for \(key)")
+        self.logger.debug("Creating multipart upload for key \(key)")
         
         let createMultipartResponse = try await self.s3.createMultipartUpload(createMultipartRequest)
         
@@ -581,7 +571,7 @@ class S3Lib {
             }
         }
         
-        self.logger.debug("Completing multipart upload with parts: \(completedParts)")
+        self.logger.debug("Completing multipart upload with \(completedParts.count) parts")
         
         let completeMultipartRequest = S3.CompleteMultipartUploadRequest(
             bucket: s3Item.drive.syncAnchor.bucket.name,
@@ -594,8 +584,6 @@ class S3Lib {
         let _ = try await withRetries(retries: DefaultSettings.S3.maxRetries) {
             return try await self.s3.completeMultipartUpload(completeMultipartRequest)
         }
-        
-        self.logger.debug("Multipart upload request for \(key) successful")
     }
     
     /// Aborts a multipart upload for a given S3Item and uploadId

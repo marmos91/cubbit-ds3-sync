@@ -14,7 +14,12 @@ struct TrayMenuView: View {
             
             VStack(spacing: 0) {
                 ForEach(ds3DriveManager.drives, id: \.id) { drive in
-                    TrayDriveRowView(driveId: drive.id, driveName: drive.name, driveStatus: drive.status)
+                    TrayDriveRowView(
+                        driveId: drive.id,
+                        driveName: drive.name,
+                        driveStatus: drive.status,
+                        driveStats: drive.statsString
+                    )
                     
                     Divider()
                 }

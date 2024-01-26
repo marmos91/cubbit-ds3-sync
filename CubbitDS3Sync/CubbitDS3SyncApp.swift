@@ -104,8 +104,6 @@ struct ds3syncApp: App {
     }
     
     init() {
-        self.ds3DriveManager = DS3DriveManager(appStatusManager: self.appStatusManager)
-        
         if !loginItemSet {
             do {
                 try setLoginItem(true)

@@ -19,6 +19,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
     private let s3Lib: S3Lib
     private var drive: DS3Drive
     private let recursively: Bool
+    private let notificationManager: NotificationManager
     
     // TODO: Support skipped files
 //    static let untrackedTypes: [UTType] = [
@@ -36,6 +37,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
     init(
         parent: NSFileProviderItemIdentifier,
         s3Lib: S3Lib,
+        notificationManager: NotificationManager,
         drive: DS3Drive,
         recursive: Bool = false
     ) {
@@ -43,6 +45,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
         self.s3Lib = s3Lib
         self.drive = drive
         self.recursively = recursive
+        self.notificationManager = notificationManager
         
         super.init()
     }
@@ -64,6 +67,8 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
         // Subsequent calls will be made to enumerateItems for the subfolders. This is crucial to list huge buckets
         
         Task {
+            self.notificationManager.sendDriveChangedNotification(status: .sync)
+            
             do {
                 let prefix: String? = self.drive.syncAnchor.prefix
                 
@@ -85,10 +90,12 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
                 if continuationToken != nil {
                     page = NSFileProviderPage(continuationToken!)
                 }
-                
+            
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle)
                 return observer.finishEnumerating(upTo: page)
             } catch {
                 self.logger.error("An error occurred while list objects \(error)")
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
                 observer.finishEnumeratingWithError(error)
             }
         }
@@ -99,6 +106,8 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
         from anchor: NSFileProviderSyncAnchor
     ) {
         Task {
+            self.notificationManager.sendDriveChangedNotification(status: .sync)
+            
             do {
                 let prefix: String? = self.drive.syncAnchor.prefix
                 
@@ -134,9 +143,11 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
                 // Notify the observer about deletions
                 // observer.didDeleteItems(withIdentifiers: deletions)
 
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle)
                 observer.finishEnumeratingChanges(upTo: newAnchor, moreComing: false)
             } catch {
                 self.logger.error("An error occurred while enumerating changes: \(error)")
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
                 observer.finishEnumeratingWithError(error)
             }
         }
@@ -147,10 +158,17 @@ class WorkingSetS3Enumerator: S3Enumerator {
     init(
         parent: NSFileProviderItemIdentifier,
         s3Lib: S3Lib,
+        notificationManager: NotificationManager,
         drive: DS3Drive
     ) {
         // Enumerate everything from the root, recursively.
         
-        super.init(parent: parent, s3Lib: s3Lib, drive: drive, recursive: true)
+        super.init(
+            parent: parent,
+            s3Lib: s3Lib,
+            notificationManager: notificationManager,
+            drive: drive,
+            recursive: true
+        )
     }
 }

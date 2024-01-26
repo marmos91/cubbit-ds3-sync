@@ -6,6 +6,7 @@ extension SharedData {
         guard let sharedContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup) else {
             throw SharedDataError.cannotAccessAppGroup
         }
+        
         let drivesURL = sharedContainerURL.appendingPathComponent(DefaultSettings.FileNames.drivesFileName)
         
         let drives = try JSONDecoder().decode([DS3Drive].self, from: Data(contentsOf: drivesURL))

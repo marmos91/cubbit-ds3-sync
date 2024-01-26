@@ -4,6 +4,7 @@ struct TrayDriveRowView: View {
     var driveId: UUID
     var driveName: String
     var driveStatus: DS3DriveStatus
+    var driveStats: String
     
     @Environment(\.openWindow) var openWindow
     @Environment(\.openURL) var openURL
@@ -47,7 +48,7 @@ struct TrayDriveRowView: View {
                         .padding(.vertical, 2)
                         .foregroundStyle(Color(.darkWhite))
                     
-                    Text(self.formatDriveStats())
+                    Text(self.driveStats)
                         .font(.custom("Nunito", size: 12))
                         .padding(.vertical, 2)
                         .foregroundStyle(Color(.darkWhite))
@@ -128,12 +129,6 @@ struct TrayDriveRowView: View {
         
         // TODO: Add file status?
     }
-                          
-    func formatDriveStats() -> String {
-        // TODO: Format correct stats
-        return "<Drive Stats>"
-//        return "1 file, 2.1 GB, 10 MB/s, about 20 minutes"
-    }
 }
 
 #Preview {
@@ -141,7 +136,8 @@ struct TrayDriveRowView: View {
         TrayDriveRowView(
             driveId: UUID(),
             driveName: "Test",
-            driveStatus: .sync
+            driveStatus: .sync,
+            driveStats: "Updated 10 minutes ago"
         )
         .environment(
             DS3DriveManager(appStatusManager: AppStatusManager.default())
@@ -152,7 +148,8 @@ struct TrayDriveRowView: View {
         TrayDriveRowView(
             driveId: UUID(),
             driveName: "Test 2",
-            driveStatus: .idle
+            driveStatus: .idle,
+            driveStats: "10 MB/s"
         )
         .environment(
             DS3DriveManager(appStatusManager: AppStatusManager.default())

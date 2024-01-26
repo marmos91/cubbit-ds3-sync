@@ -13,13 +13,12 @@ enum DS3DriveManagerError: Error {
     @ObservationIgnored
     private let logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "DS3DriveManager")
     
-    var drives: [DS3Drive]
+    var drives: [DS3Drive] = DS3DriveManager.loadFromDiskOrCreateNew()
     
     @ObservationIgnored
     let appStatusManager: AppStatusManager
     
-    init(appStatusManager: AppStatusManager, drives: [DS3Drive] = DS3DriveManager.loadFromDiskOrCreateNew()) {
-        self.drives = drives
+    init(appStatusManager: AppStatusManager) {
         self.appStatusManager = appStatusManager
         
         self.setupObserver()
@@ -52,12 +51,7 @@ enum DS3DriveManagerError: Error {
         guard
             let stringDrive = notification.object as? String,
             let updateDrive = try? JSONDecoder().decode(DS3Drive.self, from: Data(stringDrive.utf8))
-        else {
-            self.logger.warning("Could not parse updated DS3 Drive")
-            return
-        }
-        
-        self.logger.debug("Updating drive \(updateDrive.id.uuidString) with status \(updateDrive.status.rawValue)")
+        else { return }
         
         do {
             try self.update(drive: updateDrive)
@@ -240,6 +234,7 @@ enum DS3DriveManagerError: Error {
         do {
             return try SharedData.shared.loadDS3DrivesFromPersistence()
         } catch {
+            print("Could not load drives from disk: \(error.localizedDescription)")
             return []
         }
     }

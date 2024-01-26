@@ -15,7 +15,6 @@
 		D533AA952B6279E200EF8BD5 /* AppStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA942B6279E200EF8BD5 /* AppStatus.swift */; };
 		D533AA962B6279E200EF8BD5 /* AppStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA942B6279E200EF8BD5 /* AppStatus.swift */; };
 		D533AA972B6279E200EF8BD5 /* AppStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA942B6279E200EF8BD5 /* AppStatus.swift */; };
-		D533AA9B2B627CAB00EF8BD5 /* FileProviderExtension+Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA982B627CAB00EF8BD5 /* FileProviderExtension+Notifications.swift */; };
 		D54002A02B5EAEB000B54E97 /* S3Lib.swift in Sources */ = {isa = PBXBuildFile; fileRef = D540029D2B5EAEB000B54E97 /* S3Lib.swift */; };
 		D546D5462B5916CC00231120 /* NoBucketsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D546D5452B5916CC00231120 /* NoBucketsView.swift */; };
 		D546D5482B59214200231120 /* BucketErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D546D5472B59214200231120 /* BucketErrorView.swift */; };
@@ -181,6 +180,7 @@
 		D5A2228A2B5721CC00F1413B /* S3Enumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222812B5721CC00F1413B /* S3Enumerator.swift */; };
 		D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */; };
 		D5A2228C2B5721CC00F1413B /* Provider.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D5A222832B5721CC00F1413B /* Provider.xcassets */; };
+		D5A4E0AB2B630A9800D7560B /* NotificationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -248,7 +248,6 @@
 		D533AA8E2B62753D00EF8BD5 /* AppStatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStatusManager.swift; sourceTree = "<group>"; };
 		D533AA902B62775500EF8BD5 /* Notifications+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Notifications+Extensions.swift"; sourceTree = "<group>"; };
 		D533AA942B6279E200EF8BD5 /* AppStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStatus.swift; sourceTree = "<group>"; };
-		D533AA982B627CAB00EF8BD5 /* FileProviderExtension+Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+Notifications.swift"; sourceTree = "<group>"; };
 		D540029D2B5EAEB000B54E97 /* S3Lib.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3Lib.swift; sourceTree = "<group>"; };
 		D546D5452B5916CC00231120 /* NoBucketsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoBucketsView.swift; sourceTree = "<group>"; };
 		D546D5472B59214200231120 /* BucketErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BucketErrorView.swift; sourceTree = "<group>"; };
@@ -355,6 +354,7 @@
 		D5A222812B5721CC00F1413B /* S3Enumerator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = S3Enumerator.swift; sourceTree = "<group>"; };
 		D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "S3Item+Metadata.swift"; sourceTree = "<group>"; };
 		D5A222832B5721CC00F1413B /* Provider.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Provider.xcassets; sourceTree = "<group>"; };
+		D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -828,7 +828,6 @@
 			children = (
 				D5A222482B57211500F1413B /* FileProviderExtension.swift */,
 				D5A2227C2B5721CC00F1413B /* FileProviderExtension+Errors.swift */,
-				D533AA982B627CAB00EF8BD5 /* FileProviderExtension+Notifications.swift */,
 				D5A222802B5721CC00F1413B /* S3Item.swift */,
 				D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */,
 				D5A222812B5721CC00F1413B /* S3Enumerator.swift */,
@@ -836,6 +835,7 @@
 				D5A222832B5721CC00F1413B /* Provider.xcassets */,
 				D5A2227E2B5721CC00F1413B /* Provider.entitlements */,
 				D5A2224E2B57211500F1413B /* Info.plist */,
+				D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */,
 			);
 			path = Provider;
 			sourceTree = "<group>";
@@ -1153,6 +1153,7 @@
 				D533AA972B6279E200EF8BD5 /* AppStatus.swift in Sources */,
 				D5A222642B57216F00F1413B /* URLs+Extensions.swift in Sources */,
 				D5A2227A2B57217E00F1413B /* URLs.swift in Sources */,
+				D5A4E0AB2B630A9800D7560B /* NotificationsManager.swift in Sources */,
 				D5A222612B57216F00F1413B /* JWT.swift in Sources */,
 				D5A2226D2B57217400F1413B /* SharedData+syncAnchor.swift in Sources */,
 				D5A222622B57216F00F1413B /* System.swift in Sources */,
@@ -1171,7 +1172,6 @@
 				D5A222792B57217E00F1413B /* DefaultSettings.swift in Sources */,
 				D5A222692B57217400F1413B /* SharedData+ds3Drive.swift in Sources */,
 				D5A222752B57217900F1413B /* DS3Drive.swift in Sources */,
-				D533AA9B2B627CAB00EF8BD5 /* FileProviderExtension+Notifications.swift in Sources */,
 				D5A2225E2B57216800F1413B /* DS3SDK.swift in Sources */,
 				D5A222672B57217400F1413B /* SharedData.swift in Sources */,
 			);
