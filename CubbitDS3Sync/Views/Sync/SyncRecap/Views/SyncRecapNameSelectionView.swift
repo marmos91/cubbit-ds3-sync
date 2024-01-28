@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SyncRecapNameSelectionView: View {
     @Environment(SyncRecapViewModel.self) var syncRecapViewModel: SyncRecapViewModel
+    @FocusState var focused: Bool?
     
     var onComplete: (() -> Void)?
     
@@ -19,9 +20,16 @@ struct SyncRecapNameSelectionView: View {
                     } set: {
                         syncRecapViewModel.setDS3DriveName($0)
                     }
-                ).onSubmit {
+                )
+                .focused($focused, equals: true)
+                .onSubmit {
                     if let ds3DriveName = syncRecapViewModel.ds3DriveName, ds3DriveName.count > 0 {
                         onComplete?()
+                    }
+                }
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
+                        self.focused = true
                     }
                 }
             }

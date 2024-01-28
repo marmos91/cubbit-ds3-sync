@@ -60,9 +60,9 @@ struct TrayMenuView: View {
                     NSApplication.shared.terminate(self)
                 }
                 
-                Divider()
-                
                 Spacer()
+                
+                Divider()
                 
                 TrayMenuFooterView(
                     status: appStatusManager.status.toString(),
@@ -71,9 +71,8 @@ struct TrayMenuView: View {
             }
         }
         .frame(
-            minWidth: 280,
-            maxWidth: 280,
-            maxHeight: .infinity
+            minWidth: 310,
+            maxWidth: 310
         )
         .fixedSize(horizontal: true, vertical: false)
         

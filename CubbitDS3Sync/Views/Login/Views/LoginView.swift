@@ -1,10 +1,14 @@
 import SwiftUI
 
 struct LoginView: View {
+    enum FocusedField {
+        case email, password
+    }
     @Environment(DS3Authentication.self) var ds3Authentication: DS3Authentication
     
     @State var email: String = ""
     @State var password: String = ""
+    @FocusState private var focusedField: FocusedField?
     
     var loginViewModel: LoginViewModel = LoginViewModel()
     
@@ -16,7 +20,8 @@ struct LoginView: View {
                 .environment(ds3Authentication)
         } else {
             ZStack {
-                Color(.background).ignoresSafeArea()
+                Color(.background)
+                    .ignoresSafeArea()
                 
                 VStack(alignment: .center) {
                     Image(.cubbitLogo)
@@ -35,6 +40,12 @@ struct LoginView: View {
                         error: loginViewModel.loginError,
                         text: $email
                     )
+                    .focused(self.$focusedField, equals: .email)
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
+                            self.focusedField = .email
+                        }
+                    }
                     
                     IconTextField(
                         iconName: .passwordIcon,

@@ -3,16 +3,17 @@ import os.log
 
 @main
 struct ds3syncApp: App {
+    private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "MainApp")
+    
     @AppStorage(DefaultSettings.UserDefaultsKeys.tutorial) var tutorialShown: Bool = DefaultSettings.tutorialShown
     @AppStorage(DefaultSettings.UserDefaultsKeys.loginItemSet) var loginItemSet: Bool = DefaultSettings.loginItemSet
     
-    private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "MainApp")
-    
-    @State var showTrayIcon: Bool = true
     @State var ds3Authentication: DS3Authentication = DS3Authentication.loadFromPersistenceOrCreateNew()
+    @State var appStatusManager: AppStatusManager = AppStatusManager.default()
+    @State var ds3DriveManager: DS3DriveManager = DS3DriveManager(appStatusManager: AppStatusManager.default())
     
-    var appStatusManager: AppStatusManager = AppStatusManager.default()
-    var ds3DriveManager: DS3DriveManager = DS3DriveManager(appStatusManager: AppStatusManager.default())
+    // TODO: Hide tray menu when not logged in
+    @State var trayMenuVisible: Bool = true
     
     var body: some Scene {
         // MARK: - Main view
@@ -79,7 +80,7 @@ struct ds3syncApp: App {
 #if os(macOS)
         // MARK: - Tray Menu
         
-        MenuBarExtra(isInserted: $showTrayIcon) {
+        MenuBarExtra(isInserted: $trayMenuVisible) {
             TrayMenuView()
                 .environment(ds3Authentication)
                 .environment(ds3DriveManager)

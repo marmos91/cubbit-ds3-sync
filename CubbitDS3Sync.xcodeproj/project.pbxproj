@@ -730,8 +730,8 @@
 		D5A221EC2B571FED00F1413B /* SyncRecap */ = {
 			isa = PBXGroup;
 			children = (
-				D5A221ED2B571FED00F1413B /* ViewModels */,
 				D5A221EF2B571FED00F1413B /* Views */,
+				D5A221ED2B571FED00F1413B /* ViewModels */,
 			);
 			path = SyncRecap;
 			sourceTree = "<group>";
@@ -767,9 +767,9 @@
 		D5A221F72B571FED00F1413B /* Login */ = {
 			isa = PBXGroup;
 			children = (
-				D5A221F82B571FED00F1413B /* ViewModels */,
 				D5A221FA2B571FED00F1413B /* Models */,
 				D5A221FC2B571FED00F1413B /* Views */,
+				D5A221F82B571FED00F1413B /* ViewModels */,
 			);
 			path = Login;
 			sourceTree = "<group>";
@@ -1333,7 +1333,7 @@
 				CODE_SIGN_ENTITLEMENTS = CubbitDS3Sync/CubbitDS3Sync.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_ASSET_PATHS = "\"CubbitDS3Sync/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = X889956QSM;
@@ -1382,7 +1382,7 @@
 				CODE_SIGN_ENTITLEMENTS = CubbitDS3Sync/CubbitDS3Sync.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_ASSET_PATHS = "\"CubbitDS3Sync/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = X889956QSM;
@@ -1428,7 +1428,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEFINES_MODULE = YES;
 				DEVELOPMENT_TEAM = X889956QSM;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -1465,7 +1465,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEFINES_MODULE = YES;
 				DEVELOPMENT_TEAM = X889956QSM;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -1501,7 +1501,7 @@
 				CODE_SIGN_ENTITLEMENTS = Provider/Provider.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = X889956QSM;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1534,7 +1534,7 @@
 				CODE_SIGN_ENTITLEMENTS = Provider/Provider.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = X889956QSM;
 				ENABLE_HARDENED_RUNTIME = YES;

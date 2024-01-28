@@ -8,6 +8,7 @@ struct MFAView: View {
     var password: String
     
     @State var tfaCode: String = ""
+    @FocusState var focused: Bool?
     
     var body: some View {
         ZStack {
@@ -40,6 +41,12 @@ struct MFAView: View {
                             placeholder: "2FA 6-digit code",
                             text: $tfaCode
                         )
+                        .focused($focused, equals: true)
+                        .onAppear {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
+                                self.focused = true
+                            }
+                        }
                         .onSubmit {
                             self.loginWithMFA()
                         }
@@ -52,6 +59,13 @@ struct MFAView: View {
                         .padding(.vertical)
                         .onSubmit {
                             self.loginWithMFA()
+                        }
+                        
+                        if let loginError = loginViewModel.loginError {
+                            Text(loginError.localizedDescription)
+                                .font(.custom("Nunito", size: 14))
+                                .foregroundStyle(Color.red)
+                                .multilineTextAlignment(.center)
                         }
                     }
                 }

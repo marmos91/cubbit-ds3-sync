@@ -20,7 +20,6 @@ class S3Item: NSObject, NSFileProviderItem {
         drive: DS3Drive,
         objectMetadata: S3Item.Metadata
     ) {
-        
         self.metadata = objectMetadata
         self.drive = drive
         
@@ -31,7 +30,10 @@ class S3Item: NSObject, NSFileProviderItem {
         }
     }
     
-    init(from item: NSFileProviderItem, drive: DS3Drive) {
+    init(
+        from item: NSFileProviderItem, 
+        drive: DS3Drive
+    ) {
         self.identifier = item.itemIdentifier
         self.drive = drive
         self.metadata = S3Item.Metadata(
@@ -47,7 +49,9 @@ class S3Item: NSObject, NSFileProviderItem {
     var parentItemIdentifier: NSFileProviderItemIdentifier {
         var pathSegments = self.identifier.rawValue.split(separator: self.separator)
         
-        if pathSegments.count == 2 {
+        let prefixSegmentsCount = (self.drive.syncAnchor.prefix?.split(separator: self.separator) ?? []).count
+
+        if pathSegments.count == prefixSegmentsCount + 1 {
             // NOTE: e.g. parent of prefix/folder/ is prefix/ (remember prefix == .rootContainer)
             return .rootContainer
         }

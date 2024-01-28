@@ -7,6 +7,7 @@ import os.log
     
     var loginError: Error?
     var need2FA: Bool = false
+    var tfaError: Error?
     var isLoading: Bool = false
     
     /// Logs in the account with the provided credentials

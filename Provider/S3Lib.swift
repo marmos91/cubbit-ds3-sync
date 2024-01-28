@@ -85,7 +85,7 @@ class S3Lib {
                     // NOTE: Skipping the prefix itself as we don't want the folder root to be listed
                     continue
                 }
-                
+
                 let s3Item = S3Item(
                      identifier: NSFileProviderItemIdentifier(key),
                      drive: drive,
@@ -109,6 +109,8 @@ class S3Lib {
                 }
             }
         }
+        
+        self.logger.debug("Listed \(items.count) items")
         
         guard let isTruncated = response.isTruncated else {
             throw EnumeratorError.missingParameters

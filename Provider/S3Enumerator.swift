@@ -90,7 +90,6 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
                 var page: NSFileProviderPage? = nil
                 
                 if continuationToken != nil {
-                    self.logger.debug("Continuation token found \(continuationToken!). Creating new page for enumeration")
                     page = NSFileProviderPage(continuationToken!)
                 }
                 

@@ -79,8 +79,6 @@ import os.log
             updateDriveStatusNotification.driveId == self.drive.id // Only update if the notification is for this drive
         else { return }
         
-        self.logger.debug("Updating drive status to \(updateDriveStatusNotification.status.rawValue) for drive \(self.drive.name)")
-        
         self.driveStatus = updateDriveStatusNotification.status
     }
     
