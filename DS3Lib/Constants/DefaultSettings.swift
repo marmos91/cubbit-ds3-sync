@@ -36,6 +36,10 @@ enum DefaultSettings {
         return Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
     }()
     
+    static let appBuild: String = {
+        return Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
+    }()
+    
     static let appIsLoginItem: Bool = {
         return SMAppService().status.rawValue == 1
     }()

@@ -3,6 +3,7 @@ import SwiftUI
 struct TrayMenuFooterView: View {
     var status: String
     var version: String
+    var build: String
     
     var body: some View {
         ZStack {
@@ -17,7 +18,7 @@ struct TrayMenuFooterView: View {
                 
                 Spacer()
                 
-                Text("Version \(version)")
+                Text("Version \(version) (\(build))")
                     .font(.custom("Nunito", size: 12))
                     .foregroundStyle(Color(.darkWhite))
                     .padding(.horizontal)
@@ -29,6 +30,7 @@ struct TrayMenuFooterView: View {
 #Preview {
     TrayMenuFooterView(
         status: "Idle",
-        version: "1.0.0"
+        version: "1.0.0",
+        build: "1"
     )
 }

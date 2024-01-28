@@ -193,8 +193,15 @@
     "Two-factor authentication (2FA)" : {
 
     },
-    "Version %@" : {
-
+    "Version %@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Version %1$@ (%2$@)"
+          }
+        }
+      }
     },
     "View in Finder" : {
 

@@ -66,7 +66,8 @@ struct TrayMenuView: View {
                 
                 TrayMenuFooterView(
                     status: appStatusManager.status.toString(),
-                    version: DefaultSettings.appVersion
+                    version: DefaultSettings.appVersion,
+                    build: DefaultSettings.appBuild
                 )
             }
         }
