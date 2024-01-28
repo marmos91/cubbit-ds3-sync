@@ -8,14 +8,16 @@ struct ManageDS3DriveView: View {
     
     var body: some View {
         SyncRecapMainView(shouldDisplayBack: false)
-            .onComplete {
-                do {
-                    try self.ds3DriveManager.update(drive: $0)
-                } catch {
-                    print("Error updating drive: \(error)")
+            .onComplete { ds3Drive in
+                Task {
+                    do {
+                        try await self.ds3DriveManager.update(drive: ds3Drive)
+                    } catch {
+                        print("Error updating drive: \(error)")
+                    }
+                    
+                    dismiss()
                 }
-                
-                dismiss()
             }
             .environment(
                 SyncRecapViewModel(
@@ -64,8 +66,7 @@ struct ManageDS3DriveView: View {
                 ),
                 bucket: Bucket(name: "{Bucket name}"),
                 prefix: "Cubbit"
-            ),
-            status: .sync
+            )
         )
     )
     .environment(

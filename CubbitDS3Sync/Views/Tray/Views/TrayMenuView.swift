@@ -13,12 +13,9 @@ struct TrayMenuView: View {
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
-                ForEach(ds3DriveManager.drives, id: \.id) { drive in
+                ForEach(ds3DriveManager.drives, id: \.name) { drive in
                     TrayDriveRowView(
-                        driveId: drive.id,
-                        driveName: drive.name,
-                        driveStatus: drive.status,
-                        driveStats: drive.statsString
+                        driveViewModel: DS3DriveViewModel(drive: drive)
                     )
                     
                     Divider()
@@ -72,7 +69,8 @@ struct TrayMenuView: View {
             }
         }
         .frame(
-            maxWidth: 400
+            minWidth: 280,
+            maxWidth: 280
         )
         .fixedSize(horizontal: true, vertical: true)
     }
