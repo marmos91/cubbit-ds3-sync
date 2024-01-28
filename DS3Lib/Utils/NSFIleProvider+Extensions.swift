@@ -25,11 +25,11 @@ extension NSFileProviderSyncAnchor {
 // Extend NSFileProviderPage to handle S3 continuation tokens
 extension NSFileProviderPage {
     init(_ continuationToken: String) {
-        self.init(
-            withUnsafeBytes(of: continuationToken) {
-                Data($0)
-            }
-        )
+        if let data = continuationToken.data(using: .utf8) {
+            self.init(rawValue: data)
+        } else {
+            self.init(rawValue: Data())
+        }
     }
 
     func toContinuationToken() -> String? {
@@ -37,10 +37,12 @@ extension NSFileProviderPage {
             self == NSFileProviderPage.initialPageSortedByName as NSFileProviderPage {
             return nil
         }
-        var ret: String = ""
-        _ = withUnsafeMutableBytes(of: &ret) { ptr in
-            self.rawValue.copyBytes(to: ptr)
+        
+        // Convert Data to String
+        if let retString = String(data: self.rawValue, encoding: .utf8), !retString.isEmpty {
+            return retString
+        } else {
+            return nil
         }
-        return ret
     }
 }

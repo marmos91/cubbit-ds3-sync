@@ -8,6 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		D512EEBC2B59631400F550EC /* MFAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D512EEBB2B59631400F550EC /* MFAView.swift */; };
+		D533AA8F2B62753D00EF8BD5 /* AppStatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA8E2B62753D00EF8BD5 /* AppStatusManager.swift */; };
+		D533AA912B62775500EF8BD5 /* Notifications+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA902B62775500EF8BD5 /* Notifications+Extensions.swift */; };
+		D533AA922B62775500EF8BD5 /* Notifications+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA902B62775500EF8BD5 /* Notifications+Extensions.swift */; };
+		D533AA932B62775500EF8BD5 /* Notifications+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA902B62775500EF8BD5 /* Notifications+Extensions.swift */; };
+		D533AA952B6279E200EF8BD5 /* AppStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA942B6279E200EF8BD5 /* AppStatus.swift */; };
+		D533AA962B6279E200EF8BD5 /* AppStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA942B6279E200EF8BD5 /* AppStatus.swift */; };
+		D533AA972B6279E200EF8BD5 /* AppStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA942B6279E200EF8BD5 /* AppStatus.swift */; };
 		D54002A02B5EAEB000B54E97 /* S3Lib.swift in Sources */ = {isa = PBXBuildFile; fileRef = D540029D2B5EAEB000B54E97 /* S3Lib.swift */; };
 		D546D5462B5916CC00231120 /* NoBucketsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D546D5452B5916CC00231120 /* NoBucketsView.swift */; };
 		D546D5482B59214200231120 /* BucketErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D546D5472B59214200231120 /* BucketErrorView.swift */; };
@@ -173,6 +180,8 @@
 		D5A2228A2B5721CC00F1413B /* S3Enumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222812B5721CC00F1413B /* S3Enumerator.swift */; };
 		D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */; };
 		D5A2228C2B5721CC00F1413B /* Provider.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D5A222832B5721CC00F1413B /* Provider.xcassets */; };
+		D5A4E0AB2B630A9800D7560B /* NotificationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */; };
+		D5D734F12B666C7700C6B11C /* DS3DriveViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5D734F02B666C7700C6B11C /* DS3DriveViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -237,6 +246,9 @@
 
 /* Begin PBXFileReference section */
 		D512EEBB2B59631400F550EC /* MFAView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MFAView.swift; sourceTree = "<group>"; };
+		D533AA8E2B62753D00EF8BD5 /* AppStatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStatusManager.swift; sourceTree = "<group>"; };
+		D533AA902B62775500EF8BD5 /* Notifications+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Notifications+Extensions.swift"; sourceTree = "<group>"; };
+		D533AA942B6279E200EF8BD5 /* AppStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStatus.swift; sourceTree = "<group>"; };
 		D540029D2B5EAEB000B54E97 /* S3Lib.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3Lib.swift; sourceTree = "<group>"; };
 		D546D5452B5916CC00231120 /* NoBucketsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoBucketsView.swift; sourceTree = "<group>"; };
 		D546D5472B59214200231120 /* BucketErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BucketErrorView.swift; sourceTree = "<group>"; };
@@ -343,6 +355,8 @@
 		D5A222812B5721CC00F1413B /* S3Enumerator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = S3Enumerator.swift; sourceTree = "<group>"; };
 		D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "S3Item+Metadata.swift"; sourceTree = "<group>"; };
 		D5A222832B5721CC00F1413B /* Provider.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Provider.xcassets; sourceTree = "<group>"; };
+		D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsManager.swift; sourceTree = "<group>"; };
+		D5D734F02B666C7700C6B11C /* DS3DriveViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3DriveViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -401,9 +415,9 @@
 		D54775C52B57181D00DABCD4 /* CubbitDS3Sync */ = {
 			isa = PBXGroup;
 			children = (
+				D5A221AA2B571FED00F1413B /* Preview Content */,
 				D5A221FE2B571FEE00F1413B /* Assets */,
 				D5A221AC2B571FED00F1413B /* Lib */,
-				D5A221AA2B571FED00F1413B /* Preview Content */,
 				D5A221AE2B571FED00F1413B /* Views */,
 				D54775C62B57181D00DABCD4 /* CubbitDS3SyncApp.swift */,
 				D54775CC2B57181E00DABCD4 /* CubbitDS3Sync.entitlements */,
@@ -438,6 +452,7 @@
 		D5A221542B571F5100F1413B /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				D533AA942B6279E200EF8BD5 /* AppStatus.swift */,
 				D5A221552B571F5100F1413B /* Bucket.swift */,
 				D5A221562B571F5100F1413B /* IAMUser.swift */,
 				D5A221572B571F5100F1413B /* SyncAnchor.swift */,
@@ -478,6 +493,7 @@
 				D5A2216E2B571F5100F1413B /* URLs+Extensions.swift */,
 				D5A2216F2B571F5100F1413B /* Bundle+Extensions.swift */,
 				D59B743B2B62690B0088605A /* ControlFlow.swift */,
+				D533AA902B62775500EF8BD5 /* Notifications+Extensions.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -494,6 +510,7 @@
 			isa = PBXGroup;
 			children = (
 				D5A221AD2B571FED00F1413B /* DS3DriveManager.swift */,
+				D533AA8E2B62753D00EF8BD5 /* AppStatusManager.swift */,
 			);
 			path = Lib;
 			sourceTree = "<group>";
@@ -575,6 +592,7 @@
 			isa = PBXGroup;
 			children = (
 				D5A221BC2B571FED00F1413B /* Views */,
+				D5D734EF2B666C6800C6B11C /* ViewModels */,
 			);
 			path = Tray;
 			sourceTree = "<group>";
@@ -583,9 +601,9 @@
 			isa = PBXGroup;
 			children = (
 				D5A221BD2B571FED00F1413B /* TrayMenuView.swift */,
+				D5A221C02B571FED00F1413B /* TrayDriveRowView.swift */,
 				D5A221BE2B571FED00F1413B /* TrayMenuItem.swift */,
 				D5A221BF2B571FED00F1413B /* TrayMenuFooterView.swift */,
-				D5A221C02B571FED00F1413B /* TrayDriveRowView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -817,11 +835,20 @@
 				D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */,
 				D5A222812B5721CC00F1413B /* S3Enumerator.swift */,
 				D540029D2B5EAEB000B54E97 /* S3Lib.swift */,
+				D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */,
 				D5A222832B5721CC00F1413B /* Provider.xcassets */,
 				D5A2227E2B5721CC00F1413B /* Provider.entitlements */,
 				D5A2224E2B57211500F1413B /* Info.plist */,
 			);
 			path = Provider;
+			sourceTree = "<group>";
+		};
+		D5D734EF2B666C6800C6B11C /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				D5D734F02B666C7700C6B11C /* DS3DriveViewModel.swift */,
+			);
+			path = ViewModels;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -937,6 +964,7 @@
 			mainGroup = D54775BA2B57181D00DABCD4;
 			packageReferences = (
 				D5A2223C2B57203A00F1413B /* XCRemoteSwiftPackageReference "soto" */,
+				D533AA9C2B62B88000EF8BD5 /* XCRemoteSwiftPackageReference "swift-collections" */,
 			);
 			productRefGroup = D54775C42B57181D00DABCD4 /* Products */;
 			projectDirPath = "";
@@ -1004,6 +1032,7 @@
 				D5A221A62B571F8300F1413B /* Bucket.swift in Sources */,
 				D5A2222B2B571FEE00F1413B /* ProjectView.swift in Sources */,
 				D5A2219B2B571F7E00F1413B /* SharedData+account.swift in Sources */,
+				D533AA912B62775500EF8BD5 /* Notifications+Extensions.swift in Sources */,
 				D54775C72B57181D00DABCD4 /* CubbitDS3SyncApp.swift in Sources */,
 				D5A222052B571FEE00F1413B /* DS3DriveManager.swift in Sources */,
 				D5A222162B571FEE00F1413B /* ButtonStyles.swift in Sources */,
@@ -1025,6 +1054,7 @@
 				D5A2222E2B571FEE00F1413B /* SyncRecapViewModel.swift in Sources */,
 				D5A2219F2B571F8300F1413B /* Project.swift in Sources */,
 				D5A221992B571F7E00F1413B /* SharedData.swift in Sources */,
+				D5D734F12B666C7700C6B11C /* DS3DriveViewModel.swift in Sources */,
 				D5A2218D2B571F7200F1413B /* DS3Authentication.swift in Sources */,
 				D512EEBC2B59631400F550EC /* MFAView.swift in Sources */,
 				D5A221942B571F7900F1413B /* ApiKeys.swift in Sources */,
@@ -1064,9 +1094,11 @@
 				D5A221972B571F7E00F1413B /* SharedData+ds3Drive.swift in Sources */,
 				D5A221952B571F7900F1413B /* System.swift in Sources */,
 				D5A2219D2B571F8300F1413B /* Account.swift in Sources */,
+				D533AA952B6279E200EF8BD5 /* AppStatus.swift in Sources */,
 				D5A222312B571FEE00F1413B /* SyncRecapSidebarView.swift in Sources */,
 				D5A222232B571FEE00F1413B /* IAMUsersDropdownView.swift in Sources */,
 				D5A222292B571FEE00F1413B /* ProjectSelectionView.swift in Sources */,
+				D533AA8F2B62753D00EF8BD5 /* AppStatusManager.swift in Sources */,
 				D5A222082B571FEE00F1413B /* TutorialViewModel.swift in Sources */,
 				D5A221962B571F7E00F1413B /* SharedData+Errors.swift in Sources */,
 			);
@@ -1091,10 +1123,12 @@
 				D5A221722B571F5100F1413B /* URLs.swift in Sources */,
 				D5A221802B571F5100F1413B /* SharedData+syncAnchor.swift in Sources */,
 				D5A221742B571F5100F1413B /* Bucket.swift in Sources */,
+				D533AA962B6279E200EF8BD5 /* AppStatus.swift in Sources */,
 				D5A2218B2B571F5100F1413B /* URLs+Extensions.swift in Sources */,
 				D5A221862B571F5100F1413B /* DateFormatter+Extensions.swift in Sources */,
 				D5A221872B571F5100F1413B /* ApiKeys.swift in Sources */,
 				D5A2217C2B571F5100F1413B /* RefreshToken.swift in Sources */,
+				D533AA922B62775500EF8BD5 /* Notifications+Extensions.swift in Sources */,
 				D5A221702B571F5100F1413B /* DS3SDK.swift in Sources */,
 				D5A221892B571F5100F1413B /* NSFIleProvider+Extensions.swift in Sources */,
 				D5A2217F2B571F5100F1413B /* SharedData+account.swift in Sources */,
@@ -1114,6 +1148,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D54002A02B5EAEB000B54E97 /* S3Lib.swift in Sources */,
+				D533AA932B62775500EF8BD5 /* Notifications+Extensions.swift in Sources */,
 				D59B743D2B62690B0088605A /* ControlFlow.swift in Sources */,
 				D5A222492B57211500F1413B /* FileProviderExtension.swift in Sources */,
 				D5A222742B57217900F1413B /* Challenge.swift in Sources */,
@@ -1127,8 +1162,10 @@
 				D5A222662B57216F00F1413B /* Bundle+Extensions.swift in Sources */,
 				D5A2228A2B5721CC00F1413B /* S3Enumerator.swift in Sources */,
 				D5A222862B5721CC00F1413B /* FileProviderExtension+Errors.swift in Sources */,
+				D533AA972B6279E200EF8BD5 /* AppStatus.swift in Sources */,
 				D5A222642B57216F00F1413B /* URLs+Extensions.swift in Sources */,
 				D5A2227A2B57217E00F1413B /* URLs.swift in Sources */,
+				D5A4E0AB2B630A9800D7560B /* NotificationsManager.swift in Sources */,
 				D5A222612B57216F00F1413B /* JWT.swift in Sources */,
 				D5A2226D2B57217400F1413B /* SharedData+syncAnchor.swift in Sources */,
 				D5A222622B57216F00F1413B /* System.swift in Sources */,
@@ -1322,7 +1359,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.CubbitDS3Sync;
 				PRODUCT_NAME = "Cubbit DS3";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1332,6 +1369,7 @@
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
@@ -1370,7 +1408,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.CubbitDS3Sync;
 				PRODUCT_NAME = "Cubbit DS3";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1380,6 +1418,7 @@
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
 		};
@@ -1405,7 +1444,7 @@
 					"@loader_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.DS3Lib;
@@ -1442,7 +1481,7 @@
 					"@loader_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.DS3Lib;
@@ -1476,7 +1515,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.CubbitDS3Sync.Provider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1485,6 +1524,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
@@ -1508,7 +1548,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.CubbitDS3Sync.Provider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1517,6 +1557,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
 		};
@@ -1562,6 +1603,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		D533AA9C2B62B88000EF8BD5 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-collections.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.6;
+			};
+		};
 		D5A2223C2B57203A00F1413B /* XCRemoteSwiftPackageReference "soto" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/soto-project/soto";

@@ -70,6 +70,9 @@
     "Enter the code from your authenticator app" : {
 
     },
+    "Error" : {
+      "comment" : "Error status"
+    },
     "Folder:" : {
 
     },
@@ -84,6 +87,12 @@
     },
     "IAM Role:" : {
 
+    },
+    "Idle" : {
+      "comment" : "Idle status"
+    },
+    "Info" : {
+      "comment" : "Info status"
     },
     "Loading..." : {
       "comment" : "Loading"
@@ -108,6 +117,9 @@
     },
     "No buckets found in server response" : {
       "comment" : "Missing buckets in response"
+    },
+    "Offline" : {
+      "comment" : "Offline status"
     },
     "Open web console " : {
       "comment" : "Tray menu open console button"
@@ -159,6 +171,9 @@
     },
     "Sync Projects" : {
 
+    },
+    "Synchronizing" : {
+      "comment" : "Synchronizing status"
     },
     "The provided URL (url ?? \"\") is invalid." : {
       "comment" : "The invalidURL error"

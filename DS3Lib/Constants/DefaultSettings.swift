@@ -42,6 +42,7 @@ enum DefaultSettings {
     
     enum Extension {
         static let payloadsFolderName = "payloads"
+        static let statusChangeDebounceInterval = 1.5
     }
     
     enum FileNames {
@@ -58,5 +59,14 @@ enum DefaultSettings {
         static let multipartThreshold = 5 * 1024 * 1024
         static let timeoutInSeconds: Int64 = 5 * 60
         static let maxRetries = 5
+    }
+    
+    enum Notifications {
+        static let driveStatusChanged = "io.cubbit.CubbitDS3Sync.notifications.driveStatusChanged"
+        static let driveTransferStats = "io.cubbit.CubbitDS3Sync.notifications.driveTransferStats"
+    }
+    
+    enum Timer {
+        static let driveStatsReset = 5.0
     }
 }

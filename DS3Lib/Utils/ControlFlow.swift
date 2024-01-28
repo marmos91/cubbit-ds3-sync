@@ -19,13 +19,15 @@ func withRetries<T>(
 ) async throws -> T {
     var retries = retries
     
+    if retries == 0 {
+        throw ControlFlowError.maxRetriesReached
+    }
+    
     while retries > 0 {
         do {
             return try await block()
         } catch {
             retries -= 1
-            
-            logger?.error("An error occurred: \(error): remaining retries \(retries)")
             
             if retries == 0 {
                 throw error
@@ -33,5 +35,6 @@ func withRetries<T>(
         }
     }
     
+    // Should never reach this
     throw ControlFlowError.maxRetriesReached
 }

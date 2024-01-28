@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TrayMenuFooterView: View {
+    var status: String
     var version: String
     
     var body: some View {
@@ -9,12 +10,17 @@ struct TrayMenuFooterView: View {
                 .ignoresSafeArea()
             
             HStack {
+                Text(status)
+                    .font(.custom("Nunito", size: 12))
+                    .foregroundStyle(Color(.darkWhite))
+                    .padding(.horizontal)
+                
                 Spacer()
                 
                 Text("Version \(version)")
                     .font(.custom("Nunito", size: 12))
                     .foregroundStyle(Color(.darkWhite))
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal)
             }
         }
         .frame(height: 32)
@@ -22,6 +28,7 @@ struct TrayMenuFooterView: View {
 }
 #Preview {
     TrayMenuFooterView(
+        status: "Idle",
         version: "1.0.0"
     )
 }

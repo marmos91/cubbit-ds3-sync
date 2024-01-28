@@ -23,8 +23,7 @@ import Foundation
         return DS3Drive(
             id: self.driveId ?? UUID(),
             name: self.ds3DriveName!,
-            syncAnchor: self.syncAnchor,
-            status: .idle
+            syncAnchor: self.syncAnchor
         )
     }
 }

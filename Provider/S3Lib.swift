@@ -1,5 +1,6 @@
 import Foundation
 import SotoS3
+import Atomics
 import FileProvider
 import os.log
 
@@ -7,11 +8,21 @@ import os.log
 class S3Lib {
     typealias Logger = os.Logger
     
-    private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "S3Lib")
+    private let logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "S3Lib")
+    private let notificationManager: NotificationManager
     private let s3: S3
+    internal let isShutdown = ManagedAtomic(false) // <Bool>.makeAtomic(value: false)
     
-    init(withS3 s3: S3) {
+    init(withS3 s3: S3, withNotificationManager notificationManager: NotificationManager) {
         self.s3 = s3
+        self.notificationManager = notificationManager
+    }
+    
+    func shutdown() throws {
+        if !self.isShutdown.load(ordering: .relaxed) {
+            try self.s3.client.syncShutdown()
+            self.isShutdown.store(true, ordering: .relaxed)
+        }
     }
     
     // MARK: - List and metadata
@@ -47,8 +58,6 @@ class S3Lib {
         var items: [S3Item] = []
         
         if let commonPrefixes = response.commonPrefixes {
-            self.logger.debug("Parsing \(commonPrefixes.count) commonPrefixes")
-            
             for commonPrefix in commonPrefixes {
                 guard let commonPrefix = commonPrefix.prefix?.removingPercentEncoding else {
                     continue
@@ -67,8 +76,6 @@ class S3Lib {
         }
         
         if let contents = response.contents {
-            self.logger.debug("Parsing \(contents.count) contents")
-            
             for object in contents {
                 guard let key = object.key?.removingPercentEncoding else {
                     continue
@@ -111,7 +118,14 @@ class S3Lib {
             return (items, nil)
         }
         
-        return (items, response.nextContinuationToken)
+        var nextContinuationToken: String? = response.nextContinuationToken
+        
+        if nextContinuationToken == "" {
+            // Sometimes the next continuation token is an empty string, in that case we need to return nil
+            nextContinuationToken = nil
+        }
+        
+        return (items, nextContinuationToken)
     }
 
    
@@ -142,9 +156,7 @@ class S3Lib {
             key: key
         )
         
-        let response = try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
-            return try await self.s3.headObject(request)
-        }
+        let response = try await self.s3.headObject(request)
         
         let fileSize = response.contentLength ?? 0
 
@@ -190,9 +202,7 @@ class S3Lib {
         )
         
         // TODO: Should we use the response?
-        let _ = try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
-            return try await self.s3.deleteObject(request)
-        }
+        let _ = try await self.s3.deleteObject(request)
         
         deleteProgress.completedUnitCount += 1
     }
@@ -228,12 +238,7 @@ class S3Lib {
             while !items.isEmpty {
                 let item = items.removeFirst()
                     
-                try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
-                    return try await self.deleteS3Item(
-                        item,
-                        withProgress: progress
-                    )
-                }
+                try await self.deleteS3Item(item, withProgress: progress)
             }
         } while continuationToken != nil
         
@@ -261,13 +266,7 @@ class S3Lib {
         
         self.logger.debug("Renaming s3Item \(s3Item.identifier.rawValue.removingPercentEncoding!) to \(newKey)")
         
-        try await self.moveS3Item(s3Item, toKey: newKey, withProgress: progress)
-        
-        return S3Item(
-            identifier: NSFileProviderItemIdentifier(newKey),
-            drive: s3Item.drive,
-            objectMetadata: s3Item.metadata
-        )
+        return try await self.moveS3Item(s3Item, toKey: newKey, withProgress: progress)
     }
     
     /// Moves a remote S3Item to a new location. If a folder is passed, it will be moved recursively.
@@ -280,11 +279,17 @@ class S3Lib {
         _ s3Item: S3Item,
         toKey key: String,
         withProgress progress: Progress? = nil
-    ) async throws {
+    ) async throws -> S3Item {
         self.logger.debug("Moving \(s3Item.itemIdentifier.rawValue) to \(key)")
         
         try await self.copyS3Item(s3Item, toKey: key, withProgress: progress)
         try await self.deleteS3Item(s3Item, withProgress: progress)
+        
+        return S3Item(
+            identifier: NSFileProviderItemIdentifier(key),
+            drive: s3Item.drive,
+            objectMetadata: s3Item.metadata
+        )
     }
     
     /// Copies a remote S3Item to a new location. If a folder is passed, it will be copied recursively.
@@ -358,21 +363,17 @@ class S3Lib {
                 break
             }
             
-            self.logger.debug("Should copy \(items.count) items")
-            
             while !items.isEmpty {
                 let item = items.removeFirst()
                 let newKey = item.identifier.rawValue.replacingOccurrences(of: prefix, with: newPrefix).removingPercentEncoding!
                 
                 self.logger.debug("New key is \(newKey)")
                 
-                try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
-                    return try await self.copyS3Item(
-                        item,
-                        toKey: newKey,
-                        withProgress: progress
-                    )
-                }
+                return try await self.copyS3Item(
+                    item,
+                    toKey: newKey,
+                    withProgress: progress
+                )
             }
         } while continuationToken != nil
         
@@ -409,6 +410,8 @@ class S3Lib {
         let fileURL = try temporaryFileURL(withTemporaryFolder: temporaryFolder)
         let fileHandle = try FileHandle(forWritingTo: fileURL)
         
+        defer { fileHandle.closeFile() }
+        
         var bytesDownloaded: Int64 = 0
         
         let request = S3.GetObjectRequest(
@@ -417,26 +420,35 @@ class S3Lib {
         )
         
         do {
-            let _ = try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
-                return try await self.s3.getObjectStreaming(request) { byteBuffer, eventLoop in
-                    let bufferSize = Int64(byteBuffer.readableBytes)
-                    let bytesToWrite = Data([UInt8](byteBuffer.readableBytesView))
-                    
-                    fileHandle.write(bytesToWrite)
-                    
-                    bytesDownloaded += bufferSize
-                    
-                    if fileSize > 0 {
-                        let percentage = (Double(bytesDownloaded) / Double(fileSize))
-                        
-                        progress?.completedUnitCount = Int64(percentage * 100)
-                    }
-                    
-                    return eventLoop.makeSucceededFuture(())
-                }
-            }
+            let downloadPartStartTime = Date()
             
-            fileHandle.closeFile()
+            let _ = try await self.s3.getObjectStreaming(request) { byteBuffer, eventLoop in
+                let bufferSize = Int64(byteBuffer.readableBytes)
+                let bytesToWrite = Data([UInt8](byteBuffer.readableBytesView))
+                
+                fileHandle.write(bytesToWrite)
+                
+                let partDownloadDuration = Date().timeIntervalSince(downloadPartStartTime)
+                
+                bytesDownloaded += bufferSize
+                
+                if fileSize > 0 {
+                    let percentage = (Double(bytesDownloaded) / Double(fileSize))
+                    
+                    progress?.completedUnitCount = Int64(percentage * 100)
+                }
+                
+                self.notificationManager.sendTransferSpeedNotification(
+                    DriveTransferStats(
+                        driveId: s3Item.drive.id,
+                        size: bytesDownloaded,
+                        duration: partDownloadDuration,
+                        direction: .download
+                    )
+                )
+                
+                return eventLoop.makeSucceededFuture(())
+            }
         }
         catch {
             fileHandle.closeFile()
@@ -477,12 +489,16 @@ class S3Lib {
         withProgress progress: Progress? = nil
     ) async throws {
         var request: S3.PutObjectRequest
-
+        var size: Int64 = 0
         let key = s3Item.itemIdentifier.rawValue.removingPercentEncoding!
         
         if let fileURL {
+            guard let data = try? Data(contentsOf: fileURL) else { throw FileProviderExtensionError.fileNotFound }
+            
+            size = Int64(data.count)
+            
             request = S3.PutObjectRequest(
-                body: AWSPayload.data(try! Data(contentsOf: fileURL)),
+                body: AWSPayload.data(data),
                 bucket: s3Item.drive.syncAnchor.bucket.name,
                 key: key
             )
@@ -495,9 +511,22 @@ class S3Lib {
         
         self.logger.debug("Sending standard PUT request for \(key)")
         
-        let _ = try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
-            return try await self.s3.putObject(request)
-        }
+        let uploadStart = Date()
+        let putObjectResponse = try await self.s3.putObject(request)
+        let transferTime = Date().timeIntervalSince(uploadStart)
+        
+        self.notificationManager.sendTransferSpeedNotification(
+            DriveTransferStats(
+                driveId: s3Item.drive.id,
+                size: size,
+                duration: transferTime,
+                direction: .upload
+            )
+        )
+        
+        let eTag = putObjectResponse.eTag ?? ""
+        
+        self.logger.debug("Got ETag \(eTag) for \(key)")
         
         progress?.completedUnitCount += 1
     }
@@ -524,7 +553,7 @@ class S3Lib {
             key: key
         )
         
-        self.logger.debug("Sending CreateMultipart request for \(key)")
+        self.logger.debug("Creating multipart upload for key \(key)")
         
         let createMultipartResponse = try await self.s3.createMultipartUpload(createMultipartRequest)
         
@@ -548,40 +577,47 @@ class S3Lib {
             self.logger.warning("Data is empty. Should have been processed as standard PUT request.")
         }
         
-        var retries = DefaultSettings.S3.maxRetries
-        
         while !data.isEmpty {
             do {
-                try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
-                    let uploadPartRequest = S3.UploadPartRequest(
-                        body: .byteBuffer(ByteBuffer(data: data)),
-                        bucket: s3Item.drive.syncAnchor.bucket.name,
-                        key: key,
-                        partNumber: partNumber,
-                        uploadId: uploadId
+                let uploadPartRequest = S3.UploadPartRequest(
+                    body: .byteBuffer(ByteBuffer(data: data)),
+                    bucket: s3Item.drive.syncAnchor.bucket.name,
+                    key: key,
+                    partNumber: partNumber,
+                    uploadId: uploadId
+                )
+                
+                let uploadStart = Date()
+                let uploadPartResponse = try await self.s3.uploadPart(uploadPartRequest)
+                let transferTime = Date().timeIntervalSince(uploadStart)
+                
+                self.notificationManager.sendTransferSpeedNotification(
+                    DriveTransferStats(
+                        driveId: s3Item.drive.id,
+                        size: Int64(data.count),
+                        duration: transferTime,
+                        direction: .upload
                     )
-                    
-                    let uploadPartResponse = try await self.s3.uploadPart(uploadPartRequest)
-                    
-                    let eTag = uploadPartResponse.eTag ?? ""
-                    
-                    self.logger.debug("Got eTag: \(eTag)")
-                    
-                    completedParts.append(S3.CompletedPart(eTag: eTag, partNumber: partNumber))
-                    
-                    offset += data.count
-                    partNumber += 1
-                    
-                    progress?.completedUnitCount += 1
-                    
-                    data = fileHandle.readData(ofLength: partSize)
-                }
+                )
+                
+                let eTag = uploadPartResponse.eTag ?? ""
+                
+                self.logger.debug("Got eTag: \(eTag)")
+                
+                completedParts.append(S3.CompletedPart(eTag: eTag, partNumber: partNumber))
+                
+                offset += data.count
+                partNumber += 1
+                
+                progress?.completedUnitCount += 1
+                
+                data = fileHandle.readData(ofLength: partSize)
             } catch {
                 try await self.abortS3MultipartUpload(for: s3Item, withUploadId: uploadId)
             }
         }
         
-        self.logger.debug("Completing multipart upload with parts: \(completedParts)")
+        self.logger.debug("Completing multipart upload with \(completedParts.count) parts")
         
         let completeMultipartRequest = S3.CompleteMultipartUploadRequest(
             bucket: s3Item.drive.syncAnchor.bucket.name,
@@ -613,8 +649,6 @@ class S3Lib {
             uploadId: uploadId
         )
         
-        let _ = try await withRetries(retries: DefaultSettings.S3.maxRetries, withLogger: self.logger) {
-            return try await self.s3.abortMultipartUpload(abortRequest)
-        }
+        let _ = try await self.s3.abortMultipartUpload(abortRequest)
     }
 }
