@@ -142,7 +142,7 @@
 		D5A2223E2B57203A00F1413B /* SotoS3 in Frameworks */ = {isa = PBXBuildFile; productRef = D5A2223D2B57203A00F1413B /* SotoS3 */; };
 		D5A222462B57211500F1413B /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D5A222452B57211500F1413B /* UniformTypeIdentifiers.framework */; };
 		D5A222492B57211500F1413B /* FileProviderExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222482B57211500F1413B /* FileProviderExtension.swift */; };
-		D5A222522B57211500F1413B /* Provider.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D5A222432B57211500F1413B /* Provider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D5A222522B57211500F1413B /* Cubbit DS3 FileProvider.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D5A222432B57211500F1413B /* Cubbit DS3 FileProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D5A222582B57214C00F1413B /* SotoS3 in Frameworks */ = {isa = PBXBuildFile; productRef = D5A222572B57214C00F1413B /* SotoS3 */; };
 		D5A222592B57215300F1413B /* DS3Lib.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D5A221432B571F1700F1413B /* DS3Lib.framework */; };
 		D5A2225A2B57215300F1413B /* DS3Lib.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = D5A221432B571F1700F1413B /* DS3Lib.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -226,7 +226,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				D5A222522B57211500F1413B /* Provider.appex in Embed Foundation Extensions */,
+				D5A222522B57211500F1413B /* Cubbit DS3 FileProvider.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -345,7 +345,7 @@
 		D5A222002B571FEE00F1413B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D5A222022B571FEE00F1413B /* Nunito-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Nunito-Regular.ttf"; sourceTree = "<group>"; };
 		D5A222032B571FEE00F1413B /* Nunito-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Nunito-Bold.ttf"; sourceTree = "<group>"; };
-		D5A222432B57211500F1413B /* Provider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = Provider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D5A222432B57211500F1413B /* Cubbit DS3 FileProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Cubbit DS3 FileProvider.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D5A222452B57211500F1413B /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
 		D5A222482B57211500F1413B /* FileProviderExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileProviderExtension.swift; sourceTree = "<group>"; };
 		D5A2224E2B57211500F1413B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -407,7 +407,7 @@
 			children = (
 				D54775C32B57181D00DABCD4 /* Cubbit DS3.app */,
 				D5A221432B571F1700F1413B /* DS3Lib.framework */,
-				D5A222432B57211500F1413B /* Provider.appex */,
+				D5A222432B57211500F1413B /* Cubbit DS3 FileProvider.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -928,7 +928,7 @@
 				D5A222572B57214C00F1413B /* SotoS3 */,
 			);
 			productName = Provider;
-			productReference = D5A222432B57211500F1413B /* Provider.appex */;
+			productReference = D5A222432B57211500F1413B /* Cubbit DS3 FileProvider.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -1517,7 +1517,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
 				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.CubbitDS3Sync.Provider;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Cubbit DS3 FileProvider";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Cubbit DS3Sync Provider";
 				SDKROOT = macosx;
@@ -1550,7 +1550,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
 				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.CubbitDS3Sync.Provider;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Cubbit DS3 FileProvider";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Cubbit DS3Sync Provider";
 				SDKROOT = macosx;
