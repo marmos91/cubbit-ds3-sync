@@ -62,6 +62,8 @@ struct TrayMenuView: View {
                 
                 Divider()
                 
+                Spacer()
+                
                 TrayMenuFooterView(
                     status: appStatusManager.status.toString(),
                     version: DefaultSettings.appVersion
@@ -70,9 +72,11 @@ struct TrayMenuView: View {
         }
         .frame(
             minWidth: 280,
-            maxWidth: 280
+            maxWidth: 280,
+            maxHeight: .infinity
         )
-        .fixedSize(horizontal: true, vertical: true)
+        .fixedSize(horizontal: true, vertical: false)
+        
     }
     
     func canAddMoreDrives() -> Bool {
