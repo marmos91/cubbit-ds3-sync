@@ -181,6 +181,7 @@
 		D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */; };
 		D5A2228C2B5721CC00F1413B /* Provider.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D5A222832B5721CC00F1413B /* Provider.xcassets */; };
 		D5A4E0AB2B630A9800D7560B /* NotificationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */; };
+		D5D734F12B666C7700C6B11C /* DS3DriveViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5D734F02B666C7700C6B11C /* DS3DriveViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -355,6 +356,7 @@
 		D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "S3Item+Metadata.swift"; sourceTree = "<group>"; };
 		D5A222832B5721CC00F1413B /* Provider.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Provider.xcassets; sourceTree = "<group>"; };
 		D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsManager.swift; sourceTree = "<group>"; };
+		D5D734F02B666C7700C6B11C /* DS3DriveViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3DriveViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -590,6 +592,7 @@
 			isa = PBXGroup;
 			children = (
 				D5A221BC2B571FED00F1413B /* Views */,
+				D5D734EF2B666C6800C6B11C /* ViewModels */,
 			);
 			path = Tray;
 			sourceTree = "<group>";
@@ -832,12 +835,20 @@
 				D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */,
 				D5A222812B5721CC00F1413B /* S3Enumerator.swift */,
 				D540029D2B5EAEB000B54E97 /* S3Lib.swift */,
+				D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */,
 				D5A222832B5721CC00F1413B /* Provider.xcassets */,
 				D5A2227E2B5721CC00F1413B /* Provider.entitlements */,
 				D5A2224E2B57211500F1413B /* Info.plist */,
-				D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */,
 			);
 			path = Provider;
+			sourceTree = "<group>";
+		};
+		D5D734EF2B666C6800C6B11C /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				D5D734F02B666C7700C6B11C /* DS3DriveViewModel.swift */,
+			);
+			path = ViewModels;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1043,6 +1054,7 @@
 				D5A2222E2B571FEE00F1413B /* SyncRecapViewModel.swift in Sources */,
 				D5A2219F2B571F8300F1413B /* Project.swift in Sources */,
 				D5A221992B571F7E00F1413B /* SharedData.swift in Sources */,
+				D5D734F12B666C7700C6B11C /* DS3DriveViewModel.swift in Sources */,
 				D5A2218D2B571F7200F1413B /* DS3Authentication.swift in Sources */,
 				D512EEBC2B59631400F550EC /* MFAView.swift in Sources */,
 				D5A221942B571F7900F1413B /* ApiKeys.swift in Sources */,
@@ -1347,7 +1359,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.CubbitDS3Sync;
 				PRODUCT_NAME = "Cubbit DS3";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1357,6 +1369,7 @@
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
@@ -1395,7 +1408,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.CubbitDS3Sync;
 				PRODUCT_NAME = "Cubbit DS3";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1405,6 +1418,7 @@
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
 		};
@@ -1430,7 +1444,7 @@
 					"@loader_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.DS3Lib;
@@ -1467,7 +1481,7 @@
 					"@loader_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.DS3Lib;
@@ -1501,7 +1515,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.CubbitDS3Sync.Provider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1510,6 +1524,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
@@ -1533,7 +1548,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.2;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.CubbitDS3Sync.Provider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1542,6 +1557,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
 		};
