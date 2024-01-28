@@ -62,6 +62,11 @@ enum DefaultSettings {
     }
     
     enum Notifications {
-        static let driveChanged = "io.cubbit.CubbitDS3Sync.notifications.driveChanged"
+        static let driveStatusChanged = "io.cubbit.CubbitDS3Sync.notifications.driveStatusChanged"
+        static let driveTransferStats = "io.cubbit.CubbitDS3Sync.notifications.driveTransferStats"
+    }
+    
+    enum Timer {
+        static let driveStatsReset = 5.0
     }
 }
