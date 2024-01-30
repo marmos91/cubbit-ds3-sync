@@ -2,9 +2,10 @@ import Foundation
 import os.log
 
 class NotificationManager {
+    private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "NotificationManager")
+    
     private let drive: DS3Drive
     private var driveStatus: DS3DriveStatus
-    private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "NotificationManager")
     
     // Used to debounce status change notifications
     var debounceTimer: Timer?

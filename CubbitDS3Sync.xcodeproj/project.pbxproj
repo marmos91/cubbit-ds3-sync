@@ -181,6 +181,8 @@
 		D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */; };
 		D5A2228C2B5721CC00F1413B /* Provider.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D5A222832B5721CC00F1413B /* Provider.xcassets */; };
 		D5A4E0AB2B630A9800D7560B /* NotificationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */; };
+		D5D3B7E32B690ECD004A8F73 /* DS3DriveManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221AD2B571FED00F1413B /* DS3DriveManager.swift */; };
+		D5D3B7E42B690ECD004A8F73 /* AppStatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA8E2B62753D00EF8BD5 /* AppStatusManager.swift */; };
 		D5D734F12B666C7700C6B11C /* DS3DriveViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5D734F02B666C7700C6B11C /* DS3DriveViewModel.swift */; };
 /* End PBXBuildFile section */
 
@@ -417,7 +419,6 @@
 			children = (
 				D5A221AA2B571FED00F1413B /* Preview Content */,
 				D5A221FE2B571FEE00F1413B /* Assets */,
-				D5A221AC2B571FED00F1413B /* Lib */,
 				D5A221AE2B571FED00F1413B /* Views */,
 				D54775C62B57181D00DABCD4 /* CubbitDS3SyncApp.swift */,
 				D54775CC2B57181E00DABCD4 /* CubbitDS3Sync.entitlements */,
@@ -435,6 +436,8 @@
 				D5A221682B571F5100F1413B /* Utils */,
 				D5A221532B571F5100F1413B /* DS3Authentication.swift */,
 				D5A2214F2B571F5100F1413B /* DS3SDK.swift */,
+				D5A221AD2B571FED00F1413B /* DS3DriveManager.swift */,
+				D533AA8E2B62753D00EF8BD5 /* AppStatusManager.swift */,
 				D5A221452B571F1700F1413B /* DS3Lib.h */,
 			);
 			path = DS3Lib;
@@ -504,15 +507,6 @@
 				D5A221AB2B571FED00F1413B /* Preview Assets.xcassets */,
 			);
 			path = "Preview Content";
-			sourceTree = "<group>";
-		};
-		D5A221AC2B571FED00F1413B /* Lib */ = {
-			isa = PBXGroup;
-			children = (
-				D5A221AD2B571FED00F1413B /* DS3DriveManager.swift */,
-				D533AA8E2B62753D00EF8BD5 /* AppStatusManager.swift */,
-			);
-			path = Lib;
 			sourceTree = "<group>";
 		};
 		D5A221AE2B571FED00F1413B /* Views */ = {
@@ -1115,6 +1109,7 @@
 				D5A221792B571F5100F1413B /* Project.swift in Sources */,
 				D5A221732B571F5100F1413B /* DS3Authentication.swift in Sources */,
 				D5A2218C2B571F5100F1413B /* Bundle+Extensions.swift in Sources */,
+				D5D3B7E42B690ECD004A8F73 /* AppStatusManager.swift in Sources */,
 				D5A221712B571F5100F1413B /* DefaultSettings.swift in Sources */,
 				D5A221822B571F5100F1413B /* SharedData+ds3Drive.swift in Sources */,
 				D5A2217E2B571F5100F1413B /* Token.swift in Sources */,
@@ -1135,6 +1130,7 @@
 				D5A221842B571F5100F1413B /* SharedData.swift in Sources */,
 				D5A221762B571F5100F1413B /* SyncAnchor.swift in Sources */,
 				D5A221882B571F5100F1413B /* JWT.swift in Sources */,
+				D5D3B7E32B690ECD004A8F73 /* DS3DriveManager.swift in Sources */,
 				D5A2217B2B571F5100F1413B /* DS3APIKey.swift in Sources */,
 				D5A221832B571F5100F1413B /* SharedData+apiKeys.swift in Sources */,
 				D5A2217D2B571F5100F1413B /* Account.swift in Sources */,

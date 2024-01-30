@@ -8,6 +8,7 @@ enum DS3DriveManagerError: Error {
     case cannotLoadDrives
 }
 
+/// Class that manages DS3Drives. It loads them from disk and keeps them in memory for the whole app lifecycle.
 @Observable class DS3DriveManager {
     @ObservationIgnored
     private let logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "DS3DriveManager")

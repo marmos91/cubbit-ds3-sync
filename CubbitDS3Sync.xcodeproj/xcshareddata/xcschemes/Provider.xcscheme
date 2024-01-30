@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "D5A222422B57211500F1413B"
-               BuildableName = "Provider.appex"
+               BuildableName = "Cubbit DS3 FileProvider.appex"
                BlueprintName = "Provider"
                ReferencedContainer = "container:CubbitDS3Sync.xcodeproj">
             </BuildableReference>

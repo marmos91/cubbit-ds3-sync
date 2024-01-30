@@ -1,7 +1,11 @@
+/// Account email model
 struct AccountEmail: Codable {
     var id: String
     var email: String
+    
+    /// Whether this is the default email for the account
     var isDefault: Bool
+    
     var createdAt: String
     var isVerified: Bool
     var tenantId: String

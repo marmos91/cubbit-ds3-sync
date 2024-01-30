@@ -98,10 +98,6 @@ class S3Item: NSObject, NSFileProviderItem {
         return self.contentType == .folder || self.contentType == .directory
     }
     
-    var extendedAttributes: [String: Data] {
-        return self.metadata.extendedAttributes?.values ?? [:]
-    }
-    
     var contentPolicy: NSFileProviderContentPolicy {
         // TODO: Here we can implement a pinning policy
         return .downloadLazily

@@ -52,11 +52,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             
             self.s3Lib = S3Lib(withS3: self.s3!, withNotificationManager: self.notificationManager!)
             
-            // TODO: Look for changes in the sharedDefaults to update
-//            observation = observedDefaults.observe(\.blockedProcesses, options: [.initial, .new]) { _, change in
-//                UserDefaults().setValue(change.newValue ?? [], forKey: "NSFileProviderExtensionNonMaterializingProcessNames")
-//            }
-            
             self.enabled = true
         } catch {
             self.logger.error("An error occurred while initializing extension: \(error.localizedDescription)")
