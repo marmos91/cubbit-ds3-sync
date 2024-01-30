@@ -6,9 +6,23 @@ enum DS3SDKError: Error, LocalizedError {
     case serverError
     case jsonConversion
     case encodingError
+    
+    var errorDescription: String? {
+        switch self {
+           case .invalidURL(let url):
+               return NSLocalizedString("Invalid URL: \(url ?? "")", comment: "Invalid URL")
+            case .serverError:
+                return NSLocalizedString("Server error", comment: "Server error")
+            case .jsonConversion:
+                return NSLocalizedString("JSON conversion error", comment: "JSON conversion error")
+            case .encodingError:
+                return NSLocalizedString("Encoding error", comment: "Encoding error")
+        }
+    }
 }
 
-@Observable class DS3SDK {
+/// Class that manages the communication with the DS3 API.
+@Observable final class DS3SDK {
     private var authentication: DS3Authentication
     private let logger: Logger = Logger(subsystem: "com.cubbit.CubbitDS3Sync", category: "DS3SDK")
     
@@ -19,7 +33,9 @@ enum DS3SDKError: Error, LocalizedError {
     }
     
     // MARK: - Projects
-
+    
+    /// Retriieves all the projects for the current user.
+    /// - Returns: the list of projects for the current user.
     func getRemoteProjects() async throws -> [Project] {
         try await self.authentication.refreshIfNeeded()
         
@@ -48,7 +64,12 @@ enum DS3SDKError: Error, LocalizedError {
    
     // MARK: - API Keys
     
-    func getRemoteApiKeys(forIAMUser user: IAMUser) async throws -> [DS3ApiKey] {
+    /// This method retrieves all the API keys for the selected IAM user.
+    /// - Parameter user: the IAM user for which to retrieve the API keys.
+    /// - Returns: the list of API keys for the selected IAM user.
+    func getRemoteApiKeys(
+        forIAMUser user: IAMUser
+    ) async throws -> [DS3ApiKey] {
         let iamToken = try await authentication.forgeIAMToken(forIAMUser: user)
         
         guard let url = URL(string: "\(CubbitAPIURLs.keyvault.getKeysURL)?user_id=\(user.id)") else {
@@ -74,7 +95,14 @@ enum DS3SDKError: Error, LocalizedError {
         return apiKeys
     }
     
-    func deleteApiKey(_ apiKey: DS3ApiKey, forIAMUser user: IAMUser) async throws {
+    /// Deletes the given API key for the given IAM user.
+    /// - Parameters:
+    ///   - apiKey: the api key to delete.
+    ///   - user: the IAM user for which to delete the API key.
+    func deleteApiKey(
+        _ apiKey: DS3ApiKey,
+        forIAMUser user: IAMUser
+    ) async throws {
         let iamToken = try await authentication.forgeIAMToken(forIAMUser: user)
         
         guard let urlencodedApiKey = apiKey.apiKey.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { throw DS3SDKError.encodingError }
@@ -100,10 +128,17 @@ enum DS3SDKError: Error, LocalizedError {
     }
     
     /// Load API keys for the given iam user and ds3 project from disk, if already available. Otherwise creates a new pair and save it to disk
-    func loadOrCreateDS3APIKeys(forIAMUser user: IAMUser, ds3ProjectName: String) async throws -> DS3ApiKey {
-        let apiKeyName = apiKeyName(forUser: user, projectName: ds3ProjectName)
+    /// - Parameters:
+    ///   - user: the IAM user for which to load or create the API keys.
+    ///   - ds3ProjectName: the name of the DS3 project for which to load or create the API keys.
+    /// - Returns: the API keys for the given IAM user and DS3 project.
+    func loadOrCreateDS3APIKeys(
+        forIAMUser user: IAMUser,
+        ds3ProjectName: String
+    ) async throws -> DS3ApiKey {
+        let apiKeyName = DS3SDK.apiKeyName(forUser: user, projectName: ds3ProjectName)
         
-        let localApiKeys = (try? SharedData.shared.loadDS3APIKeysFromPersistence()) ?? []
+        let localApiKeys = (try? SharedData.default().loadDS3APIKeysFromPersistence()) ?? []
         let localApiKey = localApiKeys.first(where: {$0.name == apiKeyName})
         
         let iamToken = try await authentication.forgeIAMToken(forIAMUser: user)
@@ -133,14 +168,24 @@ enum DS3SDKError: Error, LocalizedError {
             } else {
                 self.logger.debug("Deleting local key since it is not found remotely")
                 // If local exists and remote does not, delete local and generate a new one
-                try SharedData.shared.deleteDS3APIKeyFromPersistence(withName: localApiKey!.name)
+                try SharedData.default().deleteDS3APIKeyFromPersistence(withName: localApiKey!.name)
                 
                 return try await self.generateDS3APIKey(forIAMUser: user, iamToken: iamToken, apiKeyName: apiKeyName)
             }
         }
     }
     
-    func generateDS3APIKey(forIAMUser user: IAMUser, iamToken: Token, apiKeyName: String) async throws -> DS3ApiKey {
+    /// Generates a new API key for the given IAM user.
+    /// - Parameters:
+    ///   - user: the IAM user for which to generate the API key.
+    ///   - iamToken: the IAM token to use for authentication. You can generate one with `forgeIAMToken(forIAMUser:)`.
+    ///   - apiKeyName: the name to give to the new API key.
+    /// - Returns: the newly generated API key.
+    func generateDS3APIKey(
+        forIAMUser user: IAMUser, 
+        iamToken: Token,
+        apiKeyName: String
+    ) async throws -> DS3ApiKey {
         guard let url = URL(string: "\(CubbitAPIURLs.keyvault.createKeyURL)/\(apiKeyName)?user_id=\(user.id)") else {
             throw DS3SDKError.invalidURL(url: CubbitAPIURLs.IAM.auth.challengeURL)
         }
@@ -163,11 +208,23 @@ enum DS3SDKError: Error, LocalizedError {
         }
         guard let newApiKey = try? JSONDecoder().decode(DS3ApiKey.self, from: responseData) else { throw DS3SDKError.jsonConversion }
         
-        var localApiKeys = (try? SharedData.shared.loadDS3APIKeysFromPersistence()) ?? []
+        var localApiKeys = (try? SharedData.default().loadDS3APIKeysFromPersistence()) ?? []
         localApiKeys.append(newApiKey)
         
-        try SharedData.shared.persistDS3APIKeys(localApiKeys)
+        try SharedData.default().persistDS3APIKeys(localApiKeys)
         
         return newApiKey
+    }
+    
+    /// Returns an unique name for an API key for the given IAM user and DS3 project.
+    /// - Parameters:
+    ///   - user: the IAM user for which to generate the API key name.
+    ///   - projectName: the project name for which to generate the API key name.
+    /// - Returns: A unique name for an API key for the given IAM user and DS3 project.
+    static func apiKeyName(
+        forUser user: IAMUser,
+        projectName: String
+    ) -> String {
+        return "\(DefaultSettings.apiKeyNamePrefix)(\(user.username)_\(projectName.lowercased().replacingOccurrences(of: " ", with: "_"))_\(DefaultSettings.appUUID))"
     }
 }

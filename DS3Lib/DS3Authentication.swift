@@ -48,13 +48,21 @@ enum APIError {
     static let Missing2FA = "missing two factor code"
 }
 
+/// Request to retrieve the challenge for the login
 struct DS3ChallengeRequest: Codable {
+    /// The user email
     var email: String
 }
 
+/// Login request through the DS3 APIs
 struct DS3LoginRequest: Codable {
+    /// The user email
     var email: String
+    
+    /// The retrieved challenge signed with the user private key (you can retrieve the challenge through the `DS3ChallengeRequest`)
     var signedChallenge: String
+    
+    /// Optional: the 2FA code if the user has enabled it
     var tfaCode: String?
     
     enum CodingKeys: String, CodingKey {
@@ -64,10 +72,12 @@ struct DS3LoginRequest: Codable {
     }
 }
 
+/// Response for the login request
 struct DS3Missing2FAResponse: Codable {
     var message: String
 }
 
+/// Class that manages the authentication with the DS3 APIs
 @Observable final class DS3Authentication {
     private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.DS3Lib", category: "DS3Authentication")
     
@@ -97,6 +107,9 @@ struct DS3Missing2FAResponse: Codable {
     
     // MARK: - Tokens
     
+    /// Forges an IAM token for the specified user. The IAM token will be then used to authenticate all the next requests for the specified user
+    /// - Parameter user: the IAM user for which you want to forge the token
+    /// - Returns: the Token object containing the access token and the expiration date
     func forgeIAMToken(forIAMUser user: IAMUser) async throws -> Token {
         try await self.refreshIfNeeded()
         
@@ -332,14 +345,14 @@ struct DS3Missing2FAResponse: Codable {
             self.account != nil
         else { throw DS3AuthenticationError.loggedOut }
         
-        try SharedData.shared.persistAccountSession(accountSession: self.accountSession!)
-        try SharedData.shared.persistAccount(account: self.account!)
+        try SharedData.default().persistAccountSession(accountSession: self.accountSession!)
+        try SharedData.default().persistAccount(account: self.account!)
     }
     
     static func loadFromPersistenceOrCreateNew() -> DS3Authentication{
         do {
-            let accountSession = try SharedData.shared.loadAccountSessionFromPersistence()
-            let account =  try SharedData.shared.loadAccountFromPersistence()
+            let accountSession = try SharedData.default().loadAccountSessionFromPersistence()
+            let account =  try SharedData.default().loadAccountFromPersistence()
             
             return DS3Authentication(
                 accountSession: accountSession,
@@ -353,10 +366,10 @@ struct DS3Missing2FAResponse: Codable {
     
     func deleteFromDisk() throws {
         UserDefaults.standard.removeObject(forKey: DefaultSettings.UserDefaultsKeys.tutorial)
-        try SharedData.shared.deleteAccountSessionFromPersistence()
-        try SharedData.shared.deleteAccountFromPersistence()
-        try SharedData.shared.deleteDS3DrivesFromPersistence()
-        try SharedData.shared.deleteDS3APIKeysFromPersistence()
+        try SharedData.default().deleteAccountSessionFromPersistence()
+        try SharedData.default().deleteAccountFromPersistence()
+        try SharedData.default().deleteDS3DrivesFromPersistence()
+        try SharedData.default().deleteDS3APIKeysFromPersistence()
     }
    
     

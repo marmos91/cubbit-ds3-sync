@@ -1,8 +1,10 @@
 import Foundation
 
+/// The Cubbit related API URLs.
 enum CubbitAPIURLs {
     static let baseURL = "https://api.cubbit.eu"
     
+    /// IAM service related URLs.
     enum IAM {
         static let baseURL = "\(CubbitAPIURLs.baseURL)/iam/v1"
         
@@ -24,6 +26,7 @@ enum CubbitAPIURLs {
         static let projects = "\(IAM.baseURL)/projects"
     }
     
+    /// Cubbit's internal KMS related URLs.
     enum keyvault {
         static let baseURL = "\(CubbitAPIURLs.baseURL)/keyvault/api/v3"
         
@@ -33,6 +36,7 @@ enum CubbitAPIURLs {
     }
 }
 
+/// Cubbits web console related URLs.
 enum ConsoleURLs {
     static let baseURL = "https://console.cubbit.eu"
     
@@ -43,10 +47,12 @@ enum ConsoleURLs {
     static let profileURL = "\(ConsoleURLs.workspaceURL)/profile"
 }
 
+/// Cubbit docs related URLs.
 enum DocsURLs {
     static let baseURL = "https://docs.cubbit.io"
 }
 
+/// Cubbit help center related URLs.
 enum HelpURLs {
     static let baseURL = "https://help.cubbit.io"
 }

@@ -2,8 +2,13 @@ import Foundation
 
 /// A IAM User in the Cubbit DS3 ecosystem
 @Observable class IAMUser: Codable, Identifiable, Hashable, Equatable {
+    /// The IAM user ID
     var id: String
+    
+    /// The IAM username
     var username: String
+    
+    /// Whether the user is a root user
     var isRoot: Bool
     
     private enum CodingKeys: String, CodingKey {

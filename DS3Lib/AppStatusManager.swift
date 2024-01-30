@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Manages the status of the app.
-@Observable class AppStatusManager {
+@Observable final class AppStatusManager {
     static var instance: AppStatusManager?
     
     var status: AppStatus = .idle

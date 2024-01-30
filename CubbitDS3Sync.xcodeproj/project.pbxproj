@@ -43,13 +43,11 @@
 		D5A2217E2B571F5100F1413B /* Token.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2215F2B571F5100F1413B /* Token.swift */; };
 		D5A2217F2B571F5100F1413B /* SharedData+account.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221612B571F5100F1413B /* SharedData+account.swift */; };
 		D5A221802B571F5100F1413B /* SharedData+syncAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221622B571F5100F1413B /* SharedData+syncAnchor.swift */; };
-		D5A221812B571F5100F1413B /* SharedData+Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221632B571F5100F1413B /* SharedData+Errors.swift */; };
 		D5A221822B571F5100F1413B /* SharedData+ds3Drive.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221642B571F5100F1413B /* SharedData+ds3Drive.swift */; };
 		D5A221832B571F5100F1413B /* SharedData+apiKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221652B571F5100F1413B /* SharedData+apiKeys.swift */; };
 		D5A221842B571F5100F1413B /* SharedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221662B571F5100F1413B /* SharedData.swift */; };
 		D5A221852B571F5100F1413B /* SharedData+accountSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221672B571F5100F1413B /* SharedData+accountSession.swift */; };
 		D5A221862B571F5100F1413B /* DateFormatter+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221692B571F5100F1413B /* DateFormatter+Extensions.swift */; };
-		D5A221872B571F5100F1413B /* ApiKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216A2B571F5100F1413B /* ApiKeys.swift */; };
 		D5A221882B571F5100F1413B /* JWT.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216B2B571F5100F1413B /* JWT.swift */; };
 		D5A221892B571F5100F1413B /* NSFIleProvider+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216C2B571F5100F1413B /* NSFIleProvider+Extensions.swift */; };
 		D5A2218A2B571F5100F1413B /* System.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216D2B571F5100F1413B /* System.swift */; };
@@ -62,9 +60,7 @@
 		D5A221912B571F7900F1413B /* URLs+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216E2B571F5100F1413B /* URLs+Extensions.swift */; };
 		D5A221922B571F7900F1413B /* Bundle+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216F2B571F5100F1413B /* Bundle+Extensions.swift */; };
 		D5A221932B571F7900F1413B /* JWT.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216B2B571F5100F1413B /* JWT.swift */; };
-		D5A221942B571F7900F1413B /* ApiKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216A2B571F5100F1413B /* ApiKeys.swift */; };
 		D5A221952B571F7900F1413B /* System.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216D2B571F5100F1413B /* System.swift */; };
-		D5A221962B571F7E00F1413B /* SharedData+Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221632B571F5100F1413B /* SharedData+Errors.swift */; };
 		D5A221972B571F7E00F1413B /* SharedData+ds3Drive.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221642B571F5100F1413B /* SharedData+ds3Drive.swift */; };
 		D5A221982B571F7E00F1413B /* SharedData+apiKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221652B571F5100F1413B /* SharedData+apiKeys.swift */; };
 		D5A221992B571F7E00F1413B /* SharedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221662B571F5100F1413B /* SharedData.swift */; };
@@ -151,14 +147,12 @@
 		D5A222602B57216F00F1413B /* NSFIleProvider+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216C2B571F5100F1413B /* NSFIleProvider+Extensions.swift */; };
 		D5A222612B57216F00F1413B /* JWT.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216B2B571F5100F1413B /* JWT.swift */; };
 		D5A222622B57216F00F1413B /* System.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216D2B571F5100F1413B /* System.swift */; };
-		D5A222632B57216F00F1413B /* ApiKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216A2B571F5100F1413B /* ApiKeys.swift */; };
 		D5A222642B57216F00F1413B /* URLs+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216E2B571F5100F1413B /* URLs+Extensions.swift */; };
 		D5A222652B57216F00F1413B /* DateFormatter+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221692B571F5100F1413B /* DateFormatter+Extensions.swift */; };
 		D5A222662B57216F00F1413B /* Bundle+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2216F2B571F5100F1413B /* Bundle+Extensions.swift */; };
 		D5A222672B57217400F1413B /* SharedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221662B571F5100F1413B /* SharedData.swift */; };
 		D5A222682B57217400F1413B /* SharedData+accountSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221672B571F5100F1413B /* SharedData+accountSession.swift */; };
 		D5A222692B57217400F1413B /* SharedData+ds3Drive.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221642B571F5100F1413B /* SharedData+ds3Drive.swift */; };
-		D5A2226A2B57217400F1413B /* SharedData+Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221632B571F5100F1413B /* SharedData+Errors.swift */; };
 		D5A2226B2B57217400F1413B /* SharedData+account.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221612B571F5100F1413B /* SharedData+account.swift */; };
 		D5A2226C2B57217400F1413B /* SharedData+apiKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221652B571F5100F1413B /* SharedData+apiKeys.swift */; };
 		D5A2226D2B57217400F1413B /* SharedData+syncAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221622B571F5100F1413B /* SharedData+syncAnchor.swift */; };
@@ -280,13 +274,11 @@
 		D5A2215F2B571F5100F1413B /* Token.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Token.swift; sourceTree = "<group>"; };
 		D5A221612B571F5100F1413B /* SharedData+account.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "SharedData+account.swift"; sourceTree = "<group>"; };
 		D5A221622B571F5100F1413B /* SharedData+syncAnchor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "SharedData+syncAnchor.swift"; sourceTree = "<group>"; };
-		D5A221632B571F5100F1413B /* SharedData+Errors.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "SharedData+Errors.swift"; sourceTree = "<group>"; };
 		D5A221642B571F5100F1413B /* SharedData+ds3Drive.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "SharedData+ds3Drive.swift"; sourceTree = "<group>"; };
 		D5A221652B571F5100F1413B /* SharedData+apiKeys.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "SharedData+apiKeys.swift"; sourceTree = "<group>"; };
 		D5A221662B571F5100F1413B /* SharedData.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SharedData.swift; sourceTree = "<group>"; };
 		D5A221672B571F5100F1413B /* SharedData+accountSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "SharedData+accountSession.swift"; sourceTree = "<group>"; };
 		D5A221692B571F5100F1413B /* DateFormatter+Extensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "DateFormatter+Extensions.swift"; sourceTree = "<group>"; };
-		D5A2216A2B571F5100F1413B /* ApiKeys.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ApiKeys.swift; sourceTree = "<group>"; };
 		D5A2216B2B571F5100F1413B /* JWT.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JWT.swift; sourceTree = "<group>"; };
 		D5A2216C2B571F5100F1413B /* NSFIleProvider+Extensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "NSFIleProvider+Extensions.swift"; sourceTree = "<group>"; };
 		D5A2216D2B571F5100F1413B /* System.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = System.swift; sourceTree = "<group>"; };
@@ -477,7 +469,6 @@
 				D5A221662B571F5100F1413B /* SharedData.swift */,
 				D5A221612B571F5100F1413B /* SharedData+account.swift */,
 				D5A221622B571F5100F1413B /* SharedData+syncAnchor.swift */,
-				D5A221632B571F5100F1413B /* SharedData+Errors.swift */,
 				D5A221642B571F5100F1413B /* SharedData+ds3Drive.swift */,
 				D5A221652B571F5100F1413B /* SharedData+apiKeys.swift */,
 				D5A221672B571F5100F1413B /* SharedData+accountSession.swift */,
@@ -489,7 +480,6 @@
 			isa = PBXGroup;
 			children = (
 				D5A221692B571F5100F1413B /* DateFormatter+Extensions.swift */,
-				D5A2216A2B571F5100F1413B /* ApiKeys.swift */,
 				D5A2216B2B571F5100F1413B /* JWT.swift */,
 				D5A2216C2B571F5100F1413B /* NSFIleProvider+Extensions.swift */,
 				D5A2216D2B571F5100F1413B /* System.swift */,
@@ -1051,7 +1041,6 @@
 				D5D734F12B666C7700C6B11C /* DS3DriveViewModel.swift in Sources */,
 				D5A2218D2B571F7200F1413B /* DS3Authentication.swift in Sources */,
 				D512EEBC2B59631400F550EC /* MFAView.swift in Sources */,
-				D5A221942B571F7900F1413B /* ApiKeys.swift in Sources */,
 				D5A222182B571FEE00F1413B /* LinkView.swift in Sources */,
 				D5A222152B571FEE00F1413B /* IconButtonView.swift in Sources */,
 				D5A2220C2B571FEE00F1413B /* TrayMenuItem.swift in Sources */,
@@ -1094,7 +1083,6 @@
 				D5A222292B571FEE00F1413B /* ProjectSelectionView.swift in Sources */,
 				D533AA8F2B62753D00EF8BD5 /* AppStatusManager.swift in Sources */,
 				D5A222082B571FEE00F1413B /* TutorialViewModel.swift in Sources */,
-				D5A221962B571F7E00F1413B /* SharedData+Errors.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1121,7 +1109,6 @@
 				D533AA962B6279E200EF8BD5 /* AppStatus.swift in Sources */,
 				D5A2218B2B571F5100F1413B /* URLs+Extensions.swift in Sources */,
 				D5A221862B571F5100F1413B /* DateFormatter+Extensions.swift in Sources */,
-				D5A221872B571F5100F1413B /* ApiKeys.swift in Sources */,
 				D5A2217C2B571F5100F1413B /* RefreshToken.swift in Sources */,
 				D533AA922B62775500EF8BD5 /* Notifications+Extensions.swift in Sources */,
 				D5A221702B571F5100F1413B /* DS3SDK.swift in Sources */,
@@ -1135,7 +1122,6 @@
 				D5A221832B571F5100F1413B /* SharedData+apiKeys.swift in Sources */,
 				D5A2217D2B571F5100F1413B /* Account.swift in Sources */,
 				D5A2218A2B571F5100F1413B /* System.swift in Sources */,
-				D5A221812B571F5100F1413B /* SharedData+Errors.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1154,7 +1140,6 @@
 				D5A222712B57217900F1413B /* DS3APIKey.swift in Sources */,
 				D5A222722B57217900F1413B /* RefreshToken.swift in Sources */,
 				D5A2226E2B57217900F1413B /* SyncAnchor.swift in Sources */,
-				D5A222632B57216F00F1413B /* ApiKeys.swift in Sources */,
 				D5A222662B57216F00F1413B /* Bundle+Extensions.swift in Sources */,
 				D5A2228A2B5721CC00F1413B /* S3Enumerator.swift in Sources */,
 				D5A222862B5721CC00F1413B /* FileProviderExtension+Errors.swift in Sources */,
@@ -1175,7 +1160,6 @@
 				D5A222732B57217900F1413B /* AccountSession.swift in Sources */,
 				D5A222772B57217900F1413B /* Bucket.swift in Sources */,
 				D5A222782B57217900F1413B /* Project.swift in Sources */,
-				D5A2226A2B57217400F1413B /* SharedData+Errors.swift in Sources */,
 				D5A222682B57217400F1413B /* SharedData+accountSession.swift in Sources */,
 				D5A222792B57217E00F1413B /* DefaultSettings.swift in Sources */,
 				D5A222692B57217400F1413B /* SharedData+ds3Drive.swift in Sources */,

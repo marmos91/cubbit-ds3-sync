@@ -398,13 +398,13 @@ class S3Lib {
     /// Downloads a given S3Item from S3 to a temporary file
     /// - Parameters:
     ///   - s3Item: the S3Item to download
-    ///   - temporaryFolder: the optional temporary folder to use for the download
+    ///   - temporaryFolder: the temporary folder to use for the download
     ///   - progress: the optional progress to use for the download
     /// - Returns: the URL of the downloaded file
     @Sendable
     func getS3Item(
         _ s3Item: S3Item,
-        withTemporaryFolder temporaryFolder: URL?,
+        withTemporaryFolder temporaryFolder: URL,
         withProgress progress: Progress?
     ) async throws -> URL {
         let fileSize: Int64 = .init(truncating: s3Item.documentSize ?? 0)

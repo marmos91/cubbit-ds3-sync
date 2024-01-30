@@ -3,10 +3,15 @@ import Foundation
 /// An accountSession in the Cubbit DS3 ecosystem
 @Observable class AccountSession: Codable {
     private var _token: Token
+    
+    /// An authentication token used to authenticate the root user
     var token: Token {
         get { return _token }
     }
+    
     private var _refreshToken: String
+    
+    /// A refresh token used to refresh the authentication token
     var refreshToken: String {
         get { return _refreshToken }
     }
@@ -22,16 +27,21 @@ import Foundation
     }
     
     /// Updates the token
+    /// - Parameter token: the new token
     func refreshToken(token: Token) {
         self._token = token
     }
     
     /// Updates the refresh token
+    /// - Parameter refreshToken: the new refresh token
     func refreshRefreshToken(refreshToken: String) {
         self._refreshToken = refreshToken
     }
     
     /// Updates both the token and the refresh token
+    /// - Parameters:
+    ///  - token: the new token
+    ///  - refreshToken: the new refresh token
     func refreshTokens(token: Token, refreshToken: String) {
         self.refreshToken(token: token)
         self.refreshRefreshToken(refreshToken: refreshToken)

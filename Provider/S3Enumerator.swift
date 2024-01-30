@@ -14,7 +14,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
     let logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "S3Enumerator")
     
     private let parent: NSFileProviderItemIdentifier
-    private let anchor = SharedData.shared.loadSyncAnchorOrCreate()
+    private let anchor = SharedData.default().loadSyncAnchorOrCreate()
     
     private let s3Lib: S3Lib
     private var drive: DS3Drive
@@ -143,7 +143,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
                     observer.didUpdate(changedItems)
                     newAnchor = NSFileProviderSyncAnchor(Date())
                     
-                    SharedData.shared.persistSyncAnchor(newAnchor)
+                    SharedData.default().persistSyncAnchor(newAnchor)
                 }
                 
                 self.logger.debug("Anchor is \(newAnchor.toDate())")

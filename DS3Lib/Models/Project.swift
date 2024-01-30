@@ -2,15 +2,35 @@ import Foundation
 
 /// A project in the Cubbit's DS3 ecosystem
 @Observable class Project: Equatable, Codable, Identifiable {
+    /// The project unique ID
     var id: String
+    
+    /// The project name
     var name: String
+    
+    /// If set, the project description
     var description: String
+    
+    /// The email of the project. The project email is used to perform ACL-related operations. **It is not a real email address**.
     var email: String
+    
+    /// When the project was created
     var createdAt: String
+    
+    /// Optional, when the project was banned
     var bannedAt: String?
+    
+    /// Optional, the project image URL
     var imageUrl: String?
+    
+    /// Optional, the project tenant ID. The tenant identifier it is used to identify the project in the Cubbit's DS3 ecosystem.
+    /// Refer to https://docs.cubbit.io/composer/tenants/what-is-a-tenant to read more information about tenants.
     var tenantId: String
+    
+    /// The root account email, if set
     var rootAccountEmail: String?
+    
+    /// The IAM users that belong to this project
     var users: [IAMUser]
     
     init(

@@ -61,7 +61,7 @@ import os.log
         self.totalTransferDuration += driveTransferStats.duration
         self.driveStats.currentSpeedBs = Double(driveTransferStats.size) / driveTransferStats.duration
         
-        self.transferStatsResetTimer = Timer.scheduledTimer(withTimeInterval: DefaultSettings.Timer.driveStatsReset, repeats: false) { _ in
+        self.transferStatsResetTimer = Timer.scheduledTimer(withTimeInterval: DefaultSettings.Tray.driveStatsReset, repeats: false) { _ in
             self.totalTransferredSize = 0
             self.totalTransferDuration = 0
             self.driveStats.currentSpeedBs = nil

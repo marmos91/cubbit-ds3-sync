@@ -1,9 +1,17 @@
 import Foundation
 
+/// A struct used to represent an API key in the CubbitDS3 ecosystem
 struct DS3ApiKey: Codable, Equatable {
+    /// The name of the API key
     var name: String
+    
+    /// The S3 api key (this is the public key)
     var apiKey: String
+    
+    /// The S3 secret key (this is the private key)
     var secretKey: String?
+    
+    /// When the API key was created
     var createdAt: Date
     
     private enum CodingKeys: String, CodingKey {

@@ -28,10 +28,10 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         
         do {
             self.temporaryDirectory = try? NSFileProviderManager(for: domain)?.temporaryDirectoryURL()
-            self.drive = try SharedData.shared.loadDS3DriveFromPersistence(withDomainIdentifier: domain.identifier)
+            self.drive = try SharedData.default().loadDS3DriveFromPersistence(withDomainIdentifier: domain.identifier)
             self.notificationManager = NotificationManager(drive: self.drive!)
-            self.endpoint = try SharedData.shared.loadAccountFromPersistence().endpointGateway
-            self.apiKeys = try SharedData.shared.loadDS3APIKeyFromPersistence(
+            self.endpoint = try SharedData.default().loadAccountFromPersistence().endpointGateway
+            self.apiKeys = try SharedData.default().loadDS3APIKeyFromPersistence(
                 forUser: self.drive!.syncAnchor.IAMUser,
                 projectName: self.drive!.syncAnchor.project.name
             )
@@ -116,7 +116,10 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         request: NSFileProviderRequest, // can be used to detect who made the request (finder, spotlight, etc) and act accordingly
         completionHandler: @escaping (URL?, NSFileProviderItem?, Error?) -> Void
     ) -> Progress {
-        guard self.enabled else {
+        guard 
+            self.enabled,
+            let temporaryDirectory = self.temporaryDirectory
+        else {
             completionHandler(nil, nil, FileProviderExtensionError.disabled)
             return Progress()
         }
@@ -133,8 +136,15 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         Task {
             do {
                 self.notificationManager!.sendDriveChangedNotification(status: .sync)
-                let s3Item = try await self.s3Lib!.remoteS3Item(for: itemIdentifier, drive: self.drive!)
-                let fileURL = try await self.s3Lib!.getS3Item(s3Item, withTemporaryFolder: self.temporaryDirectory, withProgress: progress)
+                let s3Item = try await self.s3Lib!.remoteS3Item(
+                    for: itemIdentifier,
+                    drive: self.drive!
+                )
+                let fileURL = try await self.s3Lib!.getS3Item(
+                    s3Item,
+                    withTemporaryFolder: temporaryDirectory,
+                    withProgress: progress
+                )
                 
                 self.logger.debug("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize, privacy: .public) downloaded successfully at \(fileURL, privacy: .public)")
                 

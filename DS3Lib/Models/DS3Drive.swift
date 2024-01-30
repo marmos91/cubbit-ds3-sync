@@ -2,16 +2,27 @@ import Foundation
 import SwiftUI
 
 enum DS3DriveStatus: String, Codable, Hashable {
+    /// The drive is synchronizing (uploading or downloading)
     case sync
+    
+    /// The drive is indexing (scanning/listing files)
     case indexing
+    
+    /// The drive is idle. It is not performing any operation.
     case idle
+    
+    /// The drive is in an error state. The user should perform an action to fix the error.
     case error
 }
 
 struct DS3DriveStats: Codable {
+    /// When the drive was last updated
     var lastUpdate: Date
+    
+    /// The current speed (in bytes per seconds) of the transfers performed by the drive. This is an average speed calculated over a period of time.
     var currentSpeedBs: Double? // Bytes per second
     
+    /// Converts the stats into a human readable string. If the drive is currently performing transfers, it will display the current speed. Otherwise, it will display the time since the last update.
     func toString() -> String {
         if let currentSpeedBs = self.currentSpeedBs {
             let kilobyte = 1024.0
@@ -42,9 +53,16 @@ struct DS3DriveStats: Codable {
     }
 }
 
+/// A class representing a DS3Drive in the app. It is used to keep track of the synchronization state of a drive.
 @Observable class DS3Drive: Codable, Identifiable, Hashable {
+    /// An unique identifier for the drive
     let id: UUID
+    
+    /// The `SyncAnchor` of the drive.
     let syncAnchor: SyncAnchor
+    
+    /// The name of the drive. This name is displayed in the finder's sidebar (**only if more than one drive is created**).
+    /// Drives' names should be unique.
     var name: String
     
     init(

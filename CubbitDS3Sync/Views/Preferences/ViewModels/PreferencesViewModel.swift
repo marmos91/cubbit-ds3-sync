@@ -16,10 +16,10 @@ import DS3Lib
         do {
             UserDefaults.standard.removeObject(forKey: DefaultSettings.UserDefaultsKeys.tutorial)
             
-            try SharedData.shared.deleteAccountFromPersistence()
-            try SharedData.shared.deleteAccountSessionFromPersistence()
-            try SharedData.shared.deleteDS3DrivesFromPersistence()
-            try SharedData.shared.deleteDS3APIKeysFromPersistence()
+            try SharedData.default().deleteAccountFromPersistence()
+            try SharedData.default().deleteAccountSessionFromPersistence()
+            try SharedData.default().deleteDS3DrivesFromPersistence()
+            try SharedData.default().deleteDS3APIKeysFromPersistence()
         } catch { }
         
         NSApplication.shared.terminate(self)
