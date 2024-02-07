@@ -9,13 +9,11 @@ class S3Lib {
     typealias Logger = os.Logger
     
     private let logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "S3Lib")
-    private let notificationManager: NotificationManager
     private let s3: S3
     internal let isShutdown = ManagedAtomic(false) // <Bool>.makeAtomic(value: false)
     
-    init(withS3 s3: S3, withNotificationManager notificationManager: NotificationManager) {
+    init(withS3 s3: S3) {
         self.s3 = s3
-        self.notificationManager = notificationManager
     }
     
     func shutdown() throws {
@@ -139,7 +137,8 @@ class S3Lib {
     @Sendable
     func remoteS3Item(
         for identifier: NSFileProviderItemIdentifier,
-        drive: DS3Drive
+        drive: DS3Drive,
+        withProgress progress: Progress? = nil
     ) async throws -> S3Item {
         if identifier == .rootContainer {
             return S3Item(
@@ -162,6 +161,8 @@ class S3Lib {
         
         let fileSize = response.contentLength ?? 0
 
+        progress?.completedUnitCount = 1
+        
         return S3Item(
             identifier: identifier,
             drive: drive,
@@ -438,16 +439,8 @@ class S3Lib {
                     let percentage = (Double(bytesDownloaded) / Double(fileSize))
                     
                     progress?.completedUnitCount = Int64(percentage * 100)
+                    progress?.throughput = Int(Double(bytesDownloaded) / partDownloadDuration)
                 }
-                
-                self.notificationManager.sendTransferSpeedNotification(
-                    DriveTransferStats(
-                        driveId: s3Item.drive.id,
-                        size: bytesDownloaded,
-                        duration: partDownloadDuration,
-                        direction: .download
-                    )
-                )
                 
                 return eventLoop.makeSucceededFuture(())
             }
@@ -512,24 +505,16 @@ class S3Lib {
         }
         
         self.logger.debug("Sending standard PUT request for \(key)")
+        progress?.fileOperationKind = .uploading
+        progress?.kind = .file
         
         let uploadStart = Date()
         let putObjectResponse = try await self.s3.putObject(request)
         let transferTime = Date().timeIntervalSince(uploadStart)
         
-        self.notificationManager.sendTransferSpeedNotification(
-            DriveTransferStats(
-                driveId: s3Item.drive.id,
-                size: size,
-                duration: transferTime,
-                direction: .upload
-            )
-        )
-        
         let eTag = putObjectResponse.eTag ?? ""
         
-        self.logger.debug("Got ETag \(eTag) for \(key)")
-        
+        progress?.throughput = Int(Double(size) / transferTime)
         progress?.completedUnitCount += 1
     }
 
@@ -592,15 +577,6 @@ class S3Lib {
                 let uploadStart = Date()
                 let uploadPartResponse = try await self.s3.uploadPart(uploadPartRequest)
                 let transferTime = Date().timeIntervalSince(uploadStart)
-                
-                self.notificationManager.sendTransferSpeedNotification(
-                    DriveTransferStats(
-                        driveId: s3Item.drive.id,
-                        size: Int64(data.count),
-                        duration: transferTime,
-                        direction: .upload
-                    )
-                )
                 
                 let eTag = uploadPartResponse.eTag ?? ""
                 

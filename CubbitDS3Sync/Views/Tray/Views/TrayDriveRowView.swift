@@ -12,7 +12,7 @@ struct TrayDriveRowView: View {
     var body: some View {
         HStack {
             HStack {
-                switch self.driveViewModel.driveStatus {
+                switch self.driveViewModel.drive.status {
                 case .sync, .indexing:
                     Image(.driveSyncIcon)
                         .resizable()
@@ -40,7 +40,7 @@ struct TrayDriveRowView: View {
                         .padding(.vertical, 2)
                         .foregroundStyle(Color(.darkWhite))
                     
-                    Text(self.formatDriveStatusString())
+                    Text(self.driveViewModel.drive.statusString())
                         .font(.custom("Nunito", size: 12))
                         .padding(.vertical, 2)
                         .foregroundStyle(Color(.darkWhite))
@@ -53,9 +53,7 @@ struct TrayDriveRowView: View {
                     Button("Disconnect") {
                         Task {
                             do {
-                                try await self.ds3DriveManager.disconnect(
-                                    driveWithId: self.driveViewModel.drive.id
-                                )
+                                try await self.driveViewModel.disconnect()
                             } catch {
                                 // TODO: Show error
                                 print("Error disconnecting drive: \(error)")
@@ -65,7 +63,13 @@ struct TrayDriveRowView: View {
                     
                     Button("View in Finder") {
                         Task {
-                            try await self.driveViewModel.openFinder()
+                            do {
+                                try await self.driveViewModel.openFinder()
+                            } catch {
+                                // TODO: Show error
+                                print("Error opening Finder: \(error)")
+                            }
+                            
                         }
                     }
                     
@@ -122,17 +126,6 @@ struct TrayDriveRowView: View {
         )
         
         // TODO: Add file status?
-    }
-    
-    func formatDriveStatusString() -> String {
-        switch self.driveViewModel.driveStatus {
-        case .indexing:
-            return "Indexing..."
-        case .error:
-            return "Error"
-        default:
-            return self.driveViewModel.driveStats.toString()
-        }
     }
 }
 

@@ -71,11 +71,11 @@ struct TrayMenuView: View {
                 )
             }
         }
-        .frame(
-            minWidth: 310,
-            maxWidth: 310
-        )
-        .fixedSize(horizontal: true, vertical: false)
+//        .frame(
+//            minWidth: 310,
+//            maxWidth: 310
+//        )
+//        .fixedSize(horizontal: true, vertical: false)
         
     }
     
