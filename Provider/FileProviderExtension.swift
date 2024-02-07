@@ -17,7 +17,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
     
     private var apiKeys: DS3ApiKey? = nil
     private var endpoint: String? = nil
-    private var notificationManager: NotificationManager? = nil
     
     var drive: DS3Drive? = nil
     let temporaryDirectory: URL?
@@ -29,7 +28,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         do {
             self.temporaryDirectory = try? NSFileProviderManager(for: domain)?.temporaryDirectoryURL()
             self.drive = try SharedData.default().loadDS3DriveFromPersistence(withDomainIdentifier: domain.identifier)
-            self.notificationManager = NotificationManager(drive: self.drive!)
             self.endpoint = try SharedData.default().loadAccountFromPersistence().endpointGateway
             self.apiKeys = try SharedData.default().loadDS3APIKeyFromPersistence(
                 forUser: self.drive!.syncAnchor.IAMUser,
@@ -50,7 +48,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                 timeout: .seconds(DefaultSettings.S3.timeoutInSeconds)
             )
             
-            self.s3Lib = S3Lib(withS3: self.s3!, withNotificationManager: self.notificationManager!)
+            self.s3Lib = S3Lib(withS3: self.s3!)
             
             self.enabled = true
         } catch {
@@ -70,7 +68,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         }
     }
     
-    // Note: gets called when the extension wants to retrieve metadata for a specific item
+    // NOTE: gets called when the extension wants to retrieve metadata for a specific item
     func item(
         for identifier: NSFileProviderItemIdentifier,
         request: NSFileProviderRequest, // can be used to detect who made the request (finder, spotlight, etc) and act accordingly
@@ -89,7 +87,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             completionHandler(nil, NSFileProviderError(.noSuchItem))
             return Progress()
         default:
-            let progress = Progress(totalUnitCount: 1)
+            let progress = Progress()
             
             // TODO: Is it handling folders correctly?
             
@@ -98,9 +96,9 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                     let metadata = try await self.s3Lib!.remoteS3Item(for: identifier, drive: self.drive!)
                     completionHandler(metadata, nil)
                 } catch {
+                    self.logger.error("An error occurred while fetching metadata for item \(identifier.rawValue) with error \(error)")
                     completionHandler(nil, error)
                 }
-                progress.completedUnitCount = 1
             }
             
             progress.cancellationHandler = { completionHandler(nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)) }
@@ -120,43 +118,47 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             self.enabled,
             let temporaryDirectory = self.temporaryDirectory
         else {
+            // TODO: Improve error
             completionHandler(nil, nil, FileProviderExtensionError.disabled)
             return Progress()
         }
-        
-        // TODO: The retrieved content at `fileContents` URL must be a regular file on the same volume as the user-visible URL.
-        // A suitable location can be retrieved using -[NSFileProviderManager temporaryDirectoryURLWithError:].
         
         // TODO: Is it handling folders?
         // TODO: Check fetchContents in FruitBasket to check if a fork is better. Also check about incremental fetching
         // TODO: Check fetchPartialContents in FruitBasket
         
-        let progress = Progress(totalUnitCount: 100)
+        let progress = Progress(totalUnitCount: 2)
+        let headProgress = Progress(totalUnitCount: 1)
+        let getProgress = Progress(totalUnitCount: 100)
+        
+        progress.addChild(headProgress, withPendingUnitCount: 1)
+        progress.addChild(getProgress, withPendingUnitCount: 1)
         
         Task {
             do {
-                self.notificationManager!.sendDriveChangedNotification(status: .sync)
+//                self.notificationManager!.sendDriveChangedNotification(status: .sync)
+                
                 let s3Item = try await self.s3Lib!.remoteS3Item(
                     for: itemIdentifier,
-                    drive: self.drive!
+                    drive: self.drive!,
+                    withProgress: headProgress
                 )
+                
                 let fileURL = try await self.s3Lib!.getS3Item(
                     s3Item,
                     withTemporaryFolder: temporaryDirectory,
-                    withProgress: progress
+                    withProgress: getProgress
                 )
                 
-                self.logger.debug("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize, privacy: .public) downloaded successfully at \(fileURL, privacy: .public)")
+                self.logger.debug("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize, privacy: .public) downloaded successfully")
                 
-                self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .idle)
+//                self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .idle)
                 completionHandler(fileURL, s3Item, nil)
             } catch {
                 self.logger.error("Download failed with error \(error)")
-                self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .error)
+//                self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(nil, nil, error)
             }
-            
-            progress.completedUnitCount = 100
         }
         
         progress.cancellationHandler = { completionHandler(nil, nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)) }
@@ -177,8 +179,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             completionHandler(nil, [], false, FileProviderExtensionError.disabled)
             return Progress()
         }
-        
-        self.logger.debug("Starting upload for item \(itemTemplate.itemIdentifier.rawValue)")
         
         if options.contains(.mayAlreadyExist) {
             // TODO: Handle create with overwrite
@@ -229,15 +229,12 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         
         Task {
             do {
-                self.notificationManager!.sendDriveChangedNotification(status: .sync)
                 try await self.s3Lib!.putS3Item(s3Item, fileURL: url, withProgress: progress)
                 
                 progress.completedUnitCount = numParts
-                self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .idle)
                 completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
             } catch {
                 self.logger.error("Upload failed with error \(error)")
-                self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(nil, NSFileProviderItemFields(), false, error)
             }
         }
@@ -302,14 +299,11 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                 
                 Task {
                     do {
-                        self.notificationManager!.sendDriveChangedNotification(status: .sync)
                         try await self.s3Lib!.putS3Item(s3Item, fileURL: contents, withProgress: putProgress)
                         putProgress.completedUnitCount = numParts
-                        self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .idle)
                         completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
                     } catch {
                         self.logger.error("Upload failed with error \(error)")
-                        self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(nil, NSFileProviderItemFields(), false, error)
                     }
                 }
@@ -328,14 +322,10 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
 
                 Task {
                     do {
-                        self.notificationManager!.sendDriveChangedNotification(status: .sync)
                         let s3Item = try await self.s3Lib!.renameS3Item(s3Item, newName: item.filename, withProgress: progress)
-                        
-                        self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .idle)
                         completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
                     } catch {
                         self.logger.error("Rename failed with error \(error)")
-                        self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(nil, NSFileProviderItemFields(), false, error)
                     }
                 }
@@ -351,22 +341,18 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             
             Task {
                 do {
-                    self.notificationManager!.sendDriveChangedNotification(status: .sync)
                     let newKey = item.parentItemIdentifier.rawValue + s3Item.filename
                     
                     let s3Item = try await self.s3Lib!.moveS3Item(s3Item, toKey: newKey, withProgress: progress)
                     
-                    self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .idle)
                     completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
                 } catch let error as SotoS3.S3ErrorType {
                     // TODO: Check why this sometimes fails with NoSuchKey
                     self.logger.error("Move failed with S3 error code \(error.errorCode)")
-                    self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .error)
                     completionHandler(nil, NSFileProviderItemFields(), false, error)
                 }
                 catch {
                     self.logger.error("Move failed with error \(error)")
-                    self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .error)
                     completionHandler(nil, NSFileProviderItemFields(), false, error)
                 }
             }
@@ -412,16 +398,13 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                         objectMetadata: S3Item.Metadata(size: 0)
                     )
                     
-                    self.notificationManager!.sendDriveChangedNotification(status: .sync)
                     try await self.s3Lib!.deleteS3Item(s3Item, withProgress: progress)
                     self.logger.debug("S3Item with identifier \(identifier.rawValue, privacy: .public) deleted successfully")
                     
                     progress.completedUnitCount = 1
-                    self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .idle)
                     completionHandler(nil)
                 } catch {
                     self.logger.error("An error occurred while deleting file \(identifier.rawValue, privacy: .public): \(error, privacy: .public)")
-                    self.notificationManager!.sendDriveChangedNotificationWithDebounce(status: .error)
                     completionHandler(error)
                 }
             }
@@ -449,7 +432,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             return WorkingSetS3Enumerator(
                 parent: containerItemIdentifier,
                 s3Lib: self.s3Lib!,
-                notificationManager: self.notificationManager!,
                 drive: self.drive!
             )
             
@@ -458,7 +440,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             return S3Enumerator(
                 parent: containerItemIdentifier,
                 s3Lib: self.s3Lib!,
-                notificationManager: self.notificationManager!,
                 drive: self.drive!
             )
         }

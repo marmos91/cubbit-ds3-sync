@@ -17,52 +17,10 @@ enum DS3DriveManagerError: Error {
     var syncyingDrives: Set<UUID> = []
     
     init(appStatusManager: AppStatusManager) {
-        self.setupObserver()
-        
         Task {
             // TODO: remove this call as the enumerateChanges method is correctly implemented!
             try await self.cleanFileProvider()
             try await self.syncFileProvider()
-        }
-    }
-    
-    deinit {
-        DistributedNotificationCenter
-            .default()
-            .removeObserver(self)
-    }
-    
-    /// Sets up the observer for the drive to listen for notifications from the extension
-    private func setupObserver() {
-        DistributedNotificationCenter.default().addObserver(
-            self,
-            selector: #selector(DS3DriveManager.driveStatusChanged),
-            name: .driveStatusChanged,
-            object: nil,
-            suspensionBehavior: .deliverImmediately
-        )
-    }
-    
-    /// Gets fired when the drive status changes.
-    /// - Parameter notification: the notification received from the extension
-    @objc @MainActor
-    private func driveStatusChanged(_ notification: Notification) {
-        guard
-            let stringDrive = notification.object as? String,
-            let updateDriveStatusNotification = try? JSONDecoder().decode(DS3DriveStatusChange.self, from: Data(stringDrive.utf8))
-        else { return }
-        
-        switch updateDriveStatusNotification.status {
-        case .sync, .indexing:
-            self.syncyingDrives.insert(updateDriveStatusNotification.driveId)
-        default:
-            self.syncyingDrives.remove(updateDriveStatusNotification.driveId)
-        }
-        
-        if !self.syncyingDrives.isEmpty {
-            AppStatusManager.default().status = .syncing
-        } else {
-            AppStatusManager.default().status = .idle
         }
     }
     
@@ -120,7 +78,7 @@ enum DS3DriveManagerError: Error {
         }
         
         for drive in self.drives {
-            let domain = self.fileProviderDomain(forDrive: drive)
+            let domain = drive.fileProviderDomain()
 
             self.logger.info("Adding domain \(domain.displayName)")
             try await NSFileProviderManager.add(domain)
@@ -134,24 +92,9 @@ enum DS3DriveManagerError: Error {
     /// Removes a drive from the manager. It also removes the corresponding file provider domain.
     /// - Parameter id: the drive id to remove
     func disconnect(driveWithId id: UUID) async throws {
-        if let index = self.drives.firstIndex(where: {$0.id == id}) {
-            self.logger.info("Disconnecting drive with id \(id)")
-            
-            let removedDrive = self.drives.remove(at: index)
-            try await NSFileProviderManager.remove(self.fileProviderDomain(forDrive: removedDrive))
-            return try self.persist()
+        if let drive = self.drives.first(where: {$0.id == id}) {
+            try await drive.disconnect()
         }
-    }
-    
-    /// Returns the drive's file provider domain
-    /// - Returns: the drive's file provider domain
-    func fileProviderDomain(forDrive drive: DS3Drive) -> NSFileProviderDomain {
-        return NSFileProviderDomain(
-            identifier: NSFileProviderDomainIdentifier(
-                rawValue: drive.id.uuidString
-            ),
-            displayName: drive.name
-        )
     }
     
     /// Adds a new drive to the manager

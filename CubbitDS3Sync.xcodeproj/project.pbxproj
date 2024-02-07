@@ -9,9 +9,6 @@
 /* Begin PBXBuildFile section */
 		D512EEBC2B59631400F550EC /* MFAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D512EEBB2B59631400F550EC /* MFAView.swift */; };
 		D533AA8F2B62753D00EF8BD5 /* AppStatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA8E2B62753D00EF8BD5 /* AppStatusManager.swift */; };
-		D533AA912B62775500EF8BD5 /* Notifications+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA902B62775500EF8BD5 /* Notifications+Extensions.swift */; };
-		D533AA922B62775500EF8BD5 /* Notifications+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA902B62775500EF8BD5 /* Notifications+Extensions.swift */; };
-		D533AA932B62775500EF8BD5 /* Notifications+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA902B62775500EF8BD5 /* Notifications+Extensions.swift */; };
 		D533AA952B6279E200EF8BD5 /* AppStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA942B6279E200EF8BD5 /* AppStatus.swift */; };
 		D533AA962B6279E200EF8BD5 /* AppStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA942B6279E200EF8BD5 /* AppStatus.swift */; };
 		D533AA972B6279E200EF8BD5 /* AppStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA942B6279E200EF8BD5 /* AppStatus.swift */; };
@@ -174,7 +171,6 @@
 		D5A2228A2B5721CC00F1413B /* S3Enumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222812B5721CC00F1413B /* S3Enumerator.swift */; };
 		D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */; };
 		D5A2228C2B5721CC00F1413B /* Provider.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D5A222832B5721CC00F1413B /* Provider.xcassets */; };
-		D5A4E0AB2B630A9800D7560B /* NotificationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */; };
 		D5D3B7E32B690ECD004A8F73 /* DS3DriveManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221AD2B571FED00F1413B /* DS3DriveManager.swift */; };
 		D5D3B7E42B690ECD004A8F73 /* AppStatusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533AA8E2B62753D00EF8BD5 /* AppStatusManager.swift */; };
 		D5D734F12B666C7700C6B11C /* DS3DriveViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5D734F02B666C7700C6B11C /* DS3DriveViewModel.swift */; };
@@ -243,7 +239,6 @@
 /* Begin PBXFileReference section */
 		D512EEBB2B59631400F550EC /* MFAView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MFAView.swift; sourceTree = "<group>"; };
 		D533AA8E2B62753D00EF8BD5 /* AppStatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStatusManager.swift; sourceTree = "<group>"; };
-		D533AA902B62775500EF8BD5 /* Notifications+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Notifications+Extensions.swift"; sourceTree = "<group>"; };
 		D533AA942B6279E200EF8BD5 /* AppStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStatus.swift; sourceTree = "<group>"; };
 		D540029D2B5EAEB000B54E97 /* S3Lib.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3Lib.swift; sourceTree = "<group>"; };
 		D546D5452B5916CC00231120 /* NoBucketsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoBucketsView.swift; sourceTree = "<group>"; };
@@ -349,7 +344,6 @@
 		D5A222812B5721CC00F1413B /* S3Enumerator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = S3Enumerator.swift; sourceTree = "<group>"; };
 		D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "S3Item+Metadata.swift"; sourceTree = "<group>"; };
 		D5A222832B5721CC00F1413B /* Provider.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Provider.xcassets; sourceTree = "<group>"; };
-		D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsManager.swift; sourceTree = "<group>"; };
 		D5D734F02B666C7700C6B11C /* DS3DriveViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3DriveViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -428,6 +422,7 @@
 				D5A221682B571F5100F1413B /* Utils */,
 				D5A221532B571F5100F1413B /* DS3Authentication.swift */,
 				D5A2214F2B571F5100F1413B /* DS3SDK.swift */,
+				D5A2215B2B571F5100F1413B /* DS3Drive.swift */,
 				D5A221AD2B571FED00F1413B /* DS3DriveManager.swift */,
 				D533AA8E2B62753D00EF8BD5 /* AppStatusManager.swift */,
 				D5A221452B571F1700F1413B /* DS3Lib.h */,
@@ -454,7 +449,6 @@
 				D5A221582B571F5100F1413B /* AccountSession.swift */,
 				D5A221592B571F5100F1413B /* Challenge.swift */,
 				D5A2215A2B571F5100F1413B /* Project.swift */,
-				D5A2215B2B571F5100F1413B /* DS3Drive.swift */,
 				D5A2215C2B571F5100F1413B /* DS3APIKey.swift */,
 				D5A2215D2B571F5100F1413B /* RefreshToken.swift */,
 				D5A2215E2B571F5100F1413B /* Account.swift */,
@@ -486,7 +480,6 @@
 				D5A2216E2B571F5100F1413B /* URLs+Extensions.swift */,
 				D5A2216F2B571F5100F1413B /* Bundle+Extensions.swift */,
 				D59B743B2B62690B0088605A /* ControlFlow.swift */,
-				D533AA902B62775500EF8BD5 /* Notifications+Extensions.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -819,7 +812,6 @@
 				D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */,
 				D5A222812B5721CC00F1413B /* S3Enumerator.swift */,
 				D540029D2B5EAEB000B54E97 /* S3Lib.swift */,
-				D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */,
 				D5A222832B5721CC00F1413B /* Provider.xcassets */,
 				D5A2227E2B5721CC00F1413B /* Provider.entitlements */,
 				D5A2224E2B57211500F1413B /* Info.plist */,
@@ -1016,7 +1008,6 @@
 				D5A221A62B571F8300F1413B /* Bucket.swift in Sources */,
 				D5A2222B2B571FEE00F1413B /* ProjectView.swift in Sources */,
 				D5A2219B2B571F7E00F1413B /* SharedData+account.swift in Sources */,
-				D533AA912B62775500EF8BD5 /* Notifications+Extensions.swift in Sources */,
 				D54775C72B57181D00DABCD4 /* CubbitDS3SyncApp.swift in Sources */,
 				D5A222052B571FEE00F1413B /* DS3DriveManager.swift in Sources */,
 				D5A222162B571FEE00F1413B /* ButtonStyles.swift in Sources */,
@@ -1110,7 +1101,6 @@
 				D5A2218B2B571F5100F1413B /* URLs+Extensions.swift in Sources */,
 				D5A221862B571F5100F1413B /* DateFormatter+Extensions.swift in Sources */,
 				D5A2217C2B571F5100F1413B /* RefreshToken.swift in Sources */,
-				D533AA922B62775500EF8BD5 /* Notifications+Extensions.swift in Sources */,
 				D5A221702B571F5100F1413B /* DS3SDK.swift in Sources */,
 				D5A221892B571F5100F1413B /* NSFIleProvider+Extensions.swift in Sources */,
 				D5A2217F2B571F5100F1413B /* SharedData+account.swift in Sources */,
@@ -1130,7 +1120,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				D54002A02B5EAEB000B54E97 /* S3Lib.swift in Sources */,
-				D533AA932B62775500EF8BD5 /* Notifications+Extensions.swift in Sources */,
 				D59B743D2B62690B0088605A /* ControlFlow.swift in Sources */,
 				D5A222492B57211500F1413B /* FileProviderExtension.swift in Sources */,
 				D5A222742B57217900F1413B /* Challenge.swift in Sources */,
@@ -1146,7 +1135,6 @@
 				D533AA972B6279E200EF8BD5 /* AppStatus.swift in Sources */,
 				D5A222642B57216F00F1413B /* URLs+Extensions.swift in Sources */,
 				D5A2227A2B57217E00F1413B /* URLs.swift in Sources */,
-				D5A4E0AB2B630A9800D7560B /* NotificationsManager.swift in Sources */,
 				D5A222612B57216F00F1413B /* JWT.swift in Sources */,
 				D5A2226D2B57217400F1413B /* SharedData+syncAnchor.swift in Sources */,
 				D5A222622B57216F00F1413B /* System.swift in Sources */,
