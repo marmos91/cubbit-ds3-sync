@@ -22,8 +22,6 @@ enum CubbitAPIURLs {
             
             static let meURL = "\(accounts.baseURL)/me"
         }
-        
-        
     }
     
     enum composerHub {
