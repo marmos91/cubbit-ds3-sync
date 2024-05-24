@@ -23,7 +23,13 @@ enum CubbitAPIURLs {
             static let meURL = "\(accounts.baseURL)/me"
         }
         
-        static let projects = "\(IAM.baseURL)/projects"
+        
+    }
+    
+    enum composerHub {
+        static let baseURL = "\(CubbitAPIURLs.baseURL)/composer-hub/v1"
+        
+        static let projects = "\(composerHub.baseURL)/projects"
     }
     
     /// Cubbit's internal KMS related URLs.
