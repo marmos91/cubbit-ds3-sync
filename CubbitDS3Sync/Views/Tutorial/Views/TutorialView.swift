@@ -52,7 +52,7 @@ struct TutorialView: View {
         ]
     )
     
-    @AppStorage("tutorialShown") var tutorialShown: Bool = DefaultSettings.tutorialShown
+    @AppStorage(DefaultSettings.UserDefaultsKeys.tutorial) var tutorialShown: Bool = DefaultSettings.tutorialShown
     
     var body: some View {
         ZStack {
