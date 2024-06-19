@@ -39,7 +39,7 @@ enum DS3SDKError: Error, LocalizedError {
     func getRemoteProjects() async throws -> [Project] {
         try await self.authentication.refreshIfNeeded()
         
-        guard let url = URL(string: CubbitAPIURLs.IAM.projects) else { throw DS3AuthenticationError.invalidURL(url: CubbitAPIURLs.IAM.projects) }
+        guard let url = URL(string: CubbitAPIURLs.composerHub.projects) else { throw DS3AuthenticationError.invalidURL(url: CubbitAPIURLs.composerHub.projects) }
         guard let session = self.authentication.accountSession else { throw DS3AuthenticationError.loggedOut }
         
         var request = URLRequest(url: url)
