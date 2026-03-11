@@ -9,7 +9,7 @@ class S3Item: NSObject, NSFileProviderItem {
     
     let identifier: NSFileProviderItemIdentifier
     
-    private let logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "S3Item")
+    private let logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.sync.rawValue)
     private let separator = DefaultSettings.S3.delimiter
     
     let metadata: S3Item.Metadata

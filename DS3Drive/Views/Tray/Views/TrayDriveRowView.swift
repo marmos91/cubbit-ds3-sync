@@ -1,6 +1,8 @@
 import SwiftUI
+import os.log
 
 struct TrayDriveRowView: View {
+    private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
     @Environment(\.openWindow) var openWindow
     @Environment(\.openURL) var openURL
     @Environment(DS3DriveManager.self) var ds3DriveManager: DS3DriveManager
@@ -58,7 +60,7 @@ struct TrayDriveRowView: View {
                                 )
                             } catch {
                                 // TODO: Show error
-                                print("Error disconnecting drive: \(error)")
+                                logger.error("Error disconnecting drive: \(error.localizedDescription)")
                             }
                         }
                     }
@@ -85,7 +87,7 @@ struct TrayDriveRowView: View {
                                 try await self.driveViewModel.reEnumerate()
                             } catch {
                                 // TODO: Show error
-                                print("Error refreshing drive: \(error)")
+                                logger.error("Error refreshing drive: \(error.localizedDescription)")
                             }
                         }
                     }

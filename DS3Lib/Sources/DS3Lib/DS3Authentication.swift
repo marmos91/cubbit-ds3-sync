@@ -79,7 +79,7 @@ struct DS3Missing2FAResponse: Codable {
 
 /// Class that manages the authentication with the DS3 APIs
 @Observable final class DS3Authentication {
-    private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.DS3Lib", category: "DS3Authentication")
+    private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.auth.rawValue)
     
     var accountSession: AccountSession?
     var account: Account?

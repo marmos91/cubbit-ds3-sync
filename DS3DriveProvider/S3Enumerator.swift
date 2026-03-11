@@ -4,14 +4,14 @@ import os.log
 import SotoS3
 
 enum EnumeratorError: Error {
-    case unsopported
+    case unsupported
     case missingParameters
 }
 
 class S3Enumerator: NSObject, NSFileProviderEnumerator {
     typealias Logger = os.Logger
     
-    let logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "S3Enumerator")
+    let logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.sync.rawValue)
     
     private let parent: NSFileProviderItemIdentifier
     private let anchor = SharedData.default().loadSyncAnchorOrCreate()
@@ -103,7 +103,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
             } catch let error as S3ErrorType {
                 self.logger.error("A S3 error occurred while list objects \(error)")
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
-                return observer.finishEnumeratingWithError(error.toPresentableError())
+                return observer.finishEnumeratingWithError(error.toFileProviderError())
             } catch {
                 self.logger.error("A generic error occurred while list objects \(error)")
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)

@@ -24,7 +24,7 @@ enum DS3SDKError: Error, LocalizedError {
 /// Class that manages the communication with the DS3 API.
 @Observable final class DS3SDK {
     private var authentication: DS3Authentication
-    private let logger: Logger = Logger(subsystem: "com.cubbit.CubbitDS3Sync", category: "DS3SDK")
+    private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.auth.rawValue)
     
     init(
         withAuthentication authentication: DS3Authentication

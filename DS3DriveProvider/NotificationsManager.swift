@@ -2,7 +2,7 @@ import Foundation
 import os.log
 
 class NotificationManager {
-    private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "NotificationManager")
+    private let logger: Logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.extension.rawValue)
     
     private let drive: DS3Drive
     private var driveStatus: DS3DriveStatus

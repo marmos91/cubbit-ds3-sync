@@ -6,7 +6,7 @@ import DS3Lib
 @Observable class PreferencesViewModel {
     var account: Account
     
-    private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "PreferencesViewModel")
+    private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
     
     init(account: Account) {
         self.account = account
@@ -20,7 +20,9 @@ import DS3Lib
             try SharedData.default().deleteAccountSessionFromPersistence()
             try SharedData.default().deleteDS3DrivesFromPersistence()
             try SharedData.default().deleteDS3APIKeysFromPersistence()
-        } catch { }
+        } catch {
+            logger.error("Failed to disconnect account: \(error.localizedDescription)")
+        }
         
         NSApplication.shared.terminate(self)
     }

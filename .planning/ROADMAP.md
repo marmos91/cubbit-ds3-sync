@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md -- Rename app to DS3 Drive, convert DS3Lib to SPM, update identifiers and CI
-- [ ] 01-02-PLAN.md -- Add structured OSLog logging with domain categories, fix code quality bugs
+- [x] 01-02-PLAN.md -- Add structured OSLog logging with domain categories, fix code quality bugs
 - [ ] 01-03-PLAN.md -- Fix extension crashes, implement S3 error mapping, add multipart ETag validation
 - [ ] 01-04-PLAN.md -- Set up SwiftData metadata store, add SwiftLint/SwiftFormat, enable Swift 6 concurrency
 

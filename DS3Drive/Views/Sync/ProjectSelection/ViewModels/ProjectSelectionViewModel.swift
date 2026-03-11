@@ -3,7 +3,7 @@ import SwiftUI
 import os.log
 
 @Observable class ProjectSelectionViewModel {
-    private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "ProjectSelectionViewModel")
+    private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
     
     var authentication: DS3Authentication
     var ds3SDK: DS3SDK

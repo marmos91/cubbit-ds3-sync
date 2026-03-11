@@ -1,6 +1,30 @@
 import Foundation
 import ServiceManagement
 
+/// Log subsystem identifiers for Console.app filtering
+enum LogSubsystem {
+    /// Used by the main app and DS3Lib
+    static let app = "io.cubbit.DS3Drive"
+    /// Used by the File Provider extension
+    static let provider = "io.cubbit.DS3Drive.provider"
+}
+
+/// Log categories for Console.app filtering
+enum LogCategory: String {
+    /// File sync operations
+    case sync
+    /// Authentication flow
+    case auth
+    /// Upload/download data transfer
+    case transfer
+    /// File Provider extension lifecycle
+    case `extension`
+    /// Main app lifecycle
+    case app
+    /// Metadata operations
+    case metadata
+}
+
 /// Enum used to store default settings for the application
 enum DefaultSettings {
     /// The application group used to share data between the app and the file provider extension.
@@ -102,7 +126,10 @@ enum DefaultSettings {
         
         /// Timeout set for the S3 requests in seconds.
         static let timeoutInSeconds: Int64 = 5 * 60 // 5 minutes
-        
+
+        /// Connection timeout in seconds (shorter than request timeout for faster offline detection)
+        static let connectionTimeoutInSeconds: Int64 = 30
+
         /// Max number of retries for a failed request.
         static let maxRetries = 5
     }
@@ -111,8 +138,11 @@ enum DefaultSettings {
     enum Notifications {
         /// Name of the notification to send when a drive status changes
         static let driveStatusChanged = "io.cubbit.DS3Drive.notifications.driveStatusChanged"
-        
+
         /// Name of the notification to send while performing transfers
         static let driveTransferStats = "io.cubbit.DS3Drive.notifications.driveTransferStats"
+
+        /// Name of the notification to send when the file provider extension fails to initialize
+        static let extensionInitFailed = "io.cubbit.DS3Drive.notifications.extensionInitFailed"
     }
 }

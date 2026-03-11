@@ -11,7 +11,7 @@ enum DS3DriveManagerError: Error {
 /// Class that manages DS3Drives. It loads them from disk and keeps them in memory for the whole app lifecycle.
 @Observable final class DS3DriveManager {
     @ObservationIgnored
-    private let logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "DS3DriveManager")
+    private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
     
     var drives: [DS3Drive] = DS3DriveManager.loadFromDiskOrCreateNew()
     var syncyingDrives: Set<UUID> = []
@@ -187,7 +187,7 @@ enum DS3DriveManagerError: Error {
         do {
             return try SharedData.default().loadDS3DrivesFromPersistence()
         } catch {
-            print("Could not load drives from disk: \(error.localizedDescription)")
+            Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue).error("Could not load drives from disk: \(error.localizedDescription)")
             return []
         }
     }

@@ -27,7 +27,7 @@ extension SharedData {
 class SharedData {
     private static var instance: SharedData?
     
-    let logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.ds3Lib", category: "SharedData")
+    let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.metadata.rawValue)
     
     private init() {}
     

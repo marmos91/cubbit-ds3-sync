@@ -1,6 +1,8 @@
 import SwiftUI
+import os.log
 
 struct PreferencesView: View {
+    private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
     @AppStorage(DefaultSettings.UserDefaultsKeys.loginItemSet) var loginItemSet: Bool = DefaultSettings.loginItemSet
     @Environment(DS3DriveManager.self) var ds3DriveManager: DS3DriveManager
     
@@ -115,7 +117,7 @@ struct PreferencesView: View {
                             try await ds3DriveManager.cleanFileProvider()
                         } catch {
                             // TODO: show error
-                            print("Error cleaning file provider: \(error)")
+                            logger.error("Error cleaning file provider: \(error.localizedDescription)")
                         }
                         
                         preferencesViewModel.disconnectAccount()

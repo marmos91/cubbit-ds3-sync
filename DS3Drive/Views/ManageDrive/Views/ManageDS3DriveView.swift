@@ -1,6 +1,8 @@
 import SwiftUI
+import os.log
 
 struct ManageDS3DriveView: View {
+    private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
     @Environment(\.dismiss) var dismiss
     @Environment(DS3DriveManager.self) var ds3DriveManager
 
@@ -13,7 +15,7 @@ struct ManageDS3DriveView: View {
                     do {
                         try await self.ds3DriveManager.update(drive: ds3Drive)
                     } catch {
-                        print("Error updating drive: \(error)")
+                        logger.error("Error updating drive: \(error.localizedDescription)")
                     }
                     
                     dismiss()

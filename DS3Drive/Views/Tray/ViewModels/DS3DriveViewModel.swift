@@ -5,7 +5,7 @@ import os.log
 
 /// Manages a drive
 @Observable class DS3DriveViewModel {
-    private let logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "DriveViewModel")
+    private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
     
     var drive: DS3Drive
     var driveStatus: DS3DriveStatus = .idle

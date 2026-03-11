@@ -3,7 +3,7 @@ import SwiftUI
 import os.log
 
 @Observable class LoginViewModel {
-    var logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "LoginViewModel")
+    var logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.auth.rawValue)
     
     var loginError: Error?
     var need2FA: Bool = false

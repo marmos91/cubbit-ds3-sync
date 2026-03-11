@@ -29,7 +29,7 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
 @Observable class SyncAnchorSelectionViewModel {
     typealias Logger = os.Logger
     
-    private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "SyncAnchorSelectionViewModel")
+    private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
     
     var project: Project
     var authentication: DS3Authentication

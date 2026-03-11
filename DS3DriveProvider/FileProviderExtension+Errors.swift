@@ -2,7 +2,6 @@ import Foundation
 import SotoS3
 import FileProvider
 
-// TODO: Improve this
 enum FileProviderExtensionError: Error {
     case disabled
     case notImplemented
@@ -12,31 +11,54 @@ enum FileProviderExtensionError: Error {
     case fatal
     case parseError
     case fileNotFound
-    
+    case uploadValidationFailed
+
+    /// Maps extension errors to NSFileProviderError codes for correct system retry behavior.
     func toPresentableError() -> NSError {
         switch self {
-        case FileProviderExtensionError.disabled:
-            return NSError(domain: NSFileProviderErrorDomain, code: NSURLErrorResourceUnavailable, userInfo: [NSLocalizedDescriptionKey: "This feature is not supported"])
-        case FileProviderExtensionError.notImplemented:
-            return NSError(domain: NSFileProviderErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey: "This feature is not implemented"])
-        case FileProviderExtensionError.skipped:
-            return NSError(domain: NSFileProviderErrorDomain, code: NSUserCancelledError, userInfo: [NSLocalizedDescriptionKey: "This item was skipped"])
-        case FileProviderExtensionError.unableToOpenFile:
-            return NSError(domain: NSFileProviderErrorDomain, code: NSFileReadUnknownError, userInfo: [NSLocalizedDescriptionKey: "Unable to open file"])
-        case FileProviderExtensionError.s3ItemParseFailed:
-            return NSError(domain: NSFileProviderErrorDomain, code: NSFileReadUnknownError, userInfo: [NSLocalizedDescriptionKey: "Unable to parse S3 item"])
-        case FileProviderExtensionError.fatal:
-            return NSError(domain: NSFileProviderErrorDomain, code: NSFileReadUnknownError, userInfo: [NSLocalizedDescriptionKey: "Fatal error"])
-        case FileProviderExtensionError.parseError:
-            return NSError(domain: NSFileProviderErrorDomain, code: NSFileReadUnknownError, userInfo: [NSLocalizedDescriptionKey: "Parse error"])
-        case FileProviderExtensionError.fileNotFound:
-            return NSError(domain: NSFileProviderErrorDomain, code: NSFileReadNoSuchFileError, userInfo: [NSLocalizedDescriptionKey: "File not found"])
+        case .disabled:
+            return NSFileProviderError(.serverUnreachable) as NSError
+        case .notImplemented:
+            return NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey: "This feature is not implemented"])
+        case .skipped:
+            return NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError, userInfo: [NSLocalizedDescriptionKey: "This item was skipped"])
+        case .unableToOpenFile:
+            return NSFileProviderError(.cannotSynchronize) as NSError
+        case .s3ItemParseFailed:
+            return NSFileProviderError(.cannotSynchronize) as NSError
+        case .fatal:
+            return NSFileProviderError(.cannotSynchronize) as NSError
+        case .parseError:
+            return NSFileProviderError(.cannotSynchronize) as NSError
+        case .fileNotFound:
+            return NSFileProviderError(.noSuchItem) as NSError
+        case .uploadValidationFailed:
+            return NSFileProviderError(.cannotSynchronize) as NSError
         }
     }
 }
 
 extension S3ErrorType {
-    func toPresentableError() -> NSError {
-        return NSError(domain: NSFileProviderErrorDomain, code: NSFileReadUnknownError, userInfo: nil)
+    /// Maps S3 error codes to NSFileProviderError codes for correct system retry behavior.
+    /// - .notAuthenticated: system throttles domain, shows re-auth UI, waits for signalErrorResolved()
+    /// - .noSuchItem: system removes item from working set
+    /// - .insufficientQuota: system shows quota UI
+    /// - .serverUnreachable: system retries with exponential backoff
+    /// - .cannotSynchronize: generic retryable error
+    func toFileProviderError() -> NSError {
+        let code: NSFileProviderError.Code
+        switch self.errorCode {
+        case "AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch", "ExpiredToken":
+            code = .notAuthenticated
+        case "NoSuchKey", "NoSuchBucket":
+            code = .noSuchItem
+        case "EntityTooLarge":
+            code = .insufficientQuota
+        case "SlowDown", "ServiceUnavailable", "InternalError", "RequestTimeout":
+            code = .serverUnreachable
+        default:
+            code = .cannotSynchronize
+        }
+        return NSFileProviderError(code) as NSError
     }
 }

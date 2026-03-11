@@ -3,7 +3,7 @@ import os.log
 
 @main
 struct DS3DriveApp: App {
-    private let logger: Logger = Logger(subsystem: "io.cubbit.DS3Drive", category: "MainApp")
+    private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
     
     @AppStorage(DefaultSettings.UserDefaultsKeys.tutorial) var tutorialShown: Bool = DefaultSettings.tutorialShown
     @AppStorage(DefaultSettings.UserDefaultsKeys.loginItemSet) var loginItemSet: Bool = DefaultSettings.loginItemSet

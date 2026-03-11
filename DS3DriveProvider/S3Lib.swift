@@ -8,7 +8,7 @@ import os.log
 class S3Lib {
     typealias Logger = os.Logger
     
-    private let logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync.provider", category: "S3Lib")
+    private let logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.transfer.rawValue)
     private let notificationManager: NotificationManager
     private let s3: S3
     internal let isShutdown = ManagedAtomic(false) // <Bool>.makeAtomic(value: false)
@@ -16,6 +16,15 @@ class S3Lib {
     init(withS3 s3: S3, withNotificationManager notificationManager: NotificationManager) {
         self.s3 = s3
         self.notificationManager = notificationManager
+    }
+
+    /// Safely decode percent encoding, throwing parseError if decoding fails
+    private func decodedKey(_ key: String) throws -> String {
+        guard let decoded = key.removingPercentEncoding else {
+            logger.error("Failed to decode percent encoding for key: \(key, privacy: .public)")
+            throw FileProviderExtensionError.parseError
+        }
+        return decoded
     }
     
     func shutdown() throws {
@@ -151,8 +160,11 @@ class S3Lib {
             )
         }
         
-        let key = identifier.rawValue.removingPercentEncoding!
-        
+        guard let key = identifier.rawValue.removingPercentEncoding else {
+            logger.error("Failed to decode percent encoding for key: \(identifier.rawValue, privacy: .public)")
+            throw FileProviderExtensionError.parseError
+        }
+
         let request = S3.HeadObjectRequest(
             bucket: drive.syncAnchor.bucket.name,
             key: key
@@ -193,14 +205,15 @@ class S3Lib {
             )
         }
         
-        self.logger.debug("Deleting object \(s3Item.identifier.rawValue.removingPercentEncoding!)")
-        
+        let decodedItemKey = try decodedKey(s3Item.identifier.rawValue)
+        self.logger.debug("Deleting object \(decodedItemKey, privacy: .public)")
+
         let deleteProgress = Progress(totalUnitCount: 1)
         progress?.addChild(deleteProgress, withPendingUnitCount: 1)
-        
+
         let request = S3.DeleteObjectRequest(
             bucket: s3Item.drive.syncAnchor.bucket.name,
-            key: s3Item.identifier.rawValue.removingPercentEncoding!
+            key: decodedItemKey
         )
         
         // TODO: Should we use the response?
@@ -222,31 +235,33 @@ class S3Lib {
         var continuationToken: String?
         var items = [S3Item]()
         
+        let folderPrefix = try decodedKey(s3Item.itemIdentifier.rawValue)
+
         // Delete objects inside folder
         repeat {
             (items, continuationToken) = try await self.listS3Items(
                 forDrive: s3Item.drive,
-                withPrefix: s3Item.itemIdentifier.rawValue.removingPercentEncoding!,
+                withPrefix: folderPrefix,
                 recursively: true,
                 withContinuationToken: continuationToken
             )
-            
+
             if items.isEmpty {
                 break
             }
-            
+
             self.logger.debug("Deleting \(items.count) items")
-            
+
             while !items.isEmpty {
                 let item = items.removeFirst()
-                    
+
                 try await self.deleteS3Item(item, withProgress: progress)
             }
         } while continuationToken != nil
-        
+
         if items.isEmpty {
             // Delete folder itself when no items are left
-            self.logger.debug("Deleting enclosing folder \(s3Item.identifier.rawValue.removingPercentEncoding!)")
+            self.logger.debug("Deleting enclosing folder \(folderPrefix, privacy: .public)")
             try await self.deleteS3Item(s3Item, withProgress: progress, force: true)
         }
     }
@@ -264,10 +279,11 @@ class S3Lib {
         withProgress progress: Progress? = nil
     ) async throws -> S3Item {
         let oldObjectName = s3Item.filename
-        let newKey = s3Item.identifier.rawValue.removingPercentEncoding!.replacingOccurrences(of: oldObjectName, with: newName)
-        
-        self.logger.debug("Renaming s3Item \(s3Item.identifier.rawValue.removingPercentEncoding!) to \(newKey)")
-        
+        let decodedIdentifier = try decodedKey(s3Item.identifier.rawValue)
+        let newKey = decodedIdentifier.replacingOccurrences(of: oldObjectName, with: newName)
+
+        self.logger.debug("Renaming s3Item \(decodedIdentifier, privacy: .public) to \(newKey, privacy: .public)")
+
         return try await self.moveS3Item(s3Item, toKey: newKey, withProgress: progress)
     }
     
@@ -317,7 +333,11 @@ class S3Lib {
             )
         }
         
-        let copySource = "\(s3Item.drive.syncAnchor.bucket.name)/\(s3Item.itemIdentifier.rawValue.removingPercentEncoding!)".addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!
+        let decodedCopyKey = try decodedKey(s3Item.itemIdentifier.rawValue)
+        guard let copySource = "\(s3Item.drive.syncAnchor.bucket.name)/\(decodedCopyKey)".addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            logger.error("Failed to encode copy source for key: \(decodedCopyKey, privacy: .public)")
+            throw FileProviderExtensionError.parseError
+        }
         
         self.logger.debug("Copying s3Item \(s3Item.itemIdentifier.rawValue) to \(key): CopySource \(copySource)")
         
@@ -350,9 +370,9 @@ class S3Lib {
         var continuationToken: String?
         var items = [S3Item]()
         
-        let prefix = s3Item.itemIdentifier.rawValue.removingPercentEncoding!
+        let prefix = try decodedKey(s3Item.itemIdentifier.rawValue)
         let newPrefix = key
-        
+
         repeat {
             (items, continuationToken) = try await self.listS3Items(
                 forDrive: s3Item.drive,
@@ -360,29 +380,29 @@ class S3Lib {
                 recursively: true,
                 withContinuationToken: continuationToken
             )
-            
+
             if items.isEmpty {
                 break
             }
-            
+
             while !items.isEmpty {
                 let item = items.removeFirst()
-                let newKey = item.identifier.rawValue.replacingOccurrences(of: prefix, with: newPrefix).removingPercentEncoding!
-                
-                self.logger.debug("New key is \(newKey)")
-                
-                return try await self.copyS3Item(
+                let newKey = try decodedKey(item.identifier.rawValue.replacingOccurrences(of: prefix, with: newPrefix))
+
+                self.logger.debug("New key is \(newKey, privacy: .public)")
+
+                try await self.copyS3Item(
                     item,
                     toKey: newKey,
                     withProgress: progress
                 )
             }
         } while continuationToken != nil
-        
+
         // Copy folder itself when it's empty
         if items.isEmpty {
-            self.logger.debug("Copying enclosing folder \(s3Item.identifier.rawValue.removingPercentEncoding!)")
-            let newKey = s3Item.identifier.rawValue.replacingOccurrences(of: prefix, with: newPrefix).removingPercentEncoding!
+            self.logger.debug("Copying enclosing folder \(prefix, privacy: .public)")
+            let newKey = try decodedKey(s3Item.identifier.rawValue.replacingOccurrences(of: prefix, with: newPrefix))
             
             try await self.copyS3Item(
                 s3Item,
@@ -418,9 +438,9 @@ class S3Lib {
         
         let request = S3.GetObjectRequest(
             bucket: s3Item.drive.syncAnchor.bucket.name,
-            key: s3Item.identifier.rawValue.removingPercentEncoding!
+            key: try decodedKey(s3Item.identifier.rawValue)
         )
-        
+
         do {
             let downloadPartStartTime = Date()
             
@@ -492,7 +512,7 @@ class S3Lib {
     ) async throws {
         var request: S3.PutObjectRequest
         var size: Int64 = 0
-        let key = s3Item.itemIdentifier.rawValue.removingPercentEncoding!
+        let key = try decodedKey(s3Item.itemIdentifier.rawValue)
         
         if let fileURL {
             guard let data = try? Data(contentsOf: fileURL) else { throw FileProviderExtensionError.fileNotFound }
@@ -533,7 +553,8 @@ class S3Lib {
         progress?.completedUnitCount += 1
     }
 
-    /// Performs a multipart upload for a given S3Item
+    /// Performs a multipart upload for a given S3Item.
+    /// Validates ETag from CompleteMultipartUpload response and aborts orphaned parts on any failure.
     /// - Parameters:
     ///   - s3Item: the S3Item to upload
     ///   - fileURL: the optional fileURL to use for the upload (folders don't require a fileURL)
@@ -544,43 +565,43 @@ class S3Lib {
         fileURL: URL? = nil,
         withProgress progress: Progress? = nil
     ) async throws {
-        guard fileURL != nil else {
+        guard let fileURL else {
             throw FileProviderExtensionError.fileNotFound
         }
-        
-        let key = s3Item.itemIdentifier.rawValue.removingPercentEncoding!
-        
+
+        let key = try decodedKey(s3Item.itemIdentifier.rawValue)
+
         let createMultipartRequest = S3.CreateMultipartUploadRequest(
             bucket: s3Item.drive.syncAnchor.bucket.name,
             key: key
         )
-        
+
         self.logger.debug("Creating multipart upload for key \(key)")
-        
+
         let createMultipartResponse = try await self.s3.createMultipartUpload(createMultipartRequest)
-        
+
         guard let uploadId = createMultipartResponse.uploadId else {
             throw FileProviderExtensionError.parseError
         }
-        
-        let fileHandle = try FileHandle(forReadingFrom: fileURL!)
-        defer { try? fileHandle.close() }
-        
-        let partSize = DefaultSettings.S3.multipartUploadPartSize
-           
-        var offset: Int = 0
-        var partNumber: Int = 1
-        
-        var completedParts: [S3.CompletedPart] = []
-        
-        var data = fileHandle.readData(ofLength: partSize)
-        
-        if data.isEmpty {
-            self.logger.warning("Data is empty. Should have been processed as standard PUT request.")
-        }
-        
-        while !data.isEmpty {
-            do {
+
+        do {
+            let fileHandle = try FileHandle(forReadingFrom: fileURL)
+            defer { try? fileHandle.close() }
+
+            let partSize = DefaultSettings.S3.multipartUploadPartSize
+
+            var offset: Int = 0
+            var partNumber: Int = 1
+
+            var completedParts: [S3.CompletedPart] = []
+
+            var data = fileHandle.readData(ofLength: partSize)
+
+            if data.isEmpty {
+                self.logger.warning("Data is empty. Should have been processed as standard PUT request.")
+            }
+
+            while !data.isEmpty {
                 let uploadPartRequest = S3.UploadPartRequest(
                     body: .byteBuffer(ByteBuffer(data: data)),
                     bucket: s3Item.drive.syncAnchor.bucket.name,
@@ -588,11 +609,11 @@ class S3Lib {
                     partNumber: partNumber,
                     uploadId: uploadId
                 )
-                
+
                 let uploadStart = Date()
                 let uploadPartResponse = try await self.s3.uploadPart(uploadPartRequest)
                 let transferTime = Date().timeIntervalSince(uploadStart)
-                
+
                 self.notificationManager.sendTransferSpeedNotification(
                     DriveTransferStats(
                         driveId: s3Item.drive.id,
@@ -601,35 +622,48 @@ class S3Lib {
                         direction: .upload
                     )
                 )
-                
+
                 let eTag = uploadPartResponse.eTag ?? ""
-                
+
                 self.logger.debug("Got eTag: \(eTag)")
-                
+
                 completedParts.append(S3.CompletedPart(eTag: eTag, partNumber: partNumber))
-                
+
                 offset += data.count
                 partNumber += 1
-                
+
                 progress?.completedUnitCount += 1
-                
+
                 data = fileHandle.readData(ofLength: partSize)
-            } catch {
-                try await self.abortS3MultipartUpload(for: s3Item, withUploadId: uploadId)
             }
+
+            self.logger.debug("Completing multipart upload with \(completedParts.count) parts")
+
+            let completeMultipartRequest = S3.CompleteMultipartUploadRequest(
+                bucket: s3Item.drive.syncAnchor.bucket.name,
+                key: key,
+                multipartUpload: S3.CompletedMultipartUpload(parts: completedParts),
+                uploadId: uploadId
+            )
+
+            let completeResponse = try await self.s3.completeMultipartUpload(completeMultipartRequest)
+
+            guard let eTag = completeResponse.eTag, !eTag.isEmpty else {
+                self.logger.error("CompleteMultipartUpload returned no ETag for key \(key, privacy: .public)")
+                try await self.abortS3MultipartUpload(for: s3Item, withUploadId: uploadId)
+                throw FileProviderExtensionError.uploadValidationFailed
+            }
+
+            self.logger.info("Multipart upload complete for key \(key, privacy: .public) with ETag \(eTag, privacy: .public)")
+        } catch {
+            self.logger.error("Multipart upload failed for key \(key, privacy: .public): \(error.localizedDescription)")
+            do {
+                try await self.abortS3MultipartUpload(for: s3Item, withUploadId: uploadId)
+            } catch {
+                self.logger.warning("Failed to abort multipart upload \(uploadId, privacy: .public): \(error.localizedDescription)")
+            }
+            throw error
         }
-        
-        self.logger.debug("Completing multipart upload with \(completedParts.count) parts")
-        
-        let completeMultipartRequest = S3.CompleteMultipartUploadRequest(
-            bucket: s3Item.drive.syncAnchor.bucket.name,
-            key: key,
-            multipartUpload: S3.CompletedMultipartUpload(parts: completedParts),
-            uploadId: uploadId
-        )
-        
-        // TODO: Should do something with this?
-        let _ = try await self.s3.completeMultipartUpload(completeMultipartRequest)
     }
     
     /// Aborts a multipart upload for a given S3Item and uploadId
@@ -641,8 +675,8 @@ class S3Lib {
         for s3Item: S3Item,
         withUploadId uploadId: String
     ) async throws {
-        let key = s3Item.itemIdentifier.rawValue.removingPercentEncoding!
-        
+        let key = try decodedKey(s3Item.itemIdentifier.rawValue)
+
         self.logger.warning("Aborting multipart upload for item with key \(key) and uploadId \(uploadId)")
         
         let abortRequest = S3.AbortMultipartUploadRequest(
