@@ -2,6 +2,7 @@ import Foundation
 import FileProvider
 import SwiftUI
 import os.log
+import DS3Lib
 
 /// Manages a drive
 @Observable class DS3DriveViewModel {
@@ -86,23 +87,23 @@ import os.log
     /// - Returns: the drive's sync anchor string
     func syncAnchorString() -> String {
         var name = drive.syncAnchor.project.name
-        
-        if drive.syncAnchor.prefix != nil {
-            name += "/\(drive.syncAnchor.prefix!)"
+
+        if let prefix = drive.syncAnchor.prefix {
+            name += "/\(prefix)"
         }
-        
+
         return name
     }
-    
+
     /// Returns the Cubbit's Web Console URL
     /// - Returns: the console url
     func consoleURL() -> URL? {
-        var url =  "\(ConsoleURLs.projectsURL)/\(drive.syncAnchor.project.id)/buckets/\(drive.syncAnchor.bucket.name)"
-        
-        if drive.syncAnchor.prefix != nil {
-            url += "/\(drive.syncAnchor.prefix!)"
+        var url = "\(ConsoleURLs.projectsURL)/\(drive.syncAnchor.project.id)/buckets/\(drive.syncAnchor.bucket.name)"
+
+        if let prefix = drive.syncAnchor.prefix {
+            url += "/\(prefix)"
         }
-        
+
         return URL(string: url)
     }
     
@@ -114,7 +115,7 @@ import os.log
             
         self.logger.debug("Opening finder at url \(url.path())")
         
-        let _ = url.startAccessingSecurityScopedResource()
+        _ = url.startAccessingSecurityScopedResource()
         NSWorkspace.shared.activateFileViewerSelecting([url])
         url.stopAccessingSecurityScopedResource()
     }

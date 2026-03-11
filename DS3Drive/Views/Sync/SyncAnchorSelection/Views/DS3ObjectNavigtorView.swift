@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct DS3ObjectNavigtorColumView: View {
     @Environment(SyncAnchorSelectionViewModel.self) var syncAnchorSelectionViewModel: SyncAnchorSelectionViewModel
@@ -15,8 +16,9 @@ struct DS3ObjectNavigtorColumView: View {
                         name: self.cleanFolderName(folderName),
                         selected: folderSelected(folderName)
                     ) {
+                        let viewModel = syncAnchorSelectionViewModel
                         Task {
-                            await syncAnchorSelectionViewModel.selectFolder(withPrefix: folderName)
+                            await viewModel.selectFolder(withPrefix: folderName)
                         }
                     }
                 }

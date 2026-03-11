@@ -29,7 +29,7 @@ public enum LogCategory: String, Sendable {
 public enum DefaultSettings {
     /// The application group used to share data between the app and the file provider extension.
     /// Important: it does need to match the application group set in the app and the file provider extension's entitlements.
-    public static let appGroup = "group.io.cubbit.DS3Drive"
+    public static let appGroup = "group.X889956QSM.io.cubbit.DS3Drive"
 
     /// Api key name prefix used to identify the api key created by the app between the ones created by the user.
     public static let apiKeyNamePrefix = "DS3Drive-for-macOS"

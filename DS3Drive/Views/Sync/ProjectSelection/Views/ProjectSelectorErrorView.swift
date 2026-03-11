@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct ProjectSelectorErrorView: View {
     @Environment(ProjectSelectionViewModel.self) var projectSelectionViewModel: ProjectSelectionViewModel
@@ -16,8 +17,9 @@ struct ProjectSelectorErrorView: View {
                         .multilineTextAlignment(.center)
                     
                     Button("Logout") {
+                        let viewModel = projectSelectionViewModel
                         Task {
-                            try self.projectSelectionViewModel.authentication.logout()
+                            try viewModel.authentication.logout()
                         }
                     }
                 }
@@ -25,10 +27,11 @@ struct ProjectSelectorErrorView: View {
                     Text(projectSelectionViewModel.error?.localizedDescription ?? "No error")
                         .font(.custom("Nunito", size: 14))
                         .multilineTextAlignment(.center)
-                    
+
                     Button("Retry") {
+                        let viewModel = projectSelectionViewModel
                         Task {
-                            await projectSelectionViewModel.loadProjects()
+                            await viewModel.loadProjects()
                         }
                     }
                 }

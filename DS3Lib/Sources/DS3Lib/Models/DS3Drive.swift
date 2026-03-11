@@ -24,6 +24,11 @@ public struct DS3DriveStats: Codable, Sendable {
     /// The current speed (in bytes per seconds) of the transfers performed by the drive. This is an average speed calculated over a period of time.
     public var currentSpeedBs: Double? // Bytes per second
 
+    public init(lastUpdate: Date, currentSpeedBs: Double? = nil) {
+        self.lastUpdate = lastUpdate
+        self.currentSpeedBs = currentSpeedBs
+    }
+
     /// Converts the stats into a human readable string. If the drive is currently performing transfers, it will display the current speed. Otherwise, it will display the time since the last update.
     public func toString() -> String {
         if let currentSpeedBs = self.currentSpeedBs {

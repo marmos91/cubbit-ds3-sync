@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct ProjectSelectionFooter: View {
     @Environment(ProjectSelectionViewModel.self) var projectSelectionViewModel: ProjectSelectionViewModel

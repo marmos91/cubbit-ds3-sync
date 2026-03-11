@@ -1,14 +1,15 @@
 import Foundation
-import FileProvider
+@preconcurrency import FileProvider
 import os.log
 import SotoS3
+import DS3Lib
 
 enum EnumeratorError: Error {
     case unsupported
     case missingParameters
 }
 
-class S3Enumerator: NSObject, NSFileProviderEnumerator {
+class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
     typealias Logger = os.Logger
     
     let logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.sync.rawValue)
@@ -75,27 +76,23 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
         Task {
             do {
                 self.notificationManager.sendDriveChangedNotification(status: .indexing)
-                
+
                 let (items, continuationToken) = try await self.s3Lib.listS3Items(
                     forDrive: self.drive,
                     withPrefix: self.prefix,
                     recursively: self.recursively,
                     withContinuationToken: page.toContinuationToken()
                 )
-                
-                if items.count > 0 {
+
+                if !items.isEmpty {
                     observer.didEnumerate(items)
                 }
-                
-                var page: NSFileProviderPage? = nil
-                
-                if continuationToken != nil {
-                    page = NSFileProviderPage(continuationToken!)
-                }
-                
+
+                let page = continuationToken.map { NSFileProviderPage($0) }
+
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle)
                 return observer.finishEnumerating(upTo: page)
-                
+
             } catch let error as FileProviderExtensionError {
                 self.logger.error("A FileProvider error occurred while list objects \(error)")
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
@@ -137,7 +134,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
 
                 var newAnchor = anchor
                 
-                if changedItems.count > 0 {
+                if !changedItems.isEmpty {
                     self.logger.debug("Found \(changedItems.count) changes")
                     
                     observer.didUpdate(changedItems)
@@ -163,7 +160,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator {
     }
 }
 
-class WorkingSetS3Enumerator: S3Enumerator {
+class WorkingSetS3Enumerator: S3Enumerator, @unchecked Sendable {
     init(
         parent: NSFileProviderItemIdentifier,
         s3Lib: S3Lib,

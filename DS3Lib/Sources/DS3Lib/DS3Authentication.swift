@@ -154,7 +154,7 @@ struct DS3Missing2FAResponse: Codable {
         
         let cookies = HTTPCookie.cookies(withResponseHeaderFields: fields, for: url)
         
-        guard let refreshToken = cookies.first(where: {$0.name == "_refresh"})?.value else { throw DS3AuthenticationError.cookies }
+        guard let refreshToken = cookies.first(where: { $0.name == "_refresh" })?.value else { throw DS3AuthenticationError.cookies }
         
         session.refreshRefreshToken(refreshToken: refreshToken)
         
@@ -202,7 +202,7 @@ struct DS3Missing2FAResponse: Codable {
             
             let cookies = HTTPCookie.cookies(withResponseHeaderFields: fields, for: url)
             
-            guard let refreshToken = cookies.first(where: {$0.name == "_refresh"})?.value else { throw DS3AuthenticationError.cookies }
+            guard let refreshToken = cookies.first(where: { $0.name == "_refresh" })?.value else { throw DS3AuthenticationError.cookies }
             
             session.refreshTokens(token: token, refreshToken: refreshToken)
             
@@ -252,7 +252,7 @@ struct DS3Missing2FAResponse: Codable {
         self.logger.debug("Retrieving challenge for email \(email)")
         
         let encoder = JSONEncoder()
-        guard let data = try? encoder.encode(challengeRequestBody) else { throw DS3AuthenticationError.jsonConversion}
+        guard let data = try? encoder.encode(challengeRequestBody) else { throw DS3AuthenticationError.jsonConversion }
         
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -309,7 +309,7 @@ struct DS3Missing2FAResponse: Codable {
         
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
-        guard let data = try? encoder.encode(accountSessionRequest) else { throw DS3AuthenticationError.encoding}
+        guard let data = try? encoder.encode(accountSessionRequest) else { throw DS3AuthenticationError.encoding }
         
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -319,10 +319,9 @@ struct DS3Missing2FAResponse: Codable {
         let (responseData, response) = try await URLSession.shared.data(for: request)
         
         guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            if let MFAResponse = try? JSONDecoder().decode(DS3Missing2FAResponse.self, from: responseData) {
-                if MFAResponse.message == APIError.Missing2FA {
-                    throw DS3AuthenticationError.missing2FA
-                }
+            if let mfaResponse = try? JSONDecoder().decode(DS3Missing2FAResponse.self, from: responseData),
+               mfaResponse.message == APIError.Missing2FA {
+                throw DS3AuthenticationError.missing2FA
             }
             
             throw DS3AuthenticationError.serverError
@@ -336,7 +335,7 @@ struct DS3Missing2FAResponse: Codable {
         
         let cookies = HTTPCookie.cookies(withResponseHeaderFields: fields, for: url)
         
-        guard let refreshToken = cookies.first(where: {$0.name == "_refresh"})?.value else { throw DS3AuthenticationError.cookies }
+        guard let refreshToken = cookies.first(where: { $0.name == "_refresh" })?.value else { throw DS3AuthenticationError.cookies }
         
         self.logger.debug("Account session retrieved")
         
@@ -348,19 +347,19 @@ struct DS3Missing2FAResponse: Codable {
     public func persist() throws {
         guard
             self.isLogged,
-            self.accountSession != nil,
-            self.account != nil
+            let accountSession = self.accountSession,
+            let account = self.account
         else { throw DS3AuthenticationError.loggedOut }
-        
-        try SharedData.default().persistAccountSession(accountSession: self.accountSession!)
-        try SharedData.default().persistAccount(account: self.account!)
+
+        try SharedData.default().persistAccountSession(accountSession: accountSession)
+        try SharedData.default().persistAccount(account: account)
     }
     
     /// Loads authentication state from shared container, or creates a new unauthenticated instance.
     public static func loadFromPersistenceOrCreateNew() -> DS3Authentication {
         do {
             let accountSession = try SharedData.default().loadAccountSessionFromPersistence()
-            let account =  try SharedData.default().loadAccountFromPersistence()
+            let account = try SharedData.default().loadAccountFromPersistence()
             
             return DS3Authentication(
                 accountSession: accountSession,
@@ -380,8 +379,7 @@ struct DS3Missing2FAResponse: Codable {
         try SharedData.default().deleteDS3DrivesFromPersistence()
         try SharedData.default().deleteDS3APIKeysFromPersistence()
     }
-   
-    
+
     // MARK: - Account
     
     /// Retrieves Cubbit's account info

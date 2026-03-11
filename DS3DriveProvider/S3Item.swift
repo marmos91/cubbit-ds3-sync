@@ -56,7 +56,7 @@ class S3Item: NSObject, NSFileProviderItem {
             return .rootContainer
         }
         
-        let _ = pathSegments.popLast()
+        _ = pathSegments.popLast()
         let parentIdentifier = pathSegments.joined(separator: String(self.separator))
         
         return NSFileProviderItemIdentifier(parentIdentifier + String(self.separator))

@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct BucketSelectionColumn: View {
     @Environment(SyncAnchorSelectionViewModel.self) var syncAnchorSelectionViewModel: SyncAnchorSelectionViewModel
@@ -11,8 +12,9 @@ struct BucketSelectionColumn: View {
                     name: bucket.name,
                     selected: syncAnchorSelectionViewModel.selectedBucket == bucket
                 ) {
+                    let viewModel = syncAnchorSelectionViewModel
                     Task {
-                        await syncAnchorSelectionViewModel.selectBucket(withName: bucket.name)
+                        await viewModel.selectBucket(withName: bucket.name)
                     }
                 }
             }

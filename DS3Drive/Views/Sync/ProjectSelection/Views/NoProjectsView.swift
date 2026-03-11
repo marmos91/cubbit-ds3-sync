@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct NoProjectsView: View {
     @Environment(ProjectSelectionViewModel.self) var projectSelectionViewModel: ProjectSelectionViewModel
@@ -14,8 +15,9 @@ struct NoProjectsView: View {
                     .multilineTextAlignment(.center)
                 
                 Button("Refresh") {
+                    let viewModel = projectSelectionViewModel
                     Task {
-                        await self.projectSelectionViewModel.loadProjects()
+                        await viewModel.loadProjects()
                     }
                 }
             }

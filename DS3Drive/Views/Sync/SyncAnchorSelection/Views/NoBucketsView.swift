@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct NoBucketsView: View {
     @Environment(SyncAnchorSelectionViewModel.self) var syncAnchorSelectionModel: SyncAnchorSelectionViewModel
@@ -15,8 +16,9 @@ struct NoBucketsView: View {
                     .multilineTextAlignment(.center)
                 
                 Button("Refresh") {
+                    let viewModel = syncAnchorSelectionModel
                     Task {
-                        await self.syncAnchorSelectionModel.loadBuckets()
+                        await viewModel.loadBuckets()
                     }
                 }
             }

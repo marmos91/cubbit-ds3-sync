@@ -2,7 +2,7 @@ import Foundation
 
 /// The Cubbit related API URLs.
 public enum CubbitAPIURLs {
-    public static let baseURL = "https://api.cubbit.eu"
+    public static let baseURL = "https://api.eu00wi.cubbit.services"
 
     /// IAM service related URLs.
     public enum IAM {

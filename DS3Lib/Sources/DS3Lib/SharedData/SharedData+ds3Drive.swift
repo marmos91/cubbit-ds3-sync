@@ -40,7 +40,7 @@ extension SharedData {
     ) throws -> DS3Drive {
         let drives = try loadDS3DrivesFromPersistence()
         
-        guard let drive = drives.first(where: {$0.id == id}) else {
+        guard let drive = drives.first(where: { $0.id == id }) else {
             throw SharedDataError.ds3DriveNotFound
         }
         

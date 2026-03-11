@@ -5,7 +5,7 @@
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionFileProviderDocumentGroup</key>
-		<string>group.io.cubbit.DS3Drive</string>
+		<string>group.X889956QSM.io.cubbit.DS3Drive</string>
 		<key>NSExtensionFileProviderSupportsEnumeration</key>
 		<true/>
 		<key>NSExtensionPointIdentifier</key>

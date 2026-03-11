@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct ProjectView: View {
     var project: Project

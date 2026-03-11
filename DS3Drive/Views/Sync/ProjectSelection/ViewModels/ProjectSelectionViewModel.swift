@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import os.log
+import DS3Lib
 
 @Observable class ProjectSelectionViewModel {
     private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
@@ -10,9 +11,9 @@ import os.log
     
     var projects: [Project] = []
     var loading: Bool = true
-    var error: Error? = nil
-    var authenticationError: Error? = nil
-    var selectedProject: Project? = nil
+    var error: Error?
+    var authenticationError: Error?
+    var selectedProject: Project?
     
     init(authentication: DS3Authentication, projects: [Project] = []) {
         self.authentication = authentication
@@ -44,7 +45,7 @@ import os.log
     
     /// Selects the project to display in the sync setup, given its ID
     func selectProject(project: Project) {
-        if let index = projects.firstIndex(where: {$0.id == project.id}) {
+        if let index = projects.firstIndex(where: { $0.id == project.id }) {
             selectedProject = projects[index]
         }
     }

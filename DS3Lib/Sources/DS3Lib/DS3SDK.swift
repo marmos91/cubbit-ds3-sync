@@ -10,14 +10,14 @@ public enum DS3SDKError: Error, LocalizedError {
     
     public var errorDescription: String? {
         switch self {
-           case .invalidURL(let url):
-               return NSLocalizedString("Invalid URL: \(url ?? "")", comment: "Invalid URL")
-            case .serverError:
-                return NSLocalizedString("Server error", comment: "Server error")
-            case .jsonConversion:
-                return NSLocalizedString("JSON conversion error", comment: "JSON conversion error")
-            case .encodingError:
-                return NSLocalizedString("Encoding error", comment: "Encoding error")
+        case .invalidURL(let url):
+            return NSLocalizedString("Invalid URL: \(url ?? "")", comment: "Invalid URL")
+        case .serverError:
+            return NSLocalizedString("Server error", comment: "Server error")
+        case .jsonConversion:
+            return NSLocalizedString("JSON conversion error", comment: "JSON conversion error")
+        case .encodingError:
+            return NSLocalizedString("Encoding error", comment: "Encoding error")
         }
     }
 }
@@ -36,7 +36,7 @@ public enum DS3SDKError: Error, LocalizedError {
     
     // MARK: - Projects
     
-    /// Retriieves all the projects for the current user.
+    /// Retrieves all the projects for the current user.
     /// - Returns: the list of projects for the current user.
     public func getRemoteProjects() async throws -> [Project] {
         try await self.authentication.refreshIfNeeded()
@@ -139,42 +139,33 @@ public enum DS3SDKError: Error, LocalizedError {
         ds3ProjectName: String
     ) async throws -> DS3ApiKey {
         let apiKeyName = DS3SDK.apiKeyName(forUser: user, projectName: ds3ProjectName)
-        
+
         let localApiKeys = (try? SharedData.default().loadDS3APIKeysFromPersistence()) ?? []
-        let localApiKey = localApiKeys.first(where: {$0.name == apiKeyName})
-        
+        let localApiKey = localApiKeys.first(where: { $0.name == apiKeyName })
+
         let iamToken = try await authentication.forgeIAMToken(forIAMUser: user)
-        
+
         let remoteApiKeys = try await self.getRemoteApiKeys(forIAMUser: user)
-        let remoteApiKey = remoteApiKeys.first(where: {$0.name == apiKeyName})
-        
-        if localApiKey == nil {
-            if remoteApiKey != nil {
-                // If local does not exists and remote with name exists, delete remote and generate a new one
-                self.logger.debug("Deleting remote API key since it is not found locally")
-                try await self.deleteApiKey(remoteApiKey!, forIAMUser: user)
-            }
-                        
-            return try await self.generateDS3APIKey(forIAMUser: user, iamToken: iamToken, apiKeyName: apiKeyName)
-        } else {
-            // If local key exists already
-            if remoteApiKey != nil {
-                if localApiKey == remoteApiKey {
-                    // If local matches remote return local without generating
-                    self.logger.debug("Returning existing API key since it matches the remote one")
-                    return localApiKey!
-                }
-                
-                // Otherwise create a new key
-                return try await self.generateDS3APIKey(forIAMUser: user, iamToken: iamToken, apiKeyName: apiKeyName)
-            } else {
-                self.logger.debug("Deleting local key since it is not found remotely")
-                // If local exists and remote does not, delete local and generate a new one
-                try SharedData.default().deleteDS3APIKeyFromPersistence(withName: localApiKey!.name)
-                
-                return try await self.generateDS3APIKey(forIAMUser: user, iamToken: iamToken, apiKeyName: apiKeyName)
-            }
+        let remoteApiKey = remoteApiKeys.first(where: { $0.name == apiKeyName })
+
+        // If local matches remote, return local without generating a new key
+        if let localApiKey, let remoteApiKey, localApiKey == remoteApiKey {
+            self.logger.debug("Returning existing API key since it matches the remote one")
+            return localApiKey
         }
+
+        // Clean up stale keys before generating a new one
+        if let remoteApiKey, localApiKey == nil {
+            self.logger.debug("Deleting remote API key since it is not found locally")
+            try await self.deleteApiKey(remoteApiKey, forIAMUser: user)
+        }
+
+        if let localApiKey, remoteApiKey == nil {
+            self.logger.debug("Deleting local key since it is not found remotely")
+            try SharedData.default().deleteDS3APIKeyFromPersistence(withName: localApiKey.name)
+        }
+
+        return try await self.generateDS3APIKey(forIAMUser: user, iamToken: iamToken, apiKeyName: apiKeyName)
     }
     
     /// Generates a new API key for the given IAM user.

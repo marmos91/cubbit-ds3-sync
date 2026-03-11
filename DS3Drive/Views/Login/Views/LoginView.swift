@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct LoginView: View {
     enum FocusedField {
@@ -92,13 +93,15 @@ struct LoginView: View {
     }
     
     func loginDisabled() -> Bool {
-        return self.email == "" || self.password == ""
+        return self.email.isEmpty || self.password.isEmpty
     }
     
     func login() {
+        let viewModel = loginViewModel
+        let auth = ds3Authentication
         Task {
-            try await loginViewModel.login(
-                withAuthentication: self.ds3Authentication,
+            try await viewModel.login(
+                withAuthentication: auth,
                 email: email,
                 password: password
             )

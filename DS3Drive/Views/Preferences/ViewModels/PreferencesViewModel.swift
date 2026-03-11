@@ -3,7 +3,7 @@ import Foundation
 import os.log
 import DS3Lib
 
-@Observable class PreferencesViewModel {
+@MainActor @Observable class PreferencesViewModel {
     var account: Account
     
     private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
@@ -32,7 +32,7 @@ import DS3Lib
     }
     
     func mainEmail() -> String {
-        let defaultEmail = self.account.emails.first(where: {$0.isDefault})
+        let defaultEmail = self.account.emails.first(where: { $0.isDefault })
         
         return defaultEmail?.email ?? ""
     }

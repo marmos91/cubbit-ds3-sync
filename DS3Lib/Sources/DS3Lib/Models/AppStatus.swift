@@ -17,7 +17,7 @@ public enum AppStatus: String, Sendable {
     /// The app is displaying some information to the user (like a CTA).
     case info
     
-    func toString() -> String {
+    public func toString() -> String {
         switch self {
         case .syncing:
             return NSLocalizedString("Synchronizing", comment: "Synchronizing status")

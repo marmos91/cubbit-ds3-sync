@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct ProjectSelectionView: View {
     @State var projectSelectionViewModel: ProjectSelectionViewModel

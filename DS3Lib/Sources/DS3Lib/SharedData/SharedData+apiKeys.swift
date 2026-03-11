@@ -29,7 +29,7 @@ extension SharedData {
         let apiKeys = try loadDS3APIKeysFromPersistence()
         let apiKeyName = DS3SDK.apiKeyName(forUser: user, projectName: projectName)
         
-        guard let apiKey = apiKeys.first(where: {$0.name == apiKeyName}) else {
+        guard let apiKey = apiKeys.first(where: { $0.name == apiKeyName }) else {
             throw SharedDataError.apiKeyNotFound
         }
         
@@ -72,7 +72,7 @@ extension SharedData {
     public func deleteDS3APIKeyFromPersistence(withName apiKeyName: String) throws {
         var apiKeys = try loadDS3APIKeysFromPersistence()
         
-        guard let apiKeyIndex = apiKeys.firstIndex(where: {$0.name == apiKeyName}) else {
+        guard let apiKeyIndex = apiKeys.firstIndex(where: { $0.name == apiKeyName }) else {
             throw SharedDataError.apiKeyNotFound
         }
         

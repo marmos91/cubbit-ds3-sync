@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct MFAView: View {
     @Environment(DS3Authentication.self) var ds3Authentication: DS3Authentication
@@ -55,7 +56,7 @@ struct MFAView: View {
                             self.loginWithMFA()
                         }
                         .buttonStyle(PrimaryButtonStyle())
-                        .disabled(tfaCode == "")
+                        .disabled(tfaCode.isEmpty)
                         .padding(.vertical)
                         .onSubmit {
                             self.loginWithMFA()
@@ -76,9 +77,11 @@ struct MFAView: View {
     }
     
     func loginWithMFA() {
+        let viewModel = loginViewModel
+        let auth = ds3Authentication
         Task {
-            try await loginViewModel.login(
-                withAuthentication: self.ds3Authentication,
+            try await viewModel.login(
+                withAuthentication: auth,
                 email: email,
                 password: password,
                 withTfaToken: tfaCode

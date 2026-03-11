@@ -64,18 +64,14 @@ public enum DS3DriveManagerError: Error {
             self.syncyingDrives.remove(updateDriveStatusNotification.driveId)
         }
         
-        if !self.syncyingDrives.isEmpty {
-            AppStatusManager.default().status = .syncing
-        } else {
-            AppStatusManager.default().status = .idle
-        }
+        AppStatusManager.default().status = self.syncyingDrives.isEmpty ? .idle : .syncing
     }
     
     /// Returns a stored DS3Drive with the given id, if any
     /// - Parameter id: the id of the drive to retrieve
     /// - Returns: the DS3Drive, if any
     public func driveWithID(_ id: UUID) -> DS3Drive? {
-        return self.drives.first(where: {$0.id == id })
+        return self.drives.first(where: { $0.id == id })
     }
     
     /// Removes all domains from the file provider
@@ -93,8 +89,9 @@ public enum DS3DriveManagerError: Error {
                     self.logger.error("An error occurred: \(error?.localizedDescription ?? "Unknown error")")
                     return continuation.resume(throwing: DS3DriveManagerError.driveNotFound)
                 }
-                
-                continuation.resume(returning: domains)
+
+                nonisolated(unsafe) let sendableDomains = domains
+                continuation.resume(returning: sendableDomains)
             }
         }
     }
@@ -102,19 +99,10 @@ public enum DS3DriveManagerError: Error {
     /// Lists the domains that need to be deleted from the file provider
     /// - Returns: the file provider domains that need to be deleted
     public func domainsToBeDeleted() async throws -> [NSFileProviderDomain] {
-        var domainsToBeDeleted: [NSFileProviderDomain] = []
-        
-        for existingDomain in try await self.extensionExistingDomains() {
-            if !self.drives.contains(
-                where: {
-                    $0.id.uuidString == existingDomain.identifier.rawValue
-                }
-            ) {
-                domainsToBeDeleted.append(existingDomain)
-            }
-        }
-        
-        return domainsToBeDeleted
+        let existingDomains = try await self.extensionExistingDomains()
+        let driveIds = Set(self.drives.map { $0.id.uuidString })
+
+        return existingDomains.filter { !driveIds.contains($0.identifier.rawValue) }
     }
     
     /// Syncs the file provider extensions with the status of the currently registered drives
@@ -139,7 +127,7 @@ public enum DS3DriveManagerError: Error {
     /// Removes a drive from the manager. It also removes the corresponding file provider domain.
     /// - Parameter id: the drive id to remove
     public func disconnect(driveWithId id: UUID) async throws {
-        if let index = self.drives.firstIndex(where: {$0.id == id}) {
+        if let index = self.drives.firstIndex(where: { $0.id == id }) {
             self.logger.info("Disconnecting drive with id \(id)")
             
             let removedDrive = self.drives.remove(at: index)
@@ -172,7 +160,7 @@ public enum DS3DriveManagerError: Error {
     /// - Parameter drive: the updated drive
     @MainActor
     public func update(drive: DS3Drive) async throws {
-        if let index = self.drives.firstIndex(where: {$0.id == drive.id}) {
+        if let index = self.drives.firstIndex(where: { $0.id == drive.id }) {
             self.drives[index] = drive
             try self.persist()
             return try await self.syncFileProvider()

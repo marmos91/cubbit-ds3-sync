@@ -1,4 +1,5 @@
 import Foundation
+import DS3Lib
 
 @Observable class SyncRecapViewModel {
     var driveId: UUID?
@@ -16,13 +17,13 @@ import Foundation
     }
     
     func getDS3Drive() -> DS3Drive? {
-        guard self.ds3DriveName != nil else {
+        guard let driveName = self.ds3DriveName else {
             return nil
         }
-        
+
         return DS3Drive(
             id: self.driveId ?? UUID(),
-            name: self.ds3DriveName!,
+            name: driveName,
             syncAnchor: self.syncAnchor
         )
     }

@@ -16,32 +16,17 @@
     "An error occurred: %@" : {
 
     },
-    "API key not found." : {
-
-    },
     "Authentication code" : {
 
     },
     "Bucket:" : {
 
     },
-    "Cannot access shared app group." : {
-      "comment" : "Cannot access shared app group."
-    },
-    "Cannot convert time string" : {
-      "comment" : "The time conversion error"
-    },
-    "Cannot retrieve cookies" : {
-      "comment" : "The cookies authentication error"
-    },
     "Choose a name for your drive. The name you choose will be displayed in the finder" : {
 
     },
     "Continue" : {
       "comment" : "Continue button"
-    },
-    "Conversion error." : {
-
     },
     "Disabled" : {
 
@@ -57,9 +42,6 @@
     },
     "DS3 Client error. Please try refreshing credentials" : {
       "comment" : "DS3 client error"
-    },
-    "DS3 drive not found." : {
-
     },
     "DS3 Object Storage Log in" : {
       "comment" : "The h1 of the login page"
@@ -79,14 +61,8 @@
     "Enabled" : {
 
     },
-    "Encoding error" : {
-      "comment" : "Encoding error"
-    },
     "Enter the code from your authenticator app" : {
 
-    },
-    "Error" : {
-      "comment" : "Error status"
     },
     "Folder:" : {
 
@@ -94,26 +70,11 @@
     "Forgot your password?" : {
       "comment" : "Forgot your password link"
     },
-    "Hello" : {
-
-    },
     "Help" : {
       "comment" : "Tray menu help"
     },
     "IAM Role:" : {
 
-    },
-    "Idle" : {
-      "comment" : "Idle status"
-    },
-    "Info" : {
-      "comment" : "Info status"
-    },
-    "Invalid URL: (url ?? \"\")" : {
-      "comment" : "Invalid URL"
-    },
-    "JSON conversion error" : {
-      "comment" : "JSON conversion error"
     },
     "Loading..." : {
       "comment" : "Loading"
@@ -127,9 +88,6 @@
     "Manage" : {
 
     },
-    "Missing 2FA code" : {
-      "comment" : "Missing 2FA code"
-    },
     "Name:" : {
 
     },
@@ -138,9 +96,6 @@
     },
     "No buckets found in server response" : {
       "comment" : "Missing buckets in response"
-    },
-    "Offline" : {
-      "comment" : "Offline status"
     },
     "Open web console " : {
       "comment" : "Tray menu open console button"
@@ -181,9 +136,6 @@
     "Select DS3 Project" : {
 
     },
-    "Server error" : {
-      "comment" : "Server error"
-    },
     "Sign up" : {
       "comment" : "Sign up button text"
     },
@@ -195,24 +147,6 @@
     },
     "Sync Projects" : {
 
-    },
-    "Synchronizing" : {
-      "comment" : "Synchronizing status"
-    },
-    "The provided URL (url ?? \"\") is invalid." : {
-      "comment" : "The invalidURL error"
-    },
-    "The session token expired" : {
-      "comment" : "Token expiration error"
-    },
-    "There was an error while converting JSON data." : {
-      "comment" : "The JSON conversion error"
-    },
-    "There was an error while encoding/decoding data." : {
-      "comment" : "The encoding authentication error"
-    },
-    "There was an error with the server.\nPlease try again later" : {
-      "comment" : "The server error"
     },
     "Two-factor authentication (2FA)" : {
 
@@ -233,15 +167,6 @@
     "View in web console" : {
 
     },
-    "World" : {
-
-    },
-    "You are already logged in" : {
-      "comment" : "The already logged in error"
-    },
-    "You are already logged out" : {
-      "comment" : "The already logged out error"
-    },
     "You have reached the maximum number of Drives" : {
       "comment" : "Tray menu add new drive disabled"
     },
@@ -250,9 +175,6 @@
     },
     "You haven't created any projects yet, create your project on [the console](https://console.cubbit.eu/) and then come back here to synchronize it." : {
 
-    },
-    "You need to be logged in to perform this operation" : {
-      "comment" : "The authentication already logged error"
     },
     "You need to select a bucket first" : {
       "comment" : "Bucket not selected"

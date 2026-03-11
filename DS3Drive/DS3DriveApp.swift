@@ -1,5 +1,6 @@
 import SwiftUI
 import os.log
+import DS3Lib
 
 @main
 struct DS3DriveApp: App {
@@ -26,7 +27,7 @@ struct DS3DriveApp: App {
                     TutorialView()
                 } else {
                     // Note: if no drives are present, show the setup view
-                    if ds3DriveManager.drives.count == 0 {
+                    if ds3DriveManager.drives.isEmpty {
                         SetupSyncView()
                             .environment(ds3Authentication)
                             .environment(ds3DriveManager)
@@ -43,12 +44,9 @@ struct DS3DriveApp: App {
         // MARK: - Manage drive
         
         WindowGroup(id: "io.cubbit.DS3Drive.drive.manage", for: UUID.self) { $ds3DriveId in
-            if ds3DriveId != nil {
-                if let drive = ds3DriveManager.driveWithID(ds3DriveId!) {
-                    ManageDS3DriveView(ds3Drive: drive)
-                        .environment(ds3DriveManager)
-                }
-                
+            if let driveId = ds3DriveId, let drive = ds3DriveManager.driveWithID(driveId) {
+                ManageDS3DriveView(ds3Drive: drive)
+                    .environment(ds3DriveManager)
             }
         }
         .windowResizability(.contentSize)
@@ -57,10 +55,10 @@ struct DS3DriveApp: App {
         // MARK: - Preferences
         
         Window("Preferences", id: "io.cubbit.DS3Drive.preferences") {
-            if ds3Authentication.account != nil {
+            if let account = ds3Authentication.account {
                 PreferencesView(
                     preferencesViewModel: PreferencesViewModel(
-                        account: ds3Authentication.account!
+                        account: account
                     )
                 )
                 .environment(ds3DriveManager)

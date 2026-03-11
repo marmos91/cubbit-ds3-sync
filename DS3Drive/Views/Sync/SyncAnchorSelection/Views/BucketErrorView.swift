@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct BucketErrorView: View {
     @Environment(SyncAnchorSelectionViewModel.self) var syncAnchorSelectionViewModel: SyncAnchorSelectionViewModel
@@ -16,20 +17,22 @@ struct BucketErrorView: View {
                         .multilineTextAlignment(.center)
                     
                     Button("Logout") {
+                        let viewModel = syncAnchorSelectionViewModel
                         Task {
-                            try self.syncAnchorSelectionViewModel.authentication.logout()
+                            try viewModel.authentication.logout()
                         }
                     }
                 }
-                
+
                 if syncAnchorSelectionViewModel.error != nil {
                     Text(syncAnchorSelectionViewModel.error?.localizedDescription ?? "No error")
                         .font(.custom("Nunito", size: 14))
                         .multilineTextAlignment(.center)
-                    
+
                     Button("Retry") {
+                        let viewModel = syncAnchorSelectionViewModel
                         Task {
-                            await self.syncAnchorSelectionViewModel.loadBuckets()
+                            await viewModel.loadBuckets()
                         }
                     }
                 }

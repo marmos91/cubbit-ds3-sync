@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct BucketSelectionFooterView: View {
     @Environment(SyncAnchorSelectionViewModel.self) var syncAnchorSelectionViewModel: SyncAnchorSelectionViewModel

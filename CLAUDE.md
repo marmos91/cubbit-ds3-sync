@@ -47,6 +47,21 @@ The main app and extension communicate via:
 - The `SyncAnchor` contains bucket, prefix, project, and IAM user — it defines what a drive syncs
 - API keys are auto-managed: created with a deterministic name pattern, reconciled between local and remote on drive setup
 
+## Debugging
+
+### System Logs
+To view DS3 Drive and File Provider extension logs:
+```bash
+# All DS3-related process logs (last N minutes)
+/usr/bin/log show --last 5m --predicate "process CONTAINS 'DS3'" 2>&1 | grep -v "CleanMyMac\|cache_delete\|dasd\|Dropbox"
+
+# File Provider extension errors only
+/usr/bin/log show --last 5m --predicate "process CONTAINS 'DS3'" 2>&1 | grep -i "error\|failed\|fault"
+
+# App Group shared container location
+# ~/Library/Group Containers/group.X889956QSM.io.cubbit.DS3Drive/
+```
+
 ## Commit Guidelines
 
 - Don't mention Claude Code in commits or PRs

@@ -1,7 +1,8 @@
 import Foundation
 import os.log
+import DS3Lib
 
-class NotificationManager {
+class NotificationManager: @unchecked Sendable {
     private let logger: Logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.extension.rawValue)
     
     private let drive: DS3Drive
@@ -32,7 +33,7 @@ class NotificationManager {
     }
     
     /// Sends a notification to the app with the current status of the drive. If you want to debounce the notification, use `sendDriveChangedNotificationWithDebounce(status: DS3DriveStatus)`
-    /// - Parameter status: the status to sendc
+    /// - Parameter status: the status to send
     func sendDriveChangedNotification(status: DS3DriveStatus) {
         if status != self.driveStatus {
             self.driveStatus = status

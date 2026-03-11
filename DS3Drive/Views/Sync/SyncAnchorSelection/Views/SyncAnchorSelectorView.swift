@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct SyncAnchorSelectorView: View {
     @Environment(SyncAnchorSelectionViewModel.self) var syncAnchorSelectionModel: SyncAnchorSelectionViewModel

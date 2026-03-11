@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct TutorialProgress: View {
     var totalSlides: Int

@@ -1,8 +1,9 @@
 import SwiftUI
+import DS3Lib
 
 struct SyncAnchorSelectionView: View {
     @State var syncAnchorSelectionViewModel: SyncAnchorSelectionViewModel
-    var selectedBucket: String? = nil
+    var selectedBucket: String?
     
     var onSyncAnchorSelected: ((SyncAnchor) -> Void)?
     var onBack: (() -> Void)?
@@ -51,7 +52,7 @@ struct SyncAnchorSelectionView: View {
 #Preview {
     // TODO: Remove hardcoded values
     SyncAnchorSelectionView(
-        syncAnchorSelectionViewModel:SyncAnchorSelectionViewModel(
+        syncAnchorSelectionViewModel: SyncAnchorSelectionViewModel(
             project: Project(
                 id: "63611af7-0db6-465a-b2f8-2791200b69de",
                 name: "Moschet personal",

@@ -1,5 +1,6 @@
 import SwiftUI
 import os.log
+import DS3Lib
 
 struct SetupSyncView: View {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
@@ -46,14 +47,16 @@ struct SetupSyncView: View {
                     syncSetupViewModel.selectSyncSetupStep(.anchorSelection)
                 }
                 .onComplete { ds3Drive in
+                    let manager = ds3DriveManager
+                    let dismiss = dismiss
                     Task {
                         do {
-                            try await ds3DriveManager.add(drive: ds3Drive)
+                            try await manager.add(drive: ds3Drive)
                         } catch {
                             // TODO: Show error
                             logger.error("Error adding drive: \(error.localizedDescription)")
                         }
-                        
+
                         dismiss()
                     }
                 }

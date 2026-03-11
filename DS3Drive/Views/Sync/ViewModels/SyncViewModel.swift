@@ -1,5 +1,6 @@
 import SwiftUI
 import SotoS3
+import DS3Lib
 
 enum SyncSetupStep {
     case projectSelection
@@ -8,8 +9,8 @@ enum SyncSetupStep {
 }
 
 @Observable class SyncSetupViewModel {
-    var selectedProject: Project? = nil
-    var selectedSyncAnchor: SyncAnchor? = nil
+    var selectedProject: Project?
+    var selectedSyncAnchor: SyncAnchor?
     var setupStep: SyncSetupStep = .projectSelection
     
     func selectProject(project: Project) {

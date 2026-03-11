@@ -1,5 +1,6 @@
 import SwiftUI
 import os.log
+import DS3Lib
 
 struct ManageDS3DriveView: View {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
@@ -11,9 +12,11 @@ struct ManageDS3DriveView: View {
     var body: some View {
         SyncRecapMainView(shouldDisplayBack: false)
             .onComplete { ds3Drive in
+                let manager = ds3DriveManager
+                let dismiss = dismiss
                 Task {
                     do {
-                        try await self.ds3DriveManager.update(drive: ds3Drive)
+                        try await manager.update(drive: ds3Drive)
                     } catch {
                         logger.error("Error updating drive: \(error.localizedDescription)")
                     }

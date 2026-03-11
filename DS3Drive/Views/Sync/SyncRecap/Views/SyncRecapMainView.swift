@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct SyncRecapMainView: View {
     @Environment(SyncRecapViewModel.self) var syncRecapViewModel: SyncRecapViewModel

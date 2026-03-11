@@ -1,8 +1,17 @@
-import FileProvider
+@preconcurrency import FileProvider
 import os.log
 import SotoS3
+import DS3Lib
 
-class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO: handle thumbnails NSFileProviderThumbnailing (check FruitBasket project) */
+/// Wraps a non-Sendable callback for safe use across Task boundaries.
+/// Apple's File Provider callbacks predate Swift concurrency and lack @Sendable annotations.
+/// The wrapper is safe because the underlying handler is set once at init and never mutated.
+private final class UnsafeCallback<T>: @unchecked Sendable {
+    let handler: T
+    init(_ handler: T) { self.handler = handler }
+}
+
+class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedExtension, @unchecked Sendable /* TODO: handle thumbnails NSFileProviderThumbnailing (check FruitBasket project) */
 /* TODO: Handle suppression NSFileProviderUserInteractionSuppressing*/
 {
     typealias Logger = os.Logger
@@ -12,14 +21,14 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
     private let domain: NSFileProviderDomain
     private var enabled: Bool
 
-    private var s3: S3? = nil
-    private var s3Lib: S3Lib? = nil
+    private var s3: S3?
+    private var s3Lib: S3Lib?
 
-    private var apiKeys: DS3ApiKey? = nil
-    private var endpoint: String? = nil
-    private var notificationManager: NotificationManager? = nil
+    private var apiKeys: DS3ApiKey?
+    private var endpoint: String?
+    private var notificationManager: NotificationManager?
 
-    var drive: DS3Drive? = nil
+    var drive: DS3Drive?
     let temporaryDirectory: URL?
 
     required init(domain: NSFileProviderDomain) {
@@ -28,26 +37,16 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         self.temporaryDirectory = try? NSFileProviderManager(for: domain)?.temporaryDirectoryURL()
 
         do {
-            let sharedData = try SharedData.default()
+            let sharedData = SharedData.default()
 
-            guard let drive = try sharedData.loadDS3DriveFromPersistence(
+            let drive = try sharedData.loadDS3DriveFromPersistence(
                 withDomainIdentifier: domain.identifier
-            ) else {
-                logger.error("No drive found for domain \(domain.identifier.rawValue, privacy: .public)")
-                super.init()
-                return
-            }
+            )
             self.drive = drive
             self.notificationManager = NotificationManager(drive: drive)
 
             let account = try sharedData.loadAccountFromPersistence()
-            guard let endpoint = account.endpointGateway else {
-                logger.error("No endpoint gateway in account for domain \(domain.identifier.rawValue, privacy: .public)")
-                super.init()
-                self.notifyInitFailure(reason: "No endpoint gateway configured")
-                return
-            }
-            self.endpoint = endpoint
+            self.endpoint = account.endpointGateway
 
             let apiKeys = try sharedData.loadDS3APIKeyFromPersistence(
                 forUser: drive.syncAnchor.IAMUser,
@@ -87,8 +86,10 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             self.enabled = true
             logger.info("Extension initialized successfully for domain \(domain.identifier.rawValue, privacy: .public)")
         } catch {
-            logger.error("Extension init failed for domain \(domain.identifier.rawValue, privacy: .public): \(error.localizedDescription)")
+            logger.error("Extension init failed for domain \(domain.identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            super.init()
             self.notifyInitFailure(reason: error.localizedDescription)
+            return
         }
 
         super.init()
@@ -106,11 +107,9 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
 
     func invalidate() {
         do {
-            if let s3Lib = self.s3Lib {
-                try s3Lib.shutdown()
-            }
-        } catch let error {
-            self.logger.error("An error occured while shutting down the main extension: \(error.localizedDescription)")
+            try self.s3Lib?.shutdown()
+        } catch {
+            self.logger.error("An error occurred while shutting down the main extension: \(error.localizedDescription)")
         }
     }
 
@@ -120,13 +119,15 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         request: NSFileProviderRequest, // can be used to detect who made the request (finder, spotlight, etc) and act accordingly
         completionHandler: @escaping (NSFileProviderItem?, Error?) -> Void
     ) -> Progress {
+        let cb = UnsafeCallback(completionHandler)
+
         guard self.enabled else {
-            completionHandler(nil, FileProviderExtensionError.disabled)
+            cb.handler(nil, NSFileProviderError(.notAuthenticated) as NSError)
             return Progress()
         }
 
         guard let drive = self.drive, let s3Lib = self.s3Lib else {
-            completionHandler(nil, NSFileProviderError(.cannotSynchronize) as NSError)
+            cb.handler(nil, NSFileProviderError(.cannotSynchronize) as NSError)
             return Progress()
         }
 
@@ -135,7 +136,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         switch identifier {
         case .trashContainer:
             // NOTE: Trash disabled
-            completionHandler(nil, NSFileProviderError(.noSuchItem))
+            cb.handler(nil, NSFileProviderError(.noSuchItem))
             return Progress()
         default:
             let progress = Progress(totalUnitCount: 1)
@@ -145,16 +146,16 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             Task {
                 do {
                     let metadata = try await s3Lib.remoteS3Item(for: identifier, drive: drive)
-                    completionHandler(metadata, nil)
+                    cb.handler(metadata, nil)
                 } catch let s3Error as S3ErrorType {
-                    completionHandler(nil, s3Error.toFileProviderError())
+                    cb.handler(nil, s3Error.toFileProviderError())
                 } catch {
-                    completionHandler(nil, NSFileProviderError(.cannotSynchronize) as NSError)
+                    cb.handler(nil, NSFileProviderError(.cannotSynchronize) as NSError)
                 }
                 progress.completedUnitCount = 1
             }
 
-            progress.cancellationHandler = { completionHandler(nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)) }
+            progress.cancellationHandler = { cb.handler(nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)) }
 
             return progress
         }
@@ -167,16 +168,18 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         request: NSFileProviderRequest, // can be used to detect who made the request (finder, spotlight, etc) and act accordingly
         completionHandler: @escaping (URL?, NSFileProviderItem?, Error?) -> Void
     ) -> Progress {
+        let cb = UnsafeCallback(completionHandler)
+
         guard
             self.enabled,
             let temporaryDirectory = self.temporaryDirectory
         else {
-            completionHandler(nil, nil, FileProviderExtensionError.disabled)
+            cb.handler(nil, nil, NSFileProviderError(.notAuthenticated) as NSError)
             return Progress()
         }
 
         guard let drive = self.drive, let s3Lib = self.s3Lib, let nm = self.notificationManager else {
-            completionHandler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
+            cb.handler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
             return Progress()
         }
 
@@ -188,7 +191,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         // TODO: Check fetchPartialContents in FruitBasket
 
         let progress = Progress(totalUnitCount: 100)
-
         Task {
             do {
                 nm.sendDriveChangedNotification(status: .sync)
@@ -205,21 +207,21 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                 self.logger.debug("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize, privacy: .public) downloaded successfully at \(fileURL, privacy: .public)")
 
                 nm.sendDriveChangedNotificationWithDebounce(status: .idle)
-                completionHandler(fileURL, s3Item, nil)
+                cb.handler(fileURL, s3Item, nil)
             } catch let s3Error as S3ErrorType {
                 self.logger.error("Download failed with S3 error \(s3Error.errorCode, privacy: .public)")
                 nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                completionHandler(nil, nil, s3Error.toFileProviderError())
+                cb.handler(nil, nil, s3Error.toFileProviderError())
             } catch {
                 self.logger.error("Download failed with error \(error)")
                 nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                completionHandler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
+                cb.handler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
             }
 
             progress.completedUnitCount = 100
         }
 
-        progress.cancellationHandler = { completionHandler(nil, nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)) }
+        progress.cancellationHandler = { cb.handler(nil, nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)) }
 
         return progress
     }
@@ -233,13 +235,15 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         request: NSFileProviderRequest, // can be used to detect who made the request (finder, spotlight, etc) and act accordingly
         completionHandler: @escaping (NSFileProviderItem?, NSFileProviderItemFields, Bool, Error?) -> Void
     ) -> Progress {
+        let cb = UnsafeCallback(completionHandler)
+
         guard self.enabled else {
-            completionHandler(nil, [], false, FileProviderExtensionError.disabled)
+            cb.handler(nil, [], false, NSFileProviderError(.notAuthenticated) as NSError)
             return Progress()
         }
 
         guard let drive = self.drive, let s3Lib = self.s3Lib, let nm = self.notificationManager else {
-            completionHandler(nil, [], false, NSFileProviderError(.cannotSynchronize) as NSError)
+            cb.handler(nil, [], false, NSFileProviderError(.cannotSynchronize) as NSError)
             return Progress()
         }
 
@@ -248,7 +252,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         if options.contains(.mayAlreadyExist) {
             // TODO: Handle create with overwrite
             self.logger.warning("Skipping upload for item \(itemTemplate.itemIdentifier.rawValue, privacy: .public)")
-            completionHandler(itemTemplate, NSFileProviderItemFields(), false, NSFileProviderError(.noSuchItem))
+            cb.handler(itemTemplate, NSFileProviderItemFields(), false, NSFileProviderError(.noSuchItem))
             return Progress()
         }
 
@@ -262,7 +266,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
 
         guard itemTemplate.contentType != .symbolicLink else {
             self.logger.warning("Skipping symbolic link \(itemTemplate.itemIdentifier.rawValue, privacy: .public) upload. Feature not supported")
-            completionHandler(itemTemplate, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [:]))
+            cb.handler(itemTemplate, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [:]))
             return Progress()
         }
 
@@ -299,19 +303,19 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
 
                 progress.completedUnitCount = numParts
                 nm.sendDriveChangedNotificationWithDebounce(status: .idle)
-                completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
+                cb.handler(s3Item, NSFileProviderItemFields(), false, nil)
             } catch let s3Error as S3ErrorType {
                 self.logger.error("Upload failed with S3 error \(s3Error.errorCode, privacy: .public)")
                 nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
+                cb.handler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
             } catch {
                 self.logger.error("Upload failed with error \(error)")
                 nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                completionHandler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
+                cb.handler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
             }
         }
 
-        progress.cancellationHandler = { completionHandler(nil, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)) }
+        progress.cancellationHandler = { cb.handler(nil, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)) }
 
         return progress
     }
@@ -326,13 +330,15 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         request: NSFileProviderRequest, // can be used to detect who made the request (finder, spotlight, etc) and act accordingly
         completionHandler: @escaping (NSFileProviderItem?, NSFileProviderItemFields, Bool, Error?) -> Void
     ) -> Progress {
+        let cb = UnsafeCallback(completionHandler)
+
         guard self.enabled else {
-            completionHandler(nil, [], false, FileProviderExtensionError.disabled)
+            cb.handler(nil, [], false, NSFileProviderError(.notAuthenticated) as NSError)
             return Progress()
         }
 
         guard let drive = self.drive, let s3Lib = self.s3Lib, let nm = self.notificationManager else {
-            completionHandler(nil, [], false, NSFileProviderError(.cannotSynchronize) as NSError)
+            cb.handler(nil, [], false, NSFileProviderError(.cannotSynchronize) as NSError)
             return Progress()
         }
 
@@ -351,16 +357,16 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             case .symbolicLink:
                 // TODO: Handle symbolic links
                 self.logger.warning("Skipping symbolic link")
-                completionHandler(nil, [], false, FileProviderExtensionError.notImplemented)
+                cb.handler(nil, [], false, NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [:]))
                 return Progress()
             case .folder:
                 // NOTE: This should never happen. You can't edit a folder content
                 self.logger.error("The system requested to modify a folder with contents. This is impossible!")
-                completionHandler(nil, [], false, FileProviderExtensionError.fatal)
+                cb.handler(nil, [], false, NSFileProviderError(.cannotSynchronize) as NSError)
                 return progress
             default:
                 guard let contents = newContents else {
-                    completionHandler(nil, [], false, FileProviderExtensionError.fatal)
+                    cb.handler(nil, [], false, NSFileProviderError(.cannotSynchronize) as NSError)
                     return progress
                 }
 
@@ -380,15 +386,15 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                         try await s3Lib.putS3Item(s3Item, fileURL: contents, withProgress: putProgress)
                         putProgress.completedUnitCount = numParts
                         nm.sendDriveChangedNotificationWithDebounce(status: .idle)
-                        completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
+                        cb.handler(s3Item, NSFileProviderItemFields(), false, nil)
                     } catch let s3Error as S3ErrorType {
                         self.logger.error("Upload failed with S3 error \(s3Error.errorCode, privacy: .public)")
                         nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                        completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
+                        cb.handler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
                     } catch {
                         self.logger.error("Upload failed with error \(error)")
                         nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                        completionHandler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
+                        cb.handler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
                     }
                 }
             }
@@ -398,7 +404,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
             case .symbolicLink:
                 // TODO: Handle symbolic links
                 self.logger.warning("Skipping symbolic link")
-                completionHandler(nil, [], false, FileProviderExtensionError.notImplemented)
+                cb.handler(nil, [], false, NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [:]))
                 return progress
             default:
                 // File/Folder rename
@@ -410,15 +416,15 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                         let s3Item = try await s3Lib.renameS3Item(s3Item, newName: item.filename, withProgress: progress)
 
                         nm.sendDriveChangedNotificationWithDebounce(status: .idle)
-                        completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
+                        cb.handler(s3Item, NSFileProviderItemFields(), false, nil)
                     } catch let s3Error as S3ErrorType {
                         self.logger.error("Rename failed with S3 error \(s3Error.errorCode, privacy: .public)")
                         nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                        completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
+                        cb.handler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
                     } catch {
                         self.logger.error("Rename failed with error \(error)")
                         nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                        completionHandler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
+                        cb.handler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
                     }
                 }
             }
@@ -428,7 +434,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
 
 //            if options.contains(.mayAlreadyExist) {
 //                // TODO: Handle move with overwrite
-//                completionHandler(nil, [], false, FileProviderExtensionError.notImplemented)
+//                cb.handler(nil, [], false, NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [:]))
 //            }
 
             Task {
@@ -439,25 +445,25 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                     let s3Item = try await s3Lib.moveS3Item(s3Item, toKey: newKey, withProgress: progress)
 
                     nm.sendDriveChangedNotificationWithDebounce(status: .idle)
-                    completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
+                    cb.handler(s3Item, NSFileProviderItemFields(), false, nil)
                 } catch let s3Error as S3ErrorType {
                     // TODO: Check why this sometimes fails with NoSuchKey
                     self.logger.error("Move failed with S3 error code \(s3Error.errorCode, privacy: .public)")
                     nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                    completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
+                    cb.handler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
                 } catch {
                     self.logger.error("Move failed with error \(error)")
                     nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                    completionHandler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
+                    cb.handler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
                 }
             }
         } else {
             // Metadata changed
             self.logger.debug("Metadata change detected for \(s3Item.filename, privacy: .public). Skipping...")
-            completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
+            cb.handler(s3Item, NSFileProviderItemFields(), false, nil)
         }
 
-        progress.cancellationHandler = { completionHandler(nil, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)) }
+        progress.cancellationHandler = { cb.handler(nil, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)) }
 
         return progress
     }
@@ -470,20 +476,22 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         request: NSFileProviderRequest, // can be used to detect who made the request (finder, spotlight, etc) and act accordingly
         completionHandler: @escaping (Error?) -> Void
     ) -> Progress {
+        let cb = UnsafeCallback(completionHandler)
+
         guard self.enabled else {
-            completionHandler(FileProviderExtensionError.disabled)
+            cb.handler(NSFileProviderError(.notAuthenticated) as NSError)
             return Progress()
         }
 
         guard let drive = self.drive, let s3Lib = self.s3Lib, let nm = self.notificationManager else {
-            completionHandler(NSFileProviderError(.cannotSynchronize) as NSError)
+            cb.handler(NSFileProviderError(.cannotSynchronize) as NSError)
             return Progress()
         }
 
         switch identifier {
         case .trashContainer, .rootContainer:
             self.logger.debug("Skipping deletion of container \(identifier.rawValue, privacy: .public)")
-            completionHandler(nil)
+            cb.handler(nil)
             return Progress()
         default:
             // TODO: Handle versioning
@@ -504,15 +512,15 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
 
                     progress.completedUnitCount = 1
                     nm.sendDriveChangedNotificationWithDebounce(status: .idle)
-                    completionHandler(nil)
+                    cb.handler(nil)
                 } catch let s3Error as S3ErrorType {
                     self.logger.error("An error occurred while deleting file \(identifier.rawValue, privacy: .public): \(s3Error.errorCode, privacy: .public)")
                     nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                    completionHandler(s3Error.toFileProviderError())
+                    cb.handler(s3Error.toFileProviderError())
                 } catch {
                     self.logger.error("An error occurred while deleting file \(identifier.rawValue, privacy: .public): \(error, privacy: .public)")
                     nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                    completionHandler(NSFileProviderError(.cannotSynchronize) as NSError)
+                    cb.handler(NSFileProviderError(.cannotSynchronize) as NSError)
                 }
             }
 
@@ -526,7 +534,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
         request: NSFileProviderRequest // can be used to detect who made the request (finder, spotlight, etc) and act accordingly
     ) throws -> NSFileProviderEnumerator {
         guard self.enabled else {
-            throw EnumeratorError.unsupported
+            throw NSFileProviderError(.notAuthenticated)
         }
 
         guard let drive = self.drive, let s3Lib = self.s3Lib, let nm = self.notificationManager else {
@@ -535,8 +543,8 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
 
         switch containerItemIdentifier {
         case .trashContainer:
-            // NOTE: ignoring trash container
-            break
+            // NOTE: Trash not supported — return proper NSFileProviderError
+            throw NSFileProviderError(.noSuchItem)
 
         case .workingSet:
             // NOTE: The system is requesting the whole working set (probably to index it via spotlight
@@ -556,7 +564,5 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension /* TODO
                 drive: drive
             )
         }
-
-        throw EnumeratorError.unsupported
     }
 }

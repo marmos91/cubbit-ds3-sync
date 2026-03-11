@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import SotoS3
 import os.log
+import DS3Lib
 
 enum SyncAnchorSelectionError: Error, LocalizedError {
     case missingBuckets
@@ -26,7 +27,7 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     }
 }
 
-@Observable class SyncAnchorSelectionViewModel {
+@MainActor @Observable class SyncAnchorSelectionViewModel {
     typealias Logger = os.Logger
     
     private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
@@ -34,18 +35,18 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     var project: Project
     var authentication: DS3Authentication
     var ds3Sdk: DS3SDK
-    var s3Client: S3?
+    nonisolated(unsafe) var s3Client: S3?
     
     var buckets: [Bucket] = []
     var loading: Bool = true
     var selectedIAMUser: IAMUser?
-    var selectedBucket: Bucket? = nil
-    
+    var selectedBucket: Bucket?
+
     var folders: [String: [String]] = [:]
-    var selectedPrefix: String? = nil
-    
-    var error: Error? = nil
-    var authenticationError: DS3AuthenticationError? = nil
+    var selectedPrefix: String?
+
+    var error: Error?
+    var authenticationError: DS3AuthenticationError?
     
     init(
         project: Project,
@@ -60,7 +61,7 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
         self.buckets = buckets
         self.folders = folders
         
-        if self.buckets.count > 0 {
+        if !self.buckets.isEmpty {
             self.selectedBucket = self.buckets.first
         }
     }
@@ -85,7 +86,8 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
             
             self.logger.debug("Loading buckets for project \(self.project.name)")
             
-            let bucketsResponse = try await self.s3Client!.listBuckets()
+            guard let s3Client = self.s3Client else { throw SyncAnchorSelectionError.DS3ClientError }
+            let bucketsResponse = try await s3Client.listBuckets()
             
             guard let s3Buckets = bucketsResponse.buckets else { throw SyncAnchorSelectionError.missingBuckets }
             
@@ -95,9 +97,9 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
             
             self.buckets = buckets
             
-            if self.buckets.count > 0 {
+            if !self.buckets.isEmpty {
                 self.selectBucket(self.buckets.first)
-                
+
                 await self.listFoldersForCurrentBucket()
             }
         } catch is AWSClientError {
@@ -120,20 +122,21 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
         defer { self.loading = false }
         
         do {
-            guard self.selectedBucket != nil else { throw SyncAnchorSelectionError.noBucketSelected }
-                        
-            self.logger.debug("Listing objects for bucket \(self.selectedBucket!.name) and prefix \(self.selectedPrefix?.removingPercentEncoding ?? "no-prefix")")
-            
+            guard let selectedBucket = self.selectedBucket else { throw SyncAnchorSelectionError.noBucketSelected }
+
+            self.logger.debug("Listing objects for bucket \(selectedBucket.name) and prefix \(self.selectedPrefix?.removingPercentEncoding ?? "no-prefix")")
+
             try await self.initializeAWSIfNecessary()
-            
+
             let listObjectRequest = S3.ListObjectsV2Request(
-                bucket: self.selectedBucket!.name,
+                bucket: selectedBucket.name,
                 delimiter: String(DefaultSettings.S3.delimiter),
                 encodingType: .url,
                 prefix: self.selectedPrefix?.removingPercentEncoding
             )
             
-            let listObjectResponse = try await self.s3Client!.listObjectsV2(listObjectRequest)
+            guard let s3Client = self.s3Client else { throw SyncAnchorSelectionError.DS3ClientError }
+            let listObjectResponse = try await s3Client.listObjectsV2(listObjectRequest)
             
             self.cleanFoldersIfNeeded()
             
@@ -149,27 +152,38 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     }
     
     func initializeAWSIfNecessary() async throws {
-        guard self.authentication.account != nil else { return }
-        
-        if self.s3Client != nil {
-            try self.s3Client!.client.syncShutdown()
+        guard let account = self.authentication.account else { return }
+
+        if let existingClient = self.s3Client {
+            try existingClient.client.syncShutdown()
         }
-        
-        guard self.selectedIAMUser != nil else { throw SyncAnchorSelectionError.noIAMUserSelected }
-        
-        self.logger.debug("Initializing S3Client for project \(self.project.name) and user \(self.selectedIAMUser!.username)")
-        
-        let apiKeys = try await self.ds3Sdk.loadOrCreateDS3APIKeys(forIAMUser: self.selectedIAMUser!, ds3ProjectName: self.project.name)
-        
-        let awsClient = AWSClient(credentialProvider: .static(accessKeyId: apiKeys.apiKey, secretAccessKey: apiKeys.secretKey!), httpClientProvider: .createNew)
-        
-        self.s3Client = S3(client: awsClient, endpoint: self.authentication.account!.endpointGateway)
+
+        guard let selectedIAMUser = self.selectedIAMUser else {
+            throw SyncAnchorSelectionError.noIAMUserSelected
+        }
+
+        self.logger.debug("Initializing S3Client for project \(self.project.name) and user \(selectedIAMUser.username)")
+
+        let apiKeys = try await self.ds3Sdk.loadOrCreateDS3APIKeys(
+            forIAMUser: selectedIAMUser,
+            ds3ProjectName: self.project.name
+        )
+
+        let awsClient = AWSClient(
+            credentialProvider: .static(
+                accessKeyId: apiKeys.apiKey,
+                secretAccessKey: apiKeys.secretKey!
+            ),
+            httpClientProvider: .createNew
+        )
+
+        self.s3Client = S3(client: awsClient, endpoint: account.endpointGateway)
     }
     
     func selectIAMUser(withID id: String) async throws {
-        guard self.project.users.count > 0 else { return }
-        
-        guard let index = self.project.users.lastIndex(where: {$0.id == id}) else { return }
+        guard !self.project.users.isEmpty else { return }
+
+        guard let index = self.project.users.lastIndex(where: { $0.id == id }) else { return }
         
         self.selectedIAMUser = self.project.users[index]
         
@@ -178,10 +192,10 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     
     func cleanFoldersIfNeeded() {
         let prefix = self.selectedPrefix ?? ""
-        
+
         self.folders.keys.forEach { key in
-            guard key != "" else { return }
-            
+            guard !key.isEmpty else { return }
+
             if !prefix.hasPrefix(key) {
                 self.folders.removeValue(forKey: key)
             }
@@ -199,9 +213,9 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     }
     
     func selectBucket(withName name: String) async {
-        guard self.buckets.count > 0 else { return }
-        
-        guard let index = self.buckets.lastIndex(where: {$0.name == name}) else { return }
+        guard !self.buckets.isEmpty else { return }
+
+        guard let index = self.buckets.lastIndex(where: { $0.name == name }) else { return }
         
         self.selectedBucket = self.buckets[index]
         self.selectedPrefix = nil
@@ -217,19 +231,19 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     }
     
     func shouldDisplayObjectNavigator() -> Bool {
-        return self.folders.count > 0
+        return !self.folders.isEmpty
     }
-    
+
     func getSelectedSyncAnchor() -> SyncAnchor? {
-        guard 
-            self.selectedBucket != nil,
-            self.selectedIAMUser != nil
+        guard
+            let selectedBucket = self.selectedBucket,
+            let selectedIAMUser = self.selectedIAMUser
         else { return nil }
-        
+
         return SyncAnchor(
             project: self.project,
-            IAMUser: self.selectedIAMUser!,
-            bucket: self.selectedBucket!,
+            IAMUser: selectedIAMUser,
+            bucket: selectedBucket,
             prefix: self.selectedPrefix
         )
     }

@@ -1,4 +1,5 @@
 import SwiftUI
+import DS3Lib
 
 struct IAMUsersDropdownView: View {
     @Environment(SyncAnchorSelectionViewModel.self) var syncAnchorSelectionViewModel: SyncAnchorSelectionViewModel
@@ -9,8 +10,9 @@ struct IAMUsersDropdownView: View {
         Menu {
             ForEach(syncAnchorSelectionViewModel.project.users, id: \.id) { option in
                 Button {
+                    let viewModel = syncAnchorSelectionViewModel
                     Task {
-                        try await syncAnchorSelectionViewModel.selectIAMUser(withID: option.id)
+                        try await viewModel.selectIAMUser(withID: option.id)
                     }
                 } label: {
                     Text(option.username)

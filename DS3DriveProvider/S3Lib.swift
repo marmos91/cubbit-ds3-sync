@@ -3,9 +3,10 @@ import SotoS3
 import Atomics
 import FileProvider
 import os.log
+import DS3Lib
 
 /// Class that contains the logic to interact with S3
-class S3Lib {
+class S3Lib: @unchecked Sendable {
     typealias Logger = os.Logger
     
     private let logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.transfer.rawValue)
@@ -105,17 +106,13 @@ class S3Lib {
                      )
                 )
                 
-                if date != nil {
-                    guard let lastModified = object.lastModified else {
+                if let filterDate = date {
+                    guard let lastModified = object.lastModified, lastModified > filterDate else {
                         continue
                     }
-                    
-                    if lastModified > date! {
-                        items.append(s3Item)
-                    }
-                } else {
-                    items.append(s3Item)
                 }
+
+                items.append(s3Item)
             }
         }
         
@@ -139,7 +136,6 @@ class S3Lib {
         return (items, nextContinuationToken)
     }
 
-   
     /// Retrieves metadata for a remote S3Item using a HEAD request
     /// - Parameters:
     ///   - identifier: the identifier of the S3Item to retrieve metadata for
@@ -216,13 +212,11 @@ class S3Lib {
             key: decodedItemKey
         )
         
-        // TODO: Should we use the response?
-        let _ = try await self.s3.deleteObject(request)
+        _ = try await self.s3.deleteObject(request)
         
         deleteProgress.completedUnitCount += 1
     }
-    
-    
+
     /// Deletes a remote S3Item recursively by listing all the items inside it and deleting them one by one.
     /// - Parameters:
     ///   - s3Item: the folder item to delete
@@ -350,8 +344,7 @@ class S3Lib {
             key: key
         )
         
-        // TODO: Should we use the response?
-        let _ = try await self.s3.copyObject(copyRequest)
+        _ = try await self.s3.copyObject(copyRequest)
         
         copyProgress.completedUnitCount += 1
     }
@@ -444,7 +437,7 @@ class S3Lib {
         do {
             let downloadPartStartTime = Date()
             
-            let _ = try await self.s3.getObjectStreaming(request) { byteBuffer, eventLoop in
+            _ = try await self.s3.getObjectStreaming(request) { byteBuffer, eventLoop in
                 let bufferSize = Int64(byteBuffer.readableBytes)
                 let bytesToWrite = Data([UInt8](byteBuffer.readableBytesView))
                 
@@ -499,7 +492,7 @@ class S3Lib {
         }
     }
     
-    /// Perforrms a standard PUT request for a given S3Item
+    /// Performs a standard PUT request for a given S3Item
     /// - Parameters:
     ///   - s3Item: the S3Item to upload
     ///   - fileURL: the optional fileURL to use for the upload (folders don't require a fileURL)
@@ -685,6 +678,6 @@ class S3Lib {
             uploadId: uploadId
         )
         
-        let _ = try await self.s3.abortMultipartUpload(abortRequest)
+        _ = try await self.s3.abortMultipartUpload(abortRequest)
     }
 }

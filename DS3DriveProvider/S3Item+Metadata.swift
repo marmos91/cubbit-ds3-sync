@@ -1,6 +1,5 @@
 import Foundation
 
-
 extension S3Item {
     struct Metadata {
         var etag: String?

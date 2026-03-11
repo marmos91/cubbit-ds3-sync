@@ -1,5 +1,6 @@
 import SwiftUI
 import os.log
+import DS3Lib
 
 struct TrayDriveRowView: View {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
@@ -53,10 +54,12 @@ struct TrayDriveRowView: View {
                 
                 Menu {        
                     Button("Disconnect") {
+                        let manager = ds3DriveManager
+                        let driveId = driveViewModel.drive.id
                         Task {
                             do {
-                                try await self.ds3DriveManager.disconnect(
-                                    driveWithId: self.driveViewModel.drive.id
+                                try await manager.disconnect(
+                                    driveWithId: driveId
                                 )
                             } catch {
                                 // TODO: Show error
@@ -64,10 +67,11 @@ struct TrayDriveRowView: View {
                             }
                         }
                     }
-                    
+
                     Button("View in Finder") {
+                        let viewModel = driveViewModel
                         Task {
-                            try await self.driveViewModel.openFinder()
+                            try await viewModel.openFinder()
                         }
                     }
                     
@@ -82,9 +86,10 @@ struct TrayDriveRowView: View {
                     }
                     
                     Button("Refresh") {
+                        let viewModel = driveViewModel
                         Task {
                             do {
-                                try await self.driveViewModel.reEnumerate()
+                                try await viewModel.reEnumerate()
                             } catch {
                                 // TODO: Show error
                                 logger.error("Error refreshing drive: \(error.localizedDescription)")
@@ -111,8 +116,9 @@ struct TrayDriveRowView: View {
             }
         }
         .onTapGesture {
+            let viewModel = driveViewModel
             Task {
-                try await self.driveViewModel.openFinder()
+                try await viewModel.openFinder()
             }
         }
         .onHover{ hovering in

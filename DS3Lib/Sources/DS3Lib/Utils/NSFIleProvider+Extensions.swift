@@ -2,7 +2,7 @@ import Foundation
 import FileProvider
 
 // Extend NSFileProviderSyncAnchor to handle timestamps
-extension NSFileProviderSyncAnchor {
+public extension NSFileProviderSyncAnchor {
     init(_ date: Date) {
         self.init(
             rawValue: withUnsafeBytes(of: date) {
@@ -10,7 +10,7 @@ extension NSFileProviderSyncAnchor {
             }
         )
     }
-    
+
     func toDate() -> Date {
         var ret = Date()
         
@@ -23,7 +23,7 @@ extension NSFileProviderSyncAnchor {
 }
 
 // Extend NSFileProviderPage to handle S3 continuation tokens
-extension NSFileProviderPage {
+public extension NSFileProviderPage {
     init(_ continuationToken: String) {
         if let data = continuationToken.data(using: .utf8) {
             self.init(rawValue: data)

@@ -11,9 +11,9 @@ struct IconTextField: View {
     var isSecure = false
     
     var body: some View {
-        HStack(alignment: /*@START_MENU_TOKEN@*/.center/*@END_MENU_TOKEN@*/, spacing: 10) {
-            if iconName != nil {
-                Image(iconName!)
+        HStack(alignment: .center, spacing: 10) {
+            if let iconName {
+                Image(iconName)
                     .resizable()
                     .frame(width: 16, height: 16, alignment: .leading)
                     .padding(.leading, 10.0)

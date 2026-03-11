@@ -17,7 +17,16 @@ public struct AccountEmail: Codable, Sendable {
 
     /// The tenant identifier
     public var tenantId: String
-    
+
+    public init(id: String, email: String, isDefault: Bool, createdAt: String, isVerified: Bool, tenantId: String) {
+        self.id = id
+        self.email = email
+        self.isDefault = isDefault
+        self.createdAt = createdAt
+        self.isVerified = isVerified
+        self.tenantId = tenantId
+    }
+
     private enum CodingKeys: String, CodingKey {
         case id
         case email
@@ -71,7 +80,29 @@ public struct Account: Codable, Sendable {
 
     /// The authentication provider
     public var authProvider: String
-    
+
+    public init(
+        id: String, firstName: String, lastName: String, isInternal: Bool, isBanned: Bool,
+        createdAt: String, deletedAt: String? = nil, bannedAt: String? = nil,
+        maxAllowedProjects: Int32, emails: [AccountEmail], isTwoFactorEnabled: Bool,
+        tenantId: String, endpointGateway: String, authProvider: String
+    ) {
+        self.id = id
+        self.firstName = firstName
+        self.lastName = lastName
+        self.isInternal = isInternal
+        self.isBanned = isBanned
+        self.createdAt = createdAt
+        self.deletedAt = deletedAt
+        self.bannedAt = bannedAt
+        self.maxAllowedProjects = maxAllowedProjects
+        self.emails = emails
+        self.isTwoFactorEnabled = isTwoFactorEnabled
+        self.tenantId = tenantId
+        self.endpointGateway = endpointGateway
+        self.authProvider = authProvider
+    }
+
     private enum CodingKeys: String, CodingKey {
         case id
         case firstName = "first_name"
