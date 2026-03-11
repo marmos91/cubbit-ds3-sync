@@ -7,7 +7,7 @@
 
 ### Foundation
 
-- [ ] **FOUN-01**: App renamed to "DS3 Drive" with updated bundle identifiers and branding
+- [x] **FOUN-01**: App renamed to "DS3 Drive" with updated bundle identifiers and branding
 - [ ] **FOUN-02**: OSLog-based structured logging with categories (sync, auth, transfer, extension) across all targets
 - [ ] **FOUN-03**: Force-unwrapped optionals removed from File Provider extension init (graceful error handling)
 - [ ] **FOUN-04**: SwiftData metadata database shared between main app and extension via App Group container
@@ -86,7 +86,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUN-01 | Phase 1 | Pending |
+| FOUN-01 | Phase 1 | Complete |
 | FOUN-02 | Phase 1 | Pending |
 | FOUN-03 | Phase 1 | Pending |
 | FOUN-04 | Phase 1 | Pending |

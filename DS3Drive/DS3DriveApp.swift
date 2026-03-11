@@ -2,8 +2,8 @@ import SwiftUI
 import os.log
 
 @main
-struct ds3syncApp: App {
-    private let logger: Logger = Logger(subsystem: "io.cubbit.CubbitDS3Sync", category: "MainApp")
+struct DS3DriveApp: App {
+    private let logger: Logger = Logger(subsystem: "io.cubbit.DS3Drive", category: "MainApp")
     
     @AppStorage(DefaultSettings.UserDefaultsKeys.tutorial) var tutorialShown: Bool = DefaultSettings.tutorialShown
     @AppStorage(DefaultSettings.UserDefaultsKeys.loginItemSet) var loginItemSet: Bool = DefaultSettings.loginItemSet
@@ -40,7 +40,7 @@ struct ds3syncApp: App {
         
         // MARK: - Manage drive
         
-        WindowGroup(id: "io.cubbit.CubbitDS3Sync.drive.manage", for: UUID.self) { $ds3DriveId in
+        WindowGroup(id: "io.cubbit.DS3Drive.drive.manage", for: UUID.self) { $ds3DriveId in
             if ds3DriveId != nil {
                 if let drive = ds3DriveManager.driveWithID(ds3DriveId!) {
                     ManageDS3DriveView(ds3Drive: drive)
@@ -54,7 +54,7 @@ struct ds3syncApp: App {
         
         // MARK: - Preferences
         
-        Window("Preferences", id: "io.cubbit.CubbitDS3Sync.preferences") {
+        Window("Preferences", id: "io.cubbit.DS3Drive.preferences") {
             if ds3Authentication.account != nil {
                 PreferencesView(
                     preferencesViewModel: PreferencesViewModel(
@@ -69,7 +69,7 @@ struct ds3syncApp: App {
         
         // MARK: - Add new drive
         
-        Window("Add new Drive", id: "io.cubbit.CubbitDS3Sync.drive.new") {
+        Window("Add new Drive", id: "io.cubbit.DS3Drive.drive.new") {
             SetupSyncView()
                 .environment(ds3Authentication)
                 .environment(ds3DriveManager)

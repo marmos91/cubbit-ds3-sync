@@ -1,4 +1,4 @@
-# Cubbit DS3 Sync
+# DS3 Drive
 
 [![Xcode - Build and Analyze](https://github.com/marmos91/cubbit-ds3-sync/actions/workflows/build.yml/badge.svg)](https://github.com/marmos91/cubbit-ds3-sync/actions/workflows/build.yml)
 
@@ -6,51 +6,39 @@
   <img alt="Cubbit" src="/Assets/Logo.png?raw=true" width="480">
 </p>
 
-## Welcome to Cubbit DS3 Sync!
+## Welcome to DS3 Drive!
 
-This repository contains the source code of the Cubbit DS3 Sync application.
+This repository contains the source code of the DS3 Drive application.
 
 ![App](/Assets/App.png)
 
-## What is Cubbit DS3 Sync?
+## What is DS3 Drive?
 
-Cubbit DS3 Sync is a desktop application that synchronizes your files with your Cubbit DS3 account.
+DS3 Drive is a macOS desktop application that synchronizes your files with your Cubbit DS3 account. It uses Apple's File Provider framework to integrate with Finder, presenting remote S3 buckets as native macOS drives.
 
 ## How to build
-
-To build the application please follow the steps below:
 
 ![Sync](/Assets/Tutorial1.png)
 
 ### Prerequisites
 
-- MacOS 14 or later
-- XCode 15.0 or later
+- macOS 15 or later
+- Xcode 16.0 or later
 
 ### Build
 
-To build the project you need to specify your own provisioning profile and signing certificate in the `Signing & Capabilities` tab of the project settings.
-Please ensure that the App Group of the main app matches the one of the FileProvider
+To build the project, open `DS3Drive.xcodeproj` in Xcode. You need to specify your own provisioning profile and signing certificate in the `Signing & Capabilities` tab.
+
+Please ensure that the App Group (`group.io.cubbit.DS3Drive`) matches between the main app and the FileProvider extension.
 
 ## Assets
 
-To download the assets you need to use Git LFS
+To download the assets you need to use Git LFS:
 
 ```
 git lfs install
 git lfs pull
 ```
-
-## Next features
-
-The next features we are going to support will be
-
-- Support versioned buckets
-- Support object locking
-- Implement sync status in the tray menu
-- Add support for thumbnails
-- Add support for Zero Knowledge drives
-- Support ACL public links
 
 ## How to contribute
 

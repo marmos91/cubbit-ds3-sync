@@ -5,10 +5,10 @@ import ServiceManagement
 enum DefaultSettings {
     /// The application group used to share data between the app and the file provider extension.
     /// Important: it does need to match the application group set in the app and the file provider extension's entitlements.
-    static let appGroup = "group.io.cubbit.CubbitDS3Sync"
+    static let appGroup = "group.io.cubbit.DS3Drive"
     
     /// Api key name prefix used to identify the api key created by the app between the ones created by the user.
-    static let apiKeyNamePrefix = "DS3Sync-for-macOS"
+    static let apiKeyNamePrefix = "DS3Drive-for-macOS"
     
     /// Wheter to start the app at login or not.
     static let loginItemSet = false
@@ -21,10 +21,10 @@ enum DefaultSettings {
     
     /// User defaults keys used to store data. They can be changed without breaking the app.
     enum UserDefaultsKeys {
-        static let appUUID = "io.cubbit.CubbitDS3Sync.userDefaults.appUUID"
-        static let tutorial = "io.cubbit.CubbitDS3Sync.userDefaults.tutorialShown"
-        static let syncAnchor = "io.cubbit.CubbitDS3Sync.userDefaults.syncAnchor"
-        static let loginItemSet = "io.cubbit.CubbitDS3Sync.userDefaults.loginItemSet"
+        static let appUUID = "io.cubbit.DS3Drive.userDefaults.appUUID"
+        static let tutorial = "io.cubbit.DS3Drive.userDefaults.tutorialShown"
+        static let syncAnchor = "io.cubbit.DS3Drive.userDefaults.syncAnchor"
+        static let loginItemSet = "io.cubbit.DS3Drive.userDefaults.loginItemSet"
     }
     
     /// An unique identifier for the app. It is used to identify the specific app instance when creating API keys.
@@ -110,9 +110,9 @@ enum DefaultSettings {
     /// Settings related to the notifications sent between the main app and the file provider extension.
     enum Notifications {
         /// Name of the notification to send when a drive status changes
-        static let driveStatusChanged = "io.cubbit.CubbitDS3Sync.notifications.driveStatusChanged"
+        static let driveStatusChanged = "io.cubbit.DS3Drive.notifications.driveStatusChanged"
         
         /// Name of the notification to send while performing transfers
-        static let driveTransferStats = "io.cubbit.CubbitDS3Sync.notifications.driveTransferStats"
+        static let driveTransferStats = "io.cubbit.DS3Drive.notifications.driveTransferStats"
     }
 }

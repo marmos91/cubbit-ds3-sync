@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 4 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Rename app to DS3 Drive, convert DS3Lib to SPM, update identifiers and CI
+- [x] 01-01-PLAN.md -- Rename app to DS3 Drive, convert DS3Lib to SPM, update identifiers and CI
 - [ ] 01-02-PLAN.md -- Add structured OSLog logging with domain categories, fix code quality bugs
 - [ ] 01-03-PLAN.md -- Fix extension crashes, implement S3 error mapping, add multipart ETag validation
 - [ ] 01-04-PLAN.md -- Set up SwiftData metadata store, add SwiftLint/SwiftFormat, enable Swift 6 concurrency
@@ -108,7 +108,7 @@ Note: Phase 4 depends only on Phase 1 and could theoretically run in parallel wi
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/4 | Planned | - |
+| 1. Foundation | 1/4 | In Progress | - |
 | 2. Sync Engine | 0/2 | Not started | - |
 | 3. Conflict Resolution | 0/1 | Not started | - |
 | 4. Auth & Platform | 0/2 | Not started | - |
@@ -116,4 +116,4 @@ Note: Phase 4 depends only on Phase 1 and could theoretically run in parallel wi
 
 ---
 *Roadmap created: 2026-03-11*
-*Last updated: 2026-03-11*
+*Last updated: 2026-03-11 (plan 01-01 completed)*

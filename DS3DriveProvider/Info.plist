@@ -5,7 +5,7 @@
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionFileProviderDocumentGroup</key>
-		<string>group.io.cubbit.CubbitDS3Sync</string>
+		<string>group.io.cubbit.DS3Drive</string>
 		<key>NSExtensionFileProviderSupportsEnumeration</key>
 		<true/>
 		<key>NSExtensionPointIdentifier</key>
@@ -16,7 +16,7 @@
 	<key>NSFileProviderDomain</key>
 	<dict>
 		<key>NSFileProviderDomainDisplayName</key>
-		<string>Cubbit DS3</string>
+		<string>DS3 Drive</string>
 	</dict>
 	<key>CFBundleIcons</key>
 	<dict>
