@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
 import PackageDescription
 
 let package = Package(
@@ -10,10 +10,16 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0"),
     ],
     targets: [
-        .target(name: "DS3Lib", dependencies: [
-            .product(name: "SotoS3", package: "soto"),
-            .product(name: "Atomics", package: "swift-atomics"),
-        ]),
+        .target(
+            name: "DS3Lib",
+            dependencies: [
+                .product(name: "SotoS3", package: "soto"),
+                .product(name: "Atomics", package: "swift-atomics"),
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+            ]
+        ),
         .testTarget(name: "DS3LibTests", dependencies: ["DS3Lib"]),
     ]
 )

@@ -1,14 +1,22 @@
 /// Account email model
-struct AccountEmail: Codable {
-    var id: String
-    var email: String
-    
+public struct AccountEmail: Codable, Sendable {
+    /// The email record identifier
+    public var id: String
+
+    /// The email address
+    public var email: String
+
     /// Whether this is the default email for the account
-    var isDefault: Bool
-    
-    var createdAt: String
-    var isVerified: Bool
-    var tenantId: String
+    public var isDefault: Bool
+
+    /// When the email was created
+    public var createdAt: String
+
+    /// Whether the email has been verified
+    public var isVerified: Bool
+
+    /// The tenant identifier
+    public var tenantId: String
     
     private enum CodingKeys: String, CodingKey {
         case id
@@ -21,21 +29,48 @@ struct AccountEmail: Codable {
 }
 
 /// An account in the Cubbit's DS3 ecosystem
-struct Account: Codable {
-    var id: String
-    var firstName: String
-    var lastName: String
-    var isInternal: Bool
-    var isBanned: Bool
-    var createdAt: String
-    var deletedAt: String?
-    var bannedAt: String?
-    var maxAllowedProjects: Int32
-    var emails: [AccountEmail]
-    var isTwoFactorEnabled: Bool
-    var tenantId: String
-    var endpointGateway: String
-    var authProvider: String
+public struct Account: Codable, Sendable {
+    /// The account unique identifier
+    public var id: String
+
+    /// The user's first name
+    public var firstName: String
+
+    /// The user's last name
+    public var lastName: String
+
+    /// Whether the account is internal
+    public var isInternal: Bool
+
+    /// Whether the account is banned
+    public var isBanned: Bool
+
+    /// When the account was created
+    public var createdAt: String
+
+    /// When the account was deleted, if applicable
+    public var deletedAt: String?
+
+    /// When the account was banned, if applicable
+    public var bannedAt: String?
+
+    /// Maximum number of projects allowed
+    public var maxAllowedProjects: Int32
+
+    /// The account's email addresses
+    public var emails: [AccountEmail]
+
+    /// Whether two-factor authentication is enabled
+    public var isTwoFactorEnabled: Bool
+
+    /// The tenant identifier
+    public var tenantId: String
+
+    /// The S3 endpoint gateway URL
+    public var endpointGateway: String
+
+    /// The authentication provider
+    public var authProvider: String
     
     private enum CodingKeys: String, CodingKey {
         case id

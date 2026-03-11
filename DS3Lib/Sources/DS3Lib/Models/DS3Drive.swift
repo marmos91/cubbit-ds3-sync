@@ -1,29 +1,31 @@
 import Foundation
 import SwiftUI
 
-enum DS3DriveStatus: String, Codable, Hashable {
+/// The current status of a DS3 drive
+public enum DS3DriveStatus: String, Codable, Hashable, Sendable {
     /// The drive is synchronizing (uploading or downloading)
     case sync
-    
+
     /// The drive is indexing (scanning/listing files)
     case indexing
-    
+
     /// The drive is idle. It is not performing any operation.
     case idle
-    
+
     /// The drive is in an error state. The user should perform an action to fix the error.
     case error
 }
 
-struct DS3DriveStats: Codable {
+/// Statistics about a DS3 drive's transfer activity
+public struct DS3DriveStats: Codable, Sendable {
     /// When the drive was last updated
-    var lastUpdate: Date
-    
+    public var lastUpdate: Date
+
     /// The current speed (in bytes per seconds) of the transfers performed by the drive. This is an average speed calculated over a period of time.
-    var currentSpeedBs: Double? // Bytes per second
-    
+    public var currentSpeedBs: Double? // Bytes per second
+
     /// Converts the stats into a human readable string. If the drive is currently performing transfers, it will display the current speed. Otherwise, it will display the time since the last update.
-    func toString() -> String {
+    public func toString() -> String {
         if let currentSpeedBs = self.currentSpeedBs {
             let kilobyte = 1024.0
             let megabyte = kilobyte * kilobyte
@@ -54,18 +56,18 @@ struct DS3DriveStats: Codable {
 }
 
 /// A class representing a DS3Drive in the app. It is used to keep track of the synchronization state of a drive.
-@Observable class DS3Drive: Codable, Identifiable, Hashable {
+@Observable public final class DS3Drive: Codable, Identifiable, Hashable, @unchecked Sendable {
     /// An unique identifier for the drive
-    let id: UUID
-    
+    public let id: UUID
+
     /// The `SyncAnchor` of the drive.
-    let syncAnchor: SyncAnchor
-    
+    public let syncAnchor: SyncAnchor
+
     /// The name of the drive. This name is displayed in the finder's sidebar (**only if more than one drive is created**).
     /// Drives' names should be unique.
-    var name: String
-    
-    init(
+    public var name: String
+
+    public init(
         id: UUID,
         name: String,
         syncAnchor: SyncAnchor
@@ -83,14 +85,14 @@ struct DS3DriveStats: Codable {
     }
     
     // MARK: - Equatable
-    
-    static func == (lhs: DS3Drive, rhs: DS3Drive) -> Bool {
+
+    public static func == (lhs: DS3Drive, rhs: DS3Drive) -> Bool {
         lhs.id == rhs.id
     }
-    
+
     // MARK: - Codable
-    
-    required init(from decoder: Decoder) throws {
+
+    public required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         self.id = try container.decode(UUID.self, forKey: .id)
@@ -98,7 +100,7 @@ struct DS3DriveStats: Codable {
         self.name = try container.decode(String.self, forKey: .name)
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.id, forKey: .id)
         try container.encode(self.syncAnchor, forKey: .syncAnchor)
@@ -106,8 +108,8 @@ struct DS3DriveStats: Codable {
     }
     
     // MARK: - Hashable
-    
-    func hash(into hasher: inout Hasher) {
+
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(self.id)
         hasher.combine(self.name)
     }

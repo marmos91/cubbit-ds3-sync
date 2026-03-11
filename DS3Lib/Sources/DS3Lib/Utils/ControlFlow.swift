@@ -1,7 +1,8 @@
 import Foundation
 import os.log
 
-enum ControlFlowError: Error {
+/// Errors for the retry control flow utility
+public enum ControlFlowError: Error {
     case maxRetriesReached
 }
 
@@ -12,10 +13,10 @@ enum ControlFlowError: Error {
 ///   - block: the block of code to retry
 /// - Throws: the error thrown by the block of code
 /// - Returns: the result of the block of code
-func withRetries<T>(
+public func withRetries<T>(
     retries: Int,
     withLogger logger: Logger? = nil,
-    block: @escaping() async throws -> T
+    block: @escaping @Sendable () async throws -> T
 ) async throws -> T {
     var retries = retries
     

@@ -1,33 +1,33 @@
 import Foundation
 
 /// The transfer direction
-enum TransferDirection: Codable {
+public enum TransferDirection: Codable, Sendable {
     case upload
     case download
 }
 
 /// Information about a current transfer
-struct DriveTransferStats: Codable {
+public struct DriveTransferStats: Codable, Sendable {
     /// The drive ID that is performing the transfer
-    let driveId: UUID
-    
+    public let driveId: UUID
+
     /// The size of the file being transferred
-    let size: Int64
-    
+    public let size: Int64
+
     /// The duration of the transfer so far
-    let duration: TimeInterval
-    
+    public let duration: TimeInterval
+
     /// The transfer direction
-    let direction: TransferDirection
+    public let direction: TransferDirection
 }
 
 /// The drive status change
-struct DS3DriveStatusChange: Codable {
+public struct DS3DriveStatusChange: Codable, Sendable {
     /// The drive ID that is changing status
-    let driveId: UUID
-    
+    public let driveId: UUID
+
     /// The new drive status
-    let status: DS3DriveStatus
+    public let status: DS3DriveStatus
 }
 
 public extension Notification.Name{

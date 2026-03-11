@@ -1,6 +1,7 @@
 import Foundation
 
-enum JWTError: Error, LocalizedError {
+/// Errors that can occur during JWT decoding
+public enum JWTError: Error, LocalizedError {
     case parse
     case encoding
     case jsonDecoding
@@ -10,7 +11,7 @@ enum JWTError: Error, LocalizedError {
 /// - Parameter token: the jwt containing the refreshed token
 /// - Throws: JWTError, if it fails to decode
 /// - Returns: the parsed refresh token
-func jwtDecodeRefreshToken(token: String) throws -> RefreshToken {
+public func jwtDecodeRefreshToken(token: String) throws -> RefreshToken {
     let slices = token.split(separator: ".")
     
     guard slices.count > 1 else { throw JWTError.parse }

@@ -1,62 +1,57 @@
 import Foundation
 
 /// The Cubbit related API URLs.
-enum CubbitAPIURLs {
-    static let baseURL = "https://api.cubbit.eu"
-    
-    /// IAM service related URLs.
-    enum IAM {
-        static let baseURL = "\(CubbitAPIURLs.baseURL)/iam/v1"
-        
-        enum auth {
-            static let baseURL = "\(IAM.baseURL)/auth"
+public enum CubbitAPIURLs {
+    public static let baseURL = "https://api.cubbit.eu"
 
-            static let signinURL = "\(auth.baseURL)/signin"
-            static let challengeURL = "\(auth.signinURL)/challenge"
-            static let tokenRefreshURL = "\(auth.baseURL)/refresh/access"
-            static let forgeAccessJWTURL = "\(auth.baseURL)/forge/access"
+    /// IAM service related URLs.
+    public enum IAM {
+        public static let baseURL = "\(CubbitAPIURLs.baseURL)/iam/v1"
+
+        public enum auth {
+            public static let baseURL = "\(IAM.baseURL)/auth"
+            public static let signinURL = "\(auth.baseURL)/signin"
+            public static let challengeURL = "\(auth.signinURL)/challenge"
+            public static let tokenRefreshURL = "\(auth.baseURL)/refresh/access"
+            public static let forgeAccessJWTURL = "\(auth.baseURL)/forge/access"
         }
-        
-        enum accounts {
-            static let baseURL = "\(IAM.baseURL)/accounts"
-            
-            static let meURL = "\(accounts.baseURL)/me"
+
+        public enum accounts {
+            public static let baseURL = "\(IAM.baseURL)/accounts"
+            public static let meURL = "\(accounts.baseURL)/me"
         }
     }
-    
-    enum composerHub {
-        static let baseURL = "\(CubbitAPIURLs.baseURL)/composer-hub/v1"
-        
-        static let projects = "\(composerHub.baseURL)/projects"
+
+    public enum composerHub {
+        public static let baseURL = "\(CubbitAPIURLs.baseURL)/composer-hub/v1"
+        public static let projects = "\(composerHub.baseURL)/projects"
     }
-    
+
     /// Cubbit's internal KMS related URLs.
-    enum keyvault {
-        static let baseURL = "\(CubbitAPIURLs.baseURL)/keyvault/api/v3"
-        
-        static let createKeyURL = "\(CubbitAPIURLs.keyvault.baseURL)/keys"
-        static let getKeysURL = "\(CubbitAPIURLs.keyvault.baseURL)/keys"
-        static let deleteKeyURL = "\(CubbitAPIURLs.keyvault.baseURL)/keys"
+    public enum keyvault {
+        public static let baseURL = "\(CubbitAPIURLs.baseURL)/keyvault/api/v3"
+        public static let createKeyURL = "\(CubbitAPIURLs.keyvault.baseURL)/keys"
+        public static let getKeysURL = "\(CubbitAPIURLs.keyvault.baseURL)/keys"
+        public static let deleteKeyURL = "\(CubbitAPIURLs.keyvault.baseURL)/keys"
     }
 }
 
-/// Cubbits web console related URLs.
-enum ConsoleURLs {
-    static let baseURL = "https://console.cubbit.eu"
-    
-    static let signupURL = "\(ConsoleURLs.baseURL)/signup"
-    static let recoveryURL = "\(ConsoleURLs.baseURL)/recovery"
-    static let workspaceURL = "\(ConsoleURLs.baseURL)/workspace"
-    static let projectsURL = "\(ConsoleURLs.workspaceURL)/projects"
-    static let profileURL = "\(ConsoleURLs.workspaceURL)/profile"
+/// Cubbit web console related URLs.
+public enum ConsoleURLs {
+    public static let baseURL = "https://console.cubbit.eu"
+    public static let signupURL = "\(ConsoleURLs.baseURL)/signup"
+    public static let recoveryURL = "\(ConsoleURLs.baseURL)/recovery"
+    public static let workspaceURL = "\(ConsoleURLs.baseURL)/workspace"
+    public static let projectsURL = "\(ConsoleURLs.workspaceURL)/projects"
+    public static let profileURL = "\(ConsoleURLs.workspaceURL)/profile"
 }
 
 /// Cubbit docs related URLs.
-enum DocsURLs {
-    static let baseURL = "https://docs.cubbit.io"
+public enum DocsURLs {
+    public static let baseURL = "https://docs.cubbit.io"
 }
 
 /// Cubbit help center related URLs.
-enum HelpURLs {
-    static let baseURL = "https://help.cubbit.io"
+public enum HelpURLs {
+    public static let baseURL = "https://help.cubbit.io"
 }

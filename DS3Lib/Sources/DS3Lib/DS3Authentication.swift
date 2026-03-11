@@ -3,7 +3,8 @@ import CryptoKit
 import SwiftUI
 import os.log
 
-enum DS3AuthenticationError: Error, LocalizedError {
+/// Errors that can occur during authentication with Cubbit IAM
+public enum DS3AuthenticationError: Error, LocalizedError {
     case invalidURL(url: String? = nil)
     case timeConversion
     case cookies
@@ -16,7 +17,7 @@ enum DS3AuthenticationError: Error, LocalizedError {
     case tokenExpired
     case missing2FA
     
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .invalidURL(let url):
             return NSLocalizedString("The provided URL \(url ?? "") is invalid.", comment: "The invalidURL error")
@@ -77,25 +78,31 @@ struct DS3Missing2FAResponse: Codable {
     var message: String
 }
 
-/// Class that manages the authentication with the DS3 APIs
-@Observable final class DS3Authentication {
+/// Class that manages the authentication with the DS3 APIs.
+/// Uses challenge-response (Curve25519) authentication with JWT tokens.
+@Observable public final class DS3Authentication: @unchecked Sendable {
     private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.auth.rawValue)
     
-    var accountSession: AccountSession?
-    var account: Account?
-    
-    var isLogged: Bool = false
-    
-    var isNotLogged: Bool {
+    /// The current account session, if authenticated
+    public var accountSession: AccountSession?
+
+    /// The current account information, if authenticated
+    public var account: Account?
+
+    /// Whether the user is currently logged in
+    public var isLogged: Bool = false
+
+    /// Whether the user is currently logged out
+    public var isNotLogged: Bool {
         return !self.isLogged
     }
-    
-    init() {
+
+    public init() {
         self.accountSession = nil
         self.isLogged = false
     }
     
-    init(
+    public init(
         accountSession: AccountSession,
         account: Account,
         isLogged: Bool
@@ -110,7 +117,7 @@ struct DS3Missing2FAResponse: Codable {
     /// Forges an IAM token for the specified user. The IAM token will be then used to authenticate all the next requests for the specified user
     /// - Parameter user: the IAM user for which you want to forge the token
     /// - Returns: the Token object containing the access token and the expiration date
-    func forgeIAMToken(forIAMUser user: IAMUser) async throws -> Token {
+    public func forgeIAMToken(forIAMUser user: IAMUser) async throws -> Token {
         try await self.refreshIfNeeded()
         
         guard
@@ -160,7 +167,7 @@ struct DS3Missing2FAResponse: Codable {
     
      /// Refresh auth token if expired
     /// - Parameter force: force token refresh
-    func refreshIfNeeded(force: Bool = false) async throws {
+    public func refreshIfNeeded(force: Bool = false) async throws {
         guard
             self.isLogged,
             let session = self.accountSession
@@ -209,7 +216,7 @@ struct DS3Missing2FAResponse: Codable {
     ///  - Parameters:
     ///   - email: the email to login with
     ///   - password: the password to login with
-    func login(email: String, password: String, withTfaToken tfaCode: String? = nil) async throws {
+    public func login(email: String, password: String, withTfaToken tfaCode: String? = nil) async throws {
         guard self.isNotLogged else { throw DS3AuthenticationError.alreadyLoggedIn }
         
         let challenge = try await self.getChallenge(email: email)
@@ -223,7 +230,7 @@ struct DS3Missing2FAResponse: Codable {
     }
 
     /// Logs out from Cubbit's IAM service
-    func logout() throws {
+    public func logout() throws {
         guard self.isLogged else { throw DS3AuthenticationError.alreadyLoggedOut }
         
         self.logger.debug("Logging out...")
@@ -237,7 +244,7 @@ struct DS3Missing2FAResponse: Codable {
     /// Gets a challenge from Cubbit's IAM service
     /// - Parameter email: the email you want to get the challenge for
     /// - Returns: the challenge
-    func getChallenge(email: String) async throws -> Challenge {
+    public func getChallenge(email: String) async throws -> Challenge {
         guard let url = URL(string: CubbitAPIURLs.IAM.auth.challengeURL) else { throw DS3AuthenticationError.invalidURL(url: CubbitAPIURLs.IAM.auth.challengeURL) }
         
         let challengeRequestBody = DS3ChallengeRequest(email: email)
@@ -267,7 +274,7 @@ struct DS3Missing2FAResponse: Codable {
     ///   - challenge: the challenge to sign
     ///   - password: the password to use to sign the challenge
     /// - Returns: the signed challenge in base64 format
-    func signChallenge(challenge: Challenge, password: String) throws -> String {
+    public func signChallenge(challenge: Challenge, password: String) throws -> String {
         guard let passwordBuffer = password.data(using: .utf8) else { throw DS3AuthenticationError.encoding }
         guard let saltBuffer = challenge.salt.data(using: .utf8) else { throw DS3AuthenticationError.encoding }
         
@@ -293,7 +300,7 @@ struct DS3Missing2FAResponse: Codable {
     ///   - email: the email related to the account session to retrieve
     ///   - signedChallengeBase64: the signed challenge to use for signin in the account
     /// - Returns: the session for the provided email
-    func getAccountSession(email: String, signedChallengeBase64: String, withTfaToken tfaCode: String? = nil) async throws -> AccountSession {
+    public func getAccountSession(email: String, signedChallengeBase64: String, withTfaToken tfaCode: String? = nil) async throws -> AccountSession {
         guard let url = URL(string: CubbitAPIURLs.IAM.auth.signinURL) else { throw DS3AuthenticationError.invalidURL(url: CubbitAPIURLs.IAM.auth.signinURL) }
         
         let accountSessionRequest = DS3LoginRequest(email: email, signedChallenge: signedChallengeBase64, tfaCode: tfaCode)
@@ -338,7 +345,7 @@ struct DS3Missing2FAResponse: Codable {
     
     // MARK: - Persistence
    
-    func persist() throws {
+    public func persist() throws {
         guard
             self.isLogged,
             self.accountSession != nil,
@@ -349,7 +356,8 @@ struct DS3Missing2FAResponse: Codable {
         try SharedData.default().persistAccount(account: self.account!)
     }
     
-    static func loadFromPersistenceOrCreateNew() -> DS3Authentication{
+    /// Loads authentication state from shared container, or creates a new unauthenticated instance.
+    public static func loadFromPersistenceOrCreateNew() -> DS3Authentication {
         do {
             let accountSession = try SharedData.default().loadAccountSessionFromPersistence()
             let account =  try SharedData.default().loadAccountFromPersistence()
@@ -364,7 +372,8 @@ struct DS3Missing2FAResponse: Codable {
         }
     }
     
-    func deleteFromDisk() throws {
+    /// Deletes all persisted authentication data from disk.
+    public func deleteFromDisk() throws {
         UserDefaults.standard.removeObject(forKey: DefaultSettings.UserDefaultsKeys.tutorial)
         try SharedData.default().deleteAccountSessionFromPersistence()
         try SharedData.default().deleteAccountFromPersistence()
@@ -377,7 +386,7 @@ struct DS3Missing2FAResponse: Codable {
     
     /// Retrieves Cubbit's account info
     /// - Returns: info about Cubbit's account
-    func accountInfo() async throws -> Account {
+    public func accountInfo() async throws -> Account {
         guard self.isLogged else { throw DS3AuthenticationError.loggedOut }
         
         try await self.refreshIfNeeded()

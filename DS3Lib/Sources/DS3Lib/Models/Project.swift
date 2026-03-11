@@ -1,39 +1,39 @@
 import Foundation
 
 /// A project in the Cubbit's DS3 ecosystem
-@Observable class Project: Equatable, Codable, Identifiable {
+@Observable public final class Project: Equatable, Codable, Identifiable, @unchecked Sendable {
     /// The project unique ID
-    var id: String
-    
+    public var id: String
+
     /// The project name
-    var name: String
-    
+    public var name: String
+
     /// If set, the project description
-    var description: String
-    
+    public var description: String
+
     /// The email of the project. The project email is used to perform ACL-related operations. **It is not a real email address**.
-    var email: String
-    
+    public var email: String
+
     /// When the project was created
-    var createdAt: String
-    
+    public var createdAt: String
+
     /// Optional, when the project was banned
-    var bannedAt: String?
-    
+    public var bannedAt: String?
+
     /// Optional, the project image URL
-    var imageUrl: String?
-    
+    public var imageUrl: String?
+
     /// Optional, the project tenant ID. The tenant identifier it is used to identify the project in the Cubbit's DS3 ecosystem.
     /// Refer to https://docs.cubbit.io/composer/tenants/what-is-a-tenant to read more information about tenants.
-    var tenantId: String
-    
+    public var tenantId: String
+
     /// The root account email, if set
-    var rootAccountEmail: String?
-    
+    public var rootAccountEmail: String?
+
     /// The IAM users that belong to this project
-    var users: [IAMUser]
-    
-    init(
+    public var users: [IAMUser]
+
+    public init(
         id: String,
         name: String,
         description: String,
@@ -70,22 +70,23 @@ import Foundation
         case users
     }
     
-    func short() -> String {
+    /// Returns the first two characters of the project name.
+    public func short() -> String {
         return String(self.name.prefix(2))
     }
-    
+
     // MARK: - Equatable
-    static func == (lhs: Project, rhs: Project) -> Bool {
+    public static func == (lhs: Project, rhs: Project) -> Bool {
         return lhs.id == rhs.id
     }
-    
+
     // MARK: - Hashable
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
-    
+
     // MARK: - Codable
-    required init(from decoder: Decoder) throws {
+    public required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
@@ -99,7 +100,7 @@ import Foundation
         users = try container.decode([IAMUser].self, forKey: .users)
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)

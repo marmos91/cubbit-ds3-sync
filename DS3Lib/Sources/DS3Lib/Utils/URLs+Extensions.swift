@@ -3,7 +3,7 @@ import Foundation
 /// Returns a unique temporary file URL in the given temporary folder. The filename is a UUID generated randomly.
 /// - Parameter temporaryURL: the temporary folder URL to use
 /// - Returns: the temporary file URL
-func temporaryFileURL(
+public func temporaryFileURL(
     withTemporaryFolder temporaryURL: URL
 ) throws -> URL {
     let temporaryFileURL = temporaryURL.appendingPathComponent(UUID().uuidString)

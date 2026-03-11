@@ -4,7 +4,7 @@ extension SharedData {
     /// Persist the given `AccountSession` to shared container.
     /// - Parameter accountSession: the account session to persist.
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed. Other error can be thrown if writing and encoding fails
-    func persistAccountSession(
+    public func persistAccountSession(
         accountSession: AccountSession
     ) throws {
         guard let sharedContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup) else {
@@ -22,7 +22,7 @@ extension SharedData {
     /// Loads the saved `AccountSession` from shared container.
     /// - Returns: the saved `AccountSession`.
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed. Other error can be thrown if reading and decoding fails
-    func loadAccountSessionFromPersistence() throws -> AccountSession {
+    public func loadAccountSessionFromPersistence() throws -> AccountSession {
         guard let sharedContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup) else {
             throw SharedDataError.cannotAccessAppGroup
         }
@@ -34,7 +34,7 @@ extension SharedData {
     
     /// Deletes the saved `AccountSession` from shared container.
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed. 
-    func deleteAccountSessionFromPersistence() throws {
+    public func deleteAccountSessionFromPersistence() throws {
         guard let sharedContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup) else {
             throw SharedDataError.cannotAccessAppGroup
         }

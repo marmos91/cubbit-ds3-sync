@@ -2,13 +2,14 @@ import Foundation
 import os.log
 
 extension SharedData {
-    enum SharedDataError: Error, LocalizedError {
+    /// Errors that can occur when accessing shared data in the App Group container
+    public enum SharedDataError: Error, LocalizedError {
         case cannotAccessAppGroup
         case apiKeyNotFound
         case ds3DriveNotFound
         case conversionError
-        
-        var errorDescription: String? {
+
+        public var errorDescription: String? {
             switch self {
             case .cannotAccessAppGroup:
                 return NSLocalizedString("Cannot access shared app group.", comment: "Cannot access shared app group.")
@@ -23,20 +24,23 @@ extension SharedData {
     }
 }
 
-/// Shared data between DS3Sync app and FileProvider extension. It is used to get access to common resources. It is implemented like singleton.
-class SharedData {
+/// Shared data between DS3 Drive app and FileProvider extension.
+/// Provides access to persisted state in the App Group container (JSON files).
+/// Implemented as a singleton to ensure consistent access.
+public class SharedData: @unchecked Sendable {
     private static var instance: SharedData?
-    
+
     let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.metadata.rawValue)
-    
+
     private init() {}
-    
-    /// Get shared data instance.
-    static func `default`() -> SharedData {
+
+    /// Get shared data singleton instance.
+    /// - Returns: the singleton instance of SharedData.
+    public static func `default`() -> SharedData {
         if instance == nil {
             instance = SharedData()
         }
-        
+
         return instance!
     }
 }

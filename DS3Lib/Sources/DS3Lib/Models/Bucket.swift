@@ -1,7 +1,11 @@
 import Foundation
 
 /// Struct that represents an S3 bucket
-struct Bucket: Codable, Equatable {
+public struct Bucket: Codable, Equatable, Sendable {
     /// The bucket name
-    var name: String
+    public var name: String
+
+    public init(name: String) {
+        self.name = name
+    }
 }

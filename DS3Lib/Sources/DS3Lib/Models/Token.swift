@@ -1,10 +1,15 @@
 import Foundation
 
 /// A session token in the Cubbit DS3 ecosystem
-struct Token: Codable {
-    var token: String
-    var exp: Int64
-    var expDate: Date
+public struct Token: Codable, Sendable {
+    /// The JWT access token string
+    public var token: String
+
+    /// The token expiration as Unix timestamp
+    public var exp: Int64
+
+    /// The token expiration as a Date object
+    public var expDate: Date
     
     private enum CodingKeys: String, CodingKey {
         case token, exp
@@ -13,7 +18,7 @@ struct Token: Codable {
     
     // MARK: - Codable
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         token = try container.decode(String.self, forKey: .token)
@@ -28,7 +33,7 @@ struct Token: Codable {
         }
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(token, forKey: .token)
         try container.encode(exp, forKey: .exp)

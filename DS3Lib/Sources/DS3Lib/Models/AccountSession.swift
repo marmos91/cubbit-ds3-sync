@@ -1,18 +1,18 @@
 import Foundation
 
 /// An accountSession in the Cubbit DS3 ecosystem
-@Observable class AccountSession: Codable {
+@Observable public final class AccountSession: Codable, @unchecked Sendable {
     private var _token: Token
-    
+
     /// An authentication token used to authenticate the root user
-    var token: Token {
+    public var token: Token {
         get { return _token }
     }
-    
+
     private var _refreshToken: String
-    
+
     /// A refresh token used to refresh the authentication token
-    var refreshToken: String {
+    public var refreshToken: String {
         get { return _refreshToken }
     }
     
@@ -21,20 +21,20 @@ import Foundation
         case _refreshToken = "refreshToken"
     }
     
-    init(token: Token, refreshToken: String) {
+    public init(token: Token, refreshToken: String) {
         self._token = token
         self._refreshToken = refreshToken
     }
     
     /// Updates the token
     /// - Parameter token: the new token
-    func refreshToken(token: Token) {
+    public func refreshToken(token: Token) {
         self._token = token
     }
     
     /// Updates the refresh token
     /// - Parameter refreshToken: the new refresh token
-    func refreshRefreshToken(refreshToken: String) {
+    public func refreshRefreshToken(refreshToken: String) {
         self._refreshToken = refreshToken
     }
     
@@ -42,20 +42,20 @@ import Foundation
     /// - Parameters:
     ///  - token: the new token
     ///  - refreshToken: the new refresh token
-    func refreshTokens(token: Token, refreshToken: String) {
+    public func refreshTokens(token: Token, refreshToken: String) {
         self.refreshToken(token: token)
         self.refreshRefreshToken(refreshToken: refreshToken)
     }
     
     // MARK: - Codable
-    required init(from decoder: Decoder) throws {
+    public required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         _token = try container.decode(Token.self, forKey: ._token)
         _refreshToken = try container.decode(String.self, forKey: ._refreshToken)
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         
         try container.encode(self.token, forKey: ._token)

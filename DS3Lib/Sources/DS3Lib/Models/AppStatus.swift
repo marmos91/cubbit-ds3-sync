@@ -1,7 +1,7 @@
 import Foundation
 
 /// The status of the app. It is used to display the current status of the app in the tray menu UI.
-enum AppStatus: String {
+public enum AppStatus: String, Sendable {
     /// The app is idle. It is not performing any operation.
     case idle
     

@@ -4,7 +4,7 @@ extension SharedData {
     /// Loads the saved `DS3ApiKey`s from shared container.
     /// - Returns: the saved `DS3ApiKey`s.
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed. Other error can be thrown if reading and decoding fails
-    func loadDS3APIKeysFromPersistence() throws -> [DS3ApiKey] {
+    public func loadDS3APIKeysFromPersistence() throws -> [DS3ApiKey] {
         guard let sharedContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup) else {
             throw SharedDataError.cannotAccessAppGroup
         }
@@ -22,7 +22,7 @@ extension SharedData {
     ///   - projectName: the project name to load the API key for.
     /// - Returns: the saved API key.
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed. Other error can be thrown if reading and decoding fails
-    func loadDS3APIKeyFromPersistence(
+    public func loadDS3APIKeyFromPersistence(
         forUser user: IAMUser,
         projectName: String
     ) throws -> DS3ApiKey {
@@ -39,7 +39,7 @@ extension SharedData {
     /// Saves the given `DS3ApiKey`s to shared container.
     /// - Parameter apiKeys: the api keys to save.
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed. Other error can be thrown if encoding and writing fails
-    func persistDS3APIKeys(
+    public func persistDS3APIKeys(
         _ apiKeys: [DS3ApiKey]
     ) throws {
         guard let sharedContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup) else {
@@ -56,7 +56,7 @@ extension SharedData {
     
     /// Deletes all saved `DS3ApiKey`s from shared container.
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed. Other error can be thrown if reading and decoding fails
-    func deleteDS3APIKeysFromPersistence() throws {
+    public func deleteDS3APIKeysFromPersistence() throws {
         guard let sharedContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup) else {
             throw SharedDataError.cannotAccessAppGroup
         }
@@ -69,7 +69,7 @@ extension SharedData {
     /// Deletes the saved `DS3ApiKey`with the given name from shared container.
     /// - Parameter apiKeyName: the api key name to delete.
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed. `SharedDataError.apiKeyNotFound` if the api key with the given name could not be found.
-    func deleteDS3APIKeyFromPersistence(withName apiKeyName: String) throws {
+    public func deleteDS3APIKeyFromPersistence(withName apiKeyName: String) throws {
         var apiKeys = try loadDS3APIKeysFromPersistence()
         
         guard let apiKeyIndex = apiKeys.firstIndex(where: {$0.name == apiKeyName}) else {

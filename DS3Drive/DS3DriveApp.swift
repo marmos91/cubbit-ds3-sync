@@ -4,10 +4,12 @@ import os.log
 @main
 struct DS3DriveApp: App {
     private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
-    
+
+    private let metadataStore: MetadataStore?
+
     @AppStorage(DefaultSettings.UserDefaultsKeys.tutorial) var tutorialShown: Bool = DefaultSettings.tutorialShown
     @AppStorage(DefaultSettings.UserDefaultsKeys.loginItemSet) var loginItemSet: Bool = DefaultSettings.loginItemSet
-    
+
     @State var ds3Authentication: DS3Authentication = DS3Authentication.loadFromPersistenceOrCreateNew()
     @State var appStatusManager: AppStatusManager = AppStatusManager.default()
     @State var ds3DriveManager: DS3DriveManager = DS3DriveManager(appStatusManager: AppStatusManager.default())
@@ -105,6 +107,14 @@ struct DS3DriveApp: App {
     }
     
     init() {
+        do {
+            self.metadataStore = try MetadataStore()
+            logger.info("MetadataStore initialized successfully")
+        } catch {
+            self.metadataStore = nil
+            logger.error("Failed to initialize MetadataStore: \(error.localizedDescription)")
+        }
+
         if !loginItemSet {
             do {
                 try setLoginItem(true)

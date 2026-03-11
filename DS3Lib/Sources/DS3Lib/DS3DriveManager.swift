@@ -3,20 +3,25 @@ import SwiftUI
 import FileProvider
 import os.log
 
-enum DS3DriveManagerError: Error {
+/// Errors that can occur during drive management operations
+public enum DS3DriveManagerError: Error {
     case driveNotFound
     case cannotLoadDrives
 }
 
 /// Class that manages DS3Drives. It loads them from disk and keeps them in memory for the whole app lifecycle.
-@Observable final class DS3DriveManager {
+/// Handles NSFileProviderDomain registrations and syncs drive state with the File Provider system.
+@Observable public final class DS3DriveManager: @unchecked Sendable {
     @ObservationIgnored
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
     
-    var drives: [DS3Drive] = DS3DriveManager.loadFromDiskOrCreateNew()
-    var syncyingDrives: Set<UUID> = []
-    
-    init(appStatusManager: AppStatusManager) {
+    /// The list of registered drives
+    public var drives: [DS3Drive] = DS3DriveManager.loadFromDiskOrCreateNew()
+
+    /// The set of currently syncing drive IDs
+    public var syncyingDrives: Set<UUID> = []
+
+    public init(appStatusManager: AppStatusManager) {
         self.setupObserver()
         
         Task {
@@ -69,19 +74,19 @@ enum DS3DriveManagerError: Error {
     /// Returns a stored DS3Drive with the given id, if any
     /// - Parameter id: the id of the drive to retrieve
     /// - Returns: the DS3Drive, if any
-    func driveWithID(_ id: UUID) -> DS3Drive? {
+    public func driveWithID(_ id: UUID) -> DS3Drive? {
         return self.drives.first(where: {$0.id == id })
     }
     
     /// Removes all domains from the file provider
-    func cleanFileProvider() async throws {
+    public func cleanFileProvider() async throws {
         try await NSFileProviderManager.removeAllDomains()
         self.logger.debug("All domains removed")
     }
     
     /// Lists existing domains in the file provider
     /// - Returns: the currently registered domains
-    func extensionExistingDomains() async throws -> [NSFileProviderDomain] {
+    public func extensionExistingDomains() async throws -> [NSFileProviderDomain] {
         return try await withCheckedThrowingContinuation { continuation in
             NSFileProviderManager.getDomainsWithCompletionHandler { domains, error in
                 if error != nil {
@@ -96,7 +101,7 @@ enum DS3DriveManagerError: Error {
     
     /// Lists the domains that need to be deleted from the file provider
     /// - Returns: the file provider domains that need to be deleted
-    func domainsToBeDeleted() async throws -> [NSFileProviderDomain] {
+    public func domainsToBeDeleted() async throws -> [NSFileProviderDomain] {
         var domainsToBeDeleted: [NSFileProviderDomain] = []
         
         for existingDomain in try await self.extensionExistingDomains() {
@@ -113,7 +118,7 @@ enum DS3DriveManagerError: Error {
     }
     
     /// Syncs the file provider extensions with the status of the currently registered drives
-    func syncFileProvider() async throws {
+    public func syncFileProvider() async throws {
         for domain in try await self.domainsToBeDeleted() {
             self.logger.debug("Removing existing domain \(domain.displayName)")
             try await NSFileProviderManager.remove(domain)
@@ -133,7 +138,7 @@ enum DS3DriveManagerError: Error {
     
     /// Removes a drive from the manager. It also removes the corresponding file provider domain.
     /// - Parameter id: the drive id to remove
-    func disconnect(driveWithId id: UUID) async throws {
+    public func disconnect(driveWithId id: UUID) async throws {
         if let index = self.drives.firstIndex(where: {$0.id == id}) {
             self.logger.info("Disconnecting drive with id \(id)")
             
@@ -145,7 +150,7 @@ enum DS3DriveManagerError: Error {
     
     /// Returns the drive's file provider domain
     /// - Returns: the drive's file provider domain
-    func fileProviderDomain(forDrive drive: DS3Drive) -> NSFileProviderDomain {
+    public func fileProviderDomain(forDrive drive: DS3Drive) -> NSFileProviderDomain {
         return NSFileProviderDomain(
             identifier: NSFileProviderDomainIdentifier(
                 rawValue: drive.id.uuidString
@@ -157,7 +162,7 @@ enum DS3DriveManagerError: Error {
     /// Adds a new drive to the manager
     /// - Parameter drive: the DS3Drive to add
     @MainActor
-    func add(drive: DS3Drive) async throws {
+    public func add(drive: DS3Drive) async throws {
         self.drives.append(drive)
         try self.persist()
         try await self.syncFileProvider()
@@ -166,7 +171,7 @@ enum DS3DriveManagerError: Error {
     /// Updates a drive in the manager
     /// - Parameter drive: the updated drive
     @MainActor
-    func update(drive: DS3Drive) async throws {
+    public func update(drive: DS3Drive) async throws {
         if let index = self.drives.firstIndex(where: {$0.id == drive.id}) {
             self.drives[index] = drive
             try self.persist()
@@ -177,13 +182,13 @@ enum DS3DriveManagerError: Error {
     }
     
     /// Persist the drives to disk
-    func persist() throws {
+    public func persist() throws {
         try SharedData.default().persistDS3Drives(ds3Drives: self.drives)
     }
     
     /// Loads the drives from disk or creates a new empty array
     /// - Returns: a list of DS3Drives, if it can load them from disk, otherwise a new empty array
-    static func loadFromDiskOrCreateNew() -> [DS3Drive] {
+    public static func loadFromDiskOrCreateNew() -> [DS3Drive] {
         do {
             return try SharedData.default().loadDS3DrivesFromPersistence()
         } catch {
