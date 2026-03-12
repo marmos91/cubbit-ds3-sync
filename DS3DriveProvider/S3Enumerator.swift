@@ -4,6 +4,13 @@ import os.log
 import SotoS3
 import DS3Lib
 
+/// Wraps a non-Sendable callback for safe use across Task boundaries.
+/// The wrapper is safe because the underlying handler is set once at init and never mutated.
+private final class UnsafeCallback<T>: @unchecked Sendable {
+    let handler: T
+    init(_ handler: T) { self.handler = handler }
+}
+
 enum EnumeratorError: Error {
     case unsupported
     case missingParameters
@@ -11,64 +18,77 @@ enum EnumeratorError: Error {
 
 class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
     typealias Logger = os.Logger
-    
+
     let logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.sync.rawValue)
-    
+
     private let parent: NSFileProviderItemIdentifier
-    private let anchor = SharedData.default().loadSyncAnchorOrCreate()
-    
+
     private let s3Lib: S3Lib
     private var drive: DS3Drive
     private let recursively: Bool
     private let notificationManager: NotificationManager
     private var prefix: String?
-    
-    // TODO: Support skipped files
-//    static let untrackedTypes: [UTType] = [
-//        "com.apple.iwork.pages.sffpages",
-//        "com.apple.iwork.pages.pages-tef"
-//    ].compactMap(UTType.init)
-    
-//    static func shouldTrackPresentationStatus(for type: UTType) -> Bool {
-//        for untrackedType in ItemEnumerator.untrackedTypes where type.conforms(to: untrackedType) {
-//            return false
-//        }
-//        return true
-//    }
-    
+    private let syncEngine: SyncEngine?
+    private let metadataStore: MetadataStore?
+
     init(
         parent: NSFileProviderItemIdentifier,
         s3Lib: S3Lib,
         notificationManager: NotificationManager,
         drive: DS3Drive,
-        recursive: Bool = false
+        recursive: Bool = false,
+        syncEngine: SyncEngine? = nil,
+        metadataStore: MetadataStore? = nil
     ) {
         self.parent = parent
         self.s3Lib = s3Lib
         self.drive = drive
         self.recursively = recursive
         self.notificationManager = notificationManager
+        self.syncEngine = syncEngine
+        self.metadataStore = metadataStore
         self.prefix = self.drive.syncAnchor.prefix
-        
+
         switch self.parent {
         case .rootContainer, .trashContainer, .workingSet:
             break
         default:
             self.prefix = parent.rawValue
         }
-        
+
         super.init()
     }
-    
+
     func invalidate() {}
-    
+
     // NOTE: gets called when the extension wants to get the last sync point (could be a timestamp)
     func currentSyncAnchor(
         completionHandler: @escaping (NSFileProviderSyncAnchor?) -> Void
     ) {
-        completionHandler(self.anchor)
+        guard let metadataStore = self.metadataStore else {
+            // Fall back to current date if MetadataStore is unavailable
+            completionHandler(NSFileProviderSyncAnchor(Date()))
+            return
+        }
+
+        // Wrap non-Sendable callback for safe use across Task boundary
+        let cb = UnsafeCallback(completionHandler)
+        let driveId = self.drive.id
+
+        Task {
+            do {
+                if let snapshot = try await metadataStore.fetchSyncAnchorSnapshot(driveId: driveId) {
+                    cb.handler(NSFileProviderSyncAnchor(snapshot.lastSyncDate))
+                } else {
+                    // No anchor record yet -- return anchor from current date
+                    cb.handler(NSFileProviderSyncAnchor(Date()))
+                }
+            } catch {
+                cb.handler(NSFileProviderSyncAnchor(Date()))
+            }
+        }
     }
-    
+
     func enumerateItems(
         for observer: NSFileProviderEnumerationObserver,
         startingAt page: NSFileProviderPage
@@ -83,6 +103,22 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                     recursively: self.recursively,
                     withContinuationToken: page.toContinuationToken()
                 )
+
+                // Upsert items into MetadataStore for subsequent enumerateChanges calls
+                if let metadataStore = self.metadataStore {
+                    for item in items {
+                        try await metadataStore.upsertItem(
+                            s3Key: item.itemIdentifier.rawValue,
+                            driveId: self.drive.id,
+                            etag: item.metadata.etag,
+                            lastModified: item.metadata.lastModified,
+                            syncStatus: .synced,
+                            parentKey: item.parentItemIdentifier == .rootContainer ? nil : item.parentItemIdentifier.rawValue,
+                            contentType: item.metadata.contentType,
+                            size: Int64(truncating: item.metadata.size)
+                        )
+                    }
+                }
 
                 if !items.isEmpty {
                     observer.didEnumerate(items)
@@ -108,46 +144,81 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
             }
         }
     }
-    
+
     func enumerateChanges(
         for observer: NSFileProviderChangeObserver,
         from anchor: NSFileProviderSyncAnchor
     ) {
         Task {
             self.notificationManager.sendDriveChangedNotification(status: .indexing)
-            
+
             do {
                 self.logger.debug("Enumerating changes for prefix \(self.prefix ?? "nil")")
-                
+
                 if self.parent == .trashContainer {
                     // NOTE: skipping trash
                     return observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
                 }
-                 
-                // Fetch changes from the server since the anchor timestamp
-                let (changedItems, _) = try await self.s3Lib.listS3Items(
-                    forDrive: self.drive,
-                    withPrefix: self.prefix,
-                    recursively: self.recursively,
-                    fromDate: anchor.toDate()
+
+                guard let syncEngine = self.syncEngine else {
+                    // Fall back to simple listing if SyncEngine is unavailable
+                    self.logger.warning("SyncEngine unavailable, falling back to timestamp-based enumeration")
+                    let (changedItems, _) = try await self.s3Lib.listS3Items(
+                        forDrive: self.drive,
+                        withPrefix: self.prefix,
+                        recursively: self.recursively,
+                        fromDate: anchor.toDate()
+                    )
+
+                    if !changedItems.isEmpty {
+                        observer.didUpdate(changedItems)
+                    }
+
+                    self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle)
+                    return observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
+                }
+
+                // Use SyncEngine for full reconciliation
+                let adapter = S3LibListingAdapter(s3Lib: self.s3Lib, drive: self.drive)
+
+                let result = try await syncEngine.reconcile(
+                    driveId: self.drive.id,
+                    s3Provider: adapter,
+                    bucket: self.drive.syncAnchor.bucket.name,
+                    prefix: self.drive.syncAnchor.prefix
                 )
 
-                var newAnchor = anchor
-                
-                if !changedItems.isEmpty {
-                    self.logger.debug("Found \(changedItems.count) changes")
-                    
-                    observer.didUpdate(changedItems)
-                    newAnchor = NSFileProviderSyncAnchor(Date())
-                    
-                    SharedData.default().persistSyncAnchor(newAnchor)
+                // Convert new + modified keys to S3Item instances for the observer
+                let changedKeys = result.newKeys.union(result.modifiedKeys)
+                if !changedKeys.isEmpty {
+                    let updatedItems: [S3Item] = changedKeys.compactMap { key in
+                        guard let info = result.remoteItems[key] else { return nil }
+                        return S3Item(
+                            identifier: NSFileProviderItemIdentifier(key),
+                            drive: self.drive,
+                            objectMetadata: S3Item.Metadata(
+                                etag: info.etag,
+                                lastModified: info.lastModified,
+                                size: NSNumber(value: info.size)
+                            )
+                        )
+                    }
+
+                    if !updatedItems.isEmpty {
+                        observer.didUpdate(updatedItems)
+                    }
                 }
-                
-                self.logger.debug("Anchor is \(newAnchor.toDate())")
-                
-                // TODO: process remotely deleted files
-                // Notify the observer about deletions
-                // observer.didDeleteItems(withIdentifiers: deletions)
+
+                // Report deleted items
+                if !result.deletedKeys.isEmpty {
+                    let deletedIdentifiers = result.deletedKeys.map {
+                        NSFileProviderItemIdentifier($0)
+                    }
+                    observer.didDeleteItems(withIdentifiers: deletedIdentifiers)
+                }
+
+                // Create new sync anchor from current date
+                let newAnchor = NSFileProviderSyncAnchor(Date())
 
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle)
                 return observer.finishEnumeratingChanges(upTo: newAnchor, moreComing: false)
@@ -165,7 +236,9 @@ class WorkingSetS3Enumerator: S3Enumerator, @unchecked Sendable {
         parent: NSFileProviderItemIdentifier,
         s3Lib: S3Lib,
         notificationManager: NotificationManager,
-        drive: DS3Drive
+        drive: DS3Drive,
+        syncEngine: SyncEngine? = nil,
+        metadataStore: MetadataStore? = nil
     ) {
         // Enumerate everything from the root, recursively.
         super.init(
@@ -173,7 +246,9 @@ class WorkingSetS3Enumerator: S3Enumerator, @unchecked Sendable {
             s3Lib: s3Lib,
             notificationManager: notificationManager,
             drive: drive,
-            recursive: true
+            recursive: true,
+            syncEngine: syncEngine,
+            metadataStore: metadataStore
         )
     }
 }

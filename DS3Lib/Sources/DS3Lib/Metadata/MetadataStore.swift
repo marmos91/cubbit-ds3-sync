@@ -301,4 +301,15 @@ public actor MetadataStore {
         }
         return result
     }
+
+    /// Set the materialization state for an item by S3 key.
+    /// Called after a file is downloaded (isMaterialized = true) or evicted (isMaterialized = false).
+    public func setMaterialized(s3Key: String, isMaterialized: Bool) throws {
+        let context = modelExecutor.modelContext
+        let predicate = #Predicate<SyncedItem> { $0.s3Key == s3Key }
+        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
+        guard let item = try context.fetch(descriptor).first else { return }
+        item.isMaterialized = isMaterialized
+        try context.save()
+    }
 }

@@ -14,28 +14,32 @@ class S3Item: NSObject, NSFileProviderItem, @unchecked Sendable {
     
     let metadata: S3Item.Metadata
     let drive: DS3Drive
-    
+    private let isPinned: Bool
+
     init(
         identifier: NSFileProviderItemIdentifier,
         drive: DS3Drive,
-        objectMetadata: S3Item.Metadata
+        objectMetadata: S3Item.Metadata,
+        isPinned: Bool = false
     ) {
         self.metadata = objectMetadata
         self.drive = drive
-        
+        self.isPinned = isPinned
+
         if identifier.rawValue == String(DefaultSettings.S3.delimiter) {
             self.identifier = .rootContainer
         } else {
             self.identifier = identifier
         }
     }
-    
+
     init(
-        from item: NSFileProviderItem, 
+        from item: NSFileProviderItem,
         drive: DS3Drive
     ) {
         self.identifier = item.itemIdentifier
         self.drive = drive
+        self.isPinned = false
         self.metadata = S3Item.Metadata(
             lastModified: item.contentModificationDate as? Date,
             size: (item.documentSize ?? 0) ?? 0
@@ -99,8 +103,7 @@ class S3Item: NSObject, NSFileProviderItem, @unchecked Sendable {
     }
     
     var contentPolicy: NSFileProviderContentPolicy {
-        // TODO: Here we can implement a pinning policy
-        return .downloadLazily
+        isPinned ? .downloadEagerlyAndKeepDownloaded : .downloadLazily
     }
     
     var capabilities: NSFileProviderItemCapabilities {

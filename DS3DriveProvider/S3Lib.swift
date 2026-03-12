@@ -484,6 +484,69 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         return fileURL
     }
     
+    /// Downloads a byte range of an S3 object to a temporary file using HTTP Range GET.
+    /// Used for partial content fetching of large files.
+    /// - Parameters:
+    ///   - identifier: the item identifier to download
+    ///   - drive: the DS3Drive the item belongs to
+    ///   - range: the HTTP Range header value (e.g., "bytes=0-1048575")
+    ///   - temporaryFolder: the temporary folder to use for the download
+    ///   - progress: the progress object to update
+    /// - Returns: the URL of the downloaded partial file
+    @Sendable
+    func getS3ItemRange(
+        identifier: NSFileProviderItemIdentifier,
+        drive: DS3Drive,
+        range: String,
+        temporaryFolder: URL,
+        progress: Progress
+    ) async throws -> URL {
+        let fileURL = try temporaryFileURL(withTemporaryFolder: temporaryFolder)
+        let fileHandle = try FileHandle(forWritingTo: fileURL)
+
+        defer { fileHandle.closeFile() }
+
+        let request = S3.GetObjectRequest(
+            bucket: drive.syncAnchor.bucket.name,
+            key: try decodedKey(identifier.rawValue),
+            range: range
+        )
+
+        do {
+            let downloadStart = Date()
+            var bytesDownloaded: Int64 = 0
+
+            _ = try await self.s3.getObjectStreaming(request) { byteBuffer, eventLoop in
+                let bufferSize = Int64(byteBuffer.readableBytes)
+                let bytesToWrite = Data([UInt8](byteBuffer.readableBytesView))
+
+                fileHandle.write(bytesToWrite)
+                bytesDownloaded += bufferSize
+
+                let duration = Date().timeIntervalSince(downloadStart)
+
+                self.notificationManager.sendTransferSpeedNotification(
+                    DriveTransferStats(
+                        driveId: drive.id,
+                        size: bytesDownloaded,
+                        duration: duration,
+                        direction: .download
+                    )
+                )
+
+                return eventLoop.makeSucceededFuture(())
+            }
+
+            progress.completedUnitCount = progress.totalUnitCount
+        } catch {
+            fileHandle.closeFile()
+            try? FileManager.default.removeItem(at: fileURL)
+            throw error
+        }
+
+        return fileURL
+    }
+
     /// Uploads a given S3Item to S3. The method will use multipart upload if the item size is greater than the threshold defined in DefaultSettings.S3.multipartThreshold
     /// - Parameters:
     ///   - s3Item: the S3Item to upload containing the metadata
