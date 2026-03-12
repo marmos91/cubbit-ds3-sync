@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-03-11T12:58:00Z"
-last_activity: 2026-03-11 -- Completed plan 01-03 (extension hardening)
+status: completed
+stopped_at: Completed 02-03-PLAN.md (Phase 2 complete)
+last_updated: "2026-03-12T15:13:30.890Z"
+last_activity: 2026-03-12 -- Completed plan 02-03 (File Provider SyncEngine integration)
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 12
-  completed_plans: 3
-  percent: 25
+  completed_phases: 2
+  total_plans: 7
+  completed_plans: 7
+  percent: 100
 ---
 
 # Project State
@@ -21,32 +21,33 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Files sync reliably and transparently between the user's Mac and Cubbit DS3, with zero friction
-**Current focus:** Phase 1: Foundation
+**Current focus:** Phase 2 complete -- Sync Engine fully integrated. Next: Phase 3 (Conflict Resolution)
 
 ## Current Position
 
-Phase: 1 of 5 (Foundation)
-Plan: 3 of 4 in current phase
-Status: Executing
-Last activity: 2026-03-11 -- Completed plan 01-03 (extension hardening)
+Phase: 2 of 5 (Sync Engine -- complete)
+Plan: 3 of 3 in current phase (02-03 complete, phase done)
+Status: Phase 2 complete
+Last activity: 2026-03-12 -- Completed plan 02-03 (File Provider SyncEngine integration)
 
-Progress: [###.......] 25%
+Progress: [██████████] 100% (phases 1-2 complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
+- Total plans completed: 7
 - Average duration: 9 min
-- Total execution time: 0.47 hours
+- Total execution time: 1.0 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Foundation | 3 | 28 min | 9 min |
+| 1. Foundation | 4 | 37 min | 9 min |
+| 2. Sync Engine | 3 | 26 min | 9 min |
 
 **Recent Trend:**
-- Last 5 plans: 9m, 10m, 9m
+- Last 5 plans: 9m, 9m, 7m, 6m, 13m
 - Trend: stable
 
 *Updated after each plan completion*
@@ -69,6 +70,20 @@ Recent decisions affecting current work:
 - Plan 01-03: Guard-let chain init pattern -- every extension method uses local bindings after enabled check
 - Plan 01-03: S3ErrorType.toFileProviderError() maps to specific NSFileProviderError codes for system retry behavior
 - Plan 01-03: Multipart upload validates ETag and aborts orphaned parts on any failure
+- Plan 01-04: @MainActor on MetadataStore instead of Sendable (ModelContainer not Sendable)
+- Plan 01-04: syncStatus stored as String for SwiftData compat, type-safe accessor via computed property
+- Plan 01-04: Disabled force_unwrapping in SwiftLint due to pre-existing patterns
+- Plan 02-01: MetadataStore converted to @ModelActor actor with static createContainer() factory
+- Plan 02-01: SyncAnchorRecord defined inside SyncedItemSchemaV2 enum (SwiftData requirement)
+- Plan 02-01: Tests use ManagedAtomic<Int> for Sendable-safe counters in Swift 6
+- Plan 02-02: SyncEngine uses Sendable-safe MetadataStore queries to avoid crossing actor boundaries with non-Sendable @Model objects
+- Plan 02-02: S3ListingProvider protocol for dependency injection (mock in tests, Soto in production)
+- Plan 02-02: Mass deletion threshold at 50% -- logs warning but proceeds with reconciliation
+- Plan 02-02: Hard delete of SyncedItem records on remote deletion (per CONTEXT.md locked decision)
+- Plan 02-03: S3LibListingAdapter lives in extension target (S3Lib only there, not in DS3Lib)
+- Plan 02-03: SyncEngine fallback to timestamp-based enumeration when unavailable (graceful degradation)
+- Plan 02-03: Content policy uses .downloadEagerlyAndKeepDownloaded (not .downloadLazilyAndKeepDownloaded)
+- Plan 02-03: MetadataStore CRUD writes use try? to avoid blocking S3 operations on metadata persistence failure
 
 ### Pending Todos
 
@@ -77,10 +92,10 @@ None yet.
 ### Blockers/Concerns
 
 - [RESOLVED] File Provider extensions are hard to debug -- OSLog structured logging now in place (plan 01-02)
-- SwiftData with concurrent File Provider extension processes is less proven than Core Data -- validate in Phase 1
+- [RESOLVED] SwiftData with concurrent File Provider extension processes -- MetadataStore now uses @ModelActor for background-safe access (plan 02-01, upgraded from @MainActor in 01-04)
 
 ## Session Continuity
 
-Last session: 2026-03-11T12:58:00Z
-Stopped at: Completed 01-03-PLAN.md
-Resume file: .planning/phases/01-foundation/01-04-PLAN.md
+Last session: 2026-03-12T15:05:14.000Z
+Stopped at: Completed 02-03-PLAN.md (Phase 2 complete)
+Resume file: .planning/phases/03-conflict-resolution/03-01-PLAN.md

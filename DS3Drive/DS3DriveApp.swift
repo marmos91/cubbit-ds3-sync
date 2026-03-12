@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import os.log
 import DS3Lib
 
@@ -6,7 +7,7 @@ import DS3Lib
 struct DS3DriveApp: App {
     private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
 
-    private let metadataStore: MetadataStore?
+    private let metadataContainer: ModelContainer?
 
     @AppStorage(DefaultSettings.UserDefaultsKeys.tutorial) var tutorialShown: Bool = DefaultSettings.tutorialShown
     @AppStorage(DefaultSettings.UserDefaultsKeys.loginItemSet) var loginItemSet: Bool = DefaultSettings.loginItemSet
@@ -106,11 +107,11 @@ struct DS3DriveApp: App {
     
     init() {
         do {
-            self.metadataStore = try MetadataStore()
-            logger.info("MetadataStore initialized successfully")
+            self.metadataContainer = try MetadataStore.createContainer()
+            logger.info("MetadataStore container initialized successfully")
         } catch {
-            self.metadataStore = nil
-            logger.error("Failed to initialize MetadataStore: \(error.localizedDescription)")
+            self.metadataContainer = nil
+            logger.error("Failed to initialize MetadataStore container: \(error.localizedDescription)")
         }
 
         if !loginItemSet {

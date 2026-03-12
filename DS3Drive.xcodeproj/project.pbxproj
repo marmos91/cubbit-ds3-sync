@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10203042F6300000042AD93 /* S3LibListingAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10203032F6300000042AD93 /* S3LibListingAdapter.swift */; };
 		D512EEBC2B59631400F550EC /* MFAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D512EEBB2B59631400F550EC /* MFAView.swift */; };
 		D54002A02B5EAEB000B54E97 /* S3Lib.swift in Sources */ = {isa = PBXBuildFile; fileRef = D540029D2B5EAEB000B54E97 /* S3Lib.swift */; };
 		D546D5462B5916CC00231120 /* NoBucketsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D546D5452B5916CC00231120 /* NoBucketsView.swift */; };
@@ -107,6 +108,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A10203032F6300000042AD93 /* S3LibListingAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3LibListingAdapter.swift; sourceTree = "<group>"; };
 		D512EEBB2B59631400F550EC /* MFAView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MFAView.swift; sourceTree = "<group>"; };
 		D540029D2B5EAEB000B54E97 /* S3Lib.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3Lib.swift; sourceTree = "<group>"; };
 		D546D5452B5916CC00231120 /* NoBucketsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoBucketsView.swift; sourceTree = "<group>"; };
@@ -568,6 +570,7 @@
 				D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */,
 				D5A222812B5721CC00F1413B /* S3Enumerator.swift */,
 				D540029D2B5EAEB000B54E97 /* S3Lib.swift */,
+				A10203032F6300000042AD93 /* S3LibListingAdapter.swift */,
 				D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */,
 				D5A222832B5721CC00F1413B /* DS3DriveProvider.xcassets */,
 				D5A2227E2B5721CC00F1413B /* DS3DriveProvider.entitlements */,
@@ -761,6 +764,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D54002A02B5EAEB000B54E97 /* S3Lib.swift in Sources */,
+				A10203042F6300000042AD93 /* S3LibListingAdapter.swift in Sources */,
 				D5A222492B57211500F1413B /* FileProviderExtension.swift in Sources */,
 				D5A222862B5721CC00F1413B /* FileProviderExtension+Errors.swift in Sources */,
 				D5A222892B5721CC00F1413B /* S3Item.swift in Sources */,
