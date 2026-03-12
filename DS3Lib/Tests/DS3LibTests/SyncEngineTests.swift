@@ -261,7 +261,7 @@ final class SyncEngineTests: XCTestCase {
 
         let beforeSync = Date()
 
-        let _ = try await engine.reconcile(
+        _ = try await engine.reconcile(
             driveId: testDriveId, s3Provider: s3Provider,
             bucket: "test-bucket", prefix: nil
         )
@@ -281,7 +281,7 @@ final class SyncEngineTests: XCTestCase {
         ])
 
         // First reconciliation -- creates anchor
-        let _ = try await engine.reconcile(
+        _ = try await engine.reconcile(
             driveId: testDriveId, s3Provider: s3Provider,
             bucket: "test-bucket", prefix: nil
         )
@@ -294,7 +294,7 @@ final class SyncEngineTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(50))
 
         // Second reconciliation -- updates anchor
-        let _ = try await engine.reconcile(
+        _ = try await engine.reconcile(
             driveId: testDriveId, s3Provider: s3Provider,
             bucket: "test-bucket", prefix: nil
         )
@@ -314,7 +314,7 @@ final class SyncEngineTests: XCTestCase {
         // Attempt 3 reconciliations that fail
         for _ in 1...3 {
             do {
-                let _ = try await engine.reconcile(
+                _ = try await engine.reconcile(
                     driveId: testDriveId, s3Provider: s3Provider,
                     bucket: "test-bucket", prefix: nil
                 )
@@ -342,7 +342,7 @@ final class SyncEngineTests: XCTestCase {
 
         // One failed reconciliation
         do {
-            let _ = try await engine.reconcile(
+            _ = try await engine.reconcile(
                 driveId: testDriveId, s3Provider: s3Provider,
                 bucket: "test-bucket", prefix: nil
             )
@@ -352,7 +352,7 @@ final class SyncEngineTests: XCTestCase {
 
         // Now succeed
         s3Provider.shouldThrow = nil
-        let _ = try await engine.reconcile(
+        _ = try await engine.reconcile(
             driveId: testDriveId, s3Provider: s3Provider,
             bucket: "test-bucket", prefix: nil
         )
@@ -426,7 +426,7 @@ final class SyncEngineTests: XCTestCase {
             "new.txt": S3ObjectInfo(etag: "etag-new", size: 300),
         ])
 
-        let _ = try await engine.reconcile(
+        _ = try await engine.reconcile(
             driveId: testDriveId, s3Provider: s3Provider,
             bucket: "test-bucket", prefix: nil
         )

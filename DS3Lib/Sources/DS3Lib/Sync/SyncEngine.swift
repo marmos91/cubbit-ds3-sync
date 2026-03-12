@@ -48,8 +48,8 @@ public actor SyncEngine {
     /// 4. Compute new, modified, and deleted key sets
     /// 5. Check mass deletion threshold
     /// 6. Update MetadataStore (upsert new/modified, delete removed)
-    /// 7. Advance sync anchor
-    /// 8. Reset failure count and notify delegate
+    /// 7. Advance sync anchor (also resets failure count)
+    /// 8. Notify delegate
     ///
     /// On failure: increment failure count, notify delegate if threshold reached, re-throw.
     public func reconcile(
@@ -59,8 +59,7 @@ public actor SyncEngine {
         prefix: String?
     ) async throws -> ReconciliationResult {
         // Step 1: Network check
-        let connected = await networkMonitor.isConnected
-        guard connected else {
+        guard await networkMonitor.isConnected else {
             logger.warning("Reconciliation skipped: network unavailable for drive \(driveId.uuidString, privacy: .public)")
             throw SyncEngineError.networkUnavailable
         }
@@ -111,9 +110,8 @@ public actor SyncEngine {
                 remoteItems: remoteItems
             )
 
-            // Step 7: Advance sync anchor
-            let totalItems = remoteItems.count
-            try await metadataStore.advanceSyncAnchor(driveId: driveId, itemCount: totalItems)
+            // Step 7: Advance sync anchor (resets failure count)
+            try await metadataStore.advanceSyncAnchor(driveId: driveId, itemCount: remoteItems.count)
 
             // Step 8: Notify delegate
             delegate?.syncEngineDidComplete(driveId: driveId)
@@ -168,15 +166,11 @@ public actor SyncEngine {
         remoteItems: [String: S3ObjectInfo],
         localEtags: [String: String?]
     ) -> Set<String> {
-        var modified = Set<String>()
-        for key in commonKeys {
+        Set(commonKeys.filter { key in
             let remoteEtag = remoteItems[key]?.etag
-            let localEtag = localEtags[key] ?? nil
-            if remoteEtag != localEtag {
-                modified.insert(key)
-            }
-        }
-        return modified
+            let localEtag = localEtags[key].flatMap { $0 }
+            return remoteEtag != localEtag
+        })
     }
 
     /// Apply reconciliation changes to MetadataStore.
@@ -189,23 +183,8 @@ public actor SyncEngine {
         deletedKeys: Set<String>,
         remoteItems: [String: S3ObjectInfo]
     ) async throws {
-        // Upsert new items
-        for key in newKeys {
-            let info = remoteItems[key]
-            try await metadataStore.upsertItem(
-                s3Key: key,
-                driveId: driveId,
-                etag: info?.etag,
-                lastModified: info?.lastModified,
-                syncStatus: .synced,
-                parentKey: info?.parentKey,
-                contentType: info?.contentType,
-                size: info?.size ?? 0
-            )
-        }
-
-        // Upsert modified items (update etag, lastModified, etc.)
-        for key in modifiedKeys {
+        // Upsert new and modified items
+        for key in newKeys.union(modifiedKeys) {
             let info = remoteItems[key]
             try await metadataStore.upsertItem(
                 s3Key: key,

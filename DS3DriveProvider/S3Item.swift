@@ -92,10 +92,8 @@ class S3Item: NSObject, NSFileProviderItem, @unchecked Sendable {
         if self.identifier == .rootContainer {
             return .folder
         }
-        
-        let type: UTType = self.identifier.rawValue.last! == self.separator ? .folder : .item
-    
-        return type
+
+        return self.identifier.rawValue.last == self.separator ? .folder : .item
     }
     
     var isFolder: Bool {
@@ -107,7 +105,7 @@ class S3Item: NSObject, NSFileProviderItem, @unchecked Sendable {
     }
     
     var capabilities: NSFileProviderItemCapabilities {
-        let capabilities: NSFileProviderItemCapabilities = [
+        [
             .allowsAddingSubItems,
             .allowsContentEnumerating,
             .allowsDeleting,
@@ -117,7 +115,5 @@ class S3Item: NSObject, NSFileProviderItem, @unchecked Sendable {
             .allowsWriting,
             .allowsExcludingFromSync
         ]
-        
-        return capabilities
     }
 }

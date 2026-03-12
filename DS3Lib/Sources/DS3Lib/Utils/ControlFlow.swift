@@ -18,26 +18,20 @@ public func withRetries<T>(
     withLogger logger: Logger? = nil,
     block: @escaping @Sendable () async throws -> T
 ) async throws -> T {
-    var retries = retries
-    
-    if retries == 0 {
+    guard retries > 0 else {
         throw ControlFlowError.maxRetriesReached
     }
-    
-    while retries > 0 {
+
+    var lastError: Error = ControlFlowError.maxRetriesReached
+    for _ in 0..<retries {
         do {
             return try await block()
         } catch {
-            retries -= 1
-            
-            if retries == 0 {
-                throw error
-            }
+            lastError = error
         }
     }
-    
-    // Should never reach this
-    throw ControlFlowError.maxRetriesReached
+
+    throw lastError
 }
 
 /// Retries a block with exponential backoff and jitter.

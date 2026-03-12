@@ -8,7 +8,7 @@ import SwiftData
 /// Wraps a non-Sendable callback for safe use across Task boundaries.
 /// Apple's File Provider callbacks predate Swift concurrency and lack @Sendable annotations.
 /// The wrapper is safe because the underlying handler is set once at init and never mutated.
-private final class UnsafeCallback<T>: @unchecked Sendable {
+final class UnsafeCallback<T>: @unchecked Sendable {
     let handler: T
     init(_ handler: T) { self.handler = handler }
 }
@@ -132,8 +132,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             self.logger.error("An error occurred while shutting down the main extension: \(error.localizedDescription)")
         }
 
-        // Stop network monitoring
-        if let monitor = self.networkMonitor {
+        if let monitor = networkMonitor {
             Task { await monitor.stopMonitoring() }
         }
     }

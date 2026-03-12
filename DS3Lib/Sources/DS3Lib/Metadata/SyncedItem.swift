@@ -117,7 +117,6 @@ public enum SyncedItemSchemaV2: VersionedSchema {
             self.driveId = driveId
             self.size = size
             self.syncStatus = syncStatus
-            self.isMaterialized = false
         }
     }
 

@@ -24,6 +24,23 @@ public actor MetadataStore {
         )
     }
 
+    // MARK: - Private Fetch Helpers
+
+    private func findItem(byKey s3Key: String) throws -> SyncedItem? {
+        let predicate = #Predicate<SyncedItem> { $0.s3Key == s3Key }
+        return try modelExecutor.modelContext.fetch(FetchDescriptor<SyncedItem>(predicate: predicate)).first
+    }
+
+    private func findItems(byDrive driveId: UUID) throws -> [SyncedItem] {
+        let predicate = #Predicate<SyncedItem> { $0.driveId == driveId }
+        return try modelExecutor.modelContext.fetch(FetchDescriptor<SyncedItem>(predicate: predicate))
+    }
+
+    private func findAnchor(byDrive driveId: UUID) throws -> SyncAnchorRecord? {
+        let predicate = #Predicate<SyncAnchorRecord> { $0.driveId == driveId }
+        return try modelExecutor.modelContext.fetch(FetchDescriptor<SyncAnchorRecord>(predicate: predicate)).first
+    }
+
     // MARK: - SyncedItem CRUD
 
     /// Insert or update a SyncedItem by s3Key.
@@ -38,11 +55,7 @@ public actor MetadataStore {
         contentType: String? = nil,
         size: Int64 = 0
     ) throws {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncedItem> { $0.s3Key == s3Key }
-        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
-
-        if let existing = try context.fetch(descriptor).first {
+        if let existing = try findItem(byKey: s3Key) {
             existing.driveId = driveId
             existing.etag = etag
             existing.lastModified = lastModified
@@ -58,35 +71,26 @@ public actor MetadataStore {
             item.localFileHash = localFileHash
             item.parentKey = parentKey
             item.contentType = contentType
-            context.insert(item)
+            modelExecutor.modelContext.insert(item)
         }
 
-        try context.save()
+        try modelExecutor.modelContext.save()
     }
 
     /// Fetch all SyncedItems for a specific drive.
     public func fetchItemsByDrive(driveId: UUID) throws -> [SyncedItem] {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncedItem> { $0.driveId == driveId }
-        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
-        return try context.fetch(descriptor)
+        try findItems(byDrive: driveId)
     }
 
     /// Fetch a single SyncedItem by its S3 key.
     public func fetchItem(byKey s3Key: String) throws -> SyncedItem? {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncedItem> { $0.s3Key == s3Key }
-        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
-        return try context.fetch(descriptor).first
+        try findItem(byKey: s3Key)
     }
 
     /// Delete all SyncedItems for a specific drive (hard delete).
     public func deleteItemsForDrive(driveId: UUID) throws {
         let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncedItem> { $0.driveId == driveId }
-        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
-        let items = try context.fetch(descriptor)
-        for item in items {
+        for item in try findItems(byDrive: driveId) {
             context.delete(item)
         }
         try context.save()
@@ -94,12 +98,9 @@ public actor MetadataStore {
 
     /// Delete a single SyncedItem by S3 key.
     public func deleteItem(byKey s3Key: String) throws {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncedItem> { $0.s3Key == s3Key }
-        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
-        if let item = try context.fetch(descriptor).first {
-            context.delete(item)
-            try context.save()
+        if let item = try findItem(byKey: s3Key) {
+            modelExecutor.modelContext.delete(item)
+            try modelExecutor.modelContext.save()
         }
     }
 
@@ -116,28 +117,21 @@ public actor MetadataStore {
 
     /// Fetch the sync anchor record for a specific drive.
     public func fetchSyncAnchor(driveId: UUID) throws -> SyncAnchorRecord? {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncAnchorRecord> { $0.driveId == driveId }
-        let descriptor = FetchDescriptor<SyncAnchorRecord>(predicate: predicate)
-        return try context.fetch(descriptor).first
+        try findAnchor(byDrive: driveId)
     }
 
     /// Insert or update a SyncAnchorRecord for a drive.
     public func upsertSyncAnchor(driveId: UUID, lastSyncDate: Date, itemCount: Int) throws {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncAnchorRecord> { $0.driveId == driveId }
-        let descriptor = FetchDescriptor<SyncAnchorRecord>(predicate: predicate)
-
-        if let existing = try context.fetch(descriptor).first {
+        if let existing = try findAnchor(byDrive: driveId) {
             existing.lastSyncDate = lastSyncDate
             existing.itemCount = itemCount
         } else {
             let anchor = SyncAnchorRecord(driveId: driveId, lastSyncDate: lastSyncDate)
             anchor.itemCount = itemCount
-            context.insert(anchor)
+            modelExecutor.modelContext.insert(anchor)
         }
 
-        try context.save()
+        try modelExecutor.modelContext.save()
     }
 
     /// Advance the sync anchor after a successful sync cycle.
@@ -145,13 +139,9 @@ public actor MetadataStore {
     /// - Returns: The new lastSyncDate.
     @discardableResult
     public func advanceSyncAnchor(driveId: UUID, itemCount: Int) throws -> Date {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncAnchorRecord> { $0.driveId == driveId }
-        let descriptor = FetchDescriptor<SyncAnchorRecord>(predicate: predicate)
-
         let now = Date()
 
-        if let existing = try context.fetch(descriptor).first {
+        if let existing = try findAnchor(byDrive: driveId) {
             existing.lastSyncDate = now
             existing.lastSuccessfulSync = now
             existing.consecutiveFailures = 0
@@ -160,10 +150,10 @@ public actor MetadataStore {
             let anchor = SyncAnchorRecord(driveId: driveId, lastSyncDate: now)
             anchor.lastSuccessfulSync = now
             anchor.itemCount = itemCount
-            context.insert(anchor)
+            modelExecutor.modelContext.insert(anchor)
         }
 
-        try context.save()
+        try modelExecutor.modelContext.save()
         return now
     }
 
@@ -172,10 +162,8 @@ public actor MetadataStore {
     @discardableResult
     public func incrementFailureCount(driveId: UUID) throws -> Int {
         let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncAnchorRecord> { $0.driveId == driveId }
-        let descriptor = FetchDescriptor<SyncAnchorRecord>(predicate: predicate)
 
-        if let existing = try context.fetch(descriptor).first {
+        if let existing = try findAnchor(byDrive: driveId) {
             existing.consecutiveFailures += 1
             existing.lastSyncDate = Date()
             try context.save()
@@ -191,25 +179,17 @@ public actor MetadataStore {
 
     /// Reset the consecutive failure count for a drive.
     public func resetFailureCount(driveId: UUID) throws {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncAnchorRecord> { $0.driveId == driveId }
-        let descriptor = FetchDescriptor<SyncAnchorRecord>(predicate: predicate)
-
-        if let existing = try context.fetch(descriptor).first {
+        if let existing = try findAnchor(byDrive: driveId) {
             existing.consecutiveFailures = 0
-            try context.save()
+            try modelExecutor.modelContext.save()
         }
     }
 
     /// Delete the sync anchor record for a drive.
     public func deleteSyncAnchor(driveId: UUID) throws {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncAnchorRecord> { $0.driveId == driveId }
-        let descriptor = FetchDescriptor<SyncAnchorRecord>(predicate: predicate)
-
-        if let anchor = try context.fetch(descriptor).first {
-            context.delete(anchor)
-            try context.save()
+        if let anchor = try findAnchor(byDrive: driveId) {
+            modelExecutor.modelContext.delete(anchor)
+            try modelExecutor.modelContext.save()
         }
     }
 
@@ -220,34 +200,22 @@ public actor MetadataStore {
 
     /// Check whether an item with the given S3 key exists.
     public func itemExists(byKey s3Key: String) throws -> Bool {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncedItem> { $0.s3Key == s3Key }
-        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
-        return try context.fetch(descriptor).first != nil
+        try findItem(byKey: s3Key) != nil
     }
 
     /// Fetch the etag of an item by S3 key, or nil if not found.
     public func fetchItemEtag(byKey s3Key: String) throws -> String? {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncedItem> { $0.s3Key == s3Key }
-        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
-        return try context.fetch(descriptor).first?.etag
+        try findItem(byKey: s3Key)?.etag
     }
 
     /// Fetch the sync status raw string of an item by S3 key, or nil if not found.
     public func fetchItemSyncStatus(byKey s3Key: String) throws -> String? {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncedItem> { $0.s3Key == s3Key }
-        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
-        return try context.fetch(descriptor).first?.syncStatus
+        try findItem(byKey: s3Key)?.syncStatus
     }
 
     /// Count items for a specific drive.
     public func countItemsByDrive(driveId: UUID) throws -> Int {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncedItem> { $0.driveId == driveId }
-        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
-        return try context.fetch(descriptor).count
+        try findItems(byDrive: driveId).count
     }
 
     /// Sendable snapshot of a SyncAnchorRecord's key fields.
@@ -261,10 +229,7 @@ public actor MetadataStore {
 
     /// Fetch a Sendable snapshot of the sync anchor for a drive.
     public func fetchSyncAnchorSnapshot(driveId: UUID) throws -> SyncAnchorSnapshot? {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncAnchorRecord> { $0.driveId == driveId }
-        let descriptor = FetchDescriptor<SyncAnchorRecord>(predicate: predicate)
-        guard let record = try context.fetch(descriptor).first else { return nil }
+        guard let record = try findAnchor(byDrive: driveId) else { return nil }
         return SyncAnchorSnapshot(
             driveId: record.driveId,
             lastSyncDate: record.lastSyncDate,
@@ -277,39 +242,22 @@ public actor MetadataStore {
     /// Fetch all item keys and etags for a drive as a Sendable dictionary.
     /// Used by SyncEngine for reconciliation without crossing actor boundary with @Model objects.
     public func fetchItemKeysAndEtags(driveId: UUID) throws -> [String: String?] {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncedItem> { $0.driveId == driveId }
-        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
-        let items = try context.fetch(descriptor)
-        var result: [String: String?] = [:]
-        for item in items {
-            result[item.s3Key] = item.etag
-        }
-        return result
+        let items = try findItems(byDrive: driveId)
+        return Dictionary(uniqueKeysWithValues: items.map { ($0.s3Key, $0.etag) })
     }
 
     /// Fetch all item keys and their sync status for a drive as a Sendable dictionary.
     /// Used by SyncEngine to determine which items qualify for deletion detection.
     public func fetchItemKeysAndStatuses(driveId: UUID) throws -> [String: String] {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncedItem> { $0.driveId == driveId }
-        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
-        let items = try context.fetch(descriptor)
-        var result: [String: String] = [:]
-        for item in items {
-            result[item.s3Key] = item.syncStatus
-        }
-        return result
+        let items = try findItems(byDrive: driveId)
+        return Dictionary(uniqueKeysWithValues: items.map { ($0.s3Key, $0.syncStatus) })
     }
 
     /// Set the materialization state for an item by S3 key.
     /// Called after a file is downloaded (isMaterialized = true) or evicted (isMaterialized = false).
     public func setMaterialized(s3Key: String, isMaterialized: Bool) throws {
-        let context = modelExecutor.modelContext
-        let predicate = #Predicate<SyncedItem> { $0.s3Key == s3Key }
-        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
-        guard let item = try context.fetch(descriptor).first else { return }
+        guard let item = try findItem(byKey: s3Key) else { return }
         item.isMaterialized = isMaterialized
-        try context.save()
+        try modelExecutor.modelContext.save()
     }
 }

@@ -91,10 +91,15 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 guard let key = object.key?.removingPercentEncoding else {
                     continue
                 }
-                
+
                 if key == prefix {
-                    // NOTE: Skipping the prefix itself as we don't want the folder root to be listed
                     continue
+                }
+
+                if let filterDate = date {
+                    guard let lastModified = object.lastModified, lastModified > filterDate else {
+                        continue
+                    }
                 }
 
                 let s3Item = S3Item(
@@ -106,12 +111,6 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                          size: (object.size ?? 0) as NSNumber
                      )
                 )
-                
-                if let filterDate = date {
-                    guard let lastModified = object.lastModified, lastModified > filterDate else {
-                        continue
-                    }
-                }
 
                 items.append(s3Item)
             }
@@ -122,19 +121,14 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         guard let isTruncated = response.isTruncated else {
             throw EnumeratorError.missingParameters
         }
-        
+
         if !isTruncated {
             return (items, nil)
         }
-        
-        var nextContinuationToken: String? = response.nextContinuationToken
-        
-        if nextContinuationToken == "" {
-            // Sometimes the next continuation token is an empty string, in that case we need to return nil
-            nextContinuationToken = nil
-        }
-        
-        return (items, nextContinuationToken)
+
+        // S3 sometimes returns an empty string instead of nil for the continuation token
+        let nextToken = response.nextContinuationToken?.isEmpty == true ? nil : response.nextContinuationToken
+        return (items, nextToken)
     }
 
     /// Retrieves metadata for a remote S3Item using a HEAD request
@@ -656,7 +650,6 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
 
             let partSize = DefaultSettings.S3.multipartUploadPartSize
 
-            var offset: Int = 0
             var partNumber: Int = 1
 
             var completedParts: [S3.CompletedPart] = []
@@ -695,7 +688,6 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
 
                 completedParts.append(S3.CompletedPart(eTag: eTag, partNumber: partNumber))
 
-                offset += data.count
                 partNumber += 1
 
                 progress?.completedUnitCount += 1

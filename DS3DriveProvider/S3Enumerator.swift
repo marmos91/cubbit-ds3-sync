@@ -4,13 +4,6 @@ import os.log
 import SotoS3
 import DS3Lib
 
-/// Wraps a non-Sendable callback for safe use across Task boundaries.
-/// The wrapper is safe because the underlying handler is set once at init and never mutated.
-private final class UnsafeCallback<T>: @unchecked Sendable {
-    let handler: T
-    init(_ handler: T) { self.handler = handler }
-}
-
 enum EnumeratorError: Error {
     case unsupported
     case missingParameters
@@ -47,11 +40,9 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
         self.notificationManager = notificationManager
         self.syncEngine = syncEngine
         self.metadataStore = metadataStore
-        self.prefix = self.drive.syncAnchor.prefix
-
         switch self.parent {
         case .rootContainer, .trashContainer, .workingSet:
-            break
+            self.prefix = self.drive.syncAnchor.prefix
         default:
             self.prefix = parent.rawValue
         }
@@ -61,31 +52,20 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
 
     func invalidate() {}
 
-    // NOTE: gets called when the extension wants to get the last sync point (could be a timestamp)
     func currentSyncAnchor(
         completionHandler: @escaping (NSFileProviderSyncAnchor?) -> Void
     ) {
         guard let metadataStore = self.metadataStore else {
-            // Fall back to current date if MetadataStore is unavailable
             completionHandler(NSFileProviderSyncAnchor(Date()))
             return
         }
 
-        // Wrap non-Sendable callback for safe use across Task boundary
         let cb = UnsafeCallback(completionHandler)
         let driveId = self.drive.id
 
         Task {
-            do {
-                if let snapshot = try await metadataStore.fetchSyncAnchorSnapshot(driveId: driveId) {
-                    cb.handler(NSFileProviderSyncAnchor(snapshot.lastSyncDate))
-                } else {
-                    // No anchor record yet -- return anchor from current date
-                    cb.handler(NSFileProviderSyncAnchor(Date()))
-                }
-            } catch {
-                cb.handler(NSFileProviderSyncAnchor(Date()))
-            }
+            let date = (try? await metadataStore.fetchSyncAnchorSnapshot(driveId: driveId))?.lastSyncDate ?? Date()
+            cb.handler(NSFileProviderSyncAnchor(date))
         }
     }
 
@@ -190,23 +170,21 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
 
                 // Convert new + modified keys to S3Item instances for the observer
                 let changedKeys = result.newKeys.union(result.modifiedKeys)
-                if !changedKeys.isEmpty {
-                    let updatedItems: [S3Item] = changedKeys.compactMap { key in
-                        guard let info = result.remoteItems[key] else { return nil }
-                        return S3Item(
-                            identifier: NSFileProviderItemIdentifier(key),
-                            drive: self.drive,
-                            objectMetadata: S3Item.Metadata(
-                                etag: info.etag,
-                                lastModified: info.lastModified,
-                                size: NSNumber(value: info.size)
-                            )
+                let updatedItems: [S3Item] = changedKeys.compactMap { key in
+                    guard let info = result.remoteItems[key] else { return nil }
+                    return S3Item(
+                        identifier: NSFileProviderItemIdentifier(key),
+                        drive: self.drive,
+                        objectMetadata: S3Item.Metadata(
+                            etag: info.etag,
+                            lastModified: info.lastModified,
+                            size: NSNumber(value: info.size)
                         )
-                    }
+                    )
+                }
 
-                    if !updatedItems.isEmpty {
-                        observer.didUpdate(updatedItems)
-                    }
+                if !updatedItems.isEmpty {
+                    observer.didUpdate(updatedItems)
                 }
 
                 // Report deleted items
