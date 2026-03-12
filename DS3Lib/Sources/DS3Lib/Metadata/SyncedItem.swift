@@ -4,7 +4,7 @@ import SwiftData
 /// Schema version 1 for the SyncedItem metadata model.
 /// Uses VersionedSchema from day one for explicit migration management.
 public enum SyncedItemSchemaV1: VersionedSchema {
-    public static let versionIdentifier = Schema.Version(1, 0, 0)
+    nonisolated(unsafe) public static let versionIdentifier = Schema.Version(1, 0, 0)
     public static var models: [any PersistentModel.Type] { [SyncedItem.self] }
 
     @Model
@@ -24,8 +24,16 @@ public enum SyncedItemSchemaV1: VersionedSchema {
         /// Local file content hash for change detection
         public var localFileHash: String?
 
-        /// Current sync status: pending, syncing, synced, error, conflict
+        /// Current sync status stored as raw string for SwiftData compatibility.
+        /// Use `status` computed property for type-safe access.
         public var syncStatus: String
+
+        /// Type-safe accessor for `syncStatus`.
+        @Transient
+        public var status: SyncStatus {
+            get { SyncStatus(rawValue: syncStatus) ?? .pending }
+            set { syncStatus = newValue.rawValue }
+        }
 
         /// Parent S3 key (folder containing this item)
         public var parentKey: String?

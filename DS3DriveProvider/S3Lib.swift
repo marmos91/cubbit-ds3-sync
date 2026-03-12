@@ -485,7 +485,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         fileURL: URL? = nil,
         withProgress progress: Progress? = nil
     ) async throws {
-        if (s3Item.documentSize as! Int) < DefaultSettings.S3.multipartThreshold || s3Item.contentType == .folder {
+        if (s3Item.documentSize?.intValue ?? 0) < DefaultSettings.S3.multipartThreshold || s3Item.contentType == .folder {
             try await self.putS3ItemStandard(s3Item, fileURL: fileURL, withProgress: progress)
         } else {
             try await self.putS3ItemMultipart(s3Item, fileURL: fileURL, withProgress: progress)

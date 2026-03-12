@@ -279,7 +279,12 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             }
         }
 
-        var itemSize = itemTemplate.documentSize ?? 0
+        var itemSize: Int
+        if let docSize = itemTemplate.documentSize, let size = docSize {
+            itemSize = size.intValue
+        } else {
+            itemSize = 0
+        }
 
         if itemTemplate.contentType == .folder || itemTemplate.contentType == .directory {
             key += String(DefaultSettings.S3.delimiter)
@@ -289,10 +294,11 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         let s3Item = S3Item(
             identifier: NSFileProviderItemIdentifier(key),
             drive: drive,
-            objectMetadata: S3Item.Metadata(size: itemSize ?? 0)
+            objectMetadata: S3Item.Metadata(size: NSNumber(value: itemSize))
         )
 
-        let numParts = max(Int64(s3Item.documentSize! as! Int / DefaultSettings.S3.multipartUploadPartSize), 1)
+        let documentSize = s3Item.documentSize?.intValue ?? 0
+        let numParts = max(Int64(documentSize / DefaultSettings.S3.multipartUploadPartSize), 1)
         let progress = Progress(totalUnitCount: numParts)
 
         Task {
@@ -375,7 +381,8 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 // but that it needs to refetch them.
                 // Report all remaining changes as pending.
 
-                let numParts = Int64(s3Item.documentSize! as! Int / DefaultSettings.S3.multipartUploadPartSize)
+                let documentSize = s3Item.documentSize?.intValue ?? 0
+                let numParts = max(Int64(documentSize / DefaultSettings.S3.multipartUploadPartSize), 1)
 
                 let putProgress = Progress(totalUnitCount: numParts)
                 progress.addChild(putProgress, withPendingUnitCount: numParts)

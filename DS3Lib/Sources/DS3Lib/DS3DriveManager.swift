@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-import FileProvider
+@preconcurrency import FileProvider
 import os.log
 
 /// Errors that can occur during drive management operations
@@ -83,16 +83,11 @@ public enum DS3DriveManagerError: Error {
     /// Lists existing domains in the file provider
     /// - Returns: the currently registered domains
     public func extensionExistingDomains() async throws -> [NSFileProviderDomain] {
-        return try await withCheckedThrowingContinuation { continuation in
-            NSFileProviderManager.getDomainsWithCompletionHandler { domains, error in
-                if error != nil {
-                    self.logger.error("An error occurred: \(error?.localizedDescription ?? "Unknown error")")
-                    return continuation.resume(throwing: DS3DriveManagerError.driveNotFound)
-                }
-
-                nonisolated(unsafe) let sendableDomains = domains
-                continuation.resume(returning: sendableDomains)
-            }
+        do {
+            return try await NSFileProviderManager.domains()
+        } catch {
+            self.logger.error("An error occurred: \(error.localizedDescription)")
+            throw DS3DriveManagerError.driveNotFound
         }
     }
     
