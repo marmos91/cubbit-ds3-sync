@@ -77,10 +77,10 @@ final class NotificationManager: Sendable {
         }
     }
 
-    func sendConflictNotification(filename: String, conflictKey: String, driveId: UUID) {
+    func sendConflictNotification(filename: String, conflictKey: String) {
         queue.async {
             let info = ConflictInfo(
-                driveId: driveId,
+                driveId: self.drive.id,
                 originalFilename: filename,
                 conflictKey: conflictKey
             )

@@ -6,7 +6,6 @@ import DS3Lib
 /// Listens for conflict IPC notifications from the File Provider extension
 /// and presents macOS user notifications via UNUserNotificationCenter.
 @MainActor
-@Observable
 final class ConflictNotificationHandler {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
 
@@ -33,7 +32,7 @@ final class ConflictNotificationHandler {
 
     /// Request notification permission from the user (best-effort).
     func requestPermission() {
-        Task { @MainActor in
+        Task {
             do {
                 let granted = try await UNUserNotificationCenter.current().requestAuthorization(
                     options: [.alert, .sound, .badge]

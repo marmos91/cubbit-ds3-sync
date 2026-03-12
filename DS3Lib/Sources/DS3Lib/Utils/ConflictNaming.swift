@@ -11,42 +11,38 @@ public enum ConflictNaming: Sendable {
     ///   - date: The date/time of the conflict
     /// - Returns: A new S3 key with conflict suffix inserted before the extension
     public static func conflictKey(originalKey: String, hostname: String, date: Date) -> String {
-        let dateStr = Self.formatDate(date)
+        let dateStr = formatDate(date)
 
-        // Split by "/" to separate parent path from filename
-        let components = originalKey.split(separator: "/", omittingEmptySubsequences: false)
-        let parentPath: String
-        let filename: String
+        // Separate parent path from filename
+        let nsKey = originalKey as NSString
+        let parentPath = nsKey.deletingLastPathComponent
+        let filename = nsKey.lastPathComponent
 
-        if components.count > 1 {
-            parentPath = components.dropLast().joined(separator: "/") + "/"
-            filename = String(components.last!)
-        } else {
-            parentPath = ""
-            filename = originalKey
-        }
-
-        // Split filename into name and extension at the last dot
+        // Split filename into name and extension
         // Hidden files (starting with ".") with no other dot are treated as having no extension
+        let nsFilename = filename as NSString
+        let rawExt = nsFilename.pathExtension
+        let isHiddenWithoutExt = filename.hasPrefix(".") && nsFilename.deletingPathExtension.isEmpty
+
         let name: String
         let ext: String
 
-        if let dotIndex = filename.lastIndex(of: ".") {
-            let nameBeforeDot = String(filename[filename.startIndex..<dotIndex])
-            if nameBeforeDot.isEmpty {
-                // Hidden file like ".gitignore" -- treat entire thing as name, no extension
-                name = filename
-                ext = ""
-            } else {
-                name = nameBeforeDot
-                ext = "." + String(filename[filename.index(after: dotIndex)...])
-            }
-        } else {
+        if rawExt.isEmpty || isHiddenWithoutExt {
             name = filename
             ext = ""
+        } else {
+            name = nsFilename.deletingPathExtension
+            ext = rawExt
         }
 
-        return "\(parentPath)\(name) (Conflict on \(hostname) \(dateStr))\(ext)"
+        let suffix = " (Conflict on \(hostname) \(dateStr))"
+        let newFilename = ext.isEmpty ? "\(name)\(suffix)" : "\(name)\(suffix).\(ext)"
+
+        if parentPath.isEmpty || parentPath == "." {
+            return newFilename
+        }
+
+        return parentPath + "/\(newFilename)"
     }
 
     private static func formatDate(_ date: Date) -> String {
