@@ -9,7 +9,7 @@ struct ProjectSelectorView: View {
             ProjectSelectorErrorView()
                 .environment(projectSelectionViewModel)
         } else {
-            if projectSelectionViewModel.projects.count == 0 {
+            if projectSelectionViewModel.projects.isEmpty {
                 NoProjectsView()
                     .environment(projectSelectionViewModel)
                     .padding(100.0)

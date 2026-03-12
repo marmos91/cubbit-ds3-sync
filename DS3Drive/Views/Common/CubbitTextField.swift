@@ -10,7 +10,7 @@ struct CubbitTextField: View {
     var canShowPassword = true
     
     var body: some View {
-        HStack{
+        HStack {
             if isSecure {
                 if isShowingPassword {
                     TextField(placeholder, text: $text)
@@ -47,7 +47,7 @@ struct CubbitTextField: View {
     ZStack {
         Color(.background)
         
-        VStack{
+        VStack {
             CubbitTextField(
                 placeholder: "Email",
                 text: Binding.constant("")

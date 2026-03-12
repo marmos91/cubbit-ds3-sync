@@ -67,7 +67,6 @@ struct TutorialView: View {
                     
 //                    .frame(height: .infinity)
                     
-                
                 VStack(alignment: .leading) {
                     Text(vm.slides[vm.currentSlideIndex].title)
                         .font(.custom("Nunito", size: 16))

@@ -35,8 +35,10 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     var project: Project
     var authentication: DS3Authentication
     var ds3Sdk: DS3SDK
-    nonisolated(unsafe) var s3Client: S3?
-    
+    var s3Client: S3?
+    /// Stored separately for shutdown in deinit (nonisolated context)
+    nonisolated(unsafe) private var _awsClient: AWSClient?
+
     var buckets: [Bucket] = []
     var loading: Bool = true
     var selectedIAMUser: IAMUser?
@@ -67,11 +69,7 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     }
    
     deinit {
-        do {
-            try self.s3Client?.client.syncShutdown()
-        } catch {
-            self.logger.error("Fatal: cannot shutdown S3 client")
-        }
+        try? _awsClient?.syncShutdown()
     }
     
     @MainActor
@@ -154,8 +152,8 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     func initializeAWSIfNecessary() async throws {
         guard let account = self.authentication.account else { return }
 
-        if let existingClient = self.s3Client {
-            try existingClient.client.syncShutdown()
+        if let existingClient = self._awsClient {
+            try existingClient.syncShutdown()
         }
 
         guard let selectedIAMUser = self.selectedIAMUser else {
@@ -169,14 +167,19 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
             ds3ProjectName: self.project.name
         )
 
+        guard let secretKey = apiKeys.secretKey else {
+            throw SyncAnchorSelectionError.DS3ClientError
+        }
+
         let awsClient = AWSClient(
             credentialProvider: .static(
                 accessKeyId: apiKeys.apiKey,
-                secretAccessKey: apiKeys.secretKey!
+                secretAccessKey: secretKey
             ),
             httpClientProvider: .createNew
         )
 
+        self._awsClient = awsClient
         self.s3Client = S3(client: awsClient, endpoint: account.endpointGateway)
     }
     

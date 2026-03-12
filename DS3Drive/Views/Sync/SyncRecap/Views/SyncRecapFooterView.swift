@@ -38,7 +38,7 @@ struct SyncRecapFooterView: View {
     
     func buttonDisabled() -> Bool {
         if let driveName = syncRecapViewModel.ds3DriveName {
-            return driveName.count == 0
+            return driveName.isEmpty
         }
         
         return true

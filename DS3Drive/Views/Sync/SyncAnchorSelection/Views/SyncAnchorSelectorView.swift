@@ -17,7 +17,7 @@ struct SyncAnchorSelectorView: View {
                         .environment(syncAnchorSelectionModel)
                         .padding(100)
                 } else {
-                    if syncAnchorSelectionModel.buckets.count == 0 {
+                    if syncAnchorSelectionModel.buckets.isEmpty {
                         NoBucketsView()
                             .environment(syncAnchorSelectionModel)
                             .padding(100)

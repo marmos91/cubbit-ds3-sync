@@ -51,7 +51,6 @@ struct PreferencesView: View {
                     }
                     .padding(.bottom)
                     
-                
                     VStack(alignment: .leading) {
                         Text("Password:")
                             .font(.custom("Nunito", size: 12))
@@ -138,7 +137,6 @@ struct PreferencesView: View {
             maxHeight: 600
         )
     }
-    
     
 }
 

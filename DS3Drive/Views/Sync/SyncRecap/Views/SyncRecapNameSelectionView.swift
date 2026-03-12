@@ -24,7 +24,7 @@ struct SyncRecapNameSelectionView: View {
                 )
                 .focused($focused, equals: true)
                 .onSubmit {
-                    if let ds3DriveName = syncRecapViewModel.ds3DriveName, ds3DriveName.count > 0 {
+                    if let ds3DriveName = syncRecapViewModel.ds3DriveName, !ds3DriveName.isEmpty {
                         onComplete?()
                     }
                 }
@@ -87,7 +87,6 @@ struct SyncRecapNameSelectionView: View {
         return copy
     }
 }
-
 
 #Preview {
     SyncRecapNameSelectionView()

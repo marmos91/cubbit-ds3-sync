@@ -10,7 +10,7 @@ class TutorialViewModel: ObservableObject {
     }
     
     func nextSlide() {
-        if currentSlideIndex < slides.count {
+        if currentSlideIndex < slides.count - 1 {
             currentSlideIndex += 1
         }
     }

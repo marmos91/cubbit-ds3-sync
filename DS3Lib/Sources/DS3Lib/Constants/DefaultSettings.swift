@@ -79,7 +79,7 @@ public enum DefaultSettings {
 
     /// Whether the app is set to start at login or not.
     public static let appIsLoginItem: Bool = {
-        return SMAppService().status.rawValue == 1
+        return SMAppService().status == .enabled
     }()
 
     /// Settings related to the tray menu.

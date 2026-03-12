@@ -19,7 +19,7 @@ public enum DS3DriveManagerError: Error {
     public var drives: [DS3Drive] = DS3DriveManager.loadFromDiskOrCreateNew()
 
     /// The set of currently syncing drive IDs
-    public var syncyingDrives: Set<UUID> = []
+    public var syncingDrives: Set<UUID> = []
 
     public init(appStatusManager: AppStatusManager) {
         self.setupObserver()
@@ -59,12 +59,12 @@ public enum DS3DriveManagerError: Error {
         
         switch updateDriveStatusNotification.status {
         case .sync, .indexing:
-            self.syncyingDrives.insert(updateDriveStatusNotification.driveId)
+            self.syncingDrives.insert(updateDriveStatusNotification.driveId)
         default:
-            self.syncyingDrives.remove(updateDriveStatusNotification.driveId)
+            self.syncingDrives.remove(updateDriveStatusNotification.driveId)
         }
         
-        AppStatusManager.default().status = self.syncyingDrives.isEmpty ? .idle : .syncing
+        AppStatusManager.default().status = self.syncingDrives.isEmpty ? .idle : .syncing
     }
     
     /// Returns a stored DS3Drive with the given id, if any

@@ -3,7 +3,7 @@ import SwiftUI
 struct IconTextField: View {
     var iconName: ImageResource?
     var placeholder: String
-    var error: Error? = nil
+    var error: Error?
     
     @Binding var text: String
     @State var shouldShowPassword = false

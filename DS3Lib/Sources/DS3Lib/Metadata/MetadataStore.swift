@@ -4,7 +4,8 @@ import SwiftData
 /// Access layer for the SyncedItem metadata database.
 /// Each process (main app and File Provider extension) creates its own
 /// MetadataStore instance pointing to the same SQLite file in the App Group container.
-public final class MetadataStore: Sendable {
+@MainActor
+public final class MetadataStore {
     private let container: ModelContainer
 
     /// Creates a MetadataStore with a ModelContainer pointing to the App Group shared directory.

@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 import SotoS3
 import Atomics
@@ -6,7 +7,7 @@ import os.log
 import DS3Lib
 
 /// Class that contains the logic to interact with S3
-class S3Lib: @unchecked Sendable {
+class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     typealias Logger = os.Logger
     
     private let logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.transfer.rawValue)
@@ -464,8 +465,7 @@ class S3Lib: @unchecked Sendable {
                 
                 return eventLoop.makeSucceededFuture(())
             }
-        }
-        catch {
+        } catch {
             fileHandle.closeFile()
             try? FileManager.default.removeItem(at: fileURL)
             throw error

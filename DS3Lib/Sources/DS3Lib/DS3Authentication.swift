@@ -395,7 +395,7 @@ struct DS3Missing2FAResponse: Codable {
         
         request.allHTTPHeaderFields = [
           "Content-Type": "application/json",
-          "Authorization":"Bearer \(self.accountSession!.token.token)"
+          "Authorization": "Bearer \(self.accountSession!.token.token)"
         ]
         
         request.httpMethod = "GET"

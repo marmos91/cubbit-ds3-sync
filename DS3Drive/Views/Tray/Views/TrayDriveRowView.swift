@@ -121,7 +121,7 @@ struct TrayDriveRowView: View {
                 try await viewModel.openFinder()
             }
         }
-        .onHover{ hovering in
+        .onHover { hovering in
             isHover = hovering
         }
         .padding(.horizontal, 16)

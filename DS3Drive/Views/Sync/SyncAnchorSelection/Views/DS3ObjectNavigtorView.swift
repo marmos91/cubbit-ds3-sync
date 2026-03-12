@@ -44,10 +44,9 @@ struct DS3ObjectNavigtorColumView: View {
     func folderSelected(_ folderName: String) -> Bool {
         let selectedPrefix = self.syncAnchorSelectionViewModel.selectedPrefix ?? ""
         
-        for component in selectedPrefix.split(separator: DefaultSettings.S3.delimiter) {
-            if component.removingPercentEncoding == self.cleanFolderName(folderName) {
-                return true
-            }
+        for component in selectedPrefix.split(separator: DefaultSettings.S3.delimiter)
+        where component.removingPercentEncoding == self.cleanFolderName(folderName) {
+            return true
         }
         
         return false

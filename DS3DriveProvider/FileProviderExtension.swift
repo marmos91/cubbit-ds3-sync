@@ -11,9 +11,8 @@ private final class UnsafeCallback<T>: @unchecked Sendable {
     init(_ handler: T) { self.handler = handler }
 }
 
-class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedExtension, @unchecked Sendable /* TODO: handle thumbnails NSFileProviderThumbnailing (check FruitBasket project) */
-/* TODO: Handle suppression NSFileProviderUserInteractionSuppressing*/
-{
+// swiftlint:disable:next type_body_length
+class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedExtension, @unchecked Sendable { /* TODO: handle thumbnails NSFileProviderThumbnailing (check FruitBasket project) */
     typealias Logger = os.Logger
 
     let logger: Logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.extension.rawValue)
@@ -321,6 +320,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     }
 
     // NOTE: gets called when the extension wants to modify an item
+    // swiftlint:disable:next function_body_length cyclomatic_complexity
     func modifyItem(
         _ item: NSFileProviderItem,
         baseVersion version: NSFileProviderItemVersion,

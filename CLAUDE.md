@@ -9,7 +9,7 @@ DS3 Drive is a macOS desktop app that syncs local files with Cubbit DS3 (S3-comp
 ## Build & Run
 
 - **Requirements:** macOS 15+, Xcode 16+
-- **Build:** Open `DS3Drive.xcodeproj` in Xcode. You must configure your own provisioning profile and signing certificate in Signing & Capabilities. The App Group (`group.io.cubbit.DS3Drive`) must match between the main app and the FileProvider extension.
+- **Build:** Open `DS3Drive.xcodeproj` in Xcode. You must configure your own provisioning profile and signing certificate in Signing & Capabilities. The App Group (`group.X889956QSM.io.cubbit.DS3Drive`) must match between the main app and the FileProvider extension.
 - **Assets:** Uses Git LFS — run `git lfs install && git lfs pull` after cloning.
 - **CI:** GitHub Actions runs `xcodebuild clean build analyze` on push/PR to `main`.
 

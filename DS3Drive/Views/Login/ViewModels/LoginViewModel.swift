@@ -24,12 +24,10 @@ import DS3Lib
             try await authentication.login(email: email, password: password, withTfaToken: tfaCode)
             try authentication.persist()
             self.logger.info("Login successful")
-        }
-        catch DS3AuthenticationError.missing2FA {
+        } catch DS3AuthenticationError.missing2FA {
             self.logger.info("2FA is required")
             self.need2FA = true
-        }
-        catch {
+        } catch {
             self.logger.error("An error occurred during login \(error)")
             self.loginError = error
         }

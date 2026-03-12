@@ -55,6 +55,9 @@
     "Email" : {
       "comment" : "Email placeholder"
     },
+    "Error" : {
+      "comment" : "Error status"
+    },
     "Email:" : {
 
     },
@@ -76,6 +79,12 @@
     "IAM Role:" : {
 
     },
+    "Idle" : {
+      "comment" : "Idle status"
+    },
+    "Info" : {
+      "comment" : "Info status"
+    },
     "Loading..." : {
       "comment" : "Loading"
     },
@@ -93,6 +102,9 @@
     },
     "Next" : {
 
+    },
+    "Offline" : {
+      "comment" : "Offline status"
     },
     "No buckets found in server response" : {
       "comment" : "Missing buckets in response"
@@ -144,6 +156,9 @@
     },
     "Sync" : {
       "comment" : "Complete sync button"
+    },
+    "Synchronizing" : {
+      "comment" : "Synchronizing status"
     },
     "Sync Projects" : {
 

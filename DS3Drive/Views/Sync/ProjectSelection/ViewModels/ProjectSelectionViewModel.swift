@@ -32,12 +32,10 @@ import DS3Lib
             // NOTE: Slow it down a little to improve UX
             try await Task.sleep(for: .seconds(0.5))
             self.projects = try await self.ds3SDK.getRemoteProjects()
-        }
-        catch let error as DS3AuthenticationError {
+        } catch let error as DS3AuthenticationError {
             self.logger.error("An authentication error occurred while loading projects: \(error)")
             self.authenticationError = error
-        }
-        catch {
+        } catch {
             self.logger.error("An error occurred while loading projects: \(error)")
             self.error = error
         }
