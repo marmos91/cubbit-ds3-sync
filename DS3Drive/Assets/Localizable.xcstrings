@@ -1,0 +1,202 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "(If you decide not to start Cubbit at startup, you will not be able to view the synchronized disks)" : {
+
+    },
+    "2F Authentication:" : {
+
+    },
+    "Add a new Drive" : {
+      "comment" : "Tray menu add new drive"
+    },
+    "Add new Drive" : {
+
+    },
+    "An error occurred: %@" : {
+
+    },
+    "Authentication code" : {
+
+    },
+    "Bucket:" : {
+
+    },
+    "Choose a name for your drive. The name you choose will be displayed in the finder" : {
+
+    },
+    "Continue" : {
+      "comment" : "Continue button"
+    },
+    "Disabled" : {
+
+    },
+    "Disconnect" : {
+
+    },
+    "Disconnect account" : {
+
+    },
+    "Drive name:" : {
+
+    },
+    "DS3 Client error. Please try refreshing credentials" : {
+      "comment" : "DS3 client error"
+    },
+    "DS3 Object Storage Log in" : {
+      "comment" : "The h1 of the login page"
+    },
+    "DS3 Server error. Please retry later" : {
+      "comment" : "DS3 server error"
+    },
+    "Edit on web console" : {
+      "comment" : "Edit on web console button"
+    },
+    "Email" : {
+      "comment" : "Email placeholder"
+    },
+    "Error" : {
+      "comment" : "Error status"
+    },
+    "Email:" : {
+
+    },
+    "Enabled" : {
+
+    },
+    "Enter the code from your authenticator app" : {
+
+    },
+    "Folder:" : {
+
+    },
+    "Forgot your password?" : {
+      "comment" : "Forgot your password link"
+    },
+    "Help" : {
+      "comment" : "Tray menu help"
+    },
+    "IAM Role:" : {
+
+    },
+    "Idle" : {
+      "comment" : "Idle status"
+    },
+    "Info" : {
+      "comment" : "Info status"
+    },
+    "Loading..." : {
+      "comment" : "Loading"
+    },
+    "Log in" : {
+      "comment" : "Login button"
+    },
+    "Logout" : {
+
+    },
+    "Manage" : {
+
+    },
+    "Name:" : {
+
+    },
+    "Next" : {
+
+    },
+    "Offline" : {
+      "comment" : "Offline status"
+    },
+    "No buckets found in server response" : {
+      "comment" : "Missing buckets in response"
+    },
+    "Open web console " : {
+      "comment" : "Tray menu open console button"
+    },
+    "Password" : {
+      "comment" : "Password placeholder"
+    },
+    "Password:" : {
+
+    },
+    "Please select a DS3 Project to start. Inside your project you will select a Bucket to sync with your local drive" : {
+
+    },
+    "Preferences" : {
+      "comment" : "Tray open preferences"
+    },
+    "Project name:" : {
+
+    },
+    "Project:" : {
+
+    },
+    "Quit" : {
+      "comment" : "Tray menu quit"
+    },
+    "Recap: confirm your information to create your drive" : {
+
+    },
+    "Refresh" : {
+
+    },
+    "Retry" : {
+      "comment" : "Retry"
+    },
+    "Select an IAM user & bucket to continue. You can manage buckets and IAM users from the [Cubbit DS3 Console](https://console.cubbit.eu)" : {
+
+    },
+    "Select DS3 Project" : {
+
+    },
+    "Sign up" : {
+      "comment" : "Sign up button text"
+    },
+    "Start Cubbit DS3 sync at login" : {
+
+    },
+    "Sync" : {
+      "comment" : "Complete sync button"
+    },
+    "Synchronizing" : {
+      "comment" : "Synchronizing status"
+    },
+    "Sync Projects" : {
+
+    },
+    "Two-factor authentication (2FA)" : {
+
+    },
+    "Version %@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Version %1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "View in Finder" : {
+
+    },
+    "View in web console" : {
+
+    },
+    "You have reached the maximum number of Drives" : {
+      "comment" : "Tray menu add new drive disabled"
+    },
+    "You haven't created any bucket yet, create your first bucket on [the console](https://console.cubbit.eu/) and then come back here to synchronize it." : {
+
+    },
+    "You haven't created any projects yet, create your project on [the console](https://console.cubbit.eu/) and then come back here to synchronize it." : {
+
+    },
+    "You need to select a bucket first" : {
+      "comment" : "Bucket not selected"
+    },
+    "You need to select an IAM user first" : {
+      "comment" : "IAM not selected"
+    }
+  },
+  "version" : "1.0"
+}

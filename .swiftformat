@@ -1,0 +1,10 @@
+# SwiftFormat configuration for DS3 Drive
+--swiftversion 6.0
+--indent 4
+--wraparguments before-first
+--wrapcollections before-first
+--maxwidth 120
+--semicolons never
+--stripunusedargs closure-only
+--disable redundantSelf
+--disable trailingCommas

@@ -7,9 +7,9 @@
 
 ### Foundation
 
-- [ ] **FOUN-01**: App renamed to "DS3 Drive" with updated bundle identifiers and branding
-- [ ] **FOUN-02**: OSLog-based structured logging with categories (sync, auth, transfer, extension) across all targets
-- [ ] **FOUN-03**: Force-unwrapped optionals removed from File Provider extension init (graceful error handling)
+- [x] **FOUN-01**: App renamed to "DS3 Drive" with updated bundle identifiers and branding
+- [x] **FOUN-02**: OSLog-based structured logging with categories (sync, auth, transfer, extension) across all targets
+- [x] **FOUN-03**: Force-unwrapped optionals removed from File Provider extension init (graceful error handling)
 - [ ] **FOUN-04**: SwiftData metadata database shared between main app and extension via App Group container
 
 ### Sync Engine
@@ -20,8 +20,8 @@
 - [ ] **SYNC-04**: Remote deletion tracking by comparing S3 listObjectsV2 results against local metadata DB
 - [ ] **SYNC-05**: Sync anchor persisted to SwiftData and advanced after each successful enumeration batch
 - [ ] **SYNC-06**: On-demand sync — files visible as cloud placeholders, downloaded only when opened by user
-- [ ] **SYNC-07**: Multipart upload validates ETag from CompleteMultipartUpload response
-- [ ] **SYNC-08**: File Provider error codes mapped correctly to NSFileProviderError for proper system retry behavior
+- [x] **SYNC-07**: Multipart upload validates ETag from CompleteMultipartUpload response
+- [x] **SYNC-08**: File Provider error codes mapped correctly to NSFileProviderError for proper system retry behavior
 
 ### Authentication
 
@@ -86,9 +86,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUN-01 | Phase 1 | Pending |
-| FOUN-02 | Phase 1 | Pending |
-| FOUN-03 | Phase 1 | Pending |
+| FOUN-01 | Phase 1 | Complete |
+| FOUN-02 | Phase 1 | Complete |
+| FOUN-03 | Phase 1 | Complete |
 | FOUN-04 | Phase 1 | Pending |
 | SYNC-01 | Phase 2 | Pending |
 | SYNC-02 | Phase 3 | Pending |
@@ -96,8 +96,8 @@
 | SYNC-04 | Phase 2 | Pending |
 | SYNC-05 | Phase 2 | Pending |
 | SYNC-06 | Phase 2 | Pending |
-| SYNC-07 | Phase 1 | Pending |
-| SYNC-08 | Phase 1 | Pending |
+| SYNC-07 | Phase 1 | Complete |
+| SYNC-08 | Phase 1 | Complete |
 | AUTH-01 | Phase 4 | Pending |
 | AUTH-02 | Phase 4 | Pending |
 | AUTH-03 | Phase 4 | Pending |
