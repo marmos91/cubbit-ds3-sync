@@ -26,8 +26,9 @@ public actor MetadataStore {
 
     // MARK: - Private Fetch Helpers
 
-    private func findItem(byKey s3Key: String) throws -> SyncedItem? {
-        let predicate = #Predicate<SyncedItem> { $0.s3Key == s3Key }
+    private func findItem(byKey s3Key: String, driveId: UUID) throws -> SyncedItem? {
+        let compositeKey = "\(driveId.uuidString):\(s3Key)"
+        let predicate = #Predicate<SyncedItem> { $0.uniqueKey == compositeKey }
         return try modelExecutor.modelContext.fetch(FetchDescriptor<SyncedItem>(predicate: predicate)).first
     }
 
@@ -43,7 +44,7 @@ public actor MetadataStore {
 
     // MARK: - SyncedItem CRUD
 
-    /// Insert or update a SyncedItem by s3Key.
+    /// Insert or update a SyncedItem by s3Key within a specific drive.
     public func upsertItem(
         s3Key: String,
         driveId: UUID,
@@ -55,8 +56,7 @@ public actor MetadataStore {
         contentType: String? = nil,
         size: Int64 = 0
     ) throws {
-        if let existing = try findItem(byKey: s3Key) {
-            existing.driveId = driveId
+        if let existing = try findItem(byKey: s3Key, driveId: driveId) {
             existing.etag = etag
             existing.lastModified = lastModified
             existing.localFileHash = localFileHash
@@ -82,9 +82,9 @@ public actor MetadataStore {
         try findItems(byDrive: driveId)
     }
 
-    /// Fetch a single SyncedItem by its S3 key.
-    public func fetchItem(byKey s3Key: String) throws -> SyncedItem? {
-        try findItem(byKey: s3Key)
+    /// Fetch a single SyncedItem by its S3 key within a specific drive.
+    public func fetchItem(byKey s3Key: String, driveId: UUID) throws -> SyncedItem? {
+        try findItem(byKey: s3Key, driveId: driveId)
     }
 
     /// Delete all SyncedItems for a specific drive (hard delete).
@@ -96,9 +96,9 @@ public actor MetadataStore {
         try context.save()
     }
 
-    /// Delete a single SyncedItem by S3 key.
-    public func deleteItem(byKey s3Key: String) throws {
-        if let item = try findItem(byKey: s3Key) {
+    /// Delete a single SyncedItem by S3 key within a specific drive.
+    public func deleteItem(byKey s3Key: String, driveId: UUID) throws {
+        if let item = try findItem(byKey: s3Key, driveId: driveId) {
             modelExecutor.modelContext.delete(item)
             try modelExecutor.modelContext.save()
         }
@@ -198,19 +198,19 @@ public actor MetadataStore {
     // These methods return Sendable types (Bool, Int, String?, Date?) so they can be
     // safely called across actor boundaries in Swift 6 strict concurrency mode.
 
-    /// Check whether an item with the given S3 key exists.
-    public func itemExists(byKey s3Key: String) throws -> Bool {
-        try findItem(byKey: s3Key) != nil
+    /// Check whether an item with the given S3 key exists in a specific drive.
+    public func itemExists(byKey s3Key: String, driveId: UUID) throws -> Bool {
+        try findItem(byKey: s3Key, driveId: driveId) != nil
     }
 
-    /// Fetch the etag of an item by S3 key, or nil if not found.
-    public func fetchItemEtag(byKey s3Key: String) throws -> String? {
-        try findItem(byKey: s3Key)?.etag
+    /// Fetch the etag of an item by S3 key within a specific drive, or nil if not found.
+    public func fetchItemEtag(byKey s3Key: String, driveId: UUID) throws -> String? {
+        try findItem(byKey: s3Key, driveId: driveId)?.etag
     }
 
-    /// Fetch the sync status raw string of an item by S3 key, or nil if not found.
-    public func fetchItemSyncStatus(byKey s3Key: String) throws -> String? {
-        try findItem(byKey: s3Key)?.syncStatus
+    /// Fetch the sync status raw string of an item by S3 key within a specific drive, or nil if not found.
+    public func fetchItemSyncStatus(byKey s3Key: String, driveId: UUID) throws -> String? {
+        try findItem(byKey: s3Key, driveId: driveId)?.syncStatus
     }
 
     /// Count items for a specific drive.
@@ -253,10 +253,10 @@ public actor MetadataStore {
         return Dictionary(uniqueKeysWithValues: items.map { ($0.s3Key, $0.syncStatus) })
     }
 
-    /// Set the materialization state for an item by S3 key.
+    /// Set the materialization state for an item by S3 key within a specific drive.
     /// Called after a file is downloaded (isMaterialized = true) or evicted (isMaterialized = false).
-    public func setMaterialized(s3Key: String, isMaterialized: Bool) throws {
-        guard let item = try findItem(byKey: s3Key) else { return }
+    public func setMaterialized(s3Key: String, driveId: UUID, isMaterialized: Bool) throws {
+        guard let item = try findItem(byKey: s3Key, driveId: driveId) else { return }
         item.isMaterialized = isMaterialized
         try modelExecutor.modelContext.save()
     }

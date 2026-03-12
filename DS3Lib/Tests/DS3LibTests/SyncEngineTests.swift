@@ -432,10 +432,10 @@ final class SyncEngineTests: XCTestCase {
         )
 
         // Use Sendable-safe methods to verify MetadataStore state
-        let newExists = try await metadataStore.itemExists(byKey: "new.txt")
+        let newExists = try await metadataStore.itemExists(byKey: "new.txt", driveId: testDriveId)
         XCTAssertTrue(newExists, "new.txt should be upserted into MetadataStore")
 
-        let oldExists = try await metadataStore.itemExists(byKey: "old.txt")
+        let oldExists = try await metadataStore.itemExists(byKey: "old.txt", driveId: testDriveId)
         XCTAssertFalse(oldExists, "old.txt should be removed from MetadataStore after deletion")
     }
 }

@@ -68,11 +68,14 @@ public enum SyncedItemSchemaV2: VersionedSchema {
 
     @Model
     public final class SyncedItem {
-        /// The full S3 object key (unique per item across all drives)
-        @Attribute(.unique) public var s3Key: String
+        /// The full S3 object key (unique per drive, not globally)
+        public var s3Key: String
 
         /// The drive this item belongs to (explicit, not inferred from bucket/prefix)
         public var driveId: UUID
+
+        /// Composite unique key: "driveId:s3Key". Ensures uniqueness per drive.
+        @Attribute(.unique) public var uniqueKey: String
 
         /// S3 ETag for version tracking
         public var etag: String?
@@ -115,6 +118,7 @@ public enum SyncedItemSchemaV2: VersionedSchema {
         ) {
             self.s3Key = s3Key
             self.driveId = driveId
+            self.uniqueKey = "\(driveId.uuidString):\(s3Key)"
             self.size = size
             self.syncStatus = syncStatus
         }
@@ -168,7 +172,7 @@ public enum SyncedItemMigrationPlan: SchemaMigrationPlan {
     /// Lightweight migration from V1 to V2:
     /// - Adds isMaterialized (Bool, default false) to SyncedItem
     /// - Adds SyncAnchorRecord as a new entity
-    static let migrateV1toV2 = MigrationStage.lightweight(
+    nonisolated(unsafe) static let migrateV1toV2 = MigrationStage.lightweight(
         fromVersion: SyncedItemSchemaV1.self,
         toVersion: SyncedItemSchemaV2.self
     )

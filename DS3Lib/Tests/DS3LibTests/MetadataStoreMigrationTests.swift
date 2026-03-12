@@ -56,7 +56,7 @@ final class MetadataStoreMigrationTests: XCTestCase {
         try await store.upsertItem(s3Key: "test/isolation.txt", driveId: driveId, syncStatus: .pending, size: 100)
 
         // Delete item (returns Void -- Sendable)
-        try await store.deleteItem(byKey: "test/isolation.txt")
+        try await store.deleteItem(byKey: "test/isolation.txt", driveId: driveId)
 
         // SyncAnchor operations returning Sendable types
         try await store.upsertSyncAnchor(driveId: driveId, lastSyncDate: Date(), itemCount: 5)

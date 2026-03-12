@@ -13,6 +13,22 @@ final class UnsafeCallback<T>: @unchecked Sendable {
     init(_ handler: T) { self.handler = handler }
 }
 
+/// Thread-safe once-only callback guard. Ensures a completion handler is invoked at most once,
+/// even when cancellation and async task completion race.
+final class OnceGuard: @unchecked Sendable {
+    private var called = false
+    private let lock = NSLock()
+
+    /// Returns true only on the first call; all subsequent calls return false.
+    func tryCall() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !called else { return false }
+        called = true
+        return true
+    }
+}
+
 // swiftlint:disable:next type_body_length
 class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedExtension, @unchecked Sendable { /* TODO: handle thumbnails NSFileProviderThumbnailing (check FruitBasket project) */
     typealias Logger = os.Logger
@@ -236,7 +252,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 self.logger.debug("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize ?? 0, privacy: .public) downloaded successfully at \(fileURL, privacy: .public)")
 
                 // Mark as materialized in MetadataStore
-                try? await metadataStore?.setMaterialized(s3Key: itemIdentifier.rawValue, isMaterialized: true)
+                try? await metadataStore?.setMaterialized(s3Key: itemIdentifier.rawValue, driveId: drive.id, isMaterialized: true)
 
                 nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 cb.handler(fileURL, s3Item, nil)
@@ -482,7 +498,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                         let newS3Item = try await s3Lib.renameS3Item(s3Item, newName: newName, withProgress: progress)
 
                         // Delete old key and upsert new key in MetadataStore
-                        try? await self.metadataStore?.deleteItem(byKey: oldKey)
+                        try? await self.metadataStore?.deleteItem(byKey: oldKey, driveId: drive.id)
                         try? await self.metadataStore?.upsertItem(
                             s3Key: newS3Item.itemIdentifier.rawValue,
                             driveId: drive.id,
@@ -522,7 +538,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                     let movedS3Item = try await s3Lib.moveS3Item(s3Item, toKey: newKey, withProgress: progress)
 
                     // Delete old key and upsert new key in MetadataStore
-                    try? await self.metadataStore?.deleteItem(byKey: moveOldKey)
+                    try? await self.metadataStore?.deleteItem(byKey: moveOldKey, driveId: drive.id)
                     try? await self.metadataStore?.upsertItem(
                         s3Key: movedS3Item.itemIdentifier.rawValue,
                         driveId: drive.id,
@@ -597,7 +613,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                     self.logger.debug("S3Item with identifier \(identifier.rawValue, privacy: .public) deleted successfully")
 
                     // Remove from MetadataStore
-                    try? await self.metadataStore?.deleteItem(byKey: identifier.rawValue)
+                    try? await self.metadataStore?.deleteItem(byKey: identifier.rawValue, driveId: drive.id)
 
                     progress.completedUnitCount = 1
                     nm.sendDriveChangedNotificationWithDebounce(status: .idle)
@@ -677,9 +693,6 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
 // MARK: - Partial Content Fetching
 
-/// Threshold for partial content fetching (10 MB = 2x multipart boundary)
-private let partialContentThreshold: Int64 = 10 * 1024 * 1024
-
 extension FileProviderExtension: NSFileProviderPartialContentFetching {
     // swiftlint:disable:next function_parameter_count
     func fetchPartialContents(
@@ -707,8 +720,9 @@ extension FileProviderExtension: NSFileProviderPartialContentFetching {
         }
 
         let progress = Progress(totalUnitCount: 1)
+        let once = OnceGuard()
 
-        Task {
+        let task = Task {
             do {
                 nm.sendDriveChangedNotification(status: .sync)
 
@@ -748,19 +762,24 @@ extension FileProviderExtension: NSFileProviderPartialContentFetching {
                 self.logger.debug("Partial download complete for \(s3Item.filename, privacy: .public) range \(rangeHeader, privacy: .public)")
 
                 nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                guard once.tryCall() else { return }
                 cb.handler(fileURL, s3Item, alignedRange, [], nil)
             } catch let s3Error as S3ErrorType {
                 self.logger.error("Partial download failed with S3 error \(s3Error.errorCode, privacy: .public)")
                 nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                guard once.tryCall() else { return }
                 cb.handler(nil, nil, NSRange(location: 0, length: 0), [], s3Error.toFileProviderError())
             } catch {
                 self.logger.error("Partial download failed with error \(error)")
                 nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                guard once.tryCall() else { return }
                 cb.handler(nil, nil, NSRange(location: 0, length: 0), [], NSFileProviderError(.cannotSynchronize) as NSError)
             }
         }
 
         progress.cancellationHandler = {
+            task.cancel()
+            guard once.tryCall() else { return }
             cb.handler(nil, nil, NSRange(location: 0, length: 0), [], NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
         }
 

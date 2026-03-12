@@ -200,10 +200,22 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
 
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle)
                 return observer.finishEnumeratingChanges(upTo: newAnchor, moreComing: false)
+            } catch let error as FileProviderExtensionError {
+                self.logger.error("A FileProvider error occurred while enumerating changes: \(error)")
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
+                return observer.finishEnumeratingWithError(error.toPresentableError())
+            } catch let error as S3ErrorType {
+                self.logger.error("An S3 error occurred while enumerating changes: \(error)")
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
+                return observer.finishEnumeratingWithError(error.toFileProviderError())
+            } catch is SyncEngineError {
+                self.logger.warning("Sync engine unavailable (network): skipping change enumeration")
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle)
+                return observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
             } catch {
                 self.logger.error("An error occurred while enumerating changes: \(error)")
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
-                return observer.finishEnumeratingWithError(error)
+                return observer.finishEnumeratingWithError(NSFileProviderError(.cannotSynchronize) as NSError)
             }
         }
     }

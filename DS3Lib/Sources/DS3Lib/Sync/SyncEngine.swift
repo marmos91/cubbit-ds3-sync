@@ -110,10 +110,16 @@ public actor SyncEngine {
                 remoteItems: remoteItems
             )
 
-            // Step 7: Advance sync anchor (resets failure count)
+            // Step 7: Check if recovering from previous failures before resetting
+            let previousFailures = try await metadataStore.fetchSyncAnchorSnapshot(driveId: driveId)?.consecutiveFailures ?? 0
+
+            // Step 8: Advance sync anchor (resets failure count)
             try await metadataStore.advanceSyncAnchor(driveId: driveId, itemCount: remoteItems.count)
 
-            // Step 8: Notify delegate
+            // Step 9: Notify delegate
+            if previousFailures > 0 {
+                delegate?.syncEngineDidRecoverFromError(driveId: driveId)
+            }
             delegate?.syncEngineDidComplete(driveId: driveId)
 
             let result = ReconciliationResult(
@@ -200,7 +206,7 @@ public actor SyncEngine {
 
         // Hard delete removed items from MetadataStore
         for key in deletedKeys {
-            try await metadataStore.deleteItem(byKey: key)
+            try await metadataStore.deleteItem(byKey: key, driveId: driveId)
         }
     }
 }
