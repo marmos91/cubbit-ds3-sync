@@ -2,52 +2,58 @@ import Foundation
 import os.log
 import DS3Lib
 
-class NotificationManager: @unchecked Sendable {
+final class NotificationManager: Sendable {
     private let logger: Logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.extension.rawValue)
-    
+
     private let drive: DS3Drive
-    private var driveStatus: DS3DriveStatus
-    
-    // Used to debounce status change notifications
-    var debounceTimer: Timer?
-    
+    private let queue = DispatchQueue(label: "io.cubbit.DS3Drive.NotificationManager")
+
+    // Manually synchronized via `queue`
+    nonisolated(unsafe) private var _driveStatus: DS3DriveStatus
+    nonisolated(unsafe) private var _debounceWorkItem: DispatchWorkItem?
+
     init(drive: DS3Drive) {
         self.drive = drive
-        self.driveStatus = .idle
+        self._driveStatus = .idle
     }
-    
+
     /// Sends a notification to the app with the current status of the drive debounced. If you want to send the notification immediately, use `sendDriveChangedNotification(status: DS3DriveStatus)`
     /// - Parameter status: status to send
     func sendDriveChangedNotificationWithDebounce(status: DS3DriveStatus) {
-        self.debounceTimer?.invalidate()
-        
-        DispatchQueue.main.async {
-            // This has to happen on the main eventLoop to work
-            self.debounceTimer = Timer.scheduledTimer(
-                withTimeInterval: DefaultSettings.Extension.statusChangeDebounceInterval,
-                repeats: false
-            ) { _ in
-                self.sendDriveChangedNotification(status: status)
+        queue.async {
+            self._debounceWorkItem?.cancel()
+
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.sendDriveChangedNotification(status: status)
             }
+
+            self._debounceWorkItem = workItem
+
+            self.queue.asyncAfter(
+                deadline: .now() + DefaultSettings.Extension.statusChangeDebounceInterval,
+                execute: workItem
+            )
         }
     }
-    
+
     /// Sends a notification to the app with the current status of the drive. If you want to debounce the notification, use `sendDriveChangedNotificationWithDebounce(status: DS3DriveStatus)`
     /// - Parameter status: the status to send
     func sendDriveChangedNotification(status: DS3DriveStatus) {
-        if status != self.driveStatus {
-            self.driveStatus = status
-            
+        queue.async {
+            guard status != self._driveStatus else { return }
+
+            self._driveStatus = status
+
             let driveStatusChange = DS3DriveStatusChange(
-                driveId: self.drive.id, 
-                status: self.driveStatus
+                driveId: self.drive.id,
+                status: self._driveStatus
             )
-            
+
             guard
                 let encodedDriveStatusData = try? JSONEncoder().encode(driveStatusChange),
                 let encodedDriveStatusString = String(data: encodedDriveStatusData, encoding: .utf8)
             else { return }
-            
+
             DistributedNotificationCenter
                 .default()
                 .post(
@@ -55,13 +61,13 @@ class NotificationManager: @unchecked Sendable {
                 )
         }
     }
-    
+
     func sendTransferSpeedNotification(_ transferSpeed: DriveTransferStats) {
         guard
             let encodedTransferSpeedData = try? JSONEncoder().encode(transferSpeed),
             let encodedTransferSpeedString = String(data: encodedTransferSpeedData, encoding: .utf8)
         else { return }
-        
+
         DistributedNotificationCenter
             .default()
             .post(

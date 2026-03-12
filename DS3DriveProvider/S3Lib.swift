@@ -274,9 +274,16 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         withProgress progress: Progress? = nil
     ) async throws -> S3Item {
         let decodedIdentifier = try decodedKey(s3Item.identifier.rawValue)
-        let components = decodedIdentifier.split(separator: DefaultSettings.S3.delimiter)
-        let oldObjectName = String(components.last ?? "")
-        let newKey = decodedIdentifier.replacingOccurrences(of: oldObjectName, with: newName)
+        let isFolder = decodedIdentifier.hasSuffix(String(DefaultSettings.S3.delimiter))
+        let trimmedIdentifier = isFolder ? String(decodedIdentifier.dropLast()) : decodedIdentifier
+        let components = trimmedIdentifier.split(separator: DefaultSettings.S3.delimiter)
+        let parentPath = components.dropLast().joined(separator: String(DefaultSettings.S3.delimiter))
+        let newKey: String
+        if parentPath.isEmpty {
+            newKey = newName + (isFolder ? String(DefaultSettings.S3.delimiter) : "")
+        } else {
+            newKey = parentPath + String(DefaultSettings.S3.delimiter) + newName + (isFolder ? String(DefaultSettings.S3.delimiter) : "")
+        }
 
         self.logger.debug("Renaming s3Item \(decodedIdentifier, privacy: .public) to \(newKey, privacy: .public)")
 
