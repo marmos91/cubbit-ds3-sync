@@ -279,9 +279,10 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             }
         }
 
+        // documentSize is NSNumber?? (double optional from Obj-C optional protocol property)
         var itemSize: Int
-        if let docSize = itemTemplate.documentSize, let size = docSize {
-            itemSize = size.intValue
+        if let outer = itemTemplate.documentSize, let docSize = outer {
+            itemSize = docSize.intValue
         } else {
             itemSize = 0
         }

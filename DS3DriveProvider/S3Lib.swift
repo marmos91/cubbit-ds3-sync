@@ -273,8 +273,9 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         newName: String,
         withProgress progress: Progress? = nil
     ) async throws -> S3Item {
-        let oldObjectName = s3Item.filename
         let decodedIdentifier = try decodedKey(s3Item.identifier.rawValue)
+        let components = decodedIdentifier.split(separator: DefaultSettings.S3.delimiter)
+        let oldObjectName = String(components.last ?? "")
         let newKey = decodedIdentifier.replacingOccurrences(of: oldObjectName, with: newName)
 
         self.logger.debug("Renaming s3Item \(decodedIdentifier, privacy: .public) to \(newKey, privacy: .public)")
@@ -381,7 +382,8 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
 
             while !items.isEmpty {
                 let item = items.removeFirst()
-                let newKey = try decodedKey(item.identifier.rawValue.replacingOccurrences(of: prefix, with: newPrefix))
+                let decodedItemKey = try decodedKey(item.identifier.rawValue)
+                let newKey = decodedItemKey.replacingOccurrences(of: prefix, with: newPrefix)
 
                 self.logger.debug("New key is \(newKey, privacy: .public)")
 
@@ -396,7 +398,8 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         // Copy folder itself when it's empty
         if items.isEmpty {
             self.logger.debug("Copying enclosing folder \(prefix, privacy: .public)")
-            let newKey = try decodedKey(s3Item.identifier.rawValue.replacingOccurrences(of: prefix, with: newPrefix))
+            let decodedFolderKey = try decodedKey(s3Item.identifier.rawValue)
+            let newKey = decodedFolderKey.replacingOccurrences(of: prefix, with: newPrefix)
             
             try await self.copyS3Item(
                 s3Item,
