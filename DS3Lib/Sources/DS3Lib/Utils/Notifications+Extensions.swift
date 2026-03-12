@@ -48,4 +48,7 @@ public extension Notification.Name {
     
     /// Notification sent from the extension to the app while performing transfers
     static let driveTransferStats  = NSNotification.Name(rawValue: DefaultSettings.Notifications.driveTransferStats)
+
+    /// Notification sent from the extension to the app when a conflict is detected
+    static let conflictDetected = NSNotification.Name(rawValue: DefaultSettings.Notifications.conflictDetected)
 }

@@ -50,6 +50,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
     var drive: DS3Drive?
     let temporaryDirectory: URL?
+    private lazy var hostname: String = Host.current().localizedName ?? ProcessInfo.processInfo.hostName
 
     required init(domain: NSFileProviderDomain) {
         self.enabled = false
@@ -275,6 +276,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     }
 
     // NOTE: gets called when the extension wants to create a new item
+    // swiftlint:disable:next function_body_length
     func createItem(
         basedOn itemTemplate: NSFileProviderItem,
         fields: NSFileProviderItemFields,
@@ -354,12 +356,62 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         Task {
             do {
                 nm.sendDriveChangedNotification(status: .sync)
-                try await s3Lib.putS3Item(s3Item, fileURL: url, withProgress: progress)
 
-                // Persist item metadata in MetadataStore
+                // --- Conflict detection: check if file already exists on S3 ---
+                if s3Item.contentType != .folder {
+                    do {
+                        let remoteItem = try await s3Lib.remoteS3Item(
+                            for: s3Item.itemIdentifier, drive: drive
+                        )
+                        // File exists on S3 from another client -- treat local as conflict copy
+                        self.logger.warning("Create conflict: file already exists on S3 at \(s3Item.itemIdentifier.rawValue, privacy: .public)")
+
+                        let conflictKey = ConflictNaming.conflictKey(
+                            originalKey: s3Item.itemIdentifier.rawValue,
+                            hostname: self.hostname,
+                            date: Date()
+                        )
+                        let conflictS3Item = S3Item(
+                            identifier: NSFileProviderItemIdentifier(conflictKey),
+                            drive: drive,
+                            objectMetadata: s3Item.metadata
+                        )
+                        let conflictETag = try await withRetries(retries: 3) {
+                            try await s3Lib.putS3Item(conflictS3Item, fileURL: url, withProgress: progress)
+                        }
+                        try? await self.metadataStore?.upsertItem(
+                            s3Key: conflictKey,
+                            driveId: drive.id,
+                            etag: ETagUtils.normalize(conflictETag),
+                            lastModified: Date(),
+                            syncStatus: .conflict,
+                            parentKey: parentIdentifier.isEmpty ? nil : parentIdentifier,
+                            contentType: s3Item.contentType == .folder ? "folder" : nil,
+                            size: Int64(itemSize)
+                        )
+                        nm.sendConflictNotification(filename: s3Item.filename, conflictKey: conflictKey, driveId: drive.id)
+                        progress.completedUnitCount = numParts
+                        nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                        self.signalChanges()
+                        cb.handler(conflictS3Item, NSFileProviderItemFields(), false, nil)
+                        return
+                    } catch is S3ErrorType {
+                        // 404/NoSuchKey means file doesn't exist on S3 -- proceed with normal create
+                        // Any other S3 error also falls through to normal create (HEAD is best-effort for createItem)
+                    } catch {
+                        // Network error during HEAD -- proceed with create (best-effort check)
+                        self.logger.debug("Create conflict check HEAD failed, proceeding with upload: \(error)")
+                    }
+                }
+                // --- End conflict detection ---
+
+                let createETag = try await s3Lib.putS3Item(s3Item, fileURL: url, withProgress: progress)
+
+                // Persist item metadata in MetadataStore with ETag
                 try? await self.metadataStore?.upsertItem(
                     s3Key: key,
                     driveId: drive.id,
+                    etag: ETagUtils.normalize(createETag),
                     lastModified: Date(),
                     syncStatus: .synced,
                     parentKey: parentIdentifier.isEmpty ? nil : parentIdentifier,
@@ -452,12 +504,86 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 Task {
                     do {
                         nm.sendDriveChangedNotification(status: .sync)
-                        try await s3Lib.putS3Item(s3Item, fileURL: contents, withProgress: putProgress)
 
-                        // Persist updated metadata
+                        // --- Conflict detection (pre-flight HEAD check) ---
+                        if s3Item.contentType != .folder {
+                            do {
+                                let remoteItem = try await s3Lib.remoteS3Item(for: s3Item.itemIdentifier, drive: drive)
+                                let remoteETag = ETagUtils.normalize(remoteItem.metadata.etag)
+                                let storedETag = try? await self.metadataStore?.fetchItemEtag(
+                                    byKey: s3Item.itemIdentifier.rawValue, driveId: drive.id
+                                )
+                                let normalizedStored = ETagUtils.normalize(storedETag ?? nil)
+
+                                if let remoteETag, let normalizedStored, !ETagUtils.areEqual(remoteETag, normalizedStored) {
+                                    // Conflict detected -- upload local version as conflict copy
+                                    self.logger.warning("Conflict detected for \(s3Item.itemIdentifier.rawValue, privacy: .public): remote ETag \(remoteETag, privacy: .public) != stored \(normalizedStored, privacy: .public)")
+
+                                    let conflictKey = ConflictNaming.conflictKey(
+                                        originalKey: s3Item.itemIdentifier.rawValue,
+                                        hostname: self.hostname,
+                                        date: Date()
+                                    )
+
+                                    let conflictS3Item = S3Item(
+                                        identifier: NSFileProviderItemIdentifier(conflictKey),
+                                        drive: drive,
+                                        objectMetadata: s3Item.metadata
+                                    )
+
+                                    // Upload local version as conflict copy with retry
+                                    let conflictETag = try await withRetries(retries: 3) {
+                                        try await s3Lib.putS3Item(conflictS3Item, fileURL: contents, withProgress: putProgress)
+                                    }
+
+                                    // Record conflict copy in MetadataStore
+                                    try? await self.metadataStore?.upsertItem(
+                                        s3Key: conflictKey,
+                                        driveId: drive.id,
+                                        etag: ETagUtils.normalize(conflictETag),
+                                        lastModified: Date(),
+                                        syncStatus: .conflict,
+                                        parentKey: s3Item.parentItemIdentifier == .rootContainer ? nil : s3Item.parentItemIdentifier.rawValue,
+                                        size: Int64(documentSize)
+                                    )
+
+                                    // Send IPC notification for conflict
+                                    nm.sendConflictNotification(
+                                        filename: s3Item.filename,
+                                        conflictKey: conflictKey,
+                                        driveId: drive.id
+                                    )
+
+                                    // Signal enumerator to re-fetch remote version for original filename
+                                    putProgress.completedUnitCount = numParts
+                                    nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                                    self.signalChanges()
+                                    cb.handler(conflictS3Item, NSFileProviderItemFields(), false, nil)
+                                    return
+                                }
+                            } catch let s3Error as S3ErrorType {
+                                // HEAD failed -- return transient error for File Provider retry
+                                self.logger.error("Conflict check HEAD failed: \(s3Error.errorCode, privacy: .public)")
+                                nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                                cb.handler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.serverUnreachable) as NSError)
+                                return
+                            } catch {
+                                // Network error during HEAD -- return transient error
+                                self.logger.error("Conflict check failed: \(error)")
+                                nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                                cb.handler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.serverUnreachable) as NSError)
+                                return
+                            }
+                        }
+                        // --- End conflict detection ---
+
+                        let uploadETag = try await s3Lib.putS3Item(s3Item, fileURL: contents, withProgress: putProgress)
+
+                        // Persist updated metadata with ETag
                         try? await self.metadataStore?.upsertItem(
                             s3Key: s3Item.itemIdentifier.rawValue,
                             driveId: drive.id,
+                            etag: ETagUtils.normalize(uploadETag),
                             lastModified: Date(),
                             syncStatus: .synced,
                             size: Int64(documentSize)
@@ -571,6 +697,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     }
 
     // NOTE: gets called when the extension wants to delete an item
+    // swiftlint:disable:next function_body_length
     func deleteItem(
         identifier: NSFileProviderItemIdentifier,
         baseVersion version: NSFileProviderItemVersion,
@@ -608,6 +735,46 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                         objectMetadata: S3Item.Metadata(size: 0)
                     )
 
+                    // Skip conflict check for folder keys (ending with "/")
+                    let isFolder = identifier.rawValue.hasSuffix(String(DefaultSettings.S3.delimiter))
+
+                    if !isFolder {
+                        // --- Conflict detection: check if remote was modified before deleting ---
+                        do {
+                            let remoteItem = try await s3Lib.remoteS3Item(for: identifier, drive: drive)
+                            let remoteETag = ETagUtils.normalize(remoteItem.metadata.etag)
+                            let storedETag = try? await self.metadataStore?.fetchItemEtag(
+                                byKey: identifier.rawValue, driveId: drive.id
+                            )
+                            let normalizedStored = ETagUtils.normalize(storedETag ?? nil)
+
+                            if let remoteETag, let normalizedStored, !ETagUtils.areEqual(remoteETag, normalizedStored) {
+                                // Remote was modified since last sync -- cancel delete
+                                self.logger.warning("Delete cancelled: remote ETag changed for \(identifier.rawValue, privacy: .public)")
+                                nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                                self.signalChanges()
+                                cb.handler(NSFileProviderError(.cannotSynchronize) as NSError)
+                                return
+                            }
+                        } catch let s3Error as S3ErrorType where s3Error.errorCode == "NoSuchKey" || s3Error.errorCode == "NotFound" {
+                            // Both sides deleted -- treat as success
+                            self.logger.debug("File already deleted remotely: \(identifier.rawValue, privacy: .public)")
+                            try? await self.metadataStore?.deleteItem(byKey: identifier.rawValue, driveId: drive.id)
+                            progress.completedUnitCount = 1
+                            nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                            self.signalChanges()
+                            cb.handler(nil)
+                            return
+                        } catch {
+                            // HEAD failed (network) -- return transient error for retry
+                            self.logger.error("Delete conflict check HEAD failed: \(error)")
+                            nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                            cb.handler(NSFileProviderError(.serverUnreachable) as NSError)
+                            return
+                        }
+                        // --- End conflict detection ---
+                    }
+
                     nm.sendDriveChangedNotification(status: .sync)
                     try await s3Lib.deleteS3Item(s3Item, withProgress: progress)
                     self.logger.debug("S3Item with identifier \(identifier.rawValue, privacy: .public) deleted successfully")
@@ -615,6 +782,14 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                     // Remove from MetadataStore
                     try? await self.metadataStore?.deleteItem(byKey: identifier.rawValue, driveId: drive.id)
 
+                    progress.completedUnitCount = 1
+                    nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                    self.signalChanges()
+                    cb.handler(nil)
+                } catch let s3Error as S3ErrorType where s3Error.errorCode == "NoSuchKey" || s3Error.errorCode == "NotFound" {
+                    // Both sides deleted during the race -- treat as success
+                    self.logger.debug("File deleted remotely during our delete: \(identifier.rawValue, privacy: .public)")
+                    try? await self.metadataStore?.deleteItem(byKey: identifier.rawValue, driveId: drive.id)
                     progress.completedUnitCount = 1
                     nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                     self.signalChanges()

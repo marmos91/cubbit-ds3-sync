@@ -64,8 +64,8 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- TDD: ConflictNaming utility and ETag normalization with full test coverage
-- [ ] 03-02-PLAN.md -- Core conflict detection: ETag extraction, pre-flight HEAD checks in modifyItem/createItem/deleteItem, conflict copy upload
+- [x] 03-01-PLAN.md -- TDD: ConflictNaming utility and ETag normalization with full test coverage
+- [x] 03-02-PLAN.md -- Core conflict detection: ETag extraction, pre-flight HEAD checks in modifyItem/createItem/deleteItem, conflict copy upload
 - [ ] 03-03-PLAN.md -- Conflict notifications: IPC from extension to main app, UNUserNotificationCenter with batching, integration tests
 
 ### Phase 4: Auth & Platform
@@ -113,10 +113,10 @@ Note: Phase 4 depends only on Phase 1 and could theoretically run in parallel wi
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete | 2026-03-12 |
 | 2. Sync Engine | 3/3 | Complete | 2026-03-12 |
-| 3. Conflict Resolution | 0/3 | Planning complete | - |
+| 3. Conflict Resolution | 2/3 | In Progress | - |
 | 4. Auth & Platform | 0/2 | Not started | - |
 | 5. UX Polish | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-11*
-*Last updated: 2026-03-12 (Phase 3 planned)*
+*Last updated: 2026-03-12 (Phase 3: 2/3 plans complete)*
