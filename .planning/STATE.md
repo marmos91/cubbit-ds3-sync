@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-12T21:39:56.303Z"
-last_activity: 2026-03-12 -- Completed plan 02-03 (File Provider SyncEngine integration)
+status: in-progress
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-12T22:17:03.136Z"
+last_activity: 2026-03-12 -- Completed plan 03-01 (Conflict naming and ETag utils)
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
-  percent: 100
+  total_plans: 10
+  completed_plans: 8
+  percent: 80
 ---
 
 # Project State
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Files sync reliably and transparently between the user's Mac and Cubbit DS3, with zero friction
-**Current focus:** Phase 2 complete -- Sync Engine fully integrated. Next: Phase 3 (Conflict Resolution)
+**Current focus:** Phase 3 in progress -- Conflict Resolution utilities built, detection next
 
 ## Current Position
 
-Phase: 2 of 5 (Sync Engine -- complete)
-Plan: 3 of 3 in current phase (02-03 complete, phase done)
-Status: Phase 2 complete
-Last activity: 2026-03-12 -- Completed plan 02-03 (File Provider SyncEngine integration)
+Phase: 3 of 5 (Conflict Resolution -- in progress)
+Plan: 1 of 3 in current phase (03-01 complete)
+Status: In progress
+Last activity: 2026-03-12 -- Completed plan 03-01 (Conflict naming and ETag utils)
 
-Progress: [██████████] 100% (phases 1-2 complete)
+Progress: [████████░░] 80% (phases 1-2 complete, phase 3: 1/3)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 9 min
-- Total execution time: 1.0 hours
+- Total plans completed: 8
+- Average duration: 8 min
+- Total execution time: 1.1 hours
 
 **By Phase:**
 
@@ -45,10 +45,11 @@ Progress: [██████████] 100% (phases 1-2 complete)
 |-------|-------|-------|----------|
 | 1. Foundation | 4 | 37 min | 9 min |
 | 2. Sync Engine | 3 | 26 min | 9 min |
+| 3. Conflict Resolution | 1 | 2 min | 2 min |
 
 **Recent Trend:**
-- Last 5 plans: 9m, 9m, 7m, 6m, 13m
-- Trend: stable
+- Last 5 plans: 9m, 7m, 6m, 13m, 2m
+- Trend: stable (03-01 was small pure-utility TDD plan)
 
 *Updated after each plan completion*
 
@@ -84,6 +85,9 @@ Recent decisions affecting current work:
 - Plan 02-03: SyncEngine fallback to timestamp-based enumeration when unavailable (graceful degradation)
 - Plan 02-03: Content policy uses .downloadEagerlyAndKeepDownloaded (not .downloadLazilyAndKeepDownloaded)
 - Plan 02-03: MetadataStore CRUD writes use try? to avoid blocking S3 operations on metadata persistence failure
+- Plan 03-01: Hidden files (.gitignore) treated as extensionless in conflict naming
+- Plan 03-01: ETagUtils.areEqual(nil, nil) returns false -- both ETags must exist for valid comparison
+- Plan 03-01: DateFormatter uses UTC timezone for deterministic conflict naming across timezones
 
 ### Pending Todos
 
@@ -96,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T21:39:56.300Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-conflict-resolution/03-CONTEXT.md
+Last session: 2026-03-12T22:16:07Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: .planning/phases/03-conflict-resolution/03-02-PLAN.md
