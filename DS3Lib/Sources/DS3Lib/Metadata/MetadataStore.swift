@@ -212,4 +212,93 @@ public actor MetadataStore {
             try context.save()
         }
     }
+
+    // MARK: - Sendable-safe Queries
+
+    // These methods return Sendable types (Bool, Int, String?, Date?) so they can be
+    // safely called across actor boundaries in Swift 6 strict concurrency mode.
+
+    /// Check whether an item with the given S3 key exists.
+    public func itemExists(byKey s3Key: String) throws -> Bool {
+        let context = modelExecutor.modelContext
+        let predicate = #Predicate<SyncedItem> { $0.s3Key == s3Key }
+        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
+        return try context.fetch(descriptor).first != nil
+    }
+
+    /// Fetch the etag of an item by S3 key, or nil if not found.
+    public func fetchItemEtag(byKey s3Key: String) throws -> String? {
+        let context = modelExecutor.modelContext
+        let predicate = #Predicate<SyncedItem> { $0.s3Key == s3Key }
+        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
+        return try context.fetch(descriptor).first?.etag
+    }
+
+    /// Fetch the sync status raw string of an item by S3 key, or nil if not found.
+    public func fetchItemSyncStatus(byKey s3Key: String) throws -> String? {
+        let context = modelExecutor.modelContext
+        let predicate = #Predicate<SyncedItem> { $0.s3Key == s3Key }
+        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
+        return try context.fetch(descriptor).first?.syncStatus
+    }
+
+    /// Count items for a specific drive.
+    public func countItemsByDrive(driveId: UUID) throws -> Int {
+        let context = modelExecutor.modelContext
+        let predicate = #Predicate<SyncedItem> { $0.driveId == driveId }
+        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
+        return try context.fetch(descriptor).count
+    }
+
+    /// Sendable snapshot of a SyncAnchorRecord's key fields.
+    public struct SyncAnchorSnapshot: Sendable {
+        public let driveId: UUID
+        public let lastSyncDate: Date
+        public let lastSuccessfulSync: Date?
+        public let consecutiveFailures: Int
+        public let itemCount: Int
+    }
+
+    /// Fetch a Sendable snapshot of the sync anchor for a drive.
+    public func fetchSyncAnchorSnapshot(driveId: UUID) throws -> SyncAnchorSnapshot? {
+        let context = modelExecutor.modelContext
+        let predicate = #Predicate<SyncAnchorRecord> { $0.driveId == driveId }
+        let descriptor = FetchDescriptor<SyncAnchorRecord>(predicate: predicate)
+        guard let record = try context.fetch(descriptor).first else { return nil }
+        return SyncAnchorSnapshot(
+            driveId: record.driveId,
+            lastSyncDate: record.lastSyncDate,
+            lastSuccessfulSync: record.lastSuccessfulSync,
+            consecutiveFailures: record.consecutiveFailures,
+            itemCount: record.itemCount
+        )
+    }
+
+    /// Fetch all item keys and etags for a drive as a Sendable dictionary.
+    /// Used by SyncEngine for reconciliation without crossing actor boundary with @Model objects.
+    public func fetchItemKeysAndEtags(driveId: UUID) throws -> [String: String?] {
+        let context = modelExecutor.modelContext
+        let predicate = #Predicate<SyncedItem> { $0.driveId == driveId }
+        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
+        let items = try context.fetch(descriptor)
+        var result: [String: String?] = [:]
+        for item in items {
+            result[item.s3Key] = item.etag
+        }
+        return result
+    }
+
+    /// Fetch all item keys and their sync status for a drive as a Sendable dictionary.
+    /// Used by SyncEngine to determine which items qualify for deletion detection.
+    public func fetchItemKeysAndStatuses(driveId: UUID) throws -> [String: String] {
+        let context = modelExecutor.modelContext
+        let predicate = #Predicate<SyncedItem> { $0.driveId == driveId }
+        let descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
+        let items = try context.fetch(descriptor)
+        var result: [String: String] = [:]
+        for item in items {
+            result[item.s3Key] = item.syncStatus
+        }
+        return result
+    }
 }
