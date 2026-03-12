@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-03-11T12:58:00Z"
-last_activity: 2026-03-11 -- Completed plan 01-03 (extension hardening)
+status: completed
+stopped_at: Phase 2 context gathered
+last_updated: "2026-03-12T13:56:39.761Z"
+last_activity: 2026-03-12 -- Completed plan 01-04 (metadata & code quality)
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 12
-  completed_plans: 3
-  percent: 25
+  completed_phases: 1
+  total_plans: 4
+  completed_plans: 4
+  percent: 33
 ---
 
 # Project State
@@ -21,32 +21,32 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Files sync reliably and transparently between the user's Mac and Cubbit DS3, with zero friction
-**Current focus:** Phase 1: Foundation
+**Current focus:** Phase 1 complete, ready for Phase 2
 
 ## Current Position
 
-Phase: 1 of 5 (Foundation)
-Plan: 3 of 4 in current phase
-Status: Executing
-Last activity: 2026-03-11 -- Completed plan 01-03 (extension hardening)
+Phase: 1 of 5 (Foundation) -- COMPLETE
+Plan: 4 of 4 in current phase (all done)
+Status: Phase 1 complete
+Last activity: 2026-03-12 -- Completed plan 01-04 (metadata & code quality)
 
-Progress: [###.......] 25%
+Progress: [####......] 33%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
+- Total plans completed: 4
 - Average duration: 9 min
-- Total execution time: 0.47 hours
+- Total execution time: 0.6 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Foundation | 3 | 28 min | 9 min |
+| 1. Foundation | 4 | 37 min | 9 min |
 
 **Recent Trend:**
-- Last 5 plans: 9m, 10m, 9m
+- Last 5 plans: 9m, 10m, 9m, 9m
 - Trend: stable
 
 *Updated after each plan completion*
@@ -69,6 +69,9 @@ Recent decisions affecting current work:
 - Plan 01-03: Guard-let chain init pattern -- every extension method uses local bindings after enabled check
 - Plan 01-03: S3ErrorType.toFileProviderError() maps to specific NSFileProviderError codes for system retry behavior
 - Plan 01-03: Multipart upload validates ETag and aborts orphaned parts on any failure
+- Plan 01-04: @MainActor on MetadataStore instead of Sendable (ModelContainer not Sendable)
+- Plan 01-04: syncStatus stored as String for SwiftData compat, type-safe accessor via computed property
+- Plan 01-04: Disabled force_unwrapping in SwiftLint due to pre-existing patterns
 
 ### Pending Todos
 
@@ -77,10 +80,10 @@ None yet.
 ### Blockers/Concerns
 
 - [RESOLVED] File Provider extensions are hard to debug -- OSLog structured logging now in place (plan 01-02)
-- SwiftData with concurrent File Provider extension processes is less proven than Core Data -- validate in Phase 1
+- [RESOLVED] SwiftData with concurrent File Provider extension processes -- MetadataStore uses @MainActor with App Group container (plan 01-04)
 
 ## Session Continuity
 
-Last session: 2026-03-11T12:58:00Z
-Stopped at: Completed 01-03-PLAN.md
-Resume file: .planning/phases/01-foundation/01-04-PLAN.md
+Last session: 2026-03-12T13:56:39.759Z
+Stopped at: Phase 2 context gathered
+Resume file: .planning/phases/02-sync-engine/02-CONTEXT.md

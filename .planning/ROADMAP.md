@@ -47,11 +47,12 @@ Plans:
   2. Files deleted on S3 disappear from Finder within one sync cycle (no ghost files that reappear)
   3. Sync anchor advances after each successful enumeration batch and survives extension restarts
   4. Files appear as cloud placeholders in Finder and download only when the user opens them (on-demand sync)
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md -- Schema V2 migration (isMaterialized + SyncAnchorRecord), MetadataStore ModelActor, exponential backoff, NetworkMonitor
+- [ ] 02-02-PLAN.md -- SyncEngine actor with full reconciliation logic and TDD test suite
+- [ ] 02-03-PLAN.md -- Integrate SyncEngine into File Provider extension, CRUD metadata writes, signalEnumerator, on-demand download
 
 ### Phase 3: Conflict Resolution
 **Goal**: Concurrent edits from multiple devices never cause silent data loss -- conflicts are detected before writes and both versions are preserved as separate files
@@ -109,11 +110,11 @@ Note: Phase 4 depends only on Phase 1 and could theoretically run in parallel wi
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 1/4 | In Progress | - |
-| 2. Sync Engine | 0/2 | Not started | - |
+| 2. Sync Engine | 0/3 | Not started | - |
 | 3. Conflict Resolution | 0/1 | Not started | - |
 | 4. Auth & Platform | 0/2 | Not started | - |
 | 5. UX Polish | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-11*
-*Last updated: 2026-03-11 (plan 01-01 completed)*
+*Last updated: 2026-03-12 (Phase 2 planned: 3 plans in 3 waves)*
