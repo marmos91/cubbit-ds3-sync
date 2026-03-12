@@ -4,7 +4,7 @@ import SwiftData
 /// Schema version 1 for the SyncedItem metadata model.
 /// Uses VersionedSchema from day one for explicit migration management.
 public enum SyncedItemSchemaV1: VersionedSchema {
-    nonisolated(unsafe) public static let versionIdentifier = Schema.Version(1, 0, 0)
+    public static let versionIdentifier = Schema.Version(1, 0, 0)
     public static var models: [any PersistentModel.Type] { [SyncedItem.self] }
 
     @Model

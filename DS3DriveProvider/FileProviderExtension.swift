@@ -203,7 +203,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                     withProgress: progress
                 )
 
-                self.logger.debug("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize, privacy: .public) downloaded successfully at \(fileURL, privacy: .public)")
+                self.logger.debug("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize ?? 0, privacy: .public) downloaded successfully at \(fileURL, privacy: .public)")
 
                 nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 cb.handler(fileURL, s3Item, nil)

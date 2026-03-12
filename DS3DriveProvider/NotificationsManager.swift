@@ -63,15 +63,17 @@ final class NotificationManager: Sendable {
     }
 
     func sendTransferSpeedNotification(_ transferSpeed: DriveTransferStats) {
-        guard
-            let encodedTransferSpeedData = try? JSONEncoder().encode(transferSpeed),
-            let encodedTransferSpeedString = String(data: encodedTransferSpeedData, encoding: .utf8)
-        else { return }
+        queue.async {
+            guard
+                let encodedTransferSpeedData = try? JSONEncoder().encode(transferSpeed),
+                let encodedTransferSpeedString = String(data: encodedTransferSpeedData, encoding: .utf8)
+            else { return }
 
-        DistributedNotificationCenter
-            .default()
-            .post(
-                Notification(name: .driveTransferStats, object: encodedTransferSpeedString)
-            )
+            DistributedNotificationCenter
+                .default()
+                .post(
+                    Notification(name: .driveTransferStats, object: encodedTransferSpeedString)
+                )
+        }
     }
 }
