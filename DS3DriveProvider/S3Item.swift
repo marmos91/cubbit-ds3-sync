@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 import DS3Lib
 import os.log
 
-class S3Item: NSObject, NSFileProviderItem {
+class S3Item: NSObject, NSFileProviderItem, @unchecked Sendable {
     static let decorationPrefix = Bundle.main.bundleIdentifier!
     
     let identifier: NSFileProviderItemIdentifier

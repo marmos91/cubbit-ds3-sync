@@ -415,12 +415,13 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 return progress
             default:
                 // File/Folder rename
-                self.logger.debug("Rename detected for \(s3Item.itemIdentifier.rawValue) with name \(item.filename, privacy: .public)")
+                let newName = item.filename
+                self.logger.debug("Rename detected for \(s3Item.itemIdentifier.rawValue) with name \(newName, privacy: .public)")
 
                 Task {
                     do {
                         nm.sendDriveChangedNotification(status: .sync)
-                        let s3Item = try await s3Lib.renameS3Item(s3Item, newName: item.filename, withProgress: progress)
+                        let s3Item = try await s3Lib.renameS3Item(s3Item, newName: newName, withProgress: progress)
 
                         nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                         cb.handler(s3Item, NSFileProviderItemFields(), false, nil)
@@ -437,7 +438,8 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             }
         } else if changedFields.contains(.parentItemIdentifier) {
             // Move file/folder
-            self.logger.debug("Move detected for key \(s3Item.itemIdentifier.rawValue) from \(s3Item.parentItemIdentifier.rawValue) to \(item.parentItemIdentifier.rawValue)")
+            let destinationParent = item.parentItemIdentifier.rawValue
+            self.logger.debug("Move detected for key \(s3Item.itemIdentifier.rawValue) from \(s3Item.parentItemIdentifier.rawValue) to \(destinationParent, privacy: .public)")
 
 //            if options.contains(.mayAlreadyExist) {
 //                // TODO: Handle move with overwrite
@@ -447,7 +449,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             Task {
                 do {
                     nm.sendDriveChangedNotification(status: .sync)
-                    let newKey = item.parentItemIdentifier.rawValue + s3Item.filename
+                    let newKey = destinationParent + s3Item.filename
 
                     let s3Item = try await s3Lib.moveS3Item(s3Item, toKey: newKey, withProgress: progress)
 
