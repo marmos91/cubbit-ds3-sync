@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-03-12T22:26:04Z"
-last_activity: 2026-03-12 -- Completed plan 03-02 (Conflict detection in File Provider CRUD)
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-03-12T22:36:16Z"
+last_activity: 2026-03-12 -- Completed plan 03-03 (Conflict notification and integration tests)
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 10
-  completed_plans: 9
-  percent: 90
+  completed_plans: 10
+  percent: 100
 ---
 
 # Project State
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Files sync reliably and transparently between the user's Mac and Cubbit DS3, with zero friction
-**Current focus:** Phase 3 in progress -- Conflict detection wired into CRUD, UI notification next
+**Current focus:** Phase 3 complete -- Conflict resolution fully implemented with detection, notification, and tests
 
 ## Current Position
 
-Phase: 3 of 5 (Conflict Resolution -- in progress)
-Plan: 2 of 3 in current phase (03-02 complete)
-Status: In progress
-Last activity: 2026-03-12 -- Completed plan 03-02 (Conflict detection in File Provider CRUD)
+Phase: 3 of 5 (Conflict Resolution -- complete)
+Plan: 3 of 3 in current phase (03-03 complete)
+Status: Phase 3 complete
+Last activity: 2026-03-12 -- Completed plan 03-03 (Conflict notification and integration tests)
 
-Progress: [█████████░] 90% (phases 1-2 complete, phase 3: 2/3)
+Progress: [██████████] 100% (phases 1-3 complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
+- Total plans completed: 10
 - Average duration: 8 min
-- Total execution time: 1.2 hours
+- Total execution time: 1.3 hours
 
 **By Phase:**
 
@@ -45,10 +45,10 @@ Progress: [█████████░] 90% (phases 1-2 complete, phase 3: 2/
 |-------|-------|-------|----------|
 | 1. Foundation | 4 | 37 min | 9 min |
 | 2. Sync Engine | 3 | 26 min | 9 min |
-| 3. Conflict Resolution | 2 | 9 min | 5 min |
+| 3. Conflict Resolution | 3 | 14 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 7m, 6m, 13m, 2m, 7m
+- Last 5 plans: 6m, 13m, 2m, 7m, 5m
 - Trend: stable
 
 *Updated after each plan completion*
@@ -91,6 +91,8 @@ Recent decisions affecting current work:
 - Plan 03-02: SwiftLint function_body_length disabled for createItem and deleteItem (conflict detection complexity)
 - Plan 03-02: createItem uses best-effort HEAD check -- S3 errors fall through to normal create flow
 - Plan 03-02: deleteItem cancels with .cannotSynchronize on ETag mismatch (remote was modified)
+- Plan 03-03: @MainActor on ConflictNotificationHandler for Swift 6 strict concurrency (Timer-based batching)
+- Plan 03-03: Integration tests validate DS3Lib-level logic only (extension requires full macOS process)
 
 ### Pending Todos
 
@@ -103,6 +105,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T22:26:04Z
-Stopped at: Completed 03-02-PLAN.md
-Resume file: .planning/phases/03-conflict-resolution/03-03-PLAN.md
+Last session: 2026-03-12T22:36:16Z
+Stopped at: Completed 03-03-PLAN.md (Phase 3 complete)
+Resume file: Next phase (04 or 05)
