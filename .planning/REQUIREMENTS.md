@@ -40,8 +40,8 @@
 ### User Experience
 
 - [x] **UX-01**: Finder status overlays showing sync state per file (synced/syncing/error/cloud-only)
-- [ ] **UX-02**: Menu bar tray shows sync status per drive with colored indicators
-- [ ] **UX-03**: Menu bar tray shows real-time transfer speed (upload/download)
+- [x] **UX-02**: Menu bar tray shows sync status per drive with colored indicators
+- [x] **UX-03**: Menu bar tray shows real-time transfer speed (upload/download)
 - [x] **UX-04**: Menu bar tray shows recently synced files
 - [x] **UX-05**: Menu bar tray quick actions: add drive, open in Finder, preferences, pause sync
 - [x] **UX-06**: Simplified drive setup wizard with tenant-aware project/bucket selection
@@ -107,8 +107,8 @@
 | PLAT-03 | Phase 4 | Complete |
 | PLAT-04 | Phase 4 | Complete |
 | UX-01 | Phase 5 | Complete |
-| UX-02 | Phase 5 | Pending |
-| UX-03 | Phase 5 | Pending |
+| UX-02 | Phase 5 | Complete |
+| UX-03 | Phase 5 | Complete |
 | UX-04 | Phase 5 | Complete |
 | UX-05 | Phase 5 | Complete |
 | UX-06 | Phase 5 | Complete |

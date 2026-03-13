@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-03-13T14:44:09Z"
-last_activity: 2026-03-13 -- Completed plan 05-03 (Window redesigns: wizard, login, preferences)
+stopped_at: Completed 05-04-PLAN.md
+last_updated: "2026-03-13T14:55:30Z"
+last_activity: 2026-03-13 -- Completed plan 05-04 (Tray menu redesign)
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 19
-  completed_plans: 17
-  percent: 89
+  completed_plans: 18
+  percent: 95
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 ## Current Position
 
 Phase: 5 of 5 (UX Polish)
-Plan: 3 of 5 in current phase (05-03 complete)
+Plan: 4 of 5 in current phase (05-04 complete)
 Status: In progress
-Last activity: 2026-03-13 -- Completed plan 05-03 (Window redesigns: wizard, login, preferences)
+Last activity: 2026-03-13 -- Completed plan 05-04 (Tray menu redesign: status dots, side panels, animation)
 
-Progress: [████████░░] 89% (17 of 19 plans complete)
+Progress: [█████████░] 95% (18 of 19 plans complete)
 
 ## Performance Metrics
 
@@ -47,16 +47,17 @@ Progress: [████████░░] 89% (17 of 19 plans complete)
 | 2. Sync Engine | 3 | 26 min | 9 min |
 | 3. Conflict Resolution | 3 | 14 min | 5 min |
 | 4. Auth & Platform | 4/4 | 27 min | 7 min |
-| 5. UX Polish | 3/5 | 24 min | 8 min |
+| 5. UX Polish | 4/5 | 31 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: 12m, 5m, 6m, 9m, 9m
+- Last 5 plans: 5m, 6m, 9m, 9m, 7m
 - Trend: stable
 
 *Updated after each plan completion*
 | Phase 05 P01 | 6min | 2 tasks | 9 files |
 | Phase 05 P02 | 9min | 3 tasks | 12 files |
 | Phase 05 P03 | 9min | 2 tasks | 11 files |
+| Phase 05 P04 | 7min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,10 @@ Recent decisions affecting current work:
 - Plan 05-03: DriveConfirmView auto-suggests name from bucket/prefix selection
 - Plan 05-03: Login card uses shadow for depth instead of ZStack background
 - Plan 05-03: Preferences uses Form with .grouped style for native macOS Settings appearance
+- Plan 05-04: Side panels expand tray HStack to 620pt (310+310) with animated transition
+- Plan 05-04: Tray icon animation uses simple blink (alternating sync/base at 0.5s) on .common RunLoop
+- Plan 05-04: Finder right-click actions deferred (sandbox restrictions, tray gear provides equivalent)
+- Plan 05-04: ConnectionInfoRow extracted into ConnectionInfoPanel as shared component
 
 ### Pending Todos
 
@@ -138,6 +143,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T14:44:09Z
-Stopped at: Completed 05-03-PLAN.md
-Resume file: .planning/phases/05-ux-polish/05-04-PLAN.md
+Last session: 2026-03-13T14:55:30Z
+Stopped at: Completed 05-04-PLAN.md
+Resume file: .planning/phases/05-ux-polish/05-05-PLAN.md
