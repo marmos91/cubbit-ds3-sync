@@ -9,7 +9,10 @@ struct LoginView: View {
 
     @State var email: String = ""
     @State var password: String = ""
-    @State var tenant: String = UserDefaults.standard.string(forKey: DefaultSettings.UserDefaultsKeys.lastTenant) ?? DefaultSettings.defaultTenantName
+    @State var tenant: String = {
+        let saved = UserDefaults.standard.string(forKey: DefaultSettings.UserDefaultsKeys.lastTenant) ?? ""
+        return saved.isEmpty ? DefaultSettings.defaultTenantName : saved
+    }()
     @State var coordinatorURL: String = UserDefaults.standard.string(forKey: DefaultSettings.UserDefaultsKeys.lastCoordinatorURL) ?? CubbitAPIURLs.defaultCoordinatorURL
     @State var showAdvanced: Bool = false
     @FocusState private var focusedField: FocusedField?
@@ -95,6 +98,7 @@ struct LoginView: View {
                             .foregroundStyle(DS3Colors.secondaryText)
                         }
                         .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                         if showAdvanced {
                             HStack(spacing: DS3Spacing.sm) {
