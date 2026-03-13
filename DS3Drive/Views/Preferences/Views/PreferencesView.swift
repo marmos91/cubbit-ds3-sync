@@ -20,10 +20,10 @@ struct PreferencesView: View {
                 .tabItem { Label("Sync", systemImage: "arrow.triangle.2.circlepath") }
         }
         .frame(
-            minWidth: 800,
-            maxWidth: 800,
-            minHeight: 600,
-            maxHeight: 600
+            minWidth: 500,
+            maxWidth: 500,
+            minHeight: 320,
+            maxHeight: 320
         )
     }
 }

@@ -115,7 +115,7 @@ import DS3Lib
 
     // MARK: - Expand bucket -> load folder prefixes
 
-    func expandBucket(_ node: TreeNode, parentPrefix: String? = nil) async {
+    func expandBucket(_ node: TreeNode) async {
         guard let project = node.project, let bucket = node.bucket, !node.isLoaded else { return }
 
         node.isLoading = true
@@ -125,9 +125,7 @@ import DS3Lib
             let s3Client = try await getOrCreateS3Client(forProject: project)
             let request = S3.ListObjectsV2Request(
                 bucket: bucket.name,
-                delimiter: String(DefaultSettings.S3.delimiter),
-                encodingType: .url,
-                prefix: parentPrefix?.removingPercentEncoding
+                delimiter: String(DefaultSettings.S3.delimiter)
             )
 
             let response = try await s3Client.listObjectsV2(request)
@@ -135,7 +133,7 @@ import DS3Lib
 
             node.children = prefixes.compactMap { commonPrefix -> TreeNode? in
                 guard let fullPrefix = commonPrefix.prefix else { return nil }
-                let displayName = folderDisplayName(fullPrefix: fullPrefix, parentPrefix: parentPrefix)
+                let displayName = folderDisplayName(fullPrefix: fullPrefix, parentPrefix: nil)
                 return TreeNode(
                     id: "\(project.id)/\(bucket.name)/\(fullPrefix)",
                     name: displayName,
@@ -157,18 +155,25 @@ import DS3Lib
     // MARK: - Expand a folder prefix -> load sub-prefixes
 
     func expandFolder(_ node: TreeNode) async {
-        guard let project = node.project, let bucket = node.bucket, let prefix = node.prefix, !node.isLoaded else { return }
+        guard let project = node.project, let bucket = node.bucket, let prefix = node.prefix, !node.isLoaded else {
+            // Already loaded — just expand
+            if node.isLoaded { node.isExpanded = true }
+            return
+        }
 
         node.isLoading = true
-        defer { node.isLoading = false }
+        defer {
+            node.isLoading = false
+            node.isLoaded = true
+        }
 
         do {
             let s3Client = try await getOrCreateS3Client(forProject: project)
+            let decodedPrefix = prefix.removingPercentEncoding ?? prefix
             let request = S3.ListObjectsV2Request(
                 bucket: bucket.name,
                 delimiter: String(DefaultSettings.S3.delimiter),
-                encodingType: .url,
-                prefix: prefix.removingPercentEncoding
+                prefix: decodedPrefix
             )
 
             let response = try await s3Client.listObjectsV2(request)
@@ -176,7 +181,7 @@ import DS3Lib
 
             node.children = prefixes.compactMap { commonPrefix -> TreeNode? in
                 guard let fullPrefix = commonPrefix.prefix else { return nil }
-                let displayName = folderDisplayName(fullPrefix: fullPrefix, parentPrefix: prefix)
+                let displayName = folderDisplayName(fullPrefix: fullPrefix, parentPrefix: decodedPrefix)
                 return TreeNode(
                     id: "\(project.id)/\(bucket.name)/\(fullPrefix)",
                     name: displayName,
@@ -187,7 +192,6 @@ import DS3Lib
                 )
             }
 
-            node.isLoaded = true
             node.isExpanded = true
         } catch {
             self.logger.error("Failed to load sub-folders for prefix \(prefix): \(error)")
@@ -200,6 +204,12 @@ import DS3Lib
     func toggleNode(_ node: TreeNode) async {
         if node.isExpanded {
             node.isExpanded = false
+            return
+        }
+
+        // Already loaded — just re-expand without fetching
+        if node.isLoaded {
+            node.isExpanded = true
             return
         }
 
@@ -517,8 +527,8 @@ struct TreeNavigationView: View {
 
     private func iconForNode(_ node: TreeNode) -> String {
         switch node.type {
-        case .project: return "folder.fill"
-        case .bucket: return "externaldrive.connected.to.line.below"
+        case .project: return "cube.fill"
+        case .bucket: return "cylinder"
         case .folder: return "folder"
         }
     }
