@@ -87,7 +87,7 @@ struct LoginView: View {
                     // Advanced section
                     VStack(alignment: .leading, spacing: DS3Spacing.sm) {
                         Button {
-                            withAnimation { showAdvanced.toggle() }
+                            showAdvanced.toggle()
                         } label: {
                             HStack(spacing: DS3Spacing.xs) {
                                 Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
