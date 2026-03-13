@@ -39,4 +39,117 @@ public class SharedData: @unchecked Sendable {
     public static func `default`() -> SharedData {
         return instance
     }
+
+    // MARK: - App Group Container
+
+    func sharedContainerURL() throws -> URL {
+        guard let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup) else {
+            throw SharedDataError.cannotAccessAppGroup
+        }
+        return url
+    }
+
+    // MARK: - Coordinated File I/O
+
+    func coordinatedWrite(data: Data, to fileURL: URL) throws {
+        let coordinator = NSFileCoordinator()
+        var coordinatorError: NSError?
+        var writeError: Error?
+
+        coordinator.coordinate(writingItemAt: fileURL, options: .forReplacing, error: &coordinatorError) { url in
+            do {
+                try data.write(to: url, options: .atomic)
+            } catch {
+                writeError = error
+            }
+        }
+
+        if let coordinatorError { throw coordinatorError }
+        if let writeError { throw writeError }
+    }
+
+    func coordinatedWriteString(_ string: String, to fileURL: URL) throws {
+        let coordinator = NSFileCoordinator()
+        var coordinatorError: NSError?
+        var writeError: Error?
+
+        coordinator.coordinate(writingItemAt: fileURL, options: .forReplacing, error: &coordinatorError) { url in
+            do {
+                try string.write(to: url, atomically: true, encoding: .utf8)
+            } catch {
+                writeError = error
+            }
+        }
+
+        if let coordinatorError { throw coordinatorError }
+        if let writeError { throw writeError }
+    }
+
+    func coordinatedRead<T>(from fileURL: URL, decode: (Data) throws -> T) throws -> T {
+        let coordinator = NSFileCoordinator()
+        var coordinatorError: NSError?
+        var result: Result<T, Error>?
+
+        coordinator.coordinate(readingItemAt: fileURL, options: [], error: &coordinatorError) { url in
+            do {
+                let data = try Data(contentsOf: url)
+                result = .success(try decode(data))
+            } catch {
+                result = .failure(error)
+            }
+        }
+
+        if let coordinatorError { throw coordinatorError }
+
+        switch result {
+        case .success(let value):
+            return value
+        case .failure(let error):
+            throw error
+        case .none:
+            throw SharedDataError.cannotAccessAppGroup
+        }
+    }
+
+    func coordinatedDelete(at fileURL: URL) throws {
+        let coordinator = NSFileCoordinator()
+        var coordinatorError: NSError?
+        var deleteError: Error?
+
+        coordinator.coordinate(writingItemAt: fileURL, options: .forDeleting, error: &coordinatorError) { url in
+            do {
+                try FileManager.default.removeItem(at: url)
+            } catch {
+                deleteError = error
+            }
+        }
+
+        if let coordinatorError { throw coordinatorError }
+        if let deleteError { throw deleteError }
+    }
+
+    func coordinatedReadString(from fileURL: URL) throws -> String {
+        let coordinator = NSFileCoordinator()
+        var coordinatorError: NSError?
+        var result: Result<String, Error>?
+
+        coordinator.coordinate(readingItemAt: fileURL, options: [], error: &coordinatorError) { url in
+            do {
+                result = .success(try String(contentsOf: url, encoding: .utf8))
+            } catch {
+                result = .failure(error)
+            }
+        }
+
+        if let coordinatorError { throw coordinatorError }
+
+        switch result {
+        case .success(let value):
+            return value
+        case .failure(let error):
+            throw error
+        case .none:
+            throw SharedDataError.cannotAccessAppGroup
+        }
+    }
 }

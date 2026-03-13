@@ -4,18 +4,20 @@ import DS3Lib
 struct MFAView: View {
     @Environment(DS3Authentication.self) var ds3Authentication: DS3Authentication
     @Environment(LoginViewModel.self) var loginViewModel: LoginViewModel
-    
+
     var email: String
     var password: String
-    
+    var tenant: String
+    var coordinatorURL: String
+
     @State var tfaCode: String = ""
     @FocusState var focused: Bool?
-    
+
     var body: some View {
         ZStack {
             Color(.background)
                 .ignoresSafeArea()
-            
+
             VStack {
                 if loginViewModel.isLoading {
                     LoadingView()
@@ -24,19 +26,19 @@ struct MFAView: View {
                         .font(.custom("Nunito", size: 18))
                         .fontWeight(.bold)
                         .padding(.vertical)
-                    
+
                     Text("Enter the code from your authenticator app")
                         .font(.custom("Nunito", size: 14))
                         .padding(.bottom)
-                    
+
                     BorderedSectionView {
                         HStack {
                             Text("Authentication code")
-                            
+
                             Spacer()
                         }
                         .padding(.vertical)
-                        
+
                         IconTextField(
                             iconName: .mfaIcon,
                             placeholder: "2FA 6-digit code",
@@ -51,7 +53,7 @@ struct MFAView: View {
                         .onSubmit {
                             self.loginWithMFA()
                         }
-                        
+
                         Button("Log in") {
                             self.loginWithMFA()
                         }
@@ -61,7 +63,7 @@ struct MFAView: View {
                         .onSubmit {
                             self.loginWithMFA()
                         }
-                        
+
                         if let loginError = loginViewModel.loginError {
                             Text(loginError.localizedDescription)
                                 .font(.custom("Nunito", size: 14))
@@ -75,16 +77,19 @@ struct MFAView: View {
         }
         .frame(width: 700, height: 450)
     }
-    
+
     func loginWithMFA() {
         let viewModel = loginViewModel
         let auth = ds3Authentication
+        let tenantValue = (tenant.isEmpty || tenant == DefaultSettings.defaultTenantName) ? nil : tenant
         Task {
             try await viewModel.login(
                 withAuthentication: auth,
                 email: email,
                 password: password,
-                withTfaToken: tfaCode
+                withTfaToken: tfaCode,
+                tenant: tenantValue,
+                coordinatorURL: coordinatorURL
             )
         }
     }
@@ -93,7 +98,9 @@ struct MFAView: View {
 #Preview {
     MFAView(
         email: "test@cubbit.io",
-        password: "123"
+        password: "123",
+        tenant: "",
+        coordinatorURL: CubbitAPIURLs.defaultCoordinatorURL
     )
     .environment(DS3Authentication.loadFromPersistenceOrCreateNew())
     .environment(LoginViewModel())

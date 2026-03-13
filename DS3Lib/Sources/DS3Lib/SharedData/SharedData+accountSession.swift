@@ -1,46 +1,31 @@
 import Foundation
 
 extension SharedData {
-    /// Persist the given `AccountSession` to shared container.
+    /// Persist the given `AccountSession` to shared container using NSFileCoordinator for cross-process safety.
     /// - Parameter accountSession: the account session to persist.
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed. Other error can be thrown if writing and encoding fails
     public func persistAccountSession(
         accountSession: AccountSession
     ) throws {
-        guard let sharedContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup) else {
-            throw SharedDataError.cannotAccessAppGroup
-        }
-        
-        let sessionURL = sharedContainerURL.appendingPathComponent(DefaultSettings.FileNames.accountSessionFileName)
-        
-        let encoder = JSONEncoder()
-        
-        let encodedSession = try encoder.encode(accountSession)
-        try encodedSession.write(to: sessionURL)
+        let sessionURL = try sharedContainerURL().appendingPathComponent(DefaultSettings.FileNames.accountSessionFileName)
+        let encodedSession = try JSONEncoder().encode(accountSession)
+        try coordinatedWrite(data: encodedSession, to: sessionURL)
     }
-    
-    /// Loads the saved `AccountSession` from shared container.
+
+    /// Loads the saved `AccountSession` from shared container using NSFileCoordinator for cross-process safety.
     /// - Returns: the saved `AccountSession`.
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed. Other error can be thrown if reading and decoding fails
     public func loadAccountSessionFromPersistence() throws -> AccountSession {
-        guard let sharedContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup) else {
-            throw SharedDataError.cannotAccessAppGroup
+        let sessionURL = try sharedContainerURL().appendingPathComponent(DefaultSettings.FileNames.accountSessionFileName)
+        return try coordinatedRead(from: sessionURL) { data in
+            try JSONDecoder().decode(AccountSession.self, from: data)
         }
-        
-        let sessionURL = sharedContainerURL.appendingPathComponent(DefaultSettings.FileNames.accountSessionFileName)
-        
-        return try JSONDecoder().decode(AccountSession.self, from: Data(contentsOf: sessionURL))
     }
-    
+
     /// Deletes the saved `AccountSession` from shared container.
-    /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed. 
+    /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed.
     public func deleteAccountSessionFromPersistence() throws {
-        guard let sharedContainerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup) else {
-            throw SharedDataError.cannotAccessAppGroup
-        }
-        
-        let sessionURL = sharedContainerURL.appendingPathComponent(DefaultSettings.FileNames.accountSessionFileName)
-        
-        try FileManager.default.removeItem(at: sessionURL)
+        let sessionURL = try sharedContainerURL().appendingPathComponent(DefaultSettings.FileNames.accountSessionFileName)
+        try coordinatedDelete(at: sessionURL)
     }
 }

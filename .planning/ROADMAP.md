@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Foundation** - Rename app, add structured logging, fix extension crashes, set up SwiftData metadata database
 - [ ] **Phase 2: Sync Engine** - Build metadata-driven sync with remote change detection, deletion tracking, and on-demand file access
 - [x] **Phase 3: Conflict Resolution** - Detect version conflicts via ETag comparison and create conflict copies to prevent data loss
-- [ ] **Phase 4: Auth & Platform** - Update auth flow to current IAM v1 APIs, add multitenancy, auto-manage API keys, make endpoints configurable
+- [x] **Phase 4: Auth & Platform** - Update auth flow to current IAM v1 APIs, add multitenancy, auto-manage API keys, make endpoints configurable
 - [ ] **Phase 5: UX Polish** - Add Finder sync badges, menu bar status/speed/history, quick actions, and streamlined drive setup wizard
 
 ## Phase Details
@@ -78,11 +78,13 @@ Plans:
   3. Token expiration during an active sync session is handled transparently -- the refresh flow completes without interrupting file transfers or showing errors
   4. Users with 2FA enabled can complete login with their second factor
   5. A configurable coordinator URL setting allows pointing the app at a self-hosted DS3 Composer instance, and all API URLs derive from that base
-**Plans**: TBD
+**Plans:** 3/4 plans executed
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md -- Refactor CubbitAPIURLs to instance-based class, extend SharedData with tenant/coordinator persistence, add NSFileCoordinator to token files
+- [ ] 04-02-PLAN.md -- Inject CubbitAPIURLs into DS3Authentication/DS3SDK, add tenant_id to auth requests, proactive token refresh
+- [ ] 04-03-PLAN.md -- Login UI Advanced section (tenant + coordinator URL), tray menu Connection Info/Sign Out, app-level refresh timer
+- [ ] 04-04-PLAN.md -- Extension dynamic URLs from SharedData, proactive refresh in extension, S3 403 self-healing with API key recreation
 
 ### Phase 5: UX Polish
 **Goal**: Users have full visibility into sync state and control over their drives through Finder badges, a rich menu bar experience, and a streamlined setup wizard
@@ -114,9 +116,9 @@ Note: Phase 4 depends only on Phase 1 and could theoretically run in parallel wi
 | 1. Foundation | 4/4 | Complete | 2026-03-12 |
 | 2. Sync Engine | 3/3 | Complete | 2026-03-12 |
 | 3. Conflict Resolution | 3/3 | Complete | - |
-| 4. Auth & Platform | 0/2 | Not started | - |
+| 4. Auth & Platform | 4/4 | Complete | 2026-03-13 |
 | 5. UX Polish | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-11*
-*Last updated: 2026-03-12 (Phase 3: 3/3 plans complete)*
+*Last updated: 2026-03-13 (Phase 4: complete with 4/4 plans)*

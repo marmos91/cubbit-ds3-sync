@@ -43,6 +43,9 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
     private var apiKeys: DS3ApiKey?
     private var endpoint: String?
+    private var urls: CubbitAPIURLs?
+    private var authentication: DS3Authentication?
+    private var refreshTask: Task<Void, Never>?
     private var notificationManager: NotificationManager?
     private var metadataStore: MetadataStore?
     private var syncEngine: SyncEngine?
@@ -69,6 +72,22 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
             let account = try sharedData.loadAccountFromPersistence()
             self.endpoint = account.endpointGateway
+
+            // Load coordinator URL and construct URLs for dynamic multi-tenant support
+            let coordinatorURL = (try? sharedData.loadCoordinatorURLFromPersistence()) ?? CubbitAPIURLs.defaultCoordinatorURL
+            let urls = CubbitAPIURLs(coordinatorURL: coordinatorURL)
+            self.urls = urls
+
+            // Load account session for token refresh in the extension process
+            let accountSession = try sharedData.loadAccountSessionFromPersistence()
+
+            // Create authentication instance for independent token refresh and API key operations
+            self.authentication = DS3Authentication(
+                accountSession: accountSession,
+                account: account,
+                isLogged: true,
+                urls: urls
+            )
 
             let apiKeys = try sharedData.loadDS3APIKeyFromPersistence(
                 forUser: drive.syncAnchor.IAMUser,
@@ -131,6 +150,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         }
 
         super.init()
+        self.refreshTask = self.startExtensionRefreshTimer()
     }
 
     /// Notifies the main app that the extension failed to initialize
@@ -144,6 +164,9 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     }
 
     func invalidate() {
+        refreshTask?.cancel()
+        refreshTask = nil
+
         do {
             try self.s3Lib?.shutdown()
         } catch {
@@ -237,18 +260,23 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         Task {
             do {
                 nm.sendDriveChangedNotification(status: .sync)
-                let s3Item = try await s3Lib.remoteS3Item(
-                    for: itemIdentifier,
-                    drive: drive
-                )
 
-                // Download with exponential backoff retry
-                let fileURL = try await withExponentialBackoff(maxRetries: 3, baseDelay: 1.0) {
-                    try await s3Lib.getS3Item(
-                        s3Item,
-                        withTemporaryFolder: temporaryDirectory,
-                        withProgress: progress
+                let (fileURL, s3Item) = try await self.withAPIKeyRecovery {
+                    let s3Item = try await self.s3Lib!.remoteS3Item(
+                        for: itemIdentifier,
+                        drive: drive
                     )
+
+                    // Download with exponential backoff retry
+                    let fileURL = try await withExponentialBackoff(maxRetries: 3, baseDelay: 1.0) {
+                        try await self.s3Lib!.getS3Item(
+                            s3Item,
+                            withTemporaryFolder: temporaryDirectory,
+                            withProgress: progress
+                        )
+                    }
+
+                    return (fileURL, s3Item)
                 }
 
                 self.logger.debug("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize ?? 0, privacy: .public) downloaded successfully at \(fileURL, privacy: .public)")
@@ -392,7 +420,9 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 }
                 // --- End conflict detection ---
 
-                let createETag = try await s3Lib.putS3Item(s3Item, fileURL: url, withProgress: progress)
+                let createETag = try await self.withAPIKeyRecovery {
+                    try await self.s3Lib!.putS3Item(s3Item, fileURL: url, withProgress: progress)
+                }
 
                 // Persist item metadata in MetadataStore with ETag
                 try? await self.metadataStore?.upsertItem(
@@ -543,7 +573,9 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                         }
                         // --- End conflict detection ---
 
-                        let uploadETag = try await s3Lib.putS3Item(s3Item, fileURL: contents, withProgress: putProgress)
+                        let uploadETag = try await self.withAPIKeyRecovery {
+                            try await self.s3Lib!.putS3Item(s3Item, fileURL: contents, withProgress: putProgress)
+                        }
 
                         // Persist updated metadata with ETag
                         try? await self.metadataStore?.upsertItem(
@@ -745,7 +777,9 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                     }
 
                     nm.sendDriveChangedNotification(status: .sync)
-                    try await s3Lib.deleteS3Item(s3Item, withProgress: progress)
+                    try await self.withAPIKeyRecovery {
+                        try await self.s3Lib!.deleteS3Item(s3Item, withProgress: progress)
+                    }
                     self.logger.debug("S3Item with identifier \(identifier.rawValue, privacy: .public) deleted successfully")
 
                     // Remove from MetadataStore
@@ -840,6 +874,103 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         manager.signalEnumerator(for: .workingSet) { error in
             if let error {
                 self.logger.error("Failed to signal working set: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    // MARK: - Extension Proactive Token Refresh
+
+    /// Starts a background Task that checks token expiry every 60 seconds and refreshes proactively.
+    /// Sends an auth failure IPC notification to the main app if refresh fails.
+    private func startExtensionRefreshTimer() -> Task<Void, Never> {
+        Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                guard let self, let auth = self.authentication, auth.isLogged,
+                      let session = auth.accountSession else { continue }
+
+                if DS3Authentication.shouldRefreshToken(session.token) {
+                    do {
+                        try await auth.refreshIfNeeded(force: true)
+                        self.logger.info("Extension proactive token refresh successful")
+                    } catch {
+                        self.logger.error("Extension token refresh failed: \(error.localizedDescription, privacy: .public)")
+                        self.notificationManager?.sendAuthFailureNotification(
+                            domainId: self.domain.identifier.rawValue,
+                            reason: "tokenRefreshFailed"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - S3 Auth Error Recovery
+
+    /// Wraps an S3 operation with automatic API key self-healing on auth errors.
+    /// If a recoverable S3 auth error is detected (AccessDenied, InvalidAccessKeyId, SignatureDoesNotMatch),
+    /// refreshes tokens, recreates the API key, reinitializes the S3 client, and retries the operation once.
+    private func withAPIKeyRecovery<T>(
+        operation: @escaping () async throws -> T
+    ) async throws -> T {
+        do {
+            return try await operation()
+        } catch let s3Error as S3ErrorType where S3ErrorRecovery.isRecoverableAuthError(s3Error.errorCode) {
+            self.logger.warning("S3 auth error detected (\(s3Error.errorCode, privacy: .public)), attempting API key self-healing")
+
+            guard let auth = self.authentication, let urls = self.urls, let drive = self.drive else {
+                self.logger.error("Cannot self-heal: missing auth, urls, or drive")
+                throw NSFileProviderError(.notAuthenticated) as NSError
+            }
+
+            do {
+                try await auth.refreshIfNeeded(force: true)
+
+                let sdk = DS3SDK(withAuthentication: auth, urls: urls)
+                let newKey = try await sdk.loadOrCreateDS3APIKeys(
+                    forIAMUser: drive.syncAnchor.IAMUser,
+                    ds3ProjectName: drive.syncAnchor.project.name
+                )
+
+                self.logger.info("API key self-healing: new key created successfully")
+
+                guard let secretKey = newKey.secretKey else {
+                    self.logger.error("Self-healed API key has no secret key")
+                    throw NSFileProviderError(.notAuthenticated) as NSError
+                }
+
+                try? self.s3Lib?.shutdown()
+
+                let client = AWSClient(
+                    credentialProvider: .static(
+                        accessKeyId: newKey.apiKey,
+                        secretAccessKey: secretKey
+                    ),
+                    httpClientProvider: .createNew
+                )
+
+                let s3 = S3(
+                    client: client,
+                    endpoint: self.endpoint,
+                    timeout: .seconds(DefaultSettings.S3.timeoutInSeconds)
+                )
+
+                self.s3 = s3
+                self.apiKeys = newKey
+
+                if let nm = self.notificationManager {
+                    self.s3Lib = S3Lib(withS3: s3, withNotificationManager: nm)
+                }
+
+                self.logger.info("S3 client reinitialized with new credentials, retrying operation")
+                return try await operation()
+            } catch {
+                self.logger.error("API key self-healing failed: \(error.localizedDescription, privacy: .public)")
+                self.notificationManager?.sendAuthFailureNotification(
+                    domainId: self.domain.identifier.rawValue,
+                    reason: "apiKeySelfHealingFailed"
+                )
+                throw NSFileProviderError(.notAuthenticated) as NSError
             }
         }
     }

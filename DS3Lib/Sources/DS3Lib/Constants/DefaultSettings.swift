@@ -43,12 +43,17 @@ public enum DefaultSettings {
     /// Max number of drives a user can create.
     public static let maxDrives = 3
 
+    /// Default tenant name shown in the UI when no tenant is configured.
+    public static let defaultTenantName = "NGC"
+
     /// User defaults keys used to store data. They can be changed without breaking the app.
     public enum UserDefaultsKeys {
         public static let appUUID = "io.cubbit.DS3Drive.userDefaults.appUUID"
         public static let tutorial = "io.cubbit.DS3Drive.userDefaults.tutorialShown"
         public static let syncAnchor = "io.cubbit.DS3Drive.userDefaults.syncAnchor"
         public static let loginItemSet = "io.cubbit.DS3Drive.userDefaults.loginItemSet"
+        public static let lastTenant = "io.cubbit.DS3Drive.userDefaults.lastTenant"
+        public static let lastCoordinatorURL = "io.cubbit.DS3Drive.userDefaults.lastCoordinatorURL"
     }
 
     /// A unique identifier for the app. It is used to identify the specific app instance when creating API keys.
@@ -108,6 +113,12 @@ public enum DefaultSettings {
 
         /// The name of the file used to store the account information.
         public static let accountFileName = "account.json"
+
+        /// The name of the file used to store the tenant name.
+        public static let tenantFileName = "tenant.txt"
+
+        /// The name of the file used to store the coordinator URL.
+        public static let coordinatorURLFileName = "coordinatorURL.txt"
     }
 
     /// Group of settings related to the S3 client.
@@ -147,5 +158,8 @@ public enum DefaultSettings {
 
         /// Name of the notification to send when a conflict is detected
         public static let conflictDetected = "io.cubbit.DS3Drive.notifications.conflictDetected"
+
+        /// Name of the notification to send when authentication fails
+        public static let authFailure = "io.cubbit.DS3Drive.notifications.authFailure"
     }
 }

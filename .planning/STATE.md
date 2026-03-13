@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in-progress
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-03-12T22:36:16Z"
-last_activity: 2026-03-12 -- Completed plan 03-03 (Conflict notification and integration tests)
+status: executing
+stopped_at: Completed 04-04-PLAN.md
+last_updated: "2026-03-13T10:19:36.200Z"
+last_activity: 2026-03-13 -- Completed plan 04-03 (Login UI, tray menu Connection Info/Sign Out)
 progress:
   total_phases: 5
-  completed_phases: 3
-  total_plans: 10
-  completed_plans: 10
-  percent: 60
+  completed_phases: 4
+  total_plans: 14
+  completed_plans: 14
+  percent: 100
 ---
 
 # Project State
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Files sync reliably and transparently between the user's Mac and Cubbit DS3, with zero friction
-**Current focus:** Phase 3 complete -- Conflict resolution fully implemented with detection, notification, and tests
+**Current focus:** Phase 4 complete -- all auth & platform plans done, ready for Phase 5 (UX)
 
 ## Current Position
 
-Phase: 3 of 5 (Conflict Resolution -- complete)
-Plan: 3 of 3 in current phase (03-03 complete)
-Status: Phase 3 complete
-Last activity: 2026-03-12 -- Completed plan 03-03 (Conflict notification and integration tests)
+Phase: 4 of 5 (Auth & Platform) -- COMPLETE
+Plan: 4 of 4 in current phase (04-04 complete)
+Status: Phase 4 complete
+Last activity: 2026-03-13 -- Completed plan 04-04 (Extension dynamic URLs, proactive refresh, 403 self-healing)
 
-Progress: [██████░░░░] 60% (phases 1-3 of 5 complete)
+Progress: [██████████] 100% (14 of 14 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
-- Average duration: 8 min
-- Total execution time: 1.3 hours
+- Total plans completed: 14
+- Average duration: 7 min
+- Total execution time: ~1.7 hours
 
 **By Phase:**
 
@@ -46,12 +46,14 @@ Progress: [██████░░░░] 60% (phases 1-3 of 5 complete)
 | 1. Foundation | 4 | 37 min | 9 min |
 | 2. Sync Engine | 3 | 26 min | 9 min |
 | 3. Conflict Resolution | 3 | 14 min | 5 min |
+| 4. Auth & Platform | 4/4 | 27 min | 7 min |
 
 **Recent Trend:**
-- Last 5 plans: 6m, 13m, 2m, 7m, 5m
+- Last 5 plans: 5m, 5m, 5m, 12m, 5m
 - Trend: stable
 
 *Updated after each plan completion*
+| Phase 04 P04 | 5min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -93,6 +95,20 @@ Recent decisions affecting current work:
 - Plan 03-02: deleteItem cancels with .cannotSynchronize on ETag mismatch (remote was modified)
 - Plan 03-03: @MainActor on ConflictNotificationHandler for Swift 6 strict concurrency (Timer-based batching)
 - Plan 03-03: Integration tests validate DS3Lib-level logic only (extension requires full macOS process)
+- Plan 04-01: CubbitAPIURLs refactored from static enum to instance-based Sendable class with coordinatorURL parameter
+- Plan 04-01: Backward compatibility shims (nested enums) keep old call sites compiling until Plan 04-02
+- Plan 04-01: NSFileCoordinator on account/accountSession persistence for cross-process safety
+- Plan 04-01: Tenant/coordinator URL stored as plain text files in App Group container
+- Plan 04-02: DS3Authentication and DS3SDK accept CubbitAPIURLs via initializer injection (default parameters for backward compat)
+- Plan 04-02: DS3LoginRequest CodingKeys use explicit tenant_id key (no double-conversion by .convertToSnakeCase)
+- Plan 04-02: shouldRefreshToken uses <= threshold (boundary inclusive) for 5-minute proactive refresh
+- Plan 04-02: Backward compatibility shims removed from URLs.swift after all call sites migrated
+- Plan 04-03: DefaultSettings.defaultTenantName set to NGC for standard Cubbit tenant
+- Plan 04-03: Connection Info uses hover-triggered popover for cleaner tray menu layout
+- Plan 04-03: LoginView DisclosureGroup uses withAnimation toggle to avoid SwiftUI animation lag
+- [Phase 04]: S3ErrorRecovery placed in DS3Lib/Utils to match existing project convention
+- [Phase 04]: withAPIKeyRecovery wraps core S3 data operations only, not conflict checks or metadata operations
+- [Phase 04]: Extension refresh timer started after super.init() to satisfy Swift initializer rules
 
 ### Pending Todos
 
@@ -105,6 +121,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T22:36:16Z
-Stopped at: Completed 03-03-PLAN.md (Phase 3 complete)
-Resume file: Next phase (04 or 05)
+Last session: 2026-03-13T10:19:36.197Z
+Stopped at: Completed 04-04-PLAN.md
+Resume file: None

@@ -77,6 +77,23 @@ final class NotificationManager: Sendable {
         }
     }
 
+    /// Sends an auth failure notification to the main app via DistributedNotificationCenter.
+    /// Called when the extension's token refresh or API key self-healing fails.
+    /// - Parameters:
+    ///   - domainId: The File Provider domain identifier
+    ///   - reason: A machine-readable reason string (e.g. "tokenRefreshFailed", "apiKeySelfHealingFailed")
+    func sendAuthFailureNotification(domainId: String, reason: String) {
+        queue.async {
+            DistributedNotificationCenter.default().postNotificationName(
+                NSNotification.Name(DefaultSettings.Notifications.authFailure),
+                object: domainId,
+                userInfo: ["reason": reason],
+                deliverImmediately: true
+            )
+            self.logger.warning("Auth failure notification sent: \(reason, privacy: .public)")
+        }
+    }
+
     func sendConflictNotification(filename: String, conflictKey: String) {
         queue.async {
             let info = ConflictInfo(
