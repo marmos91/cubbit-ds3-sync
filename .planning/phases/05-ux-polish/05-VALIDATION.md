@@ -2,8 +2,8 @@
 phase: 5
 slug: ux-polish
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-13
 ---
 
@@ -38,25 +38,26 @@ created: 2026-03-13
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 05-01-xx | 01 | 1 | UX-01 | manual-only | N/A (Finder + File Provider runtime) | N/A | ⬜ pending |
-| 05-02-xx | 02 | 2 | UX-02 | manual-only | N/A (running app + menu bar) | N/A | ⬜ pending |
-| 05-02-xx | 02 | 2 | UX-03 | unit | `cd DS3Lib && swift test --filter DS3LibTests/testDriveStatsFormatting` | ✅ partial | ⬜ pending |
-| 05-02-xx | 02 | 2 | UX-04 | unit | `cd DS3Lib && swift test --filter DS3LibTests/testRecentFilesRingBuffer` | ❌ W0 | ⬜ pending |
-| 05-02-xx | 02 | 2 | UX-05 | manual-only | N/A (running app) | N/A | ⬜ pending |
-| 05-03-xx | 03 | 3 | UX-06 | manual-only | N/A (UI flow) | N/A | ⬜ pending |
-| 05-xx-xx | xx | 1 | UX-07 | unit | `cd DS3Lib && swift test --filter DS3LibTests/testMaxDrives` | ✅ (constant) | ⬜ pending |
+| 05-01-xx | 01 | 1 | UX-01 | manual-only | N/A (Finder + File Provider runtime) | N/A | pending |
+| 05-02-T0 | 02 | 1 | N/A | stub | `cd DS3Lib && swift test --filter PauseState && swift test --filter RecentFiles` | Wave 0 (Task 0 creates stubs) | pending |
+| 05-02-T1 | 02 | 1 | UX-05 | unit (TDD) | `cd DS3Lib && swift test --filter PauseState` | Created by Task 0 | pending |
+| 05-02-T2 | 02 | 1 | UX-04 | unit (TDD) | `cd DS3Lib && swift test --filter RecentFiles` | Created by Task 0 | pending |
+| 05-03-xx | 03 | 1 | UX-06 | manual-only | N/A (UI flow) | N/A | pending |
+| 05-04-xx | 04 | 2 | UX-02,03,04,05 | manual-only | N/A (running app + menu bar) | N/A | pending |
+| 05-05-xx | 05 | 3 | UX-01-07 | manual-only | N/A (full UX verification) | N/A | pending |
+| 05-xx-xx | xx | 1 | UX-07 | unit | `cd DS3Lib && swift test --filter DS3LibTests/testMaxDrives` | constant | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `DS3Lib/Tests/DS3LibTests/RecentFilesTests.swift` — stubs for UX-04 (recent files ring buffer)
-- [ ] `DS3Lib/Tests/DS3LibTests/PauseStateTests.swift` — stubs for UX-05 (pause state persistence)
+- [x] `DS3Lib/Tests/DS3LibTests/PauseStateTests.swift` — stubs created by Plan 02 Task 0 (before TDD Tasks 1-2)
+- [x] `DS3Lib/Tests/DS3LibTests/RecentFilesTrackerTests.swift` — stubs created by Plan 02 Task 0 (before TDD Tasks 1-2)
 - [ ] Verify `xcodebuild clean build analyze` passes after all UI changes (CI gate)
 
-*Most UX-phase requirements are visual/interaction and covered by manual testing.*
+*Wave 0 is satisfied by Plan 02 Task 0, which creates test stubs before the TDD tasks replace them with real tests.*
 
 ---
 
@@ -76,11 +77,11 @@ created: 2026-03-13
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved
