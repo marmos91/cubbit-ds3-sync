@@ -22,7 +22,11 @@ struct DS3DriveApp: App {
 
     // TODO: Hide tray menu when not logged in
     @State var trayMenuVisible: Bool = true
-    
+
+    /// Animation state for syncing tray icon (alternates between frames)
+    @State private var syncAnimationFrame: Int = 0
+    @State private var syncAnimationTimer: Timer?
+
     var body: some Scene {
         // MARK: - Main view
         
@@ -97,19 +101,33 @@ struct DS3DriveApp: App {
                 .environment(ds3DriveManager)
                 .environment(appStatusManager)
         } label: {
-            switch appStatusManager.status {
-            case .idle:
-                Image(.trayIcon)
-            case .syncing:
-                Image(.trayIconSync)
-            case .error:
-                Image(.trayIconError)
-            case .info:
-                Image(.trayIconInfo)
-            case .offline:
-                Image(.trayIconOffline)
-            case .paused:
-                Image(.trayIconPause)
+            Group {
+                switch appStatusManager.status {
+                case .idle:
+                    Image(.trayIcon)
+                case .syncing:
+                    // Animate: alternate between sync icon and base icon
+                    if syncAnimationFrame % 2 == 0 {
+                        Image(.trayIconSync)
+                    } else {
+                        Image(.trayIcon)
+                    }
+                case .error:
+                    Image(.trayIconError)
+                case .info:
+                    Image(.trayIconInfo)
+                case .offline:
+                    Image(.trayIconOffline)
+                case .paused:
+                    Image(.trayIconPause)
+                }
+            }
+            .onChange(of: appStatusManager.status) { _, newStatus in
+                if newStatus == .syncing {
+                    startSyncAnimation()
+                } else {
+                    stopSyncAnimation()
+                }
             }
         }
         .menuBarExtraStyle(.window)
@@ -167,5 +185,25 @@ struct DS3DriveApp: App {
                 }
             }
         }
+    }
+
+    // MARK: - Sync Animation
+
+    private func startSyncAnimation() {
+        guard syncAnimationTimer == nil else { return }
+        syncAnimationFrame = 0
+        // Schedule on .common mode so it fires even when the menu is open
+        syncAnimationTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+            DispatchQueue.main.async {
+                syncAnimationFrame += 1
+            }
+        }
+        RunLoop.main.add(syncAnimationTimer!, forMode: .common)
+    }
+
+    private func stopSyncAnimation() {
+        syncAnimationTimer?.invalidate()
+        syncAnimationTimer = nil
+        syncAnimationFrame = 0
     }
 }
