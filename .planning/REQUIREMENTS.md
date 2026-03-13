@@ -25,17 +25,17 @@
 
 ### Authentication
 
-- [ ] **AUTH-01**: Login flow uses IAM v1 challenge-response with tenant_id field
-- [ ] **AUTH-02**: API keys auto-created and managed under the hood during drive setup (user never sees them)
-- [ ] **AUTH-03**: Token refresh handles expiration gracefully without disrupting active sync
-- [ ] **AUTH-04**: 2FA support maintained from existing implementation
+- [x] **AUTH-01**: Login flow uses IAM v1 challenge-response with tenant_id field
+- [x] **AUTH-02**: API keys auto-created and managed under the hood during drive setup (user never sees them)
+- [x] **AUTH-03**: Token refresh handles expiration gracefully without disrupting active sync
+- [x] **AUTH-04**: 2FA support maintained from existing implementation
 
 ### Platform
 
-- [ ] **PLAT-01**: Multitenancy — tenant field in login screen, S3 endpoint auto-discovered from Composer Hub APIs
-- [ ] **PLAT-02**: Configurable coordinator URL — user can set separate API base URL for DS3 Composer operations
-- [ ] **PLAT-03**: All API endpoints updated to current IAM/Composer Hub/Keyvault specs
-- [ ] **PLAT-04**: API URLs no longer hardcoded — derived from coordinator base URL + tenant config
+- [x] **PLAT-01**: Multitenancy — tenant field in login screen, S3 endpoint auto-discovered from Composer Hub APIs
+- [x] **PLAT-02**: Configurable coordinator URL — user can set separate API base URL for DS3 Composer operations
+- [x] **PLAT-03**: All API endpoints updated to current IAM/Composer Hub/Keyvault specs
+- [x] **PLAT-04**: API URLs no longer hardcoded — derived from coordinator base URL + tenant config
 
 ### User Experience
 
@@ -98,14 +98,14 @@
 | SYNC-06 | Phase 2 | Complete |
 | SYNC-07 | Phase 1 | Complete |
 | SYNC-08 | Phase 1 | Complete |
-| AUTH-01 | Phase 4 | Pending |
-| AUTH-02 | Phase 4 | Pending |
-| AUTH-03 | Phase 4 | Pending |
-| AUTH-04 | Phase 4 | Pending |
-| PLAT-01 | Phase 4 | Pending |
-| PLAT-02 | Phase 4 | Pending |
-| PLAT-03 | Phase 4 | Pending |
-| PLAT-04 | Phase 4 | Pending |
+| AUTH-01 | Phase 4 | Complete |
+| AUTH-02 | Phase 4 | Complete |
+| AUTH-03 | Phase 4 | Complete |
+| AUTH-04 | Phase 4 | Complete |
+| PLAT-01 | Phase 4 | Complete |
+| PLAT-02 | Phase 4 | Complete |
+| PLAT-03 | Phase 4 | Complete |
+| PLAT-04 | Phase 4 | Complete |
 | UX-01 | Phase 5 | Pending |
 | UX-02 | Phase 5 | Pending |
 | UX-03 | Phase 5 | Pending |
