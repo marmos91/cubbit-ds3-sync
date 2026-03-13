@@ -42,8 +42,8 @@
 - [x] **UX-01**: Finder status overlays showing sync state per file (synced/syncing/error/cloud-only)
 - [ ] **UX-02**: Menu bar tray shows sync status per drive with colored indicators
 - [ ] **UX-03**: Menu bar tray shows real-time transfer speed (upload/download)
-- [ ] **UX-04**: Menu bar tray shows recently synced files
-- [ ] **UX-05**: Menu bar tray quick actions: add drive, open in Finder, preferences, pause sync
+- [x] **UX-04**: Menu bar tray shows recently synced files
+- [x] **UX-05**: Menu bar tray quick actions: add drive, open in Finder, preferences, pause sync
 - [ ] **UX-06**: Simplified drive setup wizard with tenant-aware project/bucket selection
 - [x] **UX-07**: Drive limit maintained at 3 maximum
 
@@ -109,8 +109,8 @@
 | UX-01 | Phase 5 | Complete |
 | UX-02 | Phase 5 | Pending |
 | UX-03 | Phase 5 | Pending |
-| UX-04 | Phase 5 | Pending |
-| UX-05 | Phase 5 | Pending |
+| UX-04 | Phase 5 | Complete |
+| UX-05 | Phase 5 | Complete |
 | UX-06 | Phase 5 | Pending |
 | UX-07 | Phase 5 | Complete |
 
