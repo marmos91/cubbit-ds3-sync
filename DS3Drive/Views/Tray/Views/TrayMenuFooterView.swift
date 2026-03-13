@@ -4,29 +4,26 @@ struct TrayMenuFooterView: View {
     var status: String
     var version: String
     var build: String
-    
+
     var body: some View {
-        ZStack {
-            Color(.darkMainStandard)
-                .ignoresSafeArea()
-            
-            HStack {
-                Text(status)
-                    .font(.custom("Nunito", size: 12))
-                    .foregroundStyle(Color(.darkWhite))
-                    .padding(.horizontal)
-                
-                Spacer()
-                
-                Text("Version \(version) (\(build))")
-                    .font(.custom("Nunito", size: 12))
-                    .foregroundStyle(Color(.darkWhite))
-                    .padding(.horizontal)
-            }
+        HStack {
+            Text(status)
+                .font(DS3Typography.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal)
+
+            Spacer()
+
+            Text("Version \(version) (\(build))")
+                .font(DS3Typography.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal)
         }
+        .background(.bar)
         .frame(height: 32)
     }
 }
+
 #Preview {
     TrayMenuFooterView(
         status: "Idle",

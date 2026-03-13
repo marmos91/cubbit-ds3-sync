@@ -62,7 +62,7 @@ struct DriveConfirmView: View {
                     .foregroundStyle(DS3Colors.secondaryText)
 
                 Image(systemName: "externaldrive.connected.to.line.below")
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
                 Text(syncAnchor.bucket.name)
                     .font(DS3Typography.body)
 

@@ -7,139 +7,232 @@ struct TrayDriveRowView: View {
     @Environment(\.openWindow) var openWindow
     @Environment(\.openURL) var openURL
     @Environment(DS3DriveManager.self) var ds3DriveManager: DS3DriveManager
-    
-    @State var driveViewModel: DS3DriveViewModel
-    
-    @State var isHover: Bool = false
-    
-    var body: some View {
-        HStack {
-            HStack {
-                switch self.driveViewModel.driveStatus {
-                case .sync, .indexing:
-                    Image(.driveSyncIcon)
-                        .resizable()
-                        .frame(width: 32, height: 32)
-                        .padding(.horizontal, 8)
-                case .idle:
-                    Image(.driveIdleIcon)
-                        .resizable()
-                        .frame(width: 32, height: 32)
-                        .padding(.horizontal, 8)
-                case .error:
-                    Image(.driveErrorIcon)
-                        .resizable()
-                        .frame(width: 32, height: 32)
-                        .padding(.horizontal, 8)
-                }
-                
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(self.driveViewModel.drive.name)
-                        .font(.custom("Nunito", size: 14))
-                        .padding(.bottom, 2)
-                    
-                    Text(self.driveViewModel.syncAnchorString())
-                        .font(.custom("Nunito", size: 12))
-                        .padding(.vertical, 2)
-                        .foregroundStyle(Color(.darkWhite))
-                    
-                    Text(self.formatDriveStatusString())
-                        .font(.custom("Nunito", size: 12))
-                        .padding(.vertical, 2)
-                        .foregroundStyle(Color(.darkWhite))
-                }
-                .padding()
-                
-                Spacer()
-                
-                Menu {        
-                    Button("Disconnect") {
-                        let manager = ds3DriveManager
-                        let driveId = driveViewModel.drive.id
-                        Task {
-                            do {
-                                try await manager.disconnect(
-                                    driveWithId: driveId
-                                )
-                            } catch {
-                                // TODO: Show error
-                                logger.error("Error disconnecting drive: \(error.localizedDescription)")
-                            }
-                        }
-                    }
 
-                    Button("View in Finder") {
-                        let viewModel = driveViewModel
-                        Task {
-                            try await viewModel.openFinder()
-                        }
-                    }
-                    
-                    Button("View in web console") {
-                        if let consoleURL = self.driveViewModel.consoleURL() {
-                            openURL(consoleURL)
-                        }
-                    }
-                    
-                    Button("Manage") {
-                        openWindow(id: "io.cubbit.CubbitDS3Sync.drive.manage", value: self.driveViewModel.drive.id)
-                    }
-                    
-                    Button("Refresh") {
-                        let viewModel = driveViewModel
-                        Task {
-                            do {
-                                try await viewModel.reEnumerate()
-                            } catch {
-                                // TODO: Show error
-                                logger.error("Error refreshing drive: \(error.localizedDescription)")
-                            }
-                        }
-                    }
-                } label: {
-                    Image(.settingsIcon)
-                        .resizable()
-                        .frame(width: 20, height: 20, alignment: .top)
-                        .onChange(of: isHover) {
-                            DispatchQueue.main.async {
-                                if isHover {
-                                    NSCursor.pointingHand.push()
-                                } else {
-                                    NSCursor.pop()
-                                }
-                            }
-                        }
-                }
-                .menuStyle(BorderlessButtonMenuStyle())
-                .menuIndicator(.hidden)
-                .fixedSize()
+    @State var driveViewModel: DS3DriveViewModel
+
+    @State private var isHover: Bool = false
+
+    /// Callback to trigger the recent files side panel in TrayMenuView
+    var onTapDrive: ((UUID) -> Void)?
+
+    var body: some View {
+        HStack(spacing: DS3Spacing.sm) {
+            // Status dot indicator
+            statusDot
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(driveViewModel.drive.name)
+                    .font(DS3Typography.body)
+                    .lineLimit(1)
+
+                Text(driveViewModel.syncAnchorString())
+                    .font(DS3Typography.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+
+                // Metrics row
+                metricsRow
             }
+
+            Spacer()
+
+            // Gear menu
+            gearMenu
         }
+        .padding(.horizontal, DS3Spacing.lg)
+        .padding(.vertical, DS3Spacing.sm)
+        .background(isHover ? Color(nsColor: .selectedContentBackgroundColor).opacity(0.15) : Color.clear)
         .onTapGesture {
-            let viewModel = driveViewModel
-            Task {
-                try await viewModel.openFinder()
-            }
+            onTapDrive?(driveViewModel.drive.id)
         }
         .onHover { hovering in
             isHover = hovering
         }
-        .padding(.horizontal, 16)
-        .background(
-            Color(isHover ? .hover : .darkMainStandard)
-        )
-        
-        // TODO: Add file status?
+        .contextMenu {
+            driveContextMenuItems
+        }
     }
-    
-    func formatDriveStatusString() -> String {
-        switch self.driveViewModel.driveStatus {
-        case .indexing:
-            return "Indexing..."
+
+    // MARK: - Status Dot
+
+    @ViewBuilder
+    private var statusDot: some View {
+        Circle()
+            .fill(statusColor)
+            .frame(width: 10, height: 10)
+    }
+
+    private var statusColor: Color {
+        switch driveViewModel.driveStatus {
+        case .idle:
+            return DS3Colors.statusSynced
+        case .sync, .indexing:
+            return DS3Colors.statusSyncing
         case .error:
-            return "Error"
-        default:
-            return self.driveViewModel.driveStats.toString()
+            return DS3Colors.statusError
+        case .paused:
+            return DS3Colors.statusPaused
+        }
+    }
+
+    // MARK: - Metrics Row
+
+    @ViewBuilder
+    private var metricsRow: some View {
+        HStack(spacing: DS3Spacing.md) {
+            // Current speed or status
+            if let speed = driveViewModel.driveStats.currentSpeedBs {
+                Label {
+                    Text(formatSpeed(speed))
+                } icon: {
+                    Image(systemName: "arrow.up.arrow.down")
+                }
+                .font(DS3Typography.footnote)
+                .foregroundStyle(.secondary)
+            }
+
+            // Last update time
+            Label {
+                Text(formatRelativeTime(driveViewModel.driveStats.lastUpdate))
+            } icon: {
+                Image(systemName: "clock")
+            }
+            .font(DS3Typography.footnote)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - Gear Menu
+
+    @ViewBuilder
+    private var gearMenu: some View {
+        Menu {
+            driveContextMenuItems
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 14))
+                .foregroundStyle(.secondary)
+        }
+        .menuStyle(BorderlessButtonMenuStyle())
+        .menuIndicator(.hidden)
+        .fixedSize()
+    }
+
+    // MARK: - Shared Context Menu Items
+
+    @ViewBuilder
+    private var driveContextMenuItems: some View {
+        Button {
+            let manager = ds3DriveManager
+            let driveId = driveViewModel.drive.id
+            Task {
+                do {
+                    try await manager.disconnect(driveWithId: driveId)
+                } catch {
+                    logger.error("Error disconnecting drive: \(error.localizedDescription)")
+                }
+            }
+        } label: {
+            Label(NSLocalizedString("Disconnect", comment: "Drive menu disconnect"), systemImage: "eject")
+        }
+
+        Button {
+            let viewModel = driveViewModel
+            Task {
+                try await viewModel.openFinder()
+            }
+        } label: {
+            Label(NSLocalizedString("View in Finder", comment: "Drive menu view in Finder"), systemImage: "folder")
+        }
+
+        Button {
+            if let consoleURL = driveViewModel.consoleURL() {
+                openURL(consoleURL)
+            }
+        } label: {
+            Label(NSLocalizedString("View in web console", comment: "Drive menu view in console"), systemImage: "globe")
+        }
+
+        Button {
+            openWindow(id: "io.cubbit.CubbitDS3Sync.drive.manage", value: driveViewModel.drive.id)
+        } label: {
+            Label(NSLocalizedString("Manage", comment: "Drive menu manage"), systemImage: "slider.horizontal.3")
+        }
+
+        Button {
+            let viewModel = driveViewModel
+            Task {
+                do {
+                    try await viewModel.reEnumerate()
+                } catch {
+                    logger.error("Error refreshing drive: \(error.localizedDescription)")
+                }
+            }
+        } label: {
+            Label(NSLocalizedString("Refresh", comment: "Drive menu refresh"), systemImage: "arrow.clockwise")
+        }
+
+        Divider()
+
+        // Pause / Resume
+        Button {
+            let driveId = driveViewModel.drive.id
+            let isPaused = driveViewModel.driveStatus == .paused
+            do {
+                try SharedData.default().setDrivePaused(driveId, paused: !isPaused)
+            } catch {
+                logger.error("Error toggling pause state: \(error.localizedDescription)")
+            }
+        } label: {
+            if driveViewModel.driveStatus == .paused {
+                Label(NSLocalizedString("Resume", comment: "Drive menu resume"), systemImage: "play")
+            } else {
+                Label(NSLocalizedString("Pause", comment: "Drive menu pause"), systemImage: "pause")
+            }
+        }
+
+        // Copy S3 Path
+        Button {
+            let s3Path = buildS3Path()
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(s3Path, forType: .string)
+        } label: {
+            Label(NSLocalizedString("Copy S3 Path", comment: "Drive menu copy S3 path"), systemImage: "doc.on.doc")
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func buildS3Path() -> String {
+        var path = driveViewModel.drive.syncAnchor.bucket.name
+        if let prefix = driveViewModel.drive.syncAnchor.prefix, !prefix.isEmpty {
+            path += "/\(prefix)"
+        }
+        return path
+    }
+
+    private func formatSpeed(_ bytesPerSecond: Double) -> String {
+        let kilobyte = 1024.0
+        let megabyte = kilobyte * kilobyte
+
+        if bytesPerSecond >= megabyte {
+            return String(format: "%.1f MB/s", bytesPerSecond / megabyte)
+        } else {
+            return String(format: "%.1f KB/s", bytesPerSecond / kilobyte)
+        }
+    }
+
+    private func formatRelativeTime(_ date: Date) -> String {
+        let seconds = Int(Date().timeIntervalSince(date))
+
+        if seconds < 60 {
+            return NSLocalizedString("Just now", comment: "Relative time just now")
+        } else if seconds < 3600 {
+            let minutes = seconds / 60
+            return String(format: NSLocalizedString("%d min ago", comment: "Relative time minutes"), minutes)
+        } else {
+            let hours = seconds / 3600
+            return String(format: NSLocalizedString("%d hr ago", comment: "Relative time hours"), hours)
         }
     }
 }
@@ -151,47 +244,6 @@ struct TrayDriveRowView: View {
                 drive: DS3Drive(
                     id: UUID(),
                     name: "My drive",
-                    syncAnchor: SyncAnchor(
-                        project: Project(
-                            id: UUID().uuidString,
-                            name: "My Project",
-                            description: "My project description",
-                            email: "test@cubbit.io",
-                            createdAt: "Now",
-                            bannedAt: nil,
-                            imageUrl: nil,
-                            tenantId: UUID().uuidString,
-                            rootAccountEmail: nil,
-                            users: [
-                                IAMUser(
-                                    id: "root",
-                                    username: "Root",
-                                    isRoot: true
-                                )
-                            ]
-                        ),
-                        IAMUser: IAMUser(
-                            id: "root",
-                            username: "Root",
-                            isRoot: true
-                        ),
-                        bucket: Bucket(name: "Personal"),
-                        prefix: "folder1"
-                    )
-                )
-            )
-        )
-        .environment(
-            DS3DriveManager(appStatusManager: AppStatusManager.default())
-        )
-        
-        Divider()
-        
-        TrayDriveRowView(
-            driveViewModel: DS3DriveViewModel(
-                drive: DS3Drive(
-                    id: UUID(),
-                    name: "My drive 2",
                     syncAnchor: SyncAnchor(
                         project: Project(
                             id: UUID().uuidString,

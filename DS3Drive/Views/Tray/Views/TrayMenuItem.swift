@@ -4,21 +4,26 @@ struct TrayMenuItem: View {
     var title: String
     var enabled = true
     var action: (() -> Void)?
-    
-    @State var isHover: Bool = false
-    
+
+    @State private var isHover: Bool = false
+
     var body: some View {
         HStack {
             Text(title)
-                .font(.custom("Nunito", size: 14))
-                .foregroundColor(enabled ? .white : .darkWhite)
-            
+                .font(DS3Typography.body)
+                .foregroundStyle(enabled ? .primary : .secondary)
+
             Spacer()
         }
-        .padding()
+        .padding(.horizontal, DS3Spacing.lg)
+        .padding(.vertical, DS3Spacing.sm)
         .frame(height: 40)
         .background {
-            Color(isHover ? .hover : .clear)
+            if isHover {
+                Color(nsColor: .selectedContentBackgroundColor).opacity(0.15)
+            } else {
+                Color.clear
+            }
         }
         .onTapGesture {
             if enabled {

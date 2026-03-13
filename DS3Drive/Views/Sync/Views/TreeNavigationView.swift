@@ -353,61 +353,62 @@ struct TreeNavigationView: View {
 
     // MARK: - Recursive tree row
 
-    @ViewBuilder
-    private func treeRow(node: TreeNode, depth: Int) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: DS3Spacing.xs) {
-                // Expand/collapse chevron
-                if node.isLoading {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(width: 16, height: 16)
-                } else if canExpand(node) {
-                    Image(systemName: node.isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(DS3Colors.secondaryText)
-                        .frame(width: 16, height: 16)
-                } else {
+    private func treeRow(node: TreeNode, depth: Int) -> AnyView {
+        AnyView(
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: DS3Spacing.xs) {
+                    // Expand/collapse chevron
+                    if node.isLoading {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 16, height: 16)
+                    } else if canExpand(node) {
+                        Image(systemName: node.isExpanded ? "chevron.down" : "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(DS3Colors.secondaryText)
+                            .frame(width: 16, height: 16)
+                    } else {
+                        Spacer()
+                            .frame(width: 16, height: 16)
+                    }
+
+                    // Icon
+                    Image(systemName: iconForNode(node))
+                        .foregroundStyle(iconColorForNode(node))
+                        .font(DS3Typography.body)
+
+                    // Name
+                    Text(node.name)
+                        .font(DS3Typography.body)
+                        .foregroundStyle(DS3Colors.primaryText)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
                     Spacer()
-                        .frame(width: 16, height: 16)
+                }
+                .padding(.vertical, DS3Spacing.xs)
+                .padding(.leading, CGFloat(depth) * 20 + DS3Spacing.sm)
+                .padding(.trailing, DS3Spacing.sm)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(viewModel.selectedNode?.id == node.id ? Color.accentColor.opacity(0.15) : Color.clear)
+                )
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    viewModel.selectNode(node)
+                    Task {
+                        await viewModel.toggleNode(node)
+                    }
                 }
 
-                // Icon
-                Image(systemName: iconForNode(node))
-                    .foregroundStyle(iconColorForNode(node))
-                    .font(DS3Typography.body)
-
-                // Name
-                Text(node.name)
-                    .font(DS3Typography.body)
-                    .foregroundStyle(DS3Colors.primaryText)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                Spacer()
-            }
-            .padding(.vertical, DS3Spacing.xs)
-            .padding(.leading, CGFloat(depth) * 20 + DS3Spacing.sm)
-            .padding(.trailing, DS3Spacing.sm)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(viewModel.selectedNode?.id == node.id ? Color.accentColor.opacity(0.15) : Color.clear)
-            )
-            .contentShape(Rectangle())
-            .onTapGesture {
-                viewModel.selectNode(node)
-                Task {
-                    await viewModel.toggleNode(node)
+                // Children (expanded)
+                if node.isExpanded {
+                    ForEach(node.children) { child in
+                        treeRow(node: child, depth: depth + 1)
+                    }
                 }
             }
-
-            // Children (expanded)
-            if node.isExpanded {
-                ForEach(node.children) { child in
-                    treeRow(node: child, depth: depth + 1)
-                }
-            }
-        }
+        )
     }
 
     // MARK: - Detail panel

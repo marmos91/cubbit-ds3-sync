@@ -2,6 +2,12 @@ import SwiftUI
 import os.log
 import DS3Lib
 
+/// Represents which side panel is currently displayed.
+enum SidePanel: Equatable {
+    case recentFiles(driveId: UUID)
+    case connectionInfo
+}
+
 struct TrayMenuView: View {
     @Environment(\.openURL) var openURL
     @Environment(\.openWindow) var openWindow
@@ -12,121 +18,205 @@ struct TrayMenuView: View {
 
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
 
+    @State private var activeSidePanel: SidePanel?
     @State private var coordinatorURL = ""
     @State private var tenantName = ""
+    @State private var driveViewModels: [DS3DriveViewModel] = []
 
     var body: some View {
-        ZStack {
-            Color(.background)
-                .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-
-                // MARK: - Drives list
-
-                ForEach(ds3DriveManager.drives, id: \.name) { drive in
-                    TrayDriveRowView(
-                        driveViewModel: DS3DriveViewModel(drive: drive)
-                    )
-
-                    Divider()
-                }
-
-                TrayMenuItem(
-                    title: canAddMoreDrives ? NSLocalizedString("Add a new Drive", comment: "Tray menu add new drive") : NSLocalizedString("You have reached the maximum number of Drives", comment: "Tray menu add new drive disabled"),
-                    enabled: canAddMoreDrives
-                ) {
-                    openWindow(id: "io.cubbit.DS3Drive.drive.new")
-                }
+        HStack(spacing: 0) {
+            // Side panel (left, when active)
+            if let panel = activeSidePanel {
+                sidePanelContent(for: panel)
+                    .frame(width: 310)
+                    .transition(.move(edge: .leading))
 
                 Divider()
+            }
 
-                TrayMenuItem(
-                    title: NSLocalizedString("Help", comment: "Tray menu help")
-                ) {
-                    openURL(URL(string: HelpURLs.baseURL)!)
+            // Main tray (right)
+            mainTrayContent
+                .frame(width: 310)
+        }
+        .animation(.easeInOut(duration: 0.2), value: activeSidePanel)
+        .fixedSize(horizontal: true, vertical: false)
+        .onAppear {
+            coordinatorURL = loadCoordinatorURL()
+            tenantName = loadTenantName()
+            rebuildDriveViewModels()
+        }
+        .onChange(of: ds3DriveManager.drives.count) {
+            rebuildDriveViewModels()
+        }
+    }
+
+    // MARK: - Main Tray Content
+
+    @ViewBuilder
+    private var mainTrayContent: some View {
+        VStack(spacing: 0) {
+            // Signed in as
+            if ds3Authentication.isLogged, let account = ds3Authentication.account {
+                HStack {
+                    Image(systemName: "person.circle")
+                        .font(DS3Typography.caption)
+                        .foregroundStyle(.secondary)
+                    Text(String(format: NSLocalizedString("Signed in as %@", comment: "Signed in label"), account.primaryEmail))
+                        .font(DS3Typography.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Spacer()
                 }
+                .padding(.horizontal, DS3Spacing.lg)
+                .padding(.vertical, DS3Spacing.sm)
 
                 Divider()
+            }
 
-                TrayMenuItem(
-                    title: NSLocalizedString("Preferences", comment: "Tray open preferences")
-                ) {
-                    openWindow(id: "io.cubbit.DS3Drive.preferences")
-                }
+            // Speed summary
+            SpeedSummaryView(driveViewModels: driveViewModels)
 
-                Divider()
+            Divider()
 
-                TrayMenuItem(
-                    title: NSLocalizedString("Open web console ", comment: "Tray menu open console button")
-                ) {
-                    openURL(URL(string: ConsoleURLs.baseURL)!)
-                }
-
-                Divider()
-
-                // MARK: - Sign Out
-
-                TrayMenuItem(
-                    title: NSLocalizedString("Sign Out", comment: "Tray menu sign out")
-                ) {
-                    Task { await signOut() }
-                }
-
-                Divider()
-
-                TrayMenuItem(
-                    title: NSLocalizedString("Quit", comment: "Tray menu quit")
-                ) {
-                    NSApplication.shared.terminate(self)
-                }
-
-                Spacer()
-
-                // MARK: - Connection Info
-
-                if ds3Authentication.isLogged {
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: 0) {
-                        if let account = ds3Authentication.account {
-                            ConnectionInfoRow(label: NSLocalizedString("Signed in as", comment: "Connection info label"), value: account.primaryEmail)
+            // Drive rows
+            ForEach(driveViewModels, id: \.drive.id) { vm in
+                TrayDriveRowView(
+                    driveViewModel: vm,
+                    onTapDrive: { driveId in
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            if case .recentFiles(let currentId) = activeSidePanel, currentId == driveId {
+                                activeSidePanel = nil
+                            } else {
+                                activeSidePanel = .recentFiles(driveId: driveId)
+                            }
                         }
-                        ConnectionInfoRow(label: NSLocalizedString("Coordinator", comment: "Connection info label"), value: coordinatorURL)
-                        ConnectionInfoRow(label: NSLocalizedString("S3 Endpoint", comment: "Connection info label"), value: ds3Authentication.account?.endpointGateway ?? NSLocalizedString("N/A", comment: "Not available"))
-                        ConnectionInfoRow(label: NSLocalizedString("Tenant", comment: "Connection info label"), value: tenantName)
-                        ConnectionInfoRow(label: NSLocalizedString("Console", comment: "Connection info label"), value: ConsoleURLs.baseURL)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .onAppear {
-                        coordinatorURL = loadCoordinatorURL()
-                        tenantName = loadTenantName()
-                    }
-                }
+                )
 
                 Divider()
+            }
 
-                TrayMenuFooterView(
-                    status: appStatusManager.status.toString(),
-                    version: DefaultSettings.appVersion,
-                    build: DefaultSettings.appBuild
+            // Add new drive
+            TrayMenuItem(
+                title: canAddMoreDrives
+                    ? NSLocalizedString("Add a new Drive", comment: "Tray menu add new drive")
+                    : NSLocalizedString("You have reached the maximum number of Drives", comment: "Tray menu add new drive disabled"),
+                enabled: canAddMoreDrives
+            ) {
+                openWindow(id: "io.cubbit.DS3Drive.drive.new")
+            }
+
+            Divider()
+
+            // Quick actions
+            TrayMenuItem(
+                title: NSLocalizedString("Help", comment: "Tray menu help")
+            ) {
+                openURL(URL(string: HelpURLs.baseURL)!)
+            }
+
+            Divider()
+
+            TrayMenuItem(
+                title: NSLocalizedString("Preferences", comment: "Tray open preferences")
+            ) {
+                openWindow(id: "io.cubbit.DS3Drive.preferences")
+            }
+
+            Divider()
+
+            TrayMenuItem(
+                title: NSLocalizedString("Open web console", comment: "Tray menu open console button")
+            ) {
+                openURL(URL(string: ConsoleURLs.baseURL)!)
+            }
+
+            Divider()
+
+            // Connection Info row
+            TrayMenuItem(
+                title: NSLocalizedString("Connection Info", comment: "Tray menu connection info")
+            ) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    if activeSidePanel == .connectionInfo {
+                        activeSidePanel = nil
+                    } else {
+                        activeSidePanel = .connectionInfo
+                    }
+                }
+            }
+
+            Divider()
+
+            // Sign Out
+            TrayMenuItem(
+                title: NSLocalizedString("Sign Out", comment: "Tray menu sign out")
+            ) {
+                Task { await signOut() }
+            }
+
+            Divider()
+
+            TrayMenuItem(
+                title: NSLocalizedString("Quit", comment: "Tray menu quit")
+            ) {
+                NSApplication.shared.terminate(self)
+            }
+
+            Spacer()
+
+            Divider()
+
+            // Footer
+            TrayMenuFooterView(
+                status: appStatusManager.status.toString(),
+                version: DefaultSettings.appVersion,
+                build: DefaultSettings.appBuild
+            )
+        }
+    }
+
+    // MARK: - Side Panel Content
+
+    @ViewBuilder
+    private func sidePanelContent(for panel: SidePanel) -> some View {
+        switch panel {
+        case .recentFiles(let driveId):
+            if let vm = driveViewModels.first(where: { $0.drive.id == driveId }) {
+                RecentFilesPanel(
+                    driveName: vm.drive.name,
+                    recentFiles: vm.recentFiles,
+                    driveViewModel: vm,
+                    onClose: { withAnimation { activeSidePanel = nil } }
                 )
             }
+        case .connectionInfo:
+            ConnectionInfoPanel(
+                coordinatorURL: coordinatorURL,
+                s3Endpoint: ds3Authentication.account?.endpointGateway ?? NSLocalizedString("N/A", comment: "Not available"),
+                tenant: tenantName,
+                consoleURL: ConsoleURLs.baseURL,
+                onClose: { withAnimation { activeSidePanel = nil } }
+            )
         }
-        .frame(
-            minWidth: 310,
-            maxWidth: 310
-        )
-        .fixedSize(horizontal: true, vertical: false)
-
     }
+
+    // MARK: - Helpers
 
     var canAddMoreDrives: Bool {
         ds3DriveManager.drives.count < DefaultSettings.maxDrives
     }
 
-    // MARK: - Helpers
+    private func rebuildDriveViewModels() {
+        let currentIds = Set(driveViewModels.map(\.drive.id))
+        let newDrives = ds3DriveManager.drives
+
+        // Only rebuild if the drive set changed
+        let newIds = Set(newDrives.map(\.id))
+        if currentIds != newIds {
+            driveViewModels = newDrives.map { DS3DriveViewModel(drive: $0) }
+        }
+    }
 
     private func loadCoordinatorURL() -> String {
         (try? SharedData.default().loadCoordinatorURLFromPersistence()) ?? CubbitAPIURLs.defaultCoordinatorURL
@@ -140,41 +230,13 @@ struct TrayMenuView: View {
     @MainActor
     private func signOut() async {
         do {
-            // Remove all File Provider domains first
             for drive in ds3DriveManager.drives {
                 try await ds3DriveManager.disconnect(driveWithId: drive.id)
             }
-            // Clean auth (tokens, account, drives, API keys) but preserve tenant/coordinator URL
             try ds3Authentication.logout()
         } catch {
             logger.error("Sign out cleanup failed: \(error.localizedDescription, privacy: .public)")
         }
-    }
-}
-
-// MARK: - ConnectionInfoRow
-
-private struct ConnectionInfoRow: View {
-    let label: String
-    let value: String
-    @State private var copied = false
-
-    var body: some View {
-        HStack {
-            Text(label).font(.caption).foregroundStyle(.secondary)
-            Spacer()
-            Text(copied ? NSLocalizedString("Copied", comment: "Clipboard copy feedback") : value)
-                .font(.caption)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .onTapGesture {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(value, forType: .string)
-                    copied = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
-                }
-        }
-        .padding(.vertical, 2)
     }
 }
 
