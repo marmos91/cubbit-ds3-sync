@@ -13,6 +13,9 @@
     "Add new Drive" : {
 
     },
+    "Advanced" : {
+      "comment" : "Advanced login settings"
+    },
     "An error occurred: %@" : {
 
     },
@@ -25,8 +28,14 @@
     "Choose a name for your drive. The name you choose will be displayed in the finder" : {
 
     },
+    "Connection Info" : {
+
+    },
     "Continue" : {
       "comment" : "Continue button"
+    },
+    "Coordinator URL" : {
+      "comment" : "Coordinator URL placeholder"
     },
     "Disabled" : {
 
@@ -55,9 +64,6 @@
     "Email" : {
       "comment" : "Email placeholder"
     },
-    "Error" : {
-      "comment" : "Error status"
-    },
     "Email:" : {
 
     },
@@ -66,6 +72,9 @@
     },
     "Enter the code from your authenticator app" : {
 
+    },
+    "Error" : {
+      "comment" : "Error status"
     },
     "Folder:" : {
 
@@ -148,20 +157,26 @@
     "Select DS3 Project" : {
 
     },
+    "Sign Out" : {
+      "comment" : "Tray menu sign out"
+    },
     "Sign up" : {
       "comment" : "Sign up button text"
     },
     "Start Cubbit DS3 sync at login" : {
 
     },
-    "Sync" : {
-      "comment" : "Complete sync button"
-    },
     "Synchronizing" : {
       "comment" : "Synchronizing status"
     },
+    "Sync" : {
+      "comment" : "Complete sync button"
+    },
     "Sync Projects" : {
 
+    },
+    "Tenant name" : {
+      "comment" : "Tenant name placeholder"
     },
     "Two-factor authentication (2FA)" : {
 
