@@ -331,7 +331,7 @@ struct TreeNavigationView: View {
                 .font(DS3Typography.headline)
                 .foregroundStyle(DS3Colors.primaryText)
                 .padding(.horizontal, DS3Spacing.lg)
-                .padding(.top, DS3Spacing.lg)
+                .padding(.top, 36)
                 .padding(.bottom, DS3Spacing.sm)
 
             if viewModel.isLoadingProjects {
