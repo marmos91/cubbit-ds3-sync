@@ -79,11 +79,6 @@ struct MFAView: View {
             }
             .padding(.horizontal, DS3Spacing.xxl)
             .padding(.vertical, DS3Spacing.xl)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(DS3Colors.background)
-                    .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
-            )
             .frame(maxWidth: 340)
 
             Spacer()

@@ -167,9 +167,9 @@ struct TrayMenuView: View {
 
             Divider()
 
-            // Footer
+            // Footer — show idle when not logged in to avoid misleading "Synchronizing"
             TrayMenuFooterView(
-                status: appStatusManager.status.toString(),
+                status: (ds3Authentication.isLogged ? appStatusManager.status : .idle).toString(),
                 version: DefaultSettings.appVersion,
                 build: DefaultSettings.appBuild
             )

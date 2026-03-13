@@ -14,7 +14,7 @@ struct LoginView: View {
     @State var showAdvanced: Bool = false
     @FocusState private var focusedField: FocusedField?
 
-    var loginViewModel: LoginViewModel = LoginViewModel()
+    @State var loginViewModel: LoginViewModel = LoginViewModel()
 
     var body: some View {
         if loginViewModel.need2FA {
@@ -82,15 +82,21 @@ struct LoginView: View {
                     }
 
                     // Advanced section
-                    DisclosureGroup(isExpanded: Binding(
-                        get: { showAdvanced },
-                        set: { newValue in
-                            withAnimation {
-                                showAdvanced = newValue
+                    VStack(alignment: .leading, spacing: DS3Spacing.sm) {
+                        Button {
+                            withAnimation { showAdvanced.toggle() }
+                        } label: {
+                            HStack(spacing: DS3Spacing.xs) {
+                                Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
+                                    .font(.caption2)
+                                Text("Advanced")
+                                    .font(DS3Typography.caption)
                             }
+                            .foregroundStyle(DS3Colors.secondaryText)
                         }
-                    )) {
-                        VStack(spacing: DS3Spacing.sm) {
+                        .buttonStyle(.plain)
+
+                        if showAdvanced {
                             HStack(spacing: DS3Spacing.sm) {
                                 Image(systemName: "person")
                                     .foregroundStyle(DS3Colors.secondaryText)
@@ -119,11 +125,6 @@ struct LoginView: View {
                                     .stroke(DS3Colors.separator, lineWidth: 1)
                             )
                         }
-                        .padding(.top, DS3Spacing.sm)
-                    } label: {
-                        Text("Advanced")
-                            .font(DS3Typography.caption)
-                            .foregroundStyle(DS3Colors.secondaryText)
                     }
 
                     // Login button
@@ -154,11 +155,6 @@ struct LoginView: View {
                 }
                 .padding(.horizontal, DS3Spacing.xxl)
                 .padding(.vertical, DS3Spacing.xl)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(DS3Colors.background)
-                        .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
-                )
                 .frame(maxWidth: 340)
 
                 Spacer()

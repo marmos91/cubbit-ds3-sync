@@ -123,7 +123,7 @@ struct DS3DriveApp: App {
                 }
             }
             .onChange(of: appStatusManager.status) { _, newStatus in
-                if newStatus == .syncing {
+                if newStatus == .syncing && ds3Authentication.isLogged {
                     startSyncAnimation()
                 } else {
                     stopSyncAnimation()
