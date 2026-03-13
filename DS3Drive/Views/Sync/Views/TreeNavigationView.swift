@@ -125,7 +125,8 @@ import DS3Lib
             let s3Client = try await getOrCreateS3Client(forProject: project)
             let request = S3.ListObjectsV2Request(
                 bucket: bucket.name,
-                delimiter: String(DefaultSettings.S3.delimiter)
+                delimiter: String(DefaultSettings.S3.delimiter),
+                encodingType: .url
             )
 
             let response = try await s3Client.listObjectsV2(request)
@@ -133,14 +134,16 @@ import DS3Lib
 
             node.children = prefixes.compactMap { commonPrefix -> TreeNode? in
                 guard let fullPrefix = commonPrefix.prefix else { return nil }
-                let displayName = folderDisplayName(fullPrefix: fullPrefix, parentPrefix: nil)
+                // Decode URL-encoded prefix for display and storage
+                let decoded = fullPrefix.removingPercentEncoding ?? fullPrefix
+                let displayName = folderDisplayName(fullPrefix: decoded, parentPrefix: nil)
                 return TreeNode(
-                    id: "\(project.id)/\(bucket.name)/\(fullPrefix)",
+                    id: "\(project.id)/\(bucket.name)/\(decoded)",
                     name: displayName,
                     type: .folder,
                     project: project,
                     bucket: bucket,
-                    prefix: fullPrefix
+                    prefix: decoded
                 )
             }
 
@@ -169,11 +172,12 @@ import DS3Lib
 
         do {
             let s3Client = try await getOrCreateS3Client(forProject: project)
-            let decodedPrefix = prefix.removingPercentEncoding ?? prefix
+            // prefix is already decoded (stored decoded from expandBucket)
             let request = S3.ListObjectsV2Request(
                 bucket: bucket.name,
                 delimiter: String(DefaultSettings.S3.delimiter),
-                prefix: decodedPrefix
+                encodingType: .url,
+                prefix: prefix
             )
 
             let response = try await s3Client.listObjectsV2(request)
@@ -181,14 +185,15 @@ import DS3Lib
 
             node.children = prefixes.compactMap { commonPrefix -> TreeNode? in
                 guard let fullPrefix = commonPrefix.prefix else { return nil }
-                let displayName = folderDisplayName(fullPrefix: fullPrefix, parentPrefix: decodedPrefix)
+                let decoded = fullPrefix.removingPercentEncoding ?? fullPrefix
+                let displayName = folderDisplayName(fullPrefix: decoded, parentPrefix: prefix)
                 return TreeNode(
-                    id: "\(project.id)/\(bucket.name)/\(fullPrefix)",
+                    id: "\(project.id)/\(bucket.name)/\(decoded)",
                     name: displayName,
                     type: .folder,
                     project: project,
                     bucket: bucket,
-                    prefix: fullPrefix
+                    prefix: decoded
                 )
             }
 
