@@ -1,4 +1,5 @@
-import Foundation
+import AppKit
+import FileProvider
 import UserNotifications
 import os.log
 import DS3Lib
@@ -6,13 +7,13 @@ import DS3Lib
 /// Listens for conflict IPC notifications from the File Provider extension
 /// and presents macOS user notifications via UNUserNotificationCenter.
 @MainActor
-final class ConflictNotificationHandler {
+final class ConflictNotificationHandler: NSObject, UNUserNotificationCenterDelegate {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
 
     /// Category identifier for conflict notifications (enables grouping)
-    static let conflictCategoryIdentifier = "CONFLICT_CATEGORY"
+    nonisolated static let conflictCategoryIdentifier = "CONFLICT_CATEGORY"
     /// Action identifier for "Show in Finder"
-    static let showInFinderActionIdentifier = "SHOW_IN_FINDER"
+    nonisolated static let showInFinderActionIdentifier = "SHOW_IN_FINDER"
 
     /// Pending conflicts for batching (reset after delivery)
     private var pendingConflicts: [ConflictInfo] = []
@@ -21,7 +22,9 @@ final class ConflictNotificationHandler {
     /// Batch window: wait this long for more conflicts before showing notification
     private let batchDelay: TimeInterval = 2.0
 
-    init() {
+    override init() {
+        super.init()
+        UNUserNotificationCenter.current().delegate = self
         registerNotificationCategory()
         startListening()
     }
@@ -40,6 +43,47 @@ final class ConflictNotificationHandler {
                 logger.info("Notification permission granted: \(granted)")
             } catch {
                 logger.error("Failed to request notification permission: \(error)")
+            }
+        }
+    }
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        defer { completionHandler() }
+
+        guard response.actionIdentifier == Self.showInFinderActionIdentifier else { return }
+
+        let userInfo = response.notification.request.content.userInfo
+        guard let driveIdString = userInfo["driveId"] as? String,
+              let driveId = UUID(uuidString: driveIdString),
+              let conflictKey = userInfo["conflictKey"] as? String else {
+            return
+        }
+
+        let domain = NSFileProviderDomain(
+            identifier: NSFileProviderDomainIdentifier(rawValue: driveId.uuidString),
+            displayName: ""
+        )
+        let manager = NSFileProviderManager(for: domain)
+        let itemIdentifier = NSFileProviderItemIdentifier(conflictKey)
+
+        Task {
+            do {
+                let url = try await manager?.getUserVisibleURL(for: itemIdentifier)
+                if let url {
+                    await MainActor.run {
+                        NSWorkspace.shared.activateFileViewerSelecting([url])
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.logger.error("Failed to resolve conflict file URL: \(error)")
+                }
             }
         }
     }
@@ -79,8 +123,6 @@ final class ConflictNotificationHandler {
         guard let jsonString = notification.object as? String,
               let data = jsonString.data(using: .utf8),
               let info = try? JSONDecoder().decode(ConflictInfo.self, from: data) else {
-            // DistributedNotificationCenter may deliver on a background thread,
-            // but decoding is safe since it doesn't touch @MainActor state
             Task { @MainActor in
                 self.logger.error("Failed to decode conflict notification")
             }
@@ -113,12 +155,10 @@ final class ConflictNotificationHandler {
         guard !conflicts.isEmpty else { return }
 
         if conflicts.count <= 3 {
-            // Individual notifications for 1-3 conflicts
             for conflict in conflicts {
                 showIndividualNotification(conflict)
             }
         } else {
-            // Summary notification for more than 3
             showSummaryNotification(count: conflicts.count)
         }
     }
@@ -134,7 +174,7 @@ final class ConflictNotificationHandler {
         let request = UNNotificationRequest(
             identifier: UUID().uuidString,
             content: content,
-            trigger: nil // Deliver immediately
+            trigger: nil
         )
 
         UNUserNotificationCenter.current().add(request) { [weak self] error in

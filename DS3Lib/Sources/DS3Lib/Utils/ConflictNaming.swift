@@ -45,10 +45,16 @@ public enum ConflictNaming: Sendable {
         return parentPath + "/\(newFilename)"
     }
 
-    private static func formatDate(_ date: Date) -> String {
+    private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH-mm-ss"
-        formatter.timeZone = TimeZone(identifier: "UTC")
-        return formatter.string(from: date)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .iso8601)
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        return formatter
+    }()
+
+    private static func formatDate(_ date: Date) -> String {
+        dateFormatter.string(from: date)
     }
 }

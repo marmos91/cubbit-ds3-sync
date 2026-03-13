@@ -524,6 +524,9 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                                     cb.handler(conflictS3Item, NSFileProviderItemFields(), false, nil)
                                     return
                                 }
+                            } catch let s3Error as S3ErrorType where s3Error.errorCode == "NoSuchKey" || s3Error.errorCode == "NotFound" {
+                                // Remote file was deleted -- proceed with normal upload (re-create)
+                                self.logger.debug("Conflict check: remote file deleted, proceeding with upload for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
                             } catch let s3Error as S3ErrorType {
                                 // HEAD failed -- return transient error for File Provider retry
                                 self.logger.error("Conflict check HEAD failed: \(s3Error.errorCode, privacy: .public)")
