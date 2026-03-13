@@ -28,14 +28,20 @@
     "Choose a name for your drive. The name you choose will be displayed in the finder" : {
 
     },
-    "Connection Info" : {
-
+    "Console" : {
+      "comment" : "Connection info label"
     },
     "Continue" : {
       "comment" : "Continue button"
     },
+    "Coordinator" : {
+      "comment" : "Connection info label"
+    },
     "Coordinator URL" : {
       "comment" : "Coordinator URL placeholder"
+    },
+    "Copied" : {
+      "comment" : "Clipboard copy feedback"
     },
     "Disabled" : {
 
@@ -51,6 +57,9 @@
     },
     "DS3 Client error. Please try refreshing credentials" : {
       "comment" : "DS3 client error"
+    },
+    "DS3 Drive" : {
+      "comment" : "Auth failure notification title"
     },
     "DS3 Object Storage Log in" : {
       "comment" : "The h1 of the login page"
@@ -73,9 +82,6 @@
     "Enter the code from your authenticator app" : {
 
     },
-    "Error" : {
-      "comment" : "Error status"
-    },
     "Folder:" : {
 
     },
@@ -87,12 +93,6 @@
     },
     "IAM Role:" : {
 
-    },
-    "Idle" : {
-      "comment" : "Idle status"
-    },
-    "Info" : {
-      "comment" : "Info status"
     },
     "Loading..." : {
       "comment" : "Loading"
@@ -106,14 +106,14 @@
     "Manage" : {
 
     },
+    "N/A" : {
+      "comment" : "Not available"
+    },
     "Name:" : {
 
     },
     "Next" : {
 
-    },
-    "Offline" : {
-      "comment" : "Offline status"
     },
     "No buckets found in server response" : {
       "comment" : "Missing buckets in response"
@@ -151,11 +151,17 @@
     "Retry" : {
       "comment" : "Retry"
     },
+    "S3 Endpoint" : {
+      "comment" : "Connection info label"
+    },
     "Select an IAM user & bucket to continue. You can manage buckets and IAM users from the [Cubbit DS3 Console](https://console.cubbit.eu)" : {
 
     },
     "Select DS3 Project" : {
 
+    },
+    "Session expired -- sign in to resume syncing" : {
+      "comment" : "Auth failure notification body"
     },
     "Sign Out" : {
       "comment" : "Tray menu sign out"
@@ -163,17 +169,20 @@
     "Sign up" : {
       "comment" : "Sign up button text"
     },
+    "Signed in as" : {
+      "comment" : "Connection info label"
+    },
     "Start Cubbit DS3 sync at login" : {
 
-    },
-    "Synchronizing" : {
-      "comment" : "Synchronizing status"
     },
     "Sync" : {
       "comment" : "Complete sync button"
     },
     "Sync Projects" : {
 
+    },
+    "Tenant" : {
+      "comment" : "Connection info label"
     },
     "Tenant name" : {
       "comment" : "Tenant name placeholder"
