@@ -15,6 +15,14 @@ import DS3Lib
     var totalTransferredSize: Int64 = 0
     var totalTransferDuration: TimeInterval = 0
     var transferStatsResetTimer: Timer?
+
+    /// Tracks recently transferred files for this drive
+    var recentFilesTracker = RecentFilesTracker()
+
+    /// Returns recent files for this drive, sorted by status priority
+    var recentFiles: [RecentFileEntry] {
+        recentFilesTracker.entries(forDrive: drive.id)
+    }
     
     init(drive: DS3Drive) {
         self.drive = drive
@@ -61,7 +69,19 @@ import DS3Lib
         self.totalTransferredSize += driveTransferStats.size
         self.totalTransferDuration += driveTransferStats.duration
         self.driveStats.currentSpeedBs = Double(driveTransferStats.size) / driveTransferStats.duration
-        
+
+        // Track in recent files
+        if let filename = driveTransferStats.filename, !filename.isEmpty {
+            let entry = RecentFileEntry(
+                driveId: driveTransferStats.driveId,
+                filename: filename,
+                size: driveTransferStats.size,
+                status: .syncing,
+                timestamp: Date()
+            )
+            self.recentFilesTracker.add(entry)
+        }
+
         self.transferStatsResetTimer = Timer.scheduledTimer(withTimeInterval: DefaultSettings.Tray.driveStatsReset, repeats: false) { _ in
             self.totalTransferredSize = 0
             self.totalTransferDuration = 0
@@ -80,9 +100,17 @@ import DS3Lib
             updateDriveStatusNotification.driveId == self.drive.id // Only update if the notification is for this drive
         else { return }
         
+        let previousStatus = self.driveStatus
         self.driveStatus = updateDriveStatusNotification.status
+
+        // When transitioning from sync to idle, mark all syncing entries as completed
+        if previousStatus == .sync && updateDriveStatusNotification.status == .idle {
+            for entry in self.recentFilesTracker.entries(forDrive: self.drive.id) where entry.status == .syncing {
+                self.recentFilesTracker.update(filename: entry.filename, driveId: self.drive.id, status: .completed)
+            }
+        }
     }
-    
+
     /// Formats the drive's sync anchor. If the prefix is defined, it will be added to the project name
     /// - Returns: the drive's sync anchor string
     func syncAnchorString() -> String {

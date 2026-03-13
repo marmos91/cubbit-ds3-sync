@@ -463,10 +463,11 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                         driveId: s3Item.drive.id,
                         size: bytesDownloaded,
                         duration: partDownloadDuration,
-                        direction: .download
+                        direction: .download,
+                        filename: s3Item.filename
                     )
                 )
-                
+
                 return eventLoop.makeSucceededFuture(())
             }
         } catch {
@@ -524,7 +525,8 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                         driveId: drive.id,
                         size: bytesDownloaded,
                         duration: duration,
-                        direction: .download
+                        direction: .download,
+                        filename: identifier.rawValue.components(separatedBy: "/").last
                     )
                 )
 
@@ -602,7 +604,8 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 driveId: s3Item.drive.id,
                 size: size,
                 duration: transferTime,
-                direction: .upload
+                direction: .upload,
+                filename: s3Item.filename
             )
         )
         
@@ -680,7 +683,8 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                         driveId: s3Item.drive.id,
                         size: Int64(data.count),
                         duration: transferTime,
-                        direction: .upload
+                        direction: .upload,
+                        filename: s3Item.filename
                     )
                 )
 

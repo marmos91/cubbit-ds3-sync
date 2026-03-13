@@ -20,11 +20,15 @@ public struct DriveTransferStats: Codable, Sendable {
     /// The transfer direction
     public let direction: TransferDirection
 
-    public init(driveId: UUID, size: Int64, duration: TimeInterval, direction: TransferDirection) {
+    /// The filename being transferred (optional for backward compatibility)
+    public let filename: String?
+
+    public init(driveId: UUID, size: Int64, duration: TimeInterval, direction: TransferDirection, filename: String? = nil) {
         self.driveId = driveId
         self.size = size
         self.duration = duration
         self.direction = direction
+        self.filename = filename
     }
 }
 
