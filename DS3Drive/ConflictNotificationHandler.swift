@@ -119,7 +119,7 @@ final class ConflictNotificationHandler: NSObject, UNUserNotificationCenterDeleg
         logger.debug("ConflictNotificationHandler listening for conflict notifications")
     }
 
-    @objc private func handleConflictNotification(_ notification: Notification) {
+    @objc nonisolated private func handleConflictNotification(_ notification: Notification) {
         guard let jsonString = notification.object as? String,
               let data = jsonString.data(using: .utf8),
               let info = try? JSONDecoder().decode(ConflictInfo.self, from: data) else {

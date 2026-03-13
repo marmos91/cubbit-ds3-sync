@@ -15,7 +15,7 @@ struct DS3DriveApp: App {
     @State var ds3Authentication: DS3Authentication = DS3Authentication.loadFromPersistenceOrCreateNew()
     @State var appStatusManager: AppStatusManager = AppStatusManager.default()
     @State var ds3DriveManager: DS3DriveManager = DS3DriveManager(appStatusManager: AppStatusManager.default())
-    @State private var conflictNotificationHandler = ConflictNotificationHandler()
+    private let conflictNotificationHandler = ConflictNotificationHandler()
     
     // TODO: Hide tray menu when not logged in
     @State var trayMenuVisible: Bool = true
