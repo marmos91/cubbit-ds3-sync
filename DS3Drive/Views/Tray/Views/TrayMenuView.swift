@@ -80,10 +80,8 @@ struct TrayMenuView: View {
             ForEach(driveViewModels, id: \.drive.id) { vm in
                 TrayDriveRowView(
                     driveViewModel: vm,
-                    onTapDrive: { driveId in
-                        if case .recentFiles(let currentId) = activeSidePanel, currentId == driveId {
-                            activeSidePanel = nil
-                        } else {
+                    onHoverDrive: { driveId, hovering in
+                        if hovering {
                             activeSidePanel = .recentFiles(driveId: driveId)
                         }
                     }

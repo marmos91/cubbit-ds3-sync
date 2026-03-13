@@ -1,7 +1,7 @@
 import SwiftUI
 import DS3Lib
 
-/// Side panel showing recent files per drive, displayed when activeSidePanel = .recentFiles(driveId).
+/// Side panel showing recent files per drive, matching the Figma file status design.
 struct RecentFilesPanel: View {
     let driveName: String
     let recentFiles: [RecentFileEntry]
@@ -17,7 +17,7 @@ struct RecentFilesPanel: View {
                         .font(DS3Typography.headline)
                         .lineLimit(1)
                     Text(NSLocalizedString("Recent Files", comment: "Recent files panel title"))
-                        .font(DS3Typography.caption)
+                        .font(DS3Typography.footnote)
                         .foregroundStyle(.secondary)
                 }
 
@@ -27,8 +27,8 @@ struct RecentFilesPanel: View {
                     onClose()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.tertiary)
                 }
                 .buttonStyle(.plain)
             }
@@ -42,9 +42,14 @@ struct RecentFilesPanel: View {
                 Spacer()
                 HStack {
                     Spacer()
-                    Text(NSLocalizedString("No recent files", comment: "Empty recent files"))
-                        .font(DS3Typography.caption)
-                        .foregroundStyle(.secondary)
+                    VStack(spacing: DS3Spacing.sm) {
+                        Image(systemName: "doc")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.tertiary)
+                        Text(NSLocalizedString("No recent files", comment: "Empty recent files"))
+                            .font(DS3Typography.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer()
                 }
                 Spacer()
@@ -54,7 +59,6 @@ struct RecentFilesPanel: View {
                         let sorted = recentFiles.sorted { $0.status < $1.status }
                         ForEach(sorted.prefix(10)) { entry in
                             RecentFileRow(entry: entry, driveViewModel: driveViewModel)
-                            Divider()
                         }
                     }
                 }
@@ -63,52 +67,58 @@ struct RecentFilesPanel: View {
     }
 }
 
-/// A single row in the recent files panel.
+/// A single row in the recent files panel — Figma style with status icon, name, size + time.
 private struct RecentFileRow: View {
     let entry: RecentFileEntry
     let driveViewModel: DS3DriveViewModel
+    @State private var isHover = false
 
     var body: some View {
         HStack(spacing: DS3Spacing.sm) {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 8, height: 8)
+            // Status icon
+            Image(systemName: statusIcon)
+                .font(.system(size: 12))
+                .foregroundStyle(statusColor)
+                .frame(width: 18, alignment: .center)
 
+            // File info
             VStack(alignment: .leading, spacing: 1) {
                 Text(entry.filename)
                     .font(DS3Typography.caption)
                     .lineLimit(1)
                     .truncationMode(.middle)
 
-                HStack(spacing: DS3Spacing.xs) {
-                    Text(entry.displaySize)
-                        .font(DS3Typography.footnote)
-                        .foregroundStyle(.secondary)
-
-                    Text(relativeTime)
-                        .font(DS3Typography.footnote)
-                        .foregroundStyle(.secondary)
-                }
+                Text("\(entry.displaySize), \(relativeTime)")
+                    .font(DS3Typography.footnote)
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
         }
         .padding(.horizontal, DS3Spacing.lg)
         .padding(.vertical, DS3Spacing.xs)
+        .background(isHover ? Color(nsColor: .selectedContentBackgroundColor).opacity(0.15) : Color.clear)
         .contentShape(Rectangle())
+        .onHover { isHover = $0 }
         .onTapGesture {
-            revealInFinder()
+            let vm = driveViewModel
+            Task { try? await vm.openFinder() }
+        }
+    }
+
+    private var statusIcon: String {
+        switch entry.status {
+        case .completed: return "checkmark.circle.fill"
+        case .syncing: return "arrow.triangle.2.circlepath.circle.fill"
+        case .error: return "xmark.circle.fill"
         }
     }
 
     private var statusColor: Color {
         switch entry.status {
-        case .completed:
-            return DS3Colors.statusSynced
-        case .syncing:
-            return DS3Colors.statusSyncing
-        case .error:
-            return DS3Colors.statusError
+        case .completed: return DS3Colors.statusSynced
+        case .syncing: return DS3Colors.statusSyncing
+        case .error: return DS3Colors.statusError
         }
     }
 
@@ -117,17 +127,9 @@ private struct RecentFileRow: View {
         if seconds < 60 {
             return NSLocalizedString("Just now", comment: "Relative time")
         } else if seconds < 3600 {
-            return String(format: NSLocalizedString("%d min ago", comment: "Minutes ago"), seconds / 60)
+            return String(format: NSLocalizedString("about %d min", comment: "Minutes ago"), seconds / 60)
         } else {
             return String(format: NSLocalizedString("%d hr ago", comment: "Hours ago"), seconds / 3600)
-        }
-    }
-
-    private func revealInFinder() {
-        // Open drive root in Finder as a fallback (individual file paths require NSFileProviderManager lookup)
-        let vm = driveViewModel
-        Task {
-            try? await vm.openFinder()
         }
     }
 }

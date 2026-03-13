@@ -13,7 +13,7 @@ struct TrayDriveRowView: View {
     @State private var isHover: Bool = false
 
     /// Callback to trigger the recent files side panel in TrayMenuView
-    var onTapDrive: ((UUID) -> Void)?
+    var onHoverDrive: ((UUID, Bool) -> Void)?
 
     var body: some View {
         HStack(spacing: DS3Spacing.sm) {
@@ -42,11 +42,9 @@ struct TrayDriveRowView: View {
         .padding(.horizontal, DS3Spacing.lg)
         .padding(.vertical, DS3Spacing.sm)
         .background(isHover ? Color(nsColor: .selectedContentBackgroundColor).opacity(0.15) : Color.clear)
-        .onTapGesture {
-            onTapDrive?(driveViewModel.drive.id)
-        }
         .onHover { hovering in
             isHover = hovering
+            onHoverDrive?(driveViewModel.drive.id, hovering)
         }
         .contextMenu {
             driveContextMenuItems
