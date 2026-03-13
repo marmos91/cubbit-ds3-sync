@@ -263,6 +263,7 @@ struct DS3Missing2FAResponse: Codable {
         try self.deleteFromDisk()
         
         self.accountSession = nil
+        self.account = nil
         self.isLogged = false
     }
     
