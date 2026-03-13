@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import os.log
+import UserNotifications
 import DS3Lib
 
 @main
@@ -12,11 +13,13 @@ struct DS3DriveApp: App {
     @AppStorage(DefaultSettings.UserDefaultsKeys.tutorial) var tutorialShown: Bool = DefaultSettings.tutorialShown
     @AppStorage(DefaultSettings.UserDefaultsKeys.loginItemSet) var loginItemSet: Bool = DefaultSettings.loginItemSet
 
-    @State var ds3Authentication: DS3Authentication = DS3Authentication.loadFromPersistenceOrCreateNew()
+    @State var ds3Authentication: DS3Authentication
     @State var appStatusManager: AppStatusManager = AppStatusManager.default()
     @State var ds3DriveManager: DS3DriveManager = DS3DriveManager(appStatusManager: AppStatusManager.default())
     private let conflictNotificationHandler = ConflictNotificationHandler()
-    
+    private var authFailureObserver: NSObjectProtocol?
+    @State private var refreshTask: Task<Void, Never>?
+
     // TODO: Hide tray menu when not logged in
     @State var trayMenuVisible: Bool = true
     
@@ -24,20 +27,26 @@ struct DS3DriveApp: App {
         // MARK: - Main view
         
         WindowGroup {
-            if ds3Authentication.isLogged {
-                if !tutorialShown {
-                    TutorialView()
-                } else {
-                    // Note: if no drives are present, show the setup view
-                    if ds3DriveManager.drives.isEmpty {
-                        SetupSyncView()
-                            .environment(ds3Authentication)
-                            .environment(ds3DriveManager)
+            Group {
+                if ds3Authentication.isLogged {
+                    if !tutorialShown {
+                        TutorialView()
+                    } else {
+                        // Note: if no drives are present, show the setup view
+                        if ds3DriveManager.drives.isEmpty {
+                            SetupSyncView()
+                                .environment(ds3Authentication)
+                                .environment(ds3DriveManager)
+                        }
                     }
+                } else {
+                    LoginView()
+                        .environment(ds3Authentication)
                 }
-            } else {
-                LoginView()
-                    .environment(ds3Authentication)
+            }
+            .task {
+                refreshTask?.cancel()
+                refreshTask = ds3Authentication.startProactiveRefreshTimer()
             }
         }
         .windowResizability(.contentSize)
@@ -107,6 +116,11 @@ struct DS3DriveApp: App {
     }
     
     init() {
+        // Load saved coordinator URL and construct auth with it
+        let coordinatorURL = (try? SharedData.default().loadCoordinatorURLFromPersistence()) ?? CubbitAPIURLs.defaultCoordinatorURL
+        let urls = CubbitAPIURLs(coordinatorURL: coordinatorURL)
+        _ds3Authentication = State(initialValue: DS3Authentication.loadFromPersistenceOrCreateNew(urls: urls))
+
         do {
             self.metadataContainer = try MetadataStore.createContainer()
             logger.info("MetadataStore container initialized successfully")
@@ -125,5 +139,31 @@ struct DS3DriveApp: App {
 
         // Request notification permission for conflict alerts (best-effort)
         conflictNotificationHandler.requestPermission()
+
+        // Listen for auth failure notifications from the File Provider extension
+        authFailureObserver = DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name(DefaultSettings.Notifications.authFailure),
+            object: nil,
+            queue: .main
+        ) { [logger] _ in
+            logger.warning("Received auth failure notification from extension")
+
+            let notification = UNMutableNotificationContent()
+            notification.title = "DS3 Drive"
+            notification.body = "Session expired -- sign in to resume syncing"
+            notification.sound = .default
+
+            let request = UNNotificationRequest(
+                identifier: "io.cubbit.DS3Drive.authFailure",
+                content: notification,
+                trigger: nil
+            )
+
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error {
+                    logger.error("Failed to deliver auth failure notification: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 }
