@@ -78,13 +78,13 @@ Plans:
   3. Token expiration during an active sync session is handled transparently -- the refresh flow completes without interrupting file transfers or showing errors
   4. Users with 2FA enabled can complete login with their second factor
   5. A configurable coordinator URL setting allows pointing the app at a self-hosted DS3 Composer instance, and all API URLs derive from that base
-**Plans:** 3/4 plans executed
+**Plans:** 4 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- Refactor CubbitAPIURLs to instance-based class, extend SharedData with tenant/coordinator persistence, add NSFileCoordinator to token files
-- [ ] 04-02-PLAN.md -- Inject CubbitAPIURLs into DS3Authentication/DS3SDK, add tenant_id to auth requests, proactive token refresh
-- [ ] 04-03-PLAN.md -- Login UI Advanced section (tenant + coordinator URL), tray menu Connection Info/Sign Out, app-level refresh timer
-- [ ] 04-04-PLAN.md -- Extension dynamic URLs from SharedData, proactive refresh in extension, S3 403 self-healing with API key recreation
+- [x] 04-01-PLAN.md -- Refactor CubbitAPIURLs to instance-based class, extend SharedData with tenant/coordinator persistence, add NSFileCoordinator to token files
+- [x] 04-02-PLAN.md -- Inject CubbitAPIURLs into DS3Authentication/DS3SDK, add tenant_id to auth requests, proactive token refresh
+- [x] 04-03-PLAN.md -- Login UI Advanced section (tenant + coordinator URL), tray menu Connection Info/Sign Out, app-level refresh timer
+- [x] 04-04-PLAN.md -- Extension dynamic URLs from SharedData, proactive refresh in extension, S3 403 self-healing with API key recreation
 
 ### Phase 5: UX Polish
 **Goal**: Users have full visibility into sync state and control over their drives through Finder badges, a rich menu bar experience, and a streamlined setup wizard
@@ -98,12 +98,14 @@ Plans:
   5. Quick actions in the menu bar (add drive, open in Finder, preferences, pause sync) work correctly
   6. The drive setup wizard guides the user through tenant-aware project and bucket selection in a simplified flow
   7. Users cannot create more than 3 drives
-**Plans**: TBD
+**Plans:** 5 plans
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
-- [ ] 05-03: TBD
+- [ ] 05-01-PLAN.md -- Design system foundation (colors, typography, spacing, shimmer) and Finder sync badges via NSFileProviderItemDecorating
+- [ ] 05-02-PLAN.md -- Pause state data layer (SharedData persistence, extension gate) and recent files ring buffer tracker
+- [ ] 05-03-PLAN.md -- Drive setup wizard 2-step refactor, login centered card redesign, preferences tabbed redesign
+- [ ] 05-04-PLAN.md -- Menu bar tray overhaul: colored indicators, speed display, side panels, gear menu, tray icon animation
+- [ ] 05-05-PLAN.md -- Common component design system sweep, copy audit, Italian localization, final human verification
 
 ## Progress
 
@@ -117,8 +119,8 @@ Note: Phase 4 depends only on Phase 1 and could theoretically run in parallel wi
 | 2. Sync Engine | 3/3 | Complete | 2026-03-12 |
 | 3. Conflict Resolution | 3/3 | Complete | - |
 | 4. Auth & Platform | 4/4 | Complete | 2026-03-13 |
-| 5. UX Polish | 0/3 | Not started | - |
+| 5. UX Polish | 0/5 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-11*
-*Last updated: 2026-03-13 (Phase 4: complete with 4/4 plans)*
+*Last updated: 2026-03-13 (Phase 5: planned with 5 plans in 3 waves)*
