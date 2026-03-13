@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Phase 5 context gathered
-last_updated: "2026-03-13T13:44:52.251Z"
-last_activity: 2026-03-13 -- Completed plan 04-04 (Extension dynamic URLs, proactive refresh, 403 self-healing)
+status: in_progress
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-03-13T14:40:05Z"
+last_activity: 2026-03-13 -- Completed plan 05-01 (Design system constants & Finder sync badges)
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 14
-  completed_plans: 14
-  percent: 100
+  total_plans: 19
+  completed_plans: 15
+  percent: 79
 ---
 
 # Project State
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Files sync reliably and transparently between the user's Mac and Cubbit DS3, with zero friction
-**Current focus:** Phase 4 complete -- all auth & platform plans done, ready for Phase 5 (UX)
+**Current focus:** Phase 5 in progress -- UX polish (design system, badges, login, wizard, tray, preferences)
 
 ## Current Position
 
-Phase: 4 of 5 (Auth & Platform) -- COMPLETE
-Plan: 4 of 4 in current phase (04-04 complete)
-Status: Phase 4 complete
-Last activity: 2026-03-13 -- Completed plan 04-04 (Extension dynamic URLs, proactive refresh, 403 self-healing)
+Phase: 5 of 5 (UX Polish)
+Plan: 1 of 5 in current phase (05-01 complete)
+Status: In progress
+Last activity: 2026-03-13 -- Completed plan 05-01 (Design system constants & Finder sync badges)
 
-Progress: [██████████] 100% (14 of 14 plans complete)
+Progress: [███████░░░] 79% (15 of 19 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14
+- Total plans completed: 15
 - Average duration: 7 min
-- Total execution time: ~1.7 hours
+- Total execution time: ~1.8 hours
 
 **By Phase:**
 
@@ -47,13 +47,14 @@ Progress: [██████████] 100% (14 of 14 plans complete)
 | 2. Sync Engine | 3 | 26 min | 9 min |
 | 3. Conflict Resolution | 3 | 14 min | 5 min |
 | 4. Auth & Platform | 4/4 | 27 min | 7 min |
+| 5. UX Polish | 1/5 | 6 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: 5m, 5m, 5m, 12m, 5m
+- Last 5 plans: 5m, 5m, 12m, 5m, 6m
 - Trend: stable
 
 *Updated after each plan completion*
-| Phase 04 P04 | 5min | 2 tasks | 5 files |
+| Phase 05 P01 | 6min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -109,6 +110,10 @@ Recent decisions affecting current work:
 - [Phase 04]: S3ErrorRecovery placed in DS3Lib/Utils to match existing project convention
 - [Phase 04]: withAPIKeyRecovery wraps core S3 data operations only, not conflict checks or metadata operations
 - [Phase 04]: Extension refresh timer started after super.init() to satisfy Swift initializer rules
+- Plan 05-01: Design system uses enums for non-instantiable constant namespaces (DS3Colors, DS3Typography, DS3Spacing)
+- Plan 05-01: syncStatus stored as String in S3Item.Metadata to avoid DS3Lib dependency in decoration matching
+- Plan 05-01: NSFileProviderDecorations uses SF Symbol badge type for native Finder integration
+- Plan 05-01: Default/nil syncStatus maps to cloudOnly decoration (items without status are cloud-only)
 
 ### Pending Todos
 
@@ -121,6 +126,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T13:44:52.249Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-ux-polish/05-CONTEXT.md
+Last session: 2026-03-13T14:40:05Z
+Stopped at: Completed 05-01-PLAN.md
+Resume file: .planning/phases/05-ux-polish/05-02-PLAN.md
