@@ -12,7 +12,7 @@ struct NoBucketsView: View {
                 Image(.bucketIcon)
                 
                 Text("You haven't created any bucket yet, create your first bucket on [the console](https://console.cubbit.eu/) and then come back here to synchronize it.")
-                    .font(.custom("Nunito", size: 14))
+                    .font(DS3Typography.body)
                     .multilineTextAlignment(.center)
                 
                 Button("Refresh") {

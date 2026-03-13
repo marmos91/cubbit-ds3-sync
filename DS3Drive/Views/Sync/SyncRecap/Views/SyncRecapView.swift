@@ -8,7 +8,7 @@ struct SyncRecapView: View {
     
     var body: some View {
         ZStack {
-            Color(.background)
+            Color(nsColor: .windowBackgroundColor)
                 .ignoresSafeArea()
             
             HStack(spacing: 0) {

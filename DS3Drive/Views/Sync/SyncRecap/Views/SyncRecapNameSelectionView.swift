@@ -11,7 +11,7 @@ struct SyncRecapNameSelectionView: View {
         VStack(alignment: .leading) {
             VStack(alignment: .leading) {
                 Text("Drive name:")
-                    .font(.custom("Nunito", size: 12))
+                    .font(DS3Typography.caption)
                 
                 IconTextField(
                     iconName: .driveIcon,
@@ -38,27 +38,27 @@ struct SyncRecapNameSelectionView: View {
             
             VStack(alignment: .leading) {
                 Text("Project name:")
-                    .font(.custom("Nunito", size: 12))
+                    .font(DS3Typography.caption)
                 Text(syncRecapViewModel.syncAnchor.project.name)
-                    .font(.custom("Nunito", size: 16))
+                    .font(DS3Typography.headline)
                     .fontWeight(.bold)
             }
             .padding(.vertical, 5)
             
             VStack(alignment: .leading) {
                 Text("IAM Role:")
-                    .font(.custom("Nunito", size: 12))
+                    .font(DS3Typography.caption)
                 Text(syncRecapViewModel.syncAnchor.IAMUser.username)
-                    .font(.custom("Nunito", size: 16))
+                    .font(DS3Typography.headline)
                     .fontWeight(.bold)
             }
             .padding(.vertical, 5)
             
             VStack(alignment: .leading) {
                 Text("Bucket:")
-                    .font(.custom("Nunito", size: 12))
+                    .font(DS3Typography.caption)
                 Text(syncRecapViewModel.syncAnchor.bucket.name)
-                    .font(.custom("Nunito", size: 16))
+                    .font(DS3Typography.headline)
                     .fontWeight(.bold)
             }
             .padding(.vertical, 5)
@@ -66,10 +66,10 @@ struct SyncRecapNameSelectionView: View {
             if syncRecapViewModel.syncAnchor.prefix != nil {
                 VStack(alignment: .leading) {
                     Text("Folder:")
-                        .font(.custom("Nunito", size: 12))
+                        .font(DS3Typography.caption)
                     
                     Text(syncRecapViewModel.syncAnchor.prefix!)
-                        .font(.custom("Nunito", size: 16))
+                        .font(DS3Typography.headline)
                         .fontWeight(.bold)
                 }
                 .padding(.vertical, 5)

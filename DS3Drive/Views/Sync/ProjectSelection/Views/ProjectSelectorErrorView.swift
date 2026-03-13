@@ -13,7 +13,7 @@ struct ProjectSelectorErrorView: View {
                 
                 if projectSelectionViewModel.authenticationError != nil {
                     Text(projectSelectionViewModel.authenticationError?.localizedDescription ?? "No error")
-                        .font(.custom("Nunito", size: 14))
+                        .font(DS3Typography.body)
                         .multilineTextAlignment(.center)
                     
                     Button("Logout") {
@@ -25,7 +25,7 @@ struct ProjectSelectorErrorView: View {
                 }
                 if projectSelectionViewModel.error != nil {
                     Text(projectSelectionViewModel.error?.localizedDescription ?? "No error")
-                        .font(.custom("Nunito", size: 14))
+                        .font(DS3Typography.body)
                         .multilineTextAlignment(.center)
 
                     Button("Retry") {

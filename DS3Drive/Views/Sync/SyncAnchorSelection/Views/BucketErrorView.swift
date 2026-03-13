@@ -13,7 +13,7 @@ struct BucketErrorView: View {
                 
                 if syncAnchorSelectionViewModel.authenticationError != nil {
                     Text(syncAnchorSelectionViewModel.authenticationError?.localizedDescription ?? "No error")
-                        .font(.custom("Nunito", size: 14))
+                        .font(DS3Typography.body)
                         .multilineTextAlignment(.center)
                     
                     Button("Logout") {
@@ -26,7 +26,7 @@ struct BucketErrorView: View {
 
                 if syncAnchorSelectionViewModel.error != nil {
                     Text(syncAnchorSelectionViewModel.error?.localizedDescription ?? "No error")
-                        .font(.custom("Nunito", size: 14))
+                        .font(DS3Typography.body)
                         .multilineTextAlignment(.center)
 
                     Button("Retry") {

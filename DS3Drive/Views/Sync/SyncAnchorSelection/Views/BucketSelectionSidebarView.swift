@@ -3,33 +3,33 @@ import DS3Lib
 
 struct BucketSelectionSidebarView: View {
     @Environment(SyncAnchorSelectionViewModel.self) var syncAnchorSelectionViewModel: SyncAnchorSelectionViewModel
-    
+
     var body: some View {
         ZStack {
-            Color(.darkMainStandard)
+            Color(nsColor: .controlBackgroundColor)
                 .ignoresSafeArea()
 
                 VStack(alignment: .leading) {
                     Text("Project:")
-                        .font(.custom("Nunito", size: 12))
-                    
+                        .font(DS3Typography.caption)
+
                     Text(syncAnchorSelectionViewModel.project.name)
-                        .font(.custom("Nunito", size: 16))
+                        .font(DS3Typography.headline)
                         .fontWeight(.bold)
                         .padding(.bottom, 5.0)
-                    
+
                     IAMUsersDropdownView(
                         iconName: .userIcon
                     )
                     .environment(syncAnchorSelectionViewModel)
-                    
+
                     Text("Select an IAM user & bucket to continue. You can manage buckets and IAM users from the [Cubbit DS3 Console](https://console.cubbit.eu)")
-                        .font(.custom("Nunito", size: 14))
+                        .font(DS3Typography.body)
                         .padding(.vertical)
                 }
                 .padding(20.0)
         }
-        .border(width: 1, edges: [.trailing], color: .darkMainBorder)
+        .border(width: 1, edges: [.trailing], color: Color(nsColor: .separatorColor))
         .frame(width: 240)
     }
 }
@@ -51,7 +51,7 @@ struct BucketSelectionSidebarView: View {
                     rootAccountEmail: nil,
                     users: [
                         IAMUser(
-                            id: "77d5961c-365d-4d55-a3cb-8f7cf22ce9f6", 
+                            id: "77d5961c-365d-4d55-a3cb-8f7cf22ce9f6",
                             username: "ROOT",
                             isRoot: true
                         )

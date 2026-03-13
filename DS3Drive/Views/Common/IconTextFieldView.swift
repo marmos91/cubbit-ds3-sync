@@ -4,12 +4,12 @@ struct IconTextField: View {
     var iconName: ImageResource?
     var placeholder: String
     var error: Error?
-    
+
     @Binding var text: String
     @State var shouldShowPassword = false
-    
+
     var isSecure = false
-    
+
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
             if let iconName {
@@ -18,7 +18,7 @@ struct IconTextField: View {
                     .frame(width: 16, height: 16, alignment: .leading)
                     .padding(.leading, 10.0)
             }
-            
+
             if isSecure {
                 if shouldShowPassword {
                     TextField(placeholder, text: $text)
@@ -27,7 +27,7 @@ struct IconTextField: View {
                     SecureField(placeholder, text: $text)
                         .textFieldStyle(PlainTextFieldStyle())
                 }
-                
+
                 Image(.showPasswordIcon)
                     .resizable()
                     .frame(width: 16, height: 16, alignment: .trailing)
@@ -43,7 +43,7 @@ struct IconTextField: View {
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(lineWidth: 1)
-                .fill(error != nil ? Color.red : Color(.darkMainBorder))
+                .fill(error != nil ? Color.red : Color(nsColor: .separatorColor))
                 .frame(maxWidth: .infinity, maxHeight: 32)
         )
     }
@@ -52,8 +52,7 @@ struct IconTextField: View {
 #Preview {
     VStack {
         IconTextField(iconName: .emailIcon, placeholder: "Email", text: Binding.constant(""), isSecure: false)
-        
+
         IconTextField(iconName: .passwordIcon, placeholder: "Password", text: Binding.constant(""), isSecure: true)
     }.padding()
 }
-    

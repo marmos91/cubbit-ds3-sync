@@ -8,7 +8,7 @@ struct ProjectSelectionView: View {
     
     var body: some View {
         ZStack {
-            Color(.background)
+            Color(nsColor: .windowBackgroundColor)
                 .ignoresSafeArea()
             
             VStack(alignment: .leading, spacing: 0) {

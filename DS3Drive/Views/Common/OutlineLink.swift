@@ -3,22 +3,20 @@ import SwiftUI
 struct OutlineLink: View {
     var text: String
     var href: String
-    
+
     @State var isHover: Bool = false
-    
+
     var body: some View {
         Link(text, destination: URL(string: href)!)
-            .font(.custom("Nunito", size: 14))
-            .tint(.white)
+            .font(DS3Typography.body)
             .padding()
             .frame(height: 32)
-//            .frame(minWidth: 0, maxWidth: .infinity, maxHeight: 32)
-            .foregroundColor(.white)
+            .foregroundStyle(.primary)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(.darkMainTop, lineWidth: 1)
+                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
                     .if(isHover) { view in
-                        view.fill(.hover)
+                        view.fill(Color(nsColor: .quaternaryLabelColor))
                     }
             )
             .onHover { hovering in

@@ -3,20 +3,21 @@ import SwiftUI
 struct PrimaryButtonStyle: ButtonStyle {
     @State var isHover: Bool = false
     @Environment(\.isEnabled) private var isEnabled
-    
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.custom("Nunito", size: 14))
+            .font(DS3Typography.body)
             .padding()
             .frame(maxWidth: .infinity, maxHeight: 32)
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(
                         isEnabled ?
-                        (configuration.isPressed || isHover) ? Color(.buttonPrimaryColorHover) : Color(.buttonPrimary) :
-                        Color(.darkMainTop)
+                        (configuration.isPressed || isHover) ? Color.accentColor.opacity(0.8) : Color.accentColor :
+                        Color(nsColor: .controlBackgroundColor)
                     )
             )
+            .foregroundStyle(.white)
             .onHover {
                 isHover = $0
             }
@@ -34,7 +35,7 @@ struct PrimaryButtonStyle: ButtonStyle {
                 }
             }
             .if(!isEnabled) { view in
-                view.foregroundStyle(.disabledText)
+                view.foregroundStyle(.secondary)
             }
     }
 }
@@ -42,21 +43,21 @@ struct PrimaryButtonStyle: ButtonStyle {
 struct OutlineButtonStyle: ButtonStyle {
     @State var isHover: Bool = false
     @Environment(\.isEnabled) private var isEnabled
-    
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.custom("Nunito", size: 14))
+            .font(DS3Typography.body)
             .padding()
             .frame(maxWidth: .infinity, maxHeight: 32)
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(
                         isEnabled ?
-                          (configuration.isPressed || isHover) ? Color(.darkMainBorder) : Color(.clear) :
-                          Color(.darkMainTop)
+                          (configuration.isPressed || isHover) ? Color(nsColor: .separatorColor) : Color(.clear) :
+                          Color(nsColor: .controlBackgroundColor)
                     )
-                    .stroke(Color(.darkMainBorder), lineWidth: 1)
-                
+                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+
             )
             .onHover { hovering in
                 isHover = hovering
@@ -75,7 +76,7 @@ struct OutlineButtonStyle: ButtonStyle {
                 }
             }
             .if(!isEnabled) { view in
-                view.foregroundStyle(.disabledText)
+                view.foregroundStyle(.secondary)
             }
     }
 }

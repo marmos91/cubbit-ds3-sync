@@ -1,194 +1,777 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "(If you decide not to start Cubbit at startup, you will not be able to view the synchronized disks)" : {
-
+    "(If you decide not to start DS3 Drive at login, you will not be able to view the synchronized disks)" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(Se decidi di non avviare DS3 Drive all'accesso, non potrai visualizzare i dischi sincronizzati)"
+          }
+        }
+      }
     },
     "2F Authentication:" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autenticazione 2F:"
+          }
+        }
+      }
     },
     "Add a new Drive" : {
-      "comment" : "Tray menu add new drive"
+      "comment" : "Tray menu add new drive",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi un nuovo Drive"
+          }
+        }
+      }
     },
     "Add new Drive" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi nuovo Drive"
+          }
+        }
+      }
     },
     "Advanced" : {
-      "comment" : "Advanced login settings"
+      "comment" : "Advanced login settings",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avanzate"
+          }
+        }
+      }
+    },
+    "All drives up to date" : {
+      "comment" : "Speed summary idle",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tutti i drive sono aggiornati"
+          }
+        }
+      }
     },
     "An error occurred: %@" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si e' verificato un errore: %@"
+          }
+        }
+      }
     },
     "Authentication code" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codice di autenticazione"
+          }
+        }
+      }
     },
     "Bucket:" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bucket:"
+          }
+        }
+      }
     },
     "Choose a name for your drive. The name you choose will be displayed in the finder" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scegli un nome per il tuo drive. Il nome scelto sara' visualizzato nel Finder"
+          }
+        }
+      }
+    },
+    "Connection Info" : {
+      "comment" : "Connection info panel title",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Info connessione"
+          }
+        }
+      }
     },
     "Console" : {
-      "comment" : "Connection info label"
+      "comment" : "Connection info label",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Console"
+          }
+        }
+      }
     },
     "Continue" : {
-      "comment" : "Continue button"
+      "comment" : "Continue button",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continua"
+          }
+        }
+      }
     },
     "Coordinator" : {
-      "comment" : "Connection info label"
+      "comment" : "Connection info label",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coordinator"
+          }
+        }
+      }
     },
     "Coordinator URL" : {
-      "comment" : "Coordinator URL placeholder"
+      "comment" : "Coordinator URL placeholder",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL Coordinator"
+          }
+        }
+      }
     },
     "Copied" : {
-      "comment" : "Clipboard copy feedback"
+      "comment" : "Clipboard copy feedback",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiato"
+          }
+        }
+      }
+    },
+    "Copy S3 Path" : {
+      "comment" : "Drive menu copy S3 path",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia percorso S3"
+          }
+        }
+      }
     },
     "Disabled" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disattivato"
+          }
+        }
+      }
     },
     "Disconnect" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnetti"
+          }
+        }
+      }
     },
     "Disconnect account" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnetti account"
+          }
+        }
+      }
     },
     "Drive name:" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome drive:"
+          }
+        }
+      }
     },
     "DS3 Client error. Please try refreshing credentials" : {
-      "comment" : "DS3 client error"
+      "comment" : "DS3 client error",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Errore client DS3. Prova ad aggiornare le credenziali"
+          }
+        }
+      }
     },
     "DS3 Drive" : {
-      "comment" : "Auth failure notification title"
+      "comment" : "Auth failure notification title",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DS3 Drive"
+          }
+        }
+      }
     },
     "DS3 Object Storage Log in" : {
-      "comment" : "The h1 of the login page"
+      "comment" : "The h1 of the login page",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accesso a DS3 Object Storage"
+          }
+        }
+      }
     },
     "DS3 Server error. Please retry later" : {
-      "comment" : "DS3 server error"
+      "comment" : "DS3 server error",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Errore server DS3. Riprova piu' tardi"
+          }
+        }
+      }
     },
     "Edit on web console" : {
-      "comment" : "Edit on web console button"
+      "comment" : "Edit on web console button",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifica sulla console web"
+          }
+        }
+      }
     },
     "Email" : {
-      "comment" : "Email placeholder"
+      "comment" : "Email placeholder",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Email"
+          }
+        }
+      }
     },
     "Email:" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Email:"
+          }
+        }
+      }
     },
     "Enabled" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attivato"
+          }
+        }
+      }
     },
     "Enter the code from your authenticator app" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inserisci il codice dalla tua app di autenticazione"
+          }
+        }
+      }
     },
     "Folder:" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cartella:"
+          }
+        }
+      }
     },
     "Forgot your password?" : {
-      "comment" : "Forgot your password link"
+      "comment" : "Forgot your password link",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password dimenticata?"
+          }
+        }
+      }
     },
     "Help" : {
-      "comment" : "Tray menu help"
+      "comment" : "Tray menu help",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aiuto"
+          }
+        }
+      }
     },
     "IAM Role:" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruolo IAM:"
+          }
+        }
+      }
+    },
+    "Just now" : {
+      "comment" : "Relative time",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adesso"
+          }
+        }
+      }
     },
     "Loading..." : {
-      "comment" : "Loading"
+      "comment" : "Loading",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Caricamento..."
+          }
+        }
+      }
     },
     "Log in" : {
-      "comment" : "Login button"
+      "comment" : "Login button",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accedi"
+          }
+        }
+      }
     },
     "Logout" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esci"
+          }
+        }
+      }
     },
     "Manage" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestisci"
+          }
+        }
+      }
     },
     "N/A" : {
-      "comment" : "Not available"
+      "comment" : "Not available",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "N/D"
+          }
+        }
+      }
     },
     "Name:" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome:"
+          }
+        }
+      }
     },
     "Next" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avanti"
+          }
+        }
+      }
     },
     "No buckets found in server response" : {
-      "comment" : "Missing buckets in response"
+      "comment" : "Missing buckets in response",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun bucket trovato nella risposta del server"
+          }
+        }
+      }
+    },
+    "No recent files" : {
+      "comment" : "Empty recent files",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun file recente"
+          }
+        }
+      }
+    },
+    "Open web console" : {
+      "comment" : "Tray menu open console button",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri console web"
+          }
+        }
+      }
     },
     "Open web console " : {
-      "comment" : "Tray menu open console button"
+      "comment" : "Tray menu open console button",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri console web "
+          }
+        }
+      }
     },
     "Password" : {
-      "comment" : "Password placeholder"
+      "comment" : "Password placeholder",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password"
+          }
+        }
+      }
     },
     "Password:" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password:"
+          }
+        }
+      }
+    },
+    "Pause" : {
+      "comment" : "Drive menu pause",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausa"
+          }
+        }
+      }
     },
     "Please select a DS3 Project to start. Inside your project you will select a Bucket to sync with your local drive" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleziona un progetto DS3 per iniziare. All'interno del progetto selezionerai un Bucket da sincronizzare con il tuo drive locale"
+          }
+        }
+      }
     },
     "Preferences" : {
-      "comment" : "Tray open preferences"
+      "comment" : "Tray open preferences",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preferenze"
+          }
+        }
+      }
     },
     "Project name:" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome progetto:"
+          }
+        }
+      }
     },
     "Project:" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Progetto:"
+          }
+        }
+      }
     },
     "Quit" : {
-      "comment" : "Tray menu quit"
+      "comment" : "Tray menu quit",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esci dall'applicazione"
+          }
+        }
+      }
     },
     "Recap: confirm your information to create your drive" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riepilogo: conferma le informazioni per creare il tuo drive"
+          }
+        }
+      }
+    },
+    "Recent Files" : {
+      "comment" : "Recent files panel title",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File recenti"
+          }
+        }
+      }
     },
     "Refresh" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiorna"
+          }
+        }
+      }
+    },
+    "Resume" : {
+      "comment" : "Drive menu resume",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riprendi"
+          }
+        }
+      }
     },
     "Retry" : {
-      "comment" : "Retry"
+      "comment" : "Retry",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riprova"
+          }
+        }
+      }
     },
     "S3 Endpoint" : {
-      "comment" : "Connection info label"
+      "comment" : "Connection info label",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Endpoint S3"
+          }
+        }
+      }
     },
     "Select an IAM user & bucket to continue. You can manage buckets and IAM users from the [Cubbit DS3 Console](https://console.cubbit.eu)" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleziona un utente IAM e un bucket per continuare. Puoi gestire bucket e utenti IAM dalla [Console Cubbit DS3](https://console.cubbit.eu)"
+          }
+        }
+      }
     },
     "Select DS3 Project" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleziona progetto DS3"
+          }
+        }
+      }
     },
     "Session expired -- sign in to resume syncing" : {
-      "comment" : "Auth failure notification body"
+      "comment" : "Auth failure notification body",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sessione scaduta -- accedi per riprendere la sincronizzazione"
+          }
+        }
+      }
     },
     "Sign Out" : {
-      "comment" : "Tray menu sign out"
+      "comment" : "Tray menu sign out",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esci"
+          }
+        }
+      }
     },
     "Sign up" : {
-      "comment" : "Sign up button text"
+      "comment" : "Sign up button text",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registrati"
+          }
+        }
+      }
     },
     "Signed in as" : {
-      "comment" : "Connection info label"
+      "comment" : "Connection info label",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accesso effettuato come"
+          }
+        }
+      }
     },
-    "Start Cubbit DS3 sync at login" : {
-
+    "Signed in as %@" : {
+      "comment" : "Signed in label",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accesso effettuato come %@"
+          }
+        }
+      }
+    },
+    "Start DS3 Drive at login" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvia DS3 Drive all'accesso"
+          }
+        }
+      }
     },
     "Sync" : {
-      "comment" : "Complete sync button"
+      "comment" : "Complete sync button",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sincronizza"
+          }
+        }
+      }
     },
     "Sync Projects" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sincronizza progetti"
+          }
+        }
+      }
     },
     "Tenant" : {
-      "comment" : "Connection info label"
+      "comment" : "Connection info label",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tenant"
+          }
+        }
+      }
     },
     "Tenant name" : {
-      "comment" : "Tenant name placeholder"
+      "comment" : "Tenant name placeholder",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome tenant"
+          }
+        }
+      }
     },
     "Two-factor authentication (2FA)" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autenticazione a due fattori (2FA)"
+          }
+        }
+      }
     },
     "Version %@ (%@)" : {
       "localizations" : {
@@ -197,29 +780,109 @@
             "state" : "new",
             "value" : "Version %1$@ (%2$@)"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versione %1$@ (%2$@)"
+          }
         }
       }
     },
     "View in Finder" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra nel Finder"
+          }
+        }
+      }
     },
     "View in web console" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Visualizza nella console web"
+          }
+        }
+      }
     },
     "You have reached the maximum number of Drives" : {
-      "comment" : "Tray menu add new drive disabled"
+      "comment" : "Tray menu add new drive disabled",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hai raggiunto il numero massimo di Drive"
+          }
+        }
+      }
     },
     "You haven't created any bucket yet, create your first bucket on [the console](https://console.cubbit.eu/) and then come back here to synchronize it." : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non hai ancora creato alcun bucket, crea il tuo primo bucket sulla [console](https://console.cubbit.eu/) e poi torna qui per sincronizzarlo."
+          }
+        }
+      }
     },
     "You haven't created any projects yet, create your project on [the console](https://console.cubbit.eu/) and then come back here to synchronize it." : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non hai ancora creato alcun progetto, crea il tuo progetto sulla [console](https://console.cubbit.eu/) e poi torna qui per sincronizzarlo."
+          }
+        }
+      }
     },
     "You need to select a bucket first" : {
-      "comment" : "Bucket not selected"
+      "comment" : "Bucket not selected",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Devi prima selezionare un bucket"
+          }
+        }
+      }
     },
     "You need to select an IAM user first" : {
-      "comment" : "IAM not selected"
+      "comment" : "IAM not selected",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Devi prima selezionare un utente IAM"
+          }
+        }
+      }
+    },
+    "%d hr ago" : {
+      "comment" : "Hours ago",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d ore fa"
+          }
+        }
+      }
+    },
+    "%d min ago" : {
+      "comment" : "Minutes ago",
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d min fa"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

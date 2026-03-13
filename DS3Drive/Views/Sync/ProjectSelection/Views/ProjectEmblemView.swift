@@ -5,7 +5,7 @@ struct ProjectEmblemView: View {
     
     var body: some View {
         Text(shortName.uppercased())
-            .font(.custom("Nunito", size: 16))
+            .font(DS3Typography.headline)
             .foregroundStyle(.black)
             .padding()
             .background {

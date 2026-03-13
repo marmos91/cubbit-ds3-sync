@@ -25,7 +25,7 @@ struct SyncRecapFooterView: View {
             .frame(maxWidth: 95, maxHeight: 32, alignment: .trailing)
             .padding()
         }
-        .background(Color(.darkMainStandard))
+        .background(Color(nsColor: .controlBackgroundColor))
         .overlay(
             Rectangle()
                 .frame(
@@ -33,7 +33,7 @@ struct SyncRecapFooterView: View {
                     height: 1,
                     alignment: .top
                 )
-                .foregroundColor(Color(.darkMainBorder)), alignment: .top)
+                .foregroundColor(Color(nsColor: .separatorColor)), alignment: .top)
     }
     
     func buttonDisabled() -> Bool {

@@ -16,7 +16,7 @@ struct IAMUsersDropdownView: View {
                     }
                 } label: {
                     Text(option.username)
-                        .font(.custom("Nunito", size: 14))
+                        .font(DS3Typography.body)
                 }
             }
         } label: {
@@ -28,7 +28,7 @@ struct IAMUsersDropdownView: View {
                 
                 Text(syncAnchorSelectionViewModel.selectedIAMUser?.username ?? "No user selected")
                     .padding(.trailing, 5)
-                    .font(.custom("Nunito", size: 12))
+                    .font(DS3Typography.caption)
             }
             .frame(maxWidth: .infinity, maxHeight: 32)
         }
@@ -36,7 +36,7 @@ struct IAMUsersDropdownView: View {
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(lineWidth: 1)
-                .fill(Color(.darkMainBorder))
+                .fill(Color(nsColor: .separatorColor))
                 .frame(maxWidth: .infinity, maxHeight: 32)
 
         )

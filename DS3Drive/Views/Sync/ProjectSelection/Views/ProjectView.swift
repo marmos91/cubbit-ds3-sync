@@ -14,7 +14,7 @@ struct ProjectView: View {
             
             HStack {
                 ProjectEmblemView(shortName: project.short())
-                Text(project.name).font(.custom("Nunito", size: 16))
+                Text(project.name).font(DS3Typography.headline)
                 Spacer()
             }
             .frame(maxWidth: 400)
@@ -37,11 +37,11 @@ struct ProjectView: View {
             .background {
                 if isHover || isSelected {
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color(.buttonPrimary))
-                        .fill(Color(.hover))
+                        .stroke(Color.accentColor)
+                        .fill(Color.accentColor.opacity(0.1))
                 } else {
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color(.darkMainBorder))
+                        .stroke(Color(nsColor: .separatorColor))
                 }
             }
             

@@ -6,7 +6,7 @@ struct SyncAnchorSelectorView: View {
     
     var body: some View {
         ZStack {
-            Color(.background)
+            Color(nsColor: .windowBackgroundColor)
                 .ignoresSafeArea()
             
             if syncAnchorSelectionModel.loading {

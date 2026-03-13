@@ -3,9 +3,9 @@ import SwiftUI
 struct IconButtonView: View {
     var iconName: ImageResource
     var action: () -> Void
-    
+
     @State var isHover: Bool = false
-    
+
     var body: some View {
         Button {
             action()
@@ -16,9 +16,9 @@ struct IconButtonView: View {
         .buttonStyle(.plain)
         .background {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(.darkMainTop, lineWidth: 1)
+                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
                 .if(isHover) { view in
-                    view.fill(.hover)
+                    view.fill(Color(nsColor: .quaternaryLabelColor))
                 }
         }
         .onHover { hovering in
@@ -38,6 +38,6 @@ struct IconButtonView: View {
 
 #Preview {
     IconButtonView(iconName: .arrowWestIcon) {
-        
+
     }.padding()
 }

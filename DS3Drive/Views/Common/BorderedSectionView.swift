@@ -2,7 +2,7 @@ import SwiftUI
 
 struct BorderedSectionView<Content: View>: View {
     @ViewBuilder let content: Content
-    
+
     var body: some View {
         VStack {
             content
@@ -11,7 +11,7 @@ struct BorderedSectionView<Content: View>: View {
         .padding(.horizontal)
         .background {
             RoundedRectangle(cornerRadius: 8)
-                .stroke(.darkMainBorder, lineWidth: 1)
+                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
                 .frame(maxWidth: .infinity)
         }
     }

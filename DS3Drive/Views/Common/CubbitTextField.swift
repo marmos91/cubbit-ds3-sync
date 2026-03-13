@@ -2,13 +2,13 @@ import SwiftUI
 
 struct CubbitTextField: View {
     var placeholder: String
-    
+
     @Binding var text: String
     @State var isShowingPassword = false
-    
+
     var isSecure: Bool = false
     var canShowPassword = true
-    
+
     var body: some View {
         HStack {
             if isSecure {
@@ -19,7 +19,7 @@ struct CubbitTextField: View {
                     SecureField(placeholder, text: $text)
                         .textFieldStyle(.plain)
                 }
-                
+
                 if canShowPassword {
                     Image(.showPasswordIcon)
                         .resizable()
@@ -28,7 +28,7 @@ struct CubbitTextField: View {
                             isShowingPassword = !isShowingPassword
                         }
                 }
-                
+
             } else {
                 TextField(placeholder, text: $text)
                     .textFieldStyle(.plain)
@@ -38,27 +38,23 @@ struct CubbitTextField: View {
         .frame(height: 32)
         .background {
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color(.darkMainStandard))
+                .fill(Color(nsColor: .controlBackgroundColor))
         }
     }
 }
 
 #Preview {
-    ZStack {
-        Color(.background)
-        
-        VStack {
-            CubbitTextField(
-                placeholder: "Email",
-                text: Binding.constant("")
-            )
-            
-            CubbitTextField(
-                placeholder: "Password",
-                text: Binding.constant(""),
-                isSecure: true
-            )
-        }
-        .padding()
+    VStack {
+        CubbitTextField(
+            placeholder: "Email",
+            text: Binding.constant("")
+        )
+
+        CubbitTextField(
+            placeholder: "Password",
+            text: Binding.constant(""),
+            isSecure: true
+        )
     }
+    .padding()
 }

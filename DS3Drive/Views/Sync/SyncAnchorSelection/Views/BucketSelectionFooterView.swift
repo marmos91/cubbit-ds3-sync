@@ -22,14 +22,14 @@ struct BucketSelectionFooterView: View {
             .frame(maxWidth: 95, maxHeight: 32, alignment: .trailing)
             .padding()
         }
-        .background(Color(.darkMainStandard))
+        .background(Color(nsColor: .controlBackgroundColor))
         .overlay(
             Rectangle().frame(
                 width: nil,
                 height: 1,
                 alignment: .top
             )
-            .foregroundColor(Color(.darkMainBorder)), alignment: .top)
+            .foregroundColor(Color(nsColor: .separatorColor)), alignment: .top)
     }
     
     func buttonDisabled() -> Bool {

@@ -14,7 +14,7 @@ struct ColumnSelectionRowView: View {
                 .padding(.horizontal, 1)
          
             Text(name)
-                .font(.custom("Nunito", size: 14))
+                .font(DS3Typography.body)
             
             Spacer()
             
@@ -25,8 +25,8 @@ struct ColumnSelectionRowView: View {
         .background {
             if self.selected || self.isHover {
                 RoundedRectangle(cornerRadius: 5)
-                    .stroke(Color(.buttonPrimary), lineWidth: 1)
-                    .fill(Color(.buttonPrimary))
+                    .stroke(Color.accentColor, lineWidth: 1)
+                    .fill(Color.accentColor)
             }
         }
         .onHover { hovering in
