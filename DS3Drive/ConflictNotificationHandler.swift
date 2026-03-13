@@ -79,19 +79,28 @@ final class ConflictNotificationHandler {
         guard let jsonString = notification.object as? String,
               let data = jsonString.data(using: .utf8),
               let info = try? JSONDecoder().decode(ConflictInfo.self, from: data) else {
-            logger.error("Failed to decode conflict notification")
+            // DistributedNotificationCenter may deliver on a background thread,
+            // but decoding is safe since it doesn't touch @MainActor state
+            Task { @MainActor in
+                self.logger.error("Failed to decode conflict notification")
+            }
             return
         }
 
-        logger.info("Received conflict notification for \(info.originalFilename, privacy: .public)")
+        // Hop to MainActor for all state mutations (pendingConflicts, batchTimer)
+        // since DistributedNotificationCenter delivers on the posting thread
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.logger.info("Received conflict notification for \(info.originalFilename, privacy: .public)")
 
-        pendingConflicts.append(info)
+            self.pendingConflicts.append(info)
 
-        // Reset batch timer
-        batchTimer?.invalidate()
-        batchTimer = Timer.scheduledTimer(withTimeInterval: batchDelay, repeats: false) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.deliverBatch()
+            // Reset batch timer
+            self.batchTimer?.invalidate()
+            self.batchTimer = Timer.scheduledTimer(withTimeInterval: self.batchDelay, repeats: false) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.deliverBatch()
+                }
             }
         }
     }
@@ -138,7 +147,7 @@ final class ConflictNotificationHandler {
     private func showSummaryNotification(count: Int) {
         let content = UNMutableNotificationContent()
         content.title = "Conflicts detected"
-        content.body = "\(count) conflicts detected \u{2014} Click to view in Finder."
+        content.body = "\(count) conflicts detected \u{2014} Both versions saved."
         content.categoryIdentifier = Self.conflictCategoryIdentifier
         content.sound = .default
 

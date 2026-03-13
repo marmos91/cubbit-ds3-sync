@@ -11,7 +11,7 @@ progress:
   completed_phases: 3
   total_plans: 10
   completed_plans: 10
-  percent: 100
+  percent: 60
 ---
 
 # Project State

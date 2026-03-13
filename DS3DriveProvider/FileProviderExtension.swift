@@ -497,11 +497,15 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                             do {
                                 let remoteItem = try await s3Lib.remoteS3Item(for: s3Item.itemIdentifier, drive: drive)
                                 let remoteETag = remoteItem.metadata.etag
-                                let storedETag = try? await self.metadataStore?.fetchItemEtag(
-                                    byKey: s3Item.itemIdentifier.rawValue, driveId: drive.id
-                                )
+                                let storedETag: String? = if let store = self.metadataStore {
+                                    try? await store.fetchItemEtag(
+                                        byKey: s3Item.itemIdentifier.rawValue, driveId: drive.id
+                                    )
+                                } else {
+                                    nil
+                                }
 
-                                if let remoteETag, storedETag != nil, !ETagUtils.areEqual(remoteETag, storedETag) {
+                                if let remoteETag, let storedETag, !ETagUtils.areEqual(remoteETag, storedETag) {
                                     self.logger.warning("Modify conflict for \(s3Item.itemIdentifier.rawValue, privacy: .public): remote ETag \(remoteETag, privacy: .public) differs from stored")
 
                                     let parentKey = s3Item.parentItemIdentifier == .rootContainer ? nil : s3Item.parentItemIdentifier.rawValue
@@ -656,6 +660,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     }
 
     // NOTE: gets called when the extension wants to delete an item
+    // swiftlint:disable:next function_body_length
     func deleteItem(
         identifier: NSFileProviderItemIdentifier,
         baseVersion version: NSFileProviderItemVersion,
@@ -701,11 +706,15 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                         do {
                             let remoteItem = try await s3Lib.remoteS3Item(for: identifier, drive: drive)
                             let remoteETag = remoteItem.metadata.etag
-                            let storedETag = try? await self.metadataStore?.fetchItemEtag(
-                                byKey: identifier.rawValue, driveId: drive.id
-                            )
+                            let storedETag: String? = if let store = self.metadataStore {
+                                try? await store.fetchItemEtag(
+                                    byKey: identifier.rawValue, driveId: drive.id
+                                )
+                            } else {
+                                nil
+                            }
 
-                            if let remoteETag, storedETag != nil, !ETagUtils.areEqual(remoteETag, storedETag) {
+                            if let remoteETag, let storedETag, !ETagUtils.areEqual(remoteETag, storedETag) {
                                 // Remote was modified since last sync -- cancel delete
                                 self.logger.warning("Delete cancelled: remote ETag changed for \(identifier.rawValue, privacy: .public)")
                                 nm.sendDriveChangedNotificationWithDebounce(status: .idle)

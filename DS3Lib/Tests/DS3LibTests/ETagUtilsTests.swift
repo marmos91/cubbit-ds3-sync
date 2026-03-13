@@ -20,8 +20,8 @@ final class ETagUtilsTests: XCTestCase {
         XCTAssertNil(ETagUtils.normalize(nil))
     }
 
-    func testNormalizeSingleQuoteUntouched() {
-        // Only double quotes are stripped
+    func testNormalizeUnterminatedQuoteUntouched() {
+        // Only matching surrounding double quotes are stripped
         XCTAssertEqual(ETagUtils.normalize("\"abc"), "\"abc")
     }
 
