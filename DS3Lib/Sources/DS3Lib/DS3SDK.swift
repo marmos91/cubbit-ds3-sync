@@ -26,12 +26,15 @@ public enum DS3SDKError: Error, LocalizedError {
 /// Provides methods for project listing, API key management, and key reconciliation.
 @Observable public final class DS3SDK: @unchecked Sendable {
     private var authentication: DS3Authentication
+    private let urls: CubbitAPIURLs
     private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.auth.rawValue)
-    
+
     public init(
-        withAuthentication authentication: DS3Authentication
+        withAuthentication authentication: DS3Authentication,
+        urls: CubbitAPIURLs? = nil
     ) {
         self.authentication = authentication
+        self.urls = urls ?? authentication.urls
     }
     
     // MARK: - Projects
@@ -41,7 +44,7 @@ public enum DS3SDKError: Error, LocalizedError {
     public func getRemoteProjects() async throws -> [Project] {
         try await self.authentication.refreshIfNeeded()
         
-        guard let url = URL(string: CubbitAPIURLs.composerHub.projects) else { throw DS3AuthenticationError.invalidURL(url: CubbitAPIURLs.composerHub.projects) }
+        guard let url = URL(string: self.urls.projectsURL) else { throw DS3AuthenticationError.invalidURL(url: self.urls.projectsURL) }
         guard let session = self.authentication.accountSession else { throw DS3AuthenticationError.loggedOut }
         
         var request = URLRequest(url: url)
@@ -74,8 +77,8 @@ public enum DS3SDKError: Error, LocalizedError {
     ) async throws -> [DS3ApiKey] {
         let iamToken = try await authentication.forgeIAMToken(forIAMUser: user)
         
-        guard let url = URL(string: "\(CubbitAPIURLs.keyvault.getKeysURL)?user_id=\(user.id)") else {
-            throw DS3SDKError.invalidURL(url: CubbitAPIURLs.IAM.auth.challengeURL)
+        guard let url = URL(string: "\(self.urls.keysURL)?user_id=\(user.id)") else {
+            throw DS3SDKError.invalidURL(url: self.urls.keysURL)
         }
         
         var request = URLRequest(url: url)
@@ -109,8 +112,8 @@ public enum DS3SDKError: Error, LocalizedError {
         
         guard let urlencodedApiKey = apiKey.apiKey.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { throw DS3SDKError.encodingError }
         
-        guard let url = URL(string: "\(CubbitAPIURLs.keyvault.deleteKeyURL)/\(urlencodedApiKey)?user_id=\(user.id)") else {
-            throw DS3SDKError.invalidURL(url: CubbitAPIURLs.IAM.auth.challengeURL)
+        guard let url = URL(string: "\(self.urls.keysURL)/\(urlencodedApiKey)?user_id=\(user.id)") else {
+            throw DS3SDKError.invalidURL(url: self.urls.keysURL)
         }
         
         var request = URLRequest(url: url)
@@ -179,8 +182,8 @@ public enum DS3SDKError: Error, LocalizedError {
         iamToken: Token,
         apiKeyName: String
     ) async throws -> DS3ApiKey {
-        guard let url = URL(string: "\(CubbitAPIURLs.keyvault.createKeyURL)/\(apiKeyName)?user_id=\(user.id)") else {
-            throw DS3SDKError.invalidURL(url: CubbitAPIURLs.IAM.auth.challengeURL)
+        guard let url = URL(string: "\(self.urls.keysURL)/\(apiKeyName)?user_id=\(user.id)") else {
+            throw DS3SDKError.invalidURL(url: self.urls.keysURL)
         }
         
         self.logger.debug("Generating new API Key for IAM user: \(user.username)")
