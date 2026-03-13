@@ -120,7 +120,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
             } catch {
                 self.logger.error("A generic error occurred while list objects \(error)")
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
-                return observer.finishEnumeratingWithError(error)
+                return observer.finishEnumeratingWithError(NSFileProviderError(.cannotSynchronize) as NSError)
             }
         }
     }

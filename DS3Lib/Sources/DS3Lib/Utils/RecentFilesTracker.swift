@@ -12,10 +12,21 @@ public final class RecentFilesTracker: @unchecked Sendable {
     public init() {}
 
     /// Add a new entry to the tracker.
+    /// If an entry with the same filename+driveId already exists and is `.syncing`, it is updated in place
+    /// (upsert) instead of appending a duplicate.
     /// If the per-drive limit is exceeded, the oldest completed entry for that drive is evicted.
     public func add(_ entry: RecentFileEntry) {
         lock.lock()
         defer { lock.unlock() }
+
+        // Deduplicate: if a syncing entry with the same filename+driveId exists, update it in place
+        if let existingIndex = entries.firstIndex(where: {
+            $0.filename == entry.filename && $0.driveId == entry.driveId && $0.status == .syncing
+        }) {
+            entries[existingIndex].size = entry.size
+            entries[existingIndex].timestamp = entry.timestamp
+            return
+        }
 
         entries.append(entry)
 
@@ -34,6 +45,22 @@ public final class RecentFilesTracker: @unchecked Sendable {
                 }
             }
         }
+    }
+
+    /// Remove an entry by its ID.
+    public func remove(id: UUID) {
+        lock.lock()
+        defer { lock.unlock() }
+
+        entries.removeAll { $0.id == id }
+    }
+
+    /// Remove all entries for a given drive.
+    public func clearAll(forDrive driveId: UUID) {
+        lock.lock()
+        defer { lock.unlock() }
+
+        entries.removeAll { $0.driveId == driveId }
     }
 
     /// Update the status of an existing entry identified by filename and drive ID.

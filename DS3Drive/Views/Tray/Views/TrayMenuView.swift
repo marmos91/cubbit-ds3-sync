@@ -18,34 +18,28 @@ struct TrayMenuView: View {
 
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
 
-    @State private var activeSidePanel: SidePanel?
+    @State private var floatingPanelManager = FloatingPanelManager()
     @State private var coordinatorURL = ""
     @State private var tenantName = ""
     @State private var driveViewModels: [DS3DriveViewModel] = []
 
     var body: some View {
-        HStack(spacing: 0) {
-            // Side panel (left, when active)
-            if let panel = activeSidePanel {
-                sidePanelContent(for: panel)
-                    .frame(width: 280)
-
-                Divider()
+        mainTrayContent
+            .frame(width: 310)
+            .fixedSize(horizontal: true, vertical: false)
+            .background(
+                WindowAccessor { window in
+                    floatingPanelManager.setTrayWindow(window)
+                }
+            )
+            .onAppear {
+                coordinatorURL = loadCoordinatorURL()
+                tenantName = loadTenantName()
+                rebuildDriveViewModels()
             }
-
-            // Main tray (right)
-            mainTrayContent
-                .frame(width: 310)
-        }
-        .fixedSize(horizontal: true, vertical: false)
-        .onAppear {
-            coordinatorURL = loadCoordinatorURL()
-            tenantName = loadTenantName()
-            rebuildDriveViewModels()
-        }
-        .onChange(of: ds3DriveManager.drives.count) {
-            rebuildDriveViewModels()
-        }
+            .onChange(of: ds3DriveManager.drives.count) {
+                rebuildDriveViewModels()
+            }
     }
 
     // MARK: - Main Tray Content
@@ -82,7 +76,10 @@ struct TrayMenuView: View {
                     driveViewModel: vm,
                     onHoverDrive: { driveId, hovering in
                         if hovering {
-                            activeSidePanel = .recentFiles(driveId: driveId)
+                            floatingPanelManager.cancelDismissTimer()
+                            showRecentFiles(forDriveId: driveId)
+                        } else {
+                            floatingPanelManager.scheduleDismiss()
                         }
                     }
                 )
@@ -98,6 +95,7 @@ struct TrayMenuView: View {
                 enabled: canAddMoreDrives
             ) {
                 openWindow(id: "io.cubbit.DS3Drive.drive.new")
+                NSApp.activate(ignoringOtherApps: true)
             }
 
             Divider()
@@ -115,6 +113,7 @@ struct TrayMenuView: View {
                 title: NSLocalizedString("Preferences", comment: "Tray open preferences")
             ) {
                 openWindow(id: "io.cubbit.DS3Drive.preferences")
+                NSApp.activate(ignoringOtherApps: true)
             }
 
             Divider()
@@ -131,10 +130,10 @@ struct TrayMenuView: View {
             TrayMenuItem(
                 title: NSLocalizedString("Connection Info", comment: "Tray menu connection info")
             ) {
-                if activeSidePanel == .connectionInfo {
-                    activeSidePanel = nil
+                if floatingPanelManager.activePanel == .connectionInfo {
+                    floatingPanelManager.dismiss()
                 } else {
-                    activeSidePanel = .connectionInfo
+                    showConnectionInfo()
                 }
             }
 
@@ -168,27 +167,26 @@ struct TrayMenuView: View {
         }
     }
 
-    // MARK: - Side Panel Content
+    // MARK: - Floating Panels
 
-    @ViewBuilder
-    private func sidePanelContent(for panel: SidePanel) -> some View {
-        switch panel {
-        case .recentFiles(let driveId):
-            if let vm = driveViewModels.first(where: { $0.drive.id == driveId }) {
-                RecentFilesPanel(
-                    driveName: vm.drive.name,
-                    recentFiles: vm.recentFiles,
-                    driveViewModel: vm,
-                    onClose: { activeSidePanel = nil }
-                )
-            }
-        case .connectionInfo:
+    private func showRecentFiles(forDriveId driveId: UUID) {
+        guard let vm = driveViewModels.first(where: { $0.drive.id == driveId }) else { return }
+        floatingPanelManager.show(.recentFiles(driveId: driveId)) {
+            RecentFilesPanel(
+                recentFiles: vm.recentFiles,
+                driveViewModel: vm
+            )
+        }
+    }
+
+    private func showConnectionInfo() {
+        floatingPanelManager.show(.connectionInfo) {
             ConnectionInfoPanel(
                 coordinatorURL: coordinatorURL,
                 s3Endpoint: ds3Authentication.account?.endpointGateway ?? NSLocalizedString("N/A", comment: "Not available"),
                 tenant: tenantName,
                 consoleURL: ConsoleURLs.baseURL,
-                onClose: { activeSidePanel = nil }
+                onClose: { floatingPanelManager.dismiss() }
             )
         }
     }

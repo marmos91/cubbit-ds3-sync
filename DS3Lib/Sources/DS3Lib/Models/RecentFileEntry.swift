@@ -40,13 +40,13 @@ public struct RecentFileEntry: Identifiable, Sendable {
     public let filename: String
 
     /// The file size in bytes.
-    public let size: Int64
+    public var size: Int64
 
     /// The current transfer status.
     public var status: TransferStatus
 
     /// When this transfer was recorded.
-    public let timestamp: Date
+    public var timestamp: Date
 
     public init(
         id: UUID = UUID(),

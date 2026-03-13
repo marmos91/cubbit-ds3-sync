@@ -77,6 +77,14 @@ struct DS3DriveApp: App {
                     )
                 )
                 .environment(ds3DriveManager)
+            } else {
+                VStack {
+                    ProgressView()
+                    Text(NSLocalizedString("Loading preferences…", comment: "Preferences loading state"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(width: 300, height: 200)
             }
         }
         .windowResizability(.contentSize)

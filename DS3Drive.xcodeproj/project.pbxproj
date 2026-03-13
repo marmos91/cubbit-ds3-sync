@@ -94,6 +94,7 @@
 		A10504012F6500000042AD93 /* SpeedSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10504002F6500000042AD93 /* SpeedSummaryView.swift */; };
 		A10504032F6500000042AD93 /* RecentFilesPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10504022F6500000042AD93 /* RecentFilesPanel.swift */; };
 		A10504052F6500000042AD93 /* ConnectionInfoPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10504042F6500000042AD93 /* ConnectionInfoPanel.swift */; };
+		A1D31EBB2F6500000042AD93 /* FloatingPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A140E4372F6500000042AD93 /* FloatingPanel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -155,6 +156,7 @@
 		A10504002F6500000042AD93 /* SpeedSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedSummaryView.swift; sourceTree = "<group>"; };
 		A10504022F6500000042AD93 /* RecentFilesPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFilesPanel.swift; sourceTree = "<group>"; };
 		A10504042F6500000042AD93 /* ConnectionInfoPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionInfoPanel.swift; sourceTree = "<group>"; };
+		A140E4372F6500000042AD93 /* FloatingPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingPanel.swift; sourceTree = "<group>"; };
 		D5A221C22B571FED00F1413B /* ColumnSelectionView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ColumnSelectionView.swift; sourceTree = "<group>"; };
 		D5A221C32B571FED00F1413B /* BorderedSectionView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BorderedSectionView.swift; sourceTree = "<group>"; };
 		D5A221C42B571FED00F1413B /* IconTextFieldView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = IconTextFieldView.swift; sourceTree = "<group>"; };
@@ -358,6 +360,7 @@
 			children = (
 				D5A221BC2B571FED00F1413B /* Views */,
 				D5D734EF2B666C6800C6B11C /* ViewModels */,
+				A140E4372F6500000042AD93 /* FloatingPanel.swift */,
 			);
 			path = Tray;
 			sourceTree = "<group>";
@@ -816,6 +819,7 @@
 				A10504012F6500000042AD93 /* SpeedSummaryView.swift in Sources */,
 				A10504032F6500000042AD93 /* RecentFilesPanel.swift in Sources */,
 				A10504052F6500000042AD93 /* ConnectionInfoPanel.swift in Sources */,
+				A1D31EBB2F6500000042AD93 /* FloatingPanel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

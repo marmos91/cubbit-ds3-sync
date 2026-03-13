@@ -3,67 +3,44 @@ import DS3Lib
 
 /// Side panel showing recent files per drive, matching the Figma file status design.
 struct RecentFilesPanel: View {
-    let driveName: String
     let recentFiles: [RecentFileEntry]
     let driveViewModel: DS3DriveViewModel
-    let onClose: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(driveName)
-                        .font(DS3Typography.headline)
-                        .lineLimit(1)
-                    Text(NSLocalizedString("Recent Files", comment: "Recent files panel title"))
-                        .font(DS3Typography.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Button {
-                    onClose()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, DS3Spacing.lg)
-            .padding(.vertical, DS3Spacing.md)
-
-            Divider()
-
-            // File list
             if recentFiles.isEmpty {
-                Spacer()
-                HStack {
-                    Spacer()
-                    VStack(spacing: DS3Spacing.sm) {
-                        Image(systemName: "doc")
-                            .font(.system(size: 24))
-                            .foregroundStyle(.tertiary)
-                        Text(NSLocalizedString("No recent files", comment: "Empty recent files"))
-                            .font(DS3Typography.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-                Spacer()
+                emptyState
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        let sorted = recentFiles.sorted { $0.status < $1.status }
-                        ForEach(sorted.prefix(10)) { entry in
-                            RecentFileRow(entry: entry, driveViewModel: driveViewModel)
-                        }
-                    }
-                }
+                fileList
             }
         }
+        .padding(.vertical, DS3Spacing.sm)
+    }
+
+    // MARK: - File List
+
+    @ViewBuilder
+    private var fileList: some View {
+        let sorted = recentFiles.sorted { $0.status < $1.status }
+        ForEach(sorted.prefix(10)) { entry in
+            RecentFileRow(entry: entry, driveViewModel: driveViewModel)
+        }
+    }
+
+    // MARK: - Empty State
+
+    @ViewBuilder
+    private var emptyState: some View {
+        VStack(spacing: DS3Spacing.sm) {
+            Image(systemName: "doc")
+                .font(.system(size: 20))
+                .foregroundStyle(.tertiary)
+            Text(NSLocalizedString("No recent files", comment: "Empty recent files"))
+                .font(DS3Typography.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, DS3Spacing.xl)
     }
 }
 
@@ -74,35 +51,68 @@ private struct RecentFileRow: View {
     @State private var isHover = false
 
     var body: some View {
-        HStack(spacing: DS3Spacing.sm) {
-            // Status icon
-            Image(systemName: statusIcon)
-                .font(.system(size: 12))
-                .foregroundStyle(statusColor)
-                .frame(width: 18, alignment: .center)
+        VStack(spacing: 0) {
+            HStack(spacing: DS3Spacing.md) {
+                // Status icon
+                Image(systemName: statusIcon)
+                    .font(.system(size: 14))
+                    .foregroundStyle(statusColor)
+                    .frame(width: 20, alignment: .center)
 
-            // File info
-            VStack(alignment: .leading, spacing: 1) {
-                Text(entry.filename)
-                    .font(DS3Typography.caption)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                // File info
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.filename)
+                        .font(DS3Typography.caption)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
 
-                Text("\(entry.displaySize), \(relativeTime)")
-                    .font(DS3Typography.footnote)
-                    .foregroundStyle(.secondary)
+                    Text("\(entry.displaySize), \(relativeTime)")
+                        .font(DS3Typography.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
             }
+            .padding(.horizontal, DS3Spacing.lg)
+            .padding(.vertical, DS3Spacing.sm)
 
-            Spacer()
+            // Neon progress bar for syncing/error rows
+            if entry.status == .syncing || entry.status == .error {
+                NeonProgressBar(color: statusColor, animate: entry.status == .syncing)
+                    .padding(.horizontal, DS3Spacing.lg)
+            }
         }
-        .padding(.horizontal, DS3Spacing.lg)
-        .padding(.vertical, DS3Spacing.xs)
         .background(isHover ? Color(nsColor: .selectedContentBackgroundColor).opacity(0.15) : Color.clear)
         .contentShape(Rectangle())
         .onHover { isHover = $0 }
         .onTapGesture {
             let vm = driveViewModel
             Task { try? await vm.openFinder() }
+        }
+        .contextMenu {
+            Button {
+                let vm = driveViewModel
+                Task { try? await vm.openFinder() }
+            } label: {
+                Label(NSLocalizedString("Show in Finder", comment: "Recent file context menu"), systemImage: "folder")
+            }
+
+            if entry.status == .error {
+                Button {
+                    let vm = driveViewModel
+                    Task { try? await vm.reEnumerate() }
+                } label: {
+                    Label(NSLocalizedString("Retry", comment: "Recent file context menu"), systemImage: "arrow.clockwise")
+                }
+            }
+
+            Divider()
+
+            Button {
+                driveViewModel.recentFilesTracker.remove(id: entry.id)
+            } label: {
+                Label(NSLocalizedString("Dismiss", comment: "Recent file context menu"), systemImage: "xmark")
+            }
         }
     }
 
@@ -130,6 +140,61 @@ private struct RecentFileRow: View {
             return String(format: NSLocalizedString("about %d min", comment: "Minutes ago"), seconds / 60)
         } else {
             return String(format: NSLocalizedString("%d hr ago", comment: "Hours ago"), seconds / 3600)
+        }
+    }
+}
+
+// MARK: - Neon Progress Bar
+
+/// A thin glowing progress bar with animated neon shimmer — used for syncing file rows.
+private struct NeonProgressBar: View {
+    let color: Color
+    let animate: Bool
+
+    @State private var shimmerPhase: CGFloat = 0
+    @State private var glowIntensity: CGFloat = 0.5
+
+    var body: some View {
+        GeometryReader { _ in
+            ZStack {
+                // Base bar
+                Capsule()
+                    .fill(color.opacity(animate ? 0.4 : 0.6))
+
+                if animate {
+                    // Shimmer highlight sliding across
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .clear, location: 0),
+                                    .init(color: color.opacity(0.3), location: max(0, shimmerPhase - 0.15)),
+                                    .init(color: .white.opacity(0.9), location: shimmerPhase),
+                                    .init(color: color.opacity(0.3), location: min(1, shimmerPhase + 0.15)),
+                                    .init(color: .clear, location: 1)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                }
+            }
+            .clipShape(Capsule())
+            // Glow layers — pulse when animating
+            .shadow(color: color.opacity(animate ? glowIntensity : 0.5), radius: animate ? 6 : 3, y: 0)
+            .shadow(color: color.opacity(animate ? glowIntensity * 0.5 : 0.2), radius: animate ? 12 : 6, y: 0)
+        }
+        .frame(height: 2)
+        .onAppear {
+            guard animate else { return }
+            // Shimmer sweep
+            withAnimation(.linear(duration: 1.8).repeatForever(autoreverses: false)) {
+                shimmerPhase = 1
+            }
+            // Glow pulse
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                glowIntensity = 0.9
+            }
         }
     }
 }
