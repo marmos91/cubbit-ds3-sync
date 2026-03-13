@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Completed 02-03-PLAN.md (Phase 2 complete)
-last_updated: "2026-03-12T15:13:30.890Z"
-last_activity: 2026-03-12 -- Completed plan 02-03 (File Provider SyncEngine integration)
+status: in-progress
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-03-12T22:36:16Z"
+last_activity: 2026-03-12 -- Completed plan 03-03 (Conflict notification and integration tests)
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
-  percent: 100
+  completed_phases: 3
+  total_plans: 10
+  completed_plans: 10
+  percent: 60
 ---
 
 # Project State
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-11)
 
 **Core value:** Files sync reliably and transparently between the user's Mac and Cubbit DS3, with zero friction
-**Current focus:** Phase 2 complete -- Sync Engine fully integrated. Next: Phase 3 (Conflict Resolution)
+**Current focus:** Phase 3 complete -- Conflict resolution fully implemented with detection, notification, and tests
 
 ## Current Position
 
-Phase: 2 of 5 (Sync Engine -- complete)
-Plan: 3 of 3 in current phase (02-03 complete, phase done)
-Status: Phase 2 complete
-Last activity: 2026-03-12 -- Completed plan 02-03 (File Provider SyncEngine integration)
+Phase: 3 of 5 (Conflict Resolution -- complete)
+Plan: 3 of 3 in current phase (03-03 complete)
+Status: Phase 3 complete
+Last activity: 2026-03-12 -- Completed plan 03-03 (Conflict notification and integration tests)
 
-Progress: [██████████] 100% (phases 1-2 complete)
+Progress: [██████░░░░] 60% (phases 1-3 of 5 complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 9 min
-- Total execution time: 1.0 hours
+- Total plans completed: 10
+- Average duration: 8 min
+- Total execution time: 1.3 hours
 
 **By Phase:**
 
@@ -45,9 +45,10 @@ Progress: [██████████] 100% (phases 1-2 complete)
 |-------|-------|-------|----------|
 | 1. Foundation | 4 | 37 min | 9 min |
 | 2. Sync Engine | 3 | 26 min | 9 min |
+| 3. Conflict Resolution | 3 | 14 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 9m, 9m, 7m, 6m, 13m
+- Last 5 plans: 6m, 13m, 2m, 7m, 5m
 - Trend: stable
 
 *Updated after each plan completion*
@@ -84,6 +85,14 @@ Recent decisions affecting current work:
 - Plan 02-03: SyncEngine fallback to timestamp-based enumeration when unavailable (graceful degradation)
 - Plan 02-03: Content policy uses .downloadEagerlyAndKeepDownloaded (not .downloadLazilyAndKeepDownloaded)
 - Plan 02-03: MetadataStore CRUD writes use try? to avoid blocking S3 operations on metadata persistence failure
+- Plan 03-01: Hidden files (.gitignore) treated as extensionless in conflict naming
+- Plan 03-01: ETagUtils.areEqual(nil, nil) returns false -- both ETags must exist for valid comparison
+- Plan 03-01: DateFormatter uses UTC timezone for deterministic conflict naming across timezones
+- Plan 03-02: SwiftLint function_body_length disabled for createItem and deleteItem (conflict detection complexity)
+- Plan 03-02: createItem uses best-effort HEAD check -- S3 errors fall through to normal create flow
+- Plan 03-02: deleteItem cancels with .cannotSynchronize on ETag mismatch (remote was modified)
+- Plan 03-03: @MainActor on ConflictNotificationHandler for Swift 6 strict concurrency (Timer-based batching)
+- Plan 03-03: Integration tests validate DS3Lib-level logic only (extension requires full macOS process)
 
 ### Pending Todos
 
@@ -96,6 +105,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T15:05:14.000Z
-Stopped at: Completed 02-03-PLAN.md (Phase 2 complete)
-Resume file: .planning/phases/03-conflict-resolution/03-01-PLAN.md
+Last session: 2026-03-12T22:36:16Z
+Stopped at: Completed 03-03-PLAN.md (Phase 3 complete)
+Resume file: Next phase (04 or 05)

@@ -144,5 +144,8 @@ public enum DefaultSettings {
 
         /// Name of the notification to send when the file provider extension fails to initialize
         public static let extensionInitFailed = "io.cubbit.DS3Drive.notifications.extensionInitFailed"
+
+        /// Name of the notification to send when a conflict is detected
+        public static let conflictDetected = "io.cubbit.DS3Drive.notifications.conflictDetected"
     }
 }

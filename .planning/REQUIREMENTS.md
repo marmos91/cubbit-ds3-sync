@@ -15,8 +15,8 @@
 ### Sync Engine
 
 - [x] **SYNC-01**: SwiftData schema tracks per-item: S3 key, ETag, LastModified, local file hash, sync status (pending/syncing/synced/error/conflict), parent key, content type, size
-- [ ] **SYNC-02**: Conflict detection compares local NSFileProviderItemVersion against remote ETag via HEAD request before writes
-- [ ] **SYNC-03**: Conflict copies created with pattern "filename (Conflict on [device] [date]).ext" when versions diverge
+- [x] **SYNC-02**: Conflict detection compares local NSFileProviderItemVersion against remote ETag via HEAD request before writes
+- [x] **SYNC-03**: Conflict copies created with pattern "filename (Conflict on [device] [date]).ext" when versions diverge
 - [x] **SYNC-04**: Remote deletion tracking by comparing S3 listObjectsV2 results against local metadata DB
 - [x] **SYNC-05**: Sync anchor persisted to SwiftData and advanced after each successful enumeration batch
 - [x] **SYNC-06**: On-demand sync — files visible as cloud placeholders, downloaded only when opened by user
@@ -91,8 +91,8 @@
 | FOUN-03 | Phase 1 | Complete |
 | FOUN-04 | Phase 1 | Pending |
 | SYNC-01 | Phase 2 | Complete |
-| SYNC-02 | Phase 3 | Pending |
-| SYNC-03 | Phase 3 | Pending |
+| SYNC-02 | Phase 3 | Complete |
+| SYNC-03 | Phase 3 | Complete |
 | SYNC-04 | Phase 2 | Complete |
 | SYNC-05 | Phase 2 | Complete |
 | SYNC-06 | Phase 2 | Complete |

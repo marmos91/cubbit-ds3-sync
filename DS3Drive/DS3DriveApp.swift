@@ -15,6 +15,7 @@ struct DS3DriveApp: App {
     @State var ds3Authentication: DS3Authentication = DS3Authentication.loadFromPersistenceOrCreateNew()
     @State var appStatusManager: AppStatusManager = AppStatusManager.default()
     @State var ds3DriveManager: DS3DriveManager = DS3DriveManager(appStatusManager: AppStatusManager.default())
+    private let conflictNotificationHandler = ConflictNotificationHandler()
     
     // TODO: Hide tray menu when not logged in
     @State var trayMenuVisible: Bool = true
@@ -121,5 +122,8 @@ struct DS3DriveApp: App {
                 self.logger.error("An error occurred while setting the app as login item: \(error)")
             }
         }
+
+        // Request notification permission for conflict alerts (best-effort)
+        conflictNotificationHandler.requestPermission()
     }
 }

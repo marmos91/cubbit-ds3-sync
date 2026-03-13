@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Foundation** - Rename app, add structured logging, fix extension crashes, set up SwiftData metadata database
 - [ ] **Phase 2: Sync Engine** - Build metadata-driven sync with remote change detection, deletion tracking, and on-demand file access
-- [ ] **Phase 3: Conflict Resolution** - Detect version conflicts via ETag comparison and create conflict copies to prevent data loss
+- [x] **Phase 3: Conflict Resolution** - Detect version conflicts via ETag comparison and create conflict copies to prevent data loss
 - [ ] **Phase 4: Auth & Platform** - Update auth flow to current IAM v1 APIs, add multitenancy, auto-manage API keys, make endpoints configurable
 - [ ] **Phase 5: UX Polish** - Add Finder sync badges, menu bar status/speed/history, quick actions, and streamlined drive setup wizard
 
@@ -61,10 +61,12 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Before uploading a modified file, the extension performs a HEAD request to compare the local version against the remote ETag -- mismatches trigger conflict handling instead of blind overwrite
   2. When a conflict is detected, a conflict copy named "filename (Conflict on [device] [date]).ext" appears alongside the original in Finder, preserving both the local and remote versions
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 03-01: TBD
+- [x] 03-01-PLAN.md -- TDD: ConflictNaming utility and ETag normalization with full test coverage
+- [x] 03-02-PLAN.md -- Core conflict detection: ETag extraction, pre-flight HEAD checks in modifyItem/createItem/deleteItem, conflict copy upload
+- [x] 03-03-PLAN.md -- Conflict notifications: IPC from extension to main app, UNUserNotificationCenter with batching, integration tests
 
 ### Phase 4: Auth & Platform
 **Goal**: Users can log in with tenant-aware credentials against current Cubbit APIs, with API keys managed automatically and all endpoints derived from configurable coordinator URLs
@@ -111,10 +113,10 @@ Note: Phase 4 depends only on Phase 1 and could theoretically run in parallel wi
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete | 2026-03-12 |
 | 2. Sync Engine | 3/3 | Complete | 2026-03-12 |
-| 3. Conflict Resolution | 0/1 | Not started | - |
+| 3. Conflict Resolution | 3/3 | Complete | - |
 | 4. Auth & Platform | 0/2 | Not started | - |
 | 5. UX Polish | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-11*
-*Last updated: 2026-03-12 (Phase 2 complete)*
+*Last updated: 2026-03-12 (Phase 3: 3/3 plans complete)*

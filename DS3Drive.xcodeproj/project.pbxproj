@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10305062F6400000042AD93 /* ConflictNotificationHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10305052F6400000042AD93 /* ConflictNotificationHandler.swift */; };
 		A10203042F6300000042AD93 /* S3LibListingAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10203032F6300000042AD93 /* S3LibListingAdapter.swift */; };
 		D512EEBC2B59631400F550EC /* MFAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D512EEBB2B59631400F550EC /* MFAView.swift */; };
 		D54002A02B5EAEB000B54E97 /* S3Lib.swift in Sources */ = {isa = PBXBuildFile; fileRef = D540029D2B5EAEB000B54E97 /* S3Lib.swift */; };
@@ -108,6 +109,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A10305052F6400000042AD93 /* ConflictNotificationHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictNotificationHandler.swift; sourceTree = "<group>"; };
 		A10203032F6300000042AD93 /* S3LibListingAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3LibListingAdapter.swift; sourceTree = "<group>"; };
 		D512EEBB2B59631400F550EC /* MFAView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MFAView.swift; sourceTree = "<group>"; };
 		D540029D2B5EAEB000B54E97 /* S3Lib.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3Lib.swift; sourceTree = "<group>"; };
@@ -236,6 +238,7 @@
 				D5A221FE2B571FEE00F1413B /* Assets */,
 				D5A221AE2B571FED00F1413B /* Views */,
 				D54775C62B57181D00DABCD4 /* DS3DriveApp.swift */,
+				A10305052F6400000042AD93 /* ConflictNotificationHandler.swift */,
 				D54775CC2B57181E00DABCD4 /* DS3Drive.entitlements */,
 				D5A2213D2B571D5E00F1413B /* Info.plist */,
 			);
@@ -715,6 +718,7 @@
 				D5A222142B571FEE00F1413B /* View+Extensions.swift in Sources */,
 				D5A2222B2B571FEE00F1413B /* ProjectView.swift in Sources */,
 				D54775C72B57181D00DABCD4 /* DS3DriveApp.swift in Sources */,
+				A10305062F6400000042AD93 /* ConflictNotificationHandler.swift in Sources */,
 				D5A222162B571FEE00F1413B /* ButtonStyles.swift in Sources */,
 				D5A2221A2B571FEE00F1413B /* ManageDS3DriveView.swift in Sources */,
 				D5A2222F2B571FEE00F1413B /* SyncRecapFooterView.swift in Sources */,

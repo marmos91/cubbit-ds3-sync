@@ -76,4 +76,26 @@ final class NotificationManager: Sendable {
                 )
         }
     }
+
+    func sendConflictNotification(filename: String, conflictKey: String) {
+        queue.async {
+            let info = ConflictInfo(
+                driveId: self.drive.id,
+                originalFilename: filename,
+                conflictKey: conflictKey
+            )
+
+            guard let data = try? JSONEncoder().encode(info),
+                  let string = String(data: data, encoding: .utf8) else {
+                self.logger.error("Failed to encode conflict notification")
+                return
+            }
+
+            DistributedNotificationCenter
+                .default()
+                .post(Notification(name: .conflictDetected, object: string))
+
+            self.logger.info("Conflict notification sent for \(filename, privacy: .public)")
+        }
+    }
 }

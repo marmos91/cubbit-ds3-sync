@@ -169,7 +169,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             identifier: identifier,
             drive: drive,
             objectMetadata: S3Item.Metadata(
-                // TODO: More metadata?
+                etag: response.eTag,
                 contentType: response.contentType,
                 lastModified: response.lastModified,
                 versionId: response.versionId,
@@ -551,11 +551,11 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         _ s3Item: S3Item,
         fileURL: URL? = nil,
         withProgress progress: Progress? = nil
-    ) async throws {
+    ) async throws -> String? {
         if (s3Item.documentSize?.intValue ?? 0) < DefaultSettings.S3.multipartThreshold || s3Item.contentType == .folder {
-            try await self.putS3ItemStandard(s3Item, fileURL: fileURL, withProgress: progress)
+            return try await self.putS3ItemStandard(s3Item, fileURL: fileURL, withProgress: progress)
         } else {
-            try await self.putS3ItemMultipart(s3Item, fileURL: fileURL, withProgress: progress)
+            return try await self.putS3ItemMultipart(s3Item, fileURL: fileURL, withProgress: progress)
         }
     }
     
@@ -569,7 +569,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         _ s3Item: S3Item,
         fileURL: URL? = nil,
         withProgress progress: Progress? = nil
-    ) async throws {
+    ) async throws -> String? {
         var request: S3.PutObjectRequest
         var size: Int64 = 0
         let key = try decodedKey(s3Item.itemIdentifier.rawValue)
@@ -607,10 +607,12 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         )
         
         let eTag = putObjectResponse.eTag ?? ""
-        
+
         self.logger.debug("Got ETag \(eTag) for \(key)")
-        
+
         progress?.completedUnitCount += 1
+
+        return putObjectResponse.eTag
     }
 
     /// Performs a multipart upload for a given S3Item.
@@ -624,7 +626,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         _ s3Item: S3Item,
         fileURL: URL? = nil,
         withProgress progress: Progress? = nil
-    ) async throws {
+    ) async throws -> String? {
         guard let fileURL else {
             throw FileProviderExtensionError.fileNotFound
         }
@@ -713,6 +715,8 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             }
 
             self.logger.info("Multipart upload complete for key \(key, privacy: .public) with ETag \(eTag, privacy: .public)")
+
+            return eTag
         } catch {
             self.logger.error("Multipart upload failed for key \(key, privacy: .public): \(error.localizedDescription)")
             do {
