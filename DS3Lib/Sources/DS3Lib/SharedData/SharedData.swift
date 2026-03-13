@@ -58,7 +58,7 @@ public class SharedData: @unchecked Sendable {
 
         coordinator.coordinate(writingItemAt: fileURL, options: .forReplacing, error: &coordinatorError) { url in
             do {
-                try data.write(to: url)
+                try data.write(to: url, options: .atomic)
             } catch {
                 writeError = error
             }
@@ -109,6 +109,23 @@ public class SharedData: @unchecked Sendable {
         case .none:
             throw SharedDataError.cannotAccessAppGroup
         }
+    }
+
+    func coordinatedDelete(at fileURL: URL) throws {
+        let coordinator = NSFileCoordinator()
+        var coordinatorError: NSError?
+        var deleteError: Error?
+
+        coordinator.coordinate(writingItemAt: fileURL, options: .forDeleting, error: &coordinatorError) { url in
+            do {
+                try FileManager.default.removeItem(at: url)
+            } catch {
+                deleteError = error
+            }
+        }
+
+        if let coordinatorError { throw coordinatorError }
+        if let deleteError { throw deleteError }
     }
 
     func coordinatedReadString(from fileURL: URL) throws -> String {

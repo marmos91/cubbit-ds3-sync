@@ -26,6 +26,6 @@ extension SharedData {
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed.
     public func deleteAccountSessionFromPersistence() throws {
         let sessionURL = try sharedContainerURL().appendingPathComponent(DefaultSettings.FileNames.accountSessionFileName)
-        try FileManager.default.removeItem(at: sessionURL)
+        try coordinatedDelete(at: sessionURL)
     }
 }

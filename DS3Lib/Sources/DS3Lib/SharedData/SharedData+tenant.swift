@@ -22,7 +22,7 @@ extension SharedData {
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed.
     public func deleteTenantNameFromPersistence() throws {
         let tenantURL = try sharedContainerURL().appendingPathComponent(DefaultSettings.FileNames.tenantFileName)
-        try FileManager.default.removeItem(at: tenantURL)
+        try coordinatedDelete(at: tenantURL)
     }
 
     /// Persist the coordinator URL to the App Group shared container.
@@ -46,6 +46,6 @@ extension SharedData {
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed.
     public func deleteCoordinatorURLFromPersistence() throws {
         let urlFileURL = try sharedContainerURL().appendingPathComponent(DefaultSettings.FileNames.coordinatorURLFileName)
-        try FileManager.default.removeItem(at: urlFileURL)
+        try coordinatedDelete(at: urlFileURL)
     }
 }

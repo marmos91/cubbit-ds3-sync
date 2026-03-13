@@ -149,8 +149,8 @@ struct DS3DriveApp: App {
             logger.warning("Received auth failure notification from extension")
 
             let notification = UNMutableNotificationContent()
-            notification.title = "DS3 Drive"
-            notification.body = "Session expired -- sign in to resume syncing"
+            notification.title = NSLocalizedString("DS3 Drive", comment: "Auth failure notification title")
+            notification.body = NSLocalizedString("Session expired -- sign in to resume syncing", comment: "Auth failure notification body")
             notification.sound = .default
 
             let request = UNNotificationRequest(

@@ -1,4 +1,5 @@
 import SwiftUI
+import os.log
 import DS3Lib
 
 struct TrayMenuView: View {
@@ -8,6 +9,8 @@ struct TrayMenuView: View {
     @Environment(DS3Authentication.self) var ds3Authentication: DS3Authentication
     @Environment(DS3DriveManager.self) var ds3DriveManager: DS3DriveManager
     @Environment(AppStatusManager.self) var appStatusManager: AppStatusManager
+
+    private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
 
     @State private var coordinatorURL = ""
     @State private var tenantName = ""
@@ -87,12 +90,12 @@ struct TrayMenuView: View {
 
                     VStack(alignment: .leading, spacing: 0) {
                         if let account = ds3Authentication.account {
-                            ConnectionInfoRow(label: "Signed in as", value: account.primaryEmail)
+                            ConnectionInfoRow(label: NSLocalizedString("Signed in as", comment: "Connection info label"), value: account.primaryEmail)
                         }
-                        ConnectionInfoRow(label: "Coordinator", value: coordinatorURL)
-                        ConnectionInfoRow(label: "S3 Endpoint", value: ds3Authentication.account?.endpointGateway ?? "N/A")
-                        ConnectionInfoRow(label: "Tenant", value: tenantName)
-                        ConnectionInfoRow(label: "Console", value: ConsoleURLs.baseURL)
+                        ConnectionInfoRow(label: NSLocalizedString("Coordinator", comment: "Connection info label"), value: coordinatorURL)
+                        ConnectionInfoRow(label: NSLocalizedString("S3 Endpoint", comment: "Connection info label"), value: ds3Authentication.account?.endpointGateway ?? NSLocalizedString("N/A", comment: "Not available"))
+                        ConnectionInfoRow(label: NSLocalizedString("Tenant", comment: "Connection info label"), value: tenantName)
+                        ConnectionInfoRow(label: NSLocalizedString("Console", comment: "Connection info label"), value: ConsoleURLs.baseURL)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 4)
@@ -144,7 +147,7 @@ struct TrayMenuView: View {
             // Clean auth (tokens, account, drives, API keys) but preserve tenant/coordinator URL
             try ds3Authentication.logout()
         } catch {
-            // Log but don't block -- best effort cleanup
+            logger.error("Sign out cleanup failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 }
@@ -160,7 +163,7 @@ private struct ConnectionInfoRow: View {
         HStack {
             Text(label).font(.caption).foregroundStyle(.secondary)
             Spacer()
-            Text(copied ? "Copied" : value)
+            Text(copied ? NSLocalizedString("Copied", comment: "Clipboard copy feedback") : value)
                 .font(.caption)
                 .lineLimit(1)
                 .truncationMode(.middle)
