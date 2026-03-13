@@ -119,6 +119,9 @@ public enum DefaultSettings {
 
         /// The name of the file used to store the coordinator URL.
         public static let coordinatorURLFileName = "coordinatorURL.txt"
+
+        /// The name of the file used to store per-drive pause state.
+        public static let pauseStateFileName = "pauseState.json"
     }
 
     /// Group of settings related to the S3 client.

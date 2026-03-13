@@ -248,6 +248,12 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             return Progress()
         }
 
+        if (try? SharedData.default().isDrivePaused(drive.id)) == true {
+            logger.info("Drive paused, deferring fetchContents operation")
+            cb.handler(nil, nil, NSFileProviderError(.serverUnreachable) as NSError)
+            return Progress()
+        }
+
         // TODO: The retrieved content at `fileContents` URL must be a regular file on the same volume as the user-visible URL.
         // A suitable location can be retrieved using -[NSFileProviderManager temporaryDirectoryURLWithError:].
 
@@ -323,6 +329,12 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
         guard let drive = self.drive, let s3Lib = self.s3Lib, let nm = self.notificationManager else {
             cb.handler(nil, [], false, NSFileProviderError(.cannotSynchronize) as NSError)
+            return Progress()
+        }
+
+        if (try? SharedData.default().isDrivePaused(drive.id)) == true {
+            logger.info("Drive paused, deferring createItem operation")
+            cb.handler(nil, [], false, NSFileProviderError(.serverUnreachable) as NSError)
             return Progress()
         }
 
@@ -476,6 +488,12 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
         guard let drive = self.drive, let s3Lib = self.s3Lib, let nm = self.notificationManager else {
             cb.handler(nil, [], false, NSFileProviderError(.cannotSynchronize) as NSError)
+            return Progress()
+        }
+
+        if (try? SharedData.default().isDrivePaused(drive.id)) == true {
+            logger.info("Drive paused, deferring modifyItem operation")
+            cb.handler(nil, [], false, NSFileProviderError(.serverUnreachable) as NSError)
             return Progress()
         }
 

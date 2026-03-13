@@ -14,6 +14,9 @@ public enum DS3DriveStatus: String, Codable, Hashable, Sendable {
 
     /// The drive is in an error state. The user should perform an action to fix the error.
     case error
+
+    /// The drive is paused. No new transfers will be started.
+    case paused
 }
 
 /// Statistics about a DS3 drive's transfer activity

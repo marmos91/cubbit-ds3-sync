@@ -16,7 +16,10 @@ public enum AppStatus: String, Sendable {
     
     /// The app is displaying some information to the user (like a CTA).
     case info
-    
+
+    /// The app is paused. No new transfers will be started.
+    case paused
+
     public func toString() -> String {
         switch self {
         case .syncing:
@@ -29,6 +32,8 @@ public enum AppStatus: String, Sendable {
             return NSLocalizedString("Offline", comment: "Offline status")
         case .info:
             return NSLocalizedString("Info", comment: "Info status")
+        case .paused:
+            return NSLocalizedString("Paused", comment: "Paused status")
         }
     }
 }
