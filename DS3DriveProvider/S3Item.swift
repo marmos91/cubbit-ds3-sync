@@ -4,8 +4,26 @@ import UniformTypeIdentifiers
 import DS3Lib
 import os.log
 
-class S3Item: NSObject, NSFileProviderItem, @unchecked Sendable {
+class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unchecked Sendable {
     static let decorationPrefix = Bundle.main.bundleIdentifier!
+
+    // MARK: - Decoration Identifiers
+
+    static let decorationSynced = NSFileProviderItemDecorationIdentifier(
+        rawValue: "\(decorationPrefix).synced"
+    )
+    static let decorationSyncing = NSFileProviderItemDecorationIdentifier(
+        rawValue: "\(decorationPrefix).syncing"
+    )
+    static let decorationError = NSFileProviderItemDecorationIdentifier(
+        rawValue: "\(decorationPrefix).error"
+    )
+    static let decorationCloudOnly = NSFileProviderItemDecorationIdentifier(
+        rawValue: "\(decorationPrefix).cloudOnly"
+    )
+    static let decorationConflict = NSFileProviderItemDecorationIdentifier(
+        rawValue: "\(decorationPrefix).conflict"
+    )
     
     let identifier: NSFileProviderItemIdentifier
     
@@ -115,5 +133,24 @@ class S3Item: NSObject, NSFileProviderItem, @unchecked Sendable {
             .allowsWriting,
             .allowsExcludingFromSync
         ]
+    }
+
+    // MARK: - Decorations
+
+    var decorations: [NSFileProviderItemDecorationIdentifier]? {
+        switch metadata.syncStatus {
+        case "synced":
+            return [Self.decorationSynced]
+        case "syncing":
+            return [Self.decorationSyncing]
+        case "error":
+            return [Self.decorationError]
+        case "conflict":
+            return [Self.decorationConflict]
+        case "pending", nil:
+            return [Self.decorationCloudOnly]
+        default:
+            return [Self.decorationCloudOnly]
+        }
     }
 }

@@ -12,6 +12,69 @@
 		<string>com.apple.fileprovider-nonui</string>
 		<key>NSExtensionPrincipalClass</key>
 		<string>$(PRODUCT_MODULE_NAME).FileProviderExtension</string>
+		<key>NSFileProviderDecorations</key>
+		<array>
+			<dict>
+				<key>Identifier</key>
+				<string>io.cubbit.DS3Drive.DS3DriveProvider.synced</string>
+				<key>BadgeImageType</key>
+				<string>com.apple.fileprovider.decoration.badge.system-symbol</string>
+				<key>Label</key>
+				<string>Synced</string>
+				<key>Category</key>
+				<string>Badge</string>
+				<key>BadgeImageName</key>
+				<string>checkmark.circle.fill</string>
+			</dict>
+			<dict>
+				<key>Identifier</key>
+				<string>io.cubbit.DS3Drive.DS3DriveProvider.syncing</string>
+				<key>BadgeImageType</key>
+				<string>com.apple.fileprovider.decoration.badge.system-symbol</string>
+				<key>Label</key>
+				<string>Syncing</string>
+				<key>Category</key>
+				<string>Badge</string>
+				<key>BadgeImageName</key>
+				<string>arrow.triangle.2.circlepath</string>
+			</dict>
+			<dict>
+				<key>Identifier</key>
+				<string>io.cubbit.DS3Drive.DS3DriveProvider.error</string>
+				<key>BadgeImageType</key>
+				<string>com.apple.fileprovider.decoration.badge.system-symbol</string>
+				<key>Label</key>
+				<string>Error</string>
+				<key>Category</key>
+				<string>Badge</string>
+				<key>BadgeImageName</key>
+				<string>xmark.circle.fill</string>
+			</dict>
+			<dict>
+				<key>Identifier</key>
+				<string>io.cubbit.DS3Drive.DS3DriveProvider.cloudOnly</string>
+				<key>BadgeImageType</key>
+				<string>com.apple.fileprovider.decoration.badge.system-symbol</string>
+				<key>Label</key>
+				<string>Cloud Only</string>
+				<key>Category</key>
+				<string>Badge</string>
+				<key>BadgeImageName</key>
+				<string>cloud.fill</string>
+			</dict>
+			<dict>
+				<key>Identifier</key>
+				<string>io.cubbit.DS3Drive.DS3DriveProvider.conflict</string>
+				<key>BadgeImageType</key>
+				<string>com.apple.fileprovider.decoration.badge.system-symbol</string>
+				<key>Label</key>
+				<string>Conflict</string>
+				<key>Category</key>
+				<string>Badge</string>
+				<key>BadgeImageName</key>
+				<string>exclamationmark.triangle.fill</string>
+			</dict>
+		</array>
 	</dict>
 	<key>NSFileProviderDomain</key>
 	<dict>

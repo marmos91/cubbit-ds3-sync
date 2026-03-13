@@ -7,7 +7,6 @@ extension S3Item {
         var lastModified: Date?
         var versionId: String?
         var size: NSNumber
-        
-       // TODO: More metadata?
+        var syncStatus: String?
     }
 }
