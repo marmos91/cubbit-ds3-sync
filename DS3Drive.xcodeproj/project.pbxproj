@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10501012F6500000042AD93 /* DS3Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10501002F6500000042AD93 /* DS3Colors.swift */; };
+		A10501032F6500000042AD93 /* DS3Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10501022F6500000042AD93 /* DS3Typography.swift */; };
+		A10501052F6500000042AD93 /* DS3Spacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10501042F6500000042AD93 /* DS3Spacing.swift */; };
+		A10501072F6500000042AD93 /* ShimmerModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10501062F6500000042AD93 /* ShimmerModifier.swift */; };
 		A10305062F6400000042AD93 /* ConflictNotificationHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10305052F6400000042AD93 /* ConflictNotificationHandler.swift */; };
 		A10203042F6300000042AD93 /* S3LibListingAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10203032F6300000042AD93 /* S3LibListingAdapter.swift */; };
 		D512EEBC2B59631400F550EC /* MFAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D512EEBB2B59631400F550EC /* MFAView.swift */; };
@@ -109,6 +113,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A10501002F6500000042AD93 /* DS3Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3Colors.swift; sourceTree = "<group>"; };
+		A10501022F6500000042AD93 /* DS3Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3Typography.swift; sourceTree = "<group>"; };
+		A10501042F6500000042AD93 /* DS3Spacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3Spacing.swift; sourceTree = "<group>"; };
+		A10501062F6500000042AD93 /* ShimmerModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShimmerModifier.swift; sourceTree = "<group>"; };
 		A10305052F6400000042AD93 /* ConflictNotificationHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictNotificationHandler.swift; sourceTree = "<group>"; };
 		A10203032F6300000042AD93 /* S3LibListingAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3LibListingAdapter.swift; sourceTree = "<group>"; };
 		D512EEBB2B59631400F550EC /* MFAView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MFAView.swift; sourceTree = "<group>"; };
@@ -346,9 +354,20 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
+		A10501082F6500000042AD93 /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				A10501002F6500000042AD93 /* DS3Colors.swift */,
+				A10501022F6500000042AD93 /* DS3Typography.swift */,
+				A10501042F6500000042AD93 /* DS3Spacing.swift */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
 		D5A221C12B571FED00F1413B /* Common */ = {
 			isa = PBXGroup;
 			children = (
+				A10501082F6500000042AD93 /* DesignSystem */,
 				D5A221C22B571FED00F1413B /* ColumnSelectionView.swift */,
 				D5A221C32B571FED00F1413B /* BorderedSectionView.swift */,
 				D5A221C42B571FED00F1413B /* IconTextFieldView.swift */,
@@ -360,6 +379,7 @@
 				D5A221CA2B571FED00F1413B /* OutlineLink.swift */,
 				D5A221CB2B571FED00F1413B /* LinkView.swift */,
 				D5A221CC2B571FED00F1413B /* LoadingView.swift */,
+				A10501062F6500000042AD93 /* ShimmerModifier.swift */,
 			);
 			path = Common;
 			sourceTree = "<group>";
@@ -760,6 +780,10 @@
 				D5A222232B571FEE00F1413B /* IAMUsersDropdownView.swift in Sources */,
 				D5A222292B571FEE00F1413B /* ProjectSelectionView.swift in Sources */,
 				D5A222082B571FEE00F1413B /* TutorialViewModel.swift in Sources */,
+				A10501012F6500000042AD93 /* DS3Colors.swift in Sources */,
+				A10501032F6500000042AD93 /* DS3Typography.swift in Sources */,
+				A10501052F6500000042AD93 /* DS3Spacing.swift in Sources */,
+				A10501072F6500000042AD93 /* ShimmerModifier.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
