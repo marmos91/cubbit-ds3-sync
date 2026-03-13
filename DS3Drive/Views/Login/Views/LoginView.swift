@@ -17,32 +17,44 @@ struct LoginView: View {
     var loginViewModel: LoginViewModel = LoginViewModel()
 
     var body: some View {
-
         if loginViewModel.need2FA {
             MFAView(email: email, password: password, tenant: tenant, coordinatorURL: coordinatorURL)
                 .environment(loginViewModel)
                 .environment(ds3Authentication)
         } else {
-            ZStack {
-                Color(.background)
-                    .ignoresSafeArea()
+            VStack(spacing: 0) {
+                Spacer()
 
-                VStack(alignment: .center) {
+                // Card content
+                VStack(alignment: .center, spacing: DS3Spacing.lg) {
+                    // Logo
                     Image(.cubbitLogo)
                         .resizable()
                         .frame(width: 120, height: 44)
-                        .padding(.vertical)
 
-                    Text("DS3 Object Storage Log in", comment: "The h1 of the login page")
-                        .font(.custom("Nunito", size: 16))
-                        .bold()
-                        .padding(.vertical)
+                    Text("DS3 Drive")
+                        .font(DS3Typography.caption)
+                        .foregroundStyle(DS3Colors.secondaryText)
 
-                    IconTextField(
-                        iconName: .emailIcon,
-                        placeholder: NSLocalizedString("Email", comment: "Email placeholder"),
-                        error: loginViewModel.loginError,
-                        text: $email
+                    // Title
+                    Text("Log in to your account")
+                        .font(DS3Typography.headline)
+                        .foregroundStyle(DS3Colors.primaryText)
+                        .padding(.bottom, DS3Spacing.xs)
+
+                    // Email field with SF Symbol
+                    HStack(spacing: DS3Spacing.sm) {
+                        Image(systemName: "envelope")
+                            .foregroundStyle(DS3Colors.secondaryText)
+                            .frame(width: 20)
+                        TextField("Email", text: $email)
+                            .textFieldStyle(.plain)
+                            .font(DS3Typography.body)
+                    }
+                    .padding(DS3Spacing.md)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(DS3Colors.separator, lineWidth: 1)
                     )
                     .focused(self.$focusedField, equals: .email)
                     .onAppear {
@@ -51,77 +63,107 @@ struct LoginView: View {
                         }
                     }
 
-                    IconTextField(
-                        iconName: .passwordIcon,
-                        placeholder: NSLocalizedString("Password", comment: "Password placeholder"),
-                        error: loginViewModel.loginError,
-                        text: $password,
-                        isSecure: true
+                    // Password field with SF Symbol
+                    HStack(spacing: DS3Spacing.sm) {
+                        Image(systemName: "lock")
+                            .foregroundStyle(DS3Colors.secondaryText)
+                            .frame(width: 20)
+                        SecureField("Password", text: $password)
+                            .textFieldStyle(.plain)
+                            .font(DS3Typography.body)
+                    }
+                    .padding(DS3Spacing.md)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(DS3Colors.separator, lineWidth: 1)
                     )
                     .onSubmit {
                         self.login()
                     }
 
-                    Button {
-                        showAdvanced.toggle()
+                    // Advanced section
+                    DisclosureGroup(isExpanded: Binding(
+                        get: { showAdvanced },
+                        set: { newValue in
+                            withAnimation {
+                                showAdvanced = newValue
+                            }
+                        }
+                    )) {
+                        VStack(spacing: DS3Spacing.sm) {
+                            HStack(spacing: DS3Spacing.sm) {
+                                Image(systemName: "person")
+                                    .foregroundStyle(DS3Colors.secondaryText)
+                                    .frame(width: 20)
+                                TextField("Tenant name", text: $tenant)
+                                    .textFieldStyle(.plain)
+                                    .font(DS3Typography.body)
+                            }
+                            .padding(DS3Spacing.md)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(DS3Colors.separator, lineWidth: 1)
+                            )
+
+                            HStack(spacing: DS3Spacing.sm) {
+                                Image(systemName: "globe")
+                                    .foregroundStyle(DS3Colors.secondaryText)
+                                    .frame(width: 20)
+                                TextField("Coordinator URL", text: $coordinatorURL)
+                                    .textFieldStyle(.plain)
+                                    .font(DS3Typography.body)
+                            }
+                            .padding(DS3Spacing.md)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(DS3Colors.separator, lineWidth: 1)
+                            )
+                        }
+                        .padding(.top, DS3Spacing.sm)
                     } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
-                                .font(.caption)
-                            Text(NSLocalizedString("Advanced", comment: "Advanced login settings"))
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.vertical, 4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if showAdvanced {
-                        VStack(spacing: 8) {
-                            IconTextField(
-                                iconName: .userIcon,
-                                placeholder: NSLocalizedString("Tenant name", comment: "Tenant name placeholder"),
-                                text: $tenant
-                            )
-
-                            IconTextField(
-                                iconName: .settingsIcon,
-                                placeholder: NSLocalizedString("Coordinator URL", comment: "Coordinator URL placeholder"),
-                                text: $coordinatorURL
-                            )
-                        }
-                        .padding(.top, 4)
+                        Text("Advanced")
+                            .font(DS3Typography.caption)
+                            .foregroundStyle(DS3Colors.secondaryText)
                     }
 
-                    Button(loginViewModel.isLoading ? NSLocalizedString("Loading...", comment: "Loading") : NSLocalizedString("Log in", comment: "Login button")) {
+                    // Login button
+                    Button(loginViewModel.isLoading ? "Loading..." : "Log in") {
                         self.login()
                     }
-                    .padding(.vertical)
-                    .disabled(loginDisabled)
                     .buttonStyle(PrimaryButtonStyle())
+                    .disabled(loginDisabled)
+                    .frame(maxWidth: .infinity, maxHeight: 36)
 
+                    // Error message
                     if loginViewModel.loginError != nil {
                         Text("An error occurred: \(loginViewModel.loginError!.localizedDescription)")
-                            .foregroundStyle(Color.red)
+                            .font(DS3Typography.caption)
+                            .foregroundStyle(DS3Colors.statusError)
+                            .multilineTextAlignment(.center)
                     }
 
-                    LinkView(
-                        text: NSLocalizedString("Forgot your password?", comment: "Forgot your password link"),
-                        href: ConsoleURLs.recoveryURL
-                    )
-                    .padding()
+                    // Links
+                    Link("Forgot your password?", destination: URL(string: ConsoleURLs.recoveryURL)!)
+                        .font(DS3Typography.caption)
+                        .foregroundStyle(Color.accentColor)
 
-                    OutlineLink(
-                        text: NSLocalizedString("Sign up", comment: "Sign up button text"),
-                        href: ConsoleURLs.signupURL
-                    )
+                    Link("Sign up", destination: URL(string: ConsoleURLs.signupURL)!)
+                        .font(DS3Typography.caption)
+                        .foregroundStyle(Color.accentColor)
+                        .padding(.bottom, DS3Spacing.sm)
                 }
-                .frame(width: 360, height: 500)
-                .padding(.vertical, 80.0)
-                .padding(.horizontal, 100)
+                .padding(.horizontal, DS3Spacing.xxl)
+                .padding(.vertical, DS3Spacing.xl)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(DS3Colors.background)
+                        .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
+                )
+                .frame(maxWidth: 340)
+
+                Spacer()
             }
-            .frame(width: 360, height: 500)
-            .padding(.vertical, 80.0)
-            .padding(.horizontal, 100)
+            .frame(width: 400, height: 500)
         }
     }
 

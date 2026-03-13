@@ -14,68 +14,81 @@ struct MFAView: View {
     @FocusState var focused: Bool?
 
     var body: some View {
-        ZStack {
-            Color(.background)
-                .ignoresSafeArea()
+        VStack(spacing: 0) {
+            Spacer()
 
-            VStack {
+            // Card content
+            VStack(alignment: .center, spacing: DS3Spacing.lg) {
                 if loginViewModel.isLoading {
                     LoadingView()
                 } else {
-                    Text("Two-factor authentication (2FA)")
-                        .font(.custom("Nunito", size: 18))
-                        .fontWeight(.bold)
-                        .padding(.vertical)
+                    // Icon
+                    Image(systemName: "lock.shield")
+                        .font(.system(size: 40))
+                        .foregroundStyle(Color.accentColor)
+
+                    Text("Two-factor authentication")
+                        .font(DS3Typography.title)
+                        .foregroundStyle(DS3Colors.primaryText)
 
                     Text("Enter the code from your authenticator app")
-                        .font(.custom("Nunito", size: 14))
-                        .padding(.bottom)
+                        .font(DS3Typography.body)
+                        .foregroundStyle(DS3Colors.secondaryText)
+                        .multilineTextAlignment(.center)
 
-                    BorderedSectionView {
-                        HStack {
-                            Text("Authentication code")
+                    // Code input
+                    HStack(spacing: DS3Spacing.sm) {
+                        Image(systemName: "number")
+                            .foregroundStyle(DS3Colors.secondaryText)
+                            .frame(width: 20)
+                        TextField("6-digit code", text: $tfaCode)
+                            .textFieldStyle(.plain)
+                            .font(DS3Typography.body)
+                    }
+                    .padding(DS3Spacing.md)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(DS3Colors.separator, lineWidth: 1)
+                    )
+                    .focused($focused, equals: true)
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
+                            self.focused = true
+                        }
+                    }
+                    .onSubmit {
+                        self.loginWithMFA()
+                    }
 
-                            Spacer()
-                        }
-                        .padding(.vertical)
+                    // Login button
+                    Button("Log in") {
+                        self.loginWithMFA()
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(tfaCode.isEmpty)
+                    .frame(maxWidth: .infinity, maxHeight: 36)
 
-                        IconTextField(
-                            iconName: .mfaIcon,
-                            placeholder: "2FA 6-digit code",
-                            text: $tfaCode
-                        )
-                        .focused($focused, equals: true)
-                        .onAppear {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
-                                self.focused = true
-                            }
-                        }
-                        .onSubmit {
-                            self.loginWithMFA()
-                        }
-
-                        Button("Log in") {
-                            self.loginWithMFA()
-                        }
-                        .buttonStyle(PrimaryButtonStyle())
-                        .disabled(tfaCode.isEmpty)
-                        .padding(.vertical)
-                        .onSubmit {
-                            self.loginWithMFA()
-                        }
-
-                        if let loginError = loginViewModel.loginError {
-                            Text(loginError.localizedDescription)
-                                .font(.custom("Nunito", size: 14))
-                                .foregroundStyle(Color.red)
-                                .multilineTextAlignment(.center)
-                        }
+                    // Error
+                    if let loginError = loginViewModel.loginError {
+                        Text(loginError.localizedDescription)
+                            .font(DS3Typography.caption)
+                            .foregroundStyle(DS3Colors.statusError)
+                            .multilineTextAlignment(.center)
                     }
                 }
             }
-            .frame(width: 500, height: 400)
+            .padding(.horizontal, DS3Spacing.xxl)
+            .padding(.vertical, DS3Spacing.xl)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(DS3Colors.background)
+                    .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
+            )
+            .frame(maxWidth: 340)
+
+            Spacer()
         }
-        .frame(width: 700, height: 450)
+        .frame(width: 400, height: 500)
     }
 
     func loginWithMFA() {
