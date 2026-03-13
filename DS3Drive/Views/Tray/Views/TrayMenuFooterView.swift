@@ -8,19 +8,17 @@ struct TrayMenuFooterView: View {
     var body: some View {
         HStack {
             Text(status)
-                .font(DS3Typography.caption)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal)
+                .font(DS3Typography.footnote)
+                .foregroundStyle(.tertiary)
 
             Spacer()
 
             Text("Version \(version) (\(build))")
-                .font(DS3Typography.caption)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal)
+                .font(DS3Typography.footnote)
+                .foregroundStyle(.tertiary)
         }
-        .background(.bar)
-        .frame(height: 32)
+        .padding(.horizontal, DS3Spacing.lg)
+        .padding(.vertical, DS3Spacing.sm)
     }
 }
 

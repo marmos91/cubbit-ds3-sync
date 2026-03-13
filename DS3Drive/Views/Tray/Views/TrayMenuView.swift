@@ -28,8 +28,7 @@ struct TrayMenuView: View {
             // Side panel (left, when active)
             if let panel = activeSidePanel {
                 sidePanelContent(for: panel)
-                    .frame(width: 310)
-                    .transition(.move(edge: .leading))
+                    .frame(width: 280)
 
                 Divider()
             }
@@ -38,7 +37,6 @@ struct TrayMenuView: View {
             mainTrayContent
                 .frame(width: 310)
         }
-        .animation(.easeInOut(duration: 0.2), value: activeSidePanel)
         .fixedSize(horizontal: true, vertical: false)
         .onAppear {
             coordinatorURL = loadCoordinatorURL()
@@ -83,12 +81,10 @@ struct TrayMenuView: View {
                 TrayDriveRowView(
                     driveViewModel: vm,
                     onTapDrive: { driveId in
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            if case .recentFiles(let currentId) = activeSidePanel, currentId == driveId {
-                                activeSidePanel = nil
-                            } else {
-                                activeSidePanel = .recentFiles(driveId: driveId)
-                            }
+                        if case .recentFiles(let currentId) = activeSidePanel, currentId == driveId {
+                            activeSidePanel = nil
+                        } else {
+                            activeSidePanel = .recentFiles(driveId: driveId)
                         }
                     }
                 )
@@ -137,12 +133,10 @@ struct TrayMenuView: View {
             TrayMenuItem(
                 title: NSLocalizedString("Connection Info", comment: "Tray menu connection info")
             ) {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    if activeSidePanel == .connectionInfo {
-                        activeSidePanel = nil
-                    } else {
-                        activeSidePanel = .connectionInfo
-                    }
+                if activeSidePanel == .connectionInfo {
+                    activeSidePanel = nil
+                } else {
+                    activeSidePanel = .connectionInfo
                 }
             }
 
@@ -187,7 +181,7 @@ struct TrayMenuView: View {
                     driveName: vm.drive.name,
                     recentFiles: vm.recentFiles,
                     driveViewModel: vm,
-                    onClose: { withAnimation { activeSidePanel = nil } }
+                    onClose: { activeSidePanel = nil }
                 )
             }
         case .connectionInfo:
@@ -196,7 +190,7 @@ struct TrayMenuView: View {
                 s3Endpoint: ds3Authentication.account?.endpointGateway ?? NSLocalizedString("N/A", comment: "Not available"),
                 tenant: tenantName,
                 consoleURL: ConsoleURLs.baseURL,
-                onClose: { withAnimation { activeSidePanel = nil } }
+                onClose: { activeSidePanel = nil }
             )
         }
     }
