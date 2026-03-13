@@ -35,9 +35,9 @@ Progress: [████████░░] 89% (17 of 19 plans complete)
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16
+- Total plans completed: 17
 - Average duration: 7 min
-- Total execution time: ~1.9 hours
+- Total execution time: ~2.1 hours
 
 **By Phase:**
 
@@ -47,15 +47,16 @@ Progress: [████████░░] 89% (17 of 19 plans complete)
 | 2. Sync Engine | 3 | 26 min | 9 min |
 | 3. Conflict Resolution | 3 | 14 min | 5 min |
 | 4. Auth & Platform | 4/4 | 27 min | 7 min |
-| 5. UX Polish | 2/5 | 15 min | 8 min |
+| 5. UX Polish | 3/5 | 24 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: 5m, 12m, 5m, 6m, 9m
+- Last 5 plans: 12m, 5m, 6m, 9m, 9m
 - Trend: stable
 
 *Updated after each plan completion*
 | Phase 05 P01 | 6min | 2 tasks | 9 files |
 | Phase 05 P02 | 9min | 3 tasks | 12 files |
+| Phase 05 P03 | 9min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -120,6 +121,11 @@ Recent decisions affecting current work:
 - Plan 05-02: Pause check omitted from deleteItem and enumerator (per plan design)
 - Plan 05-02: RecentFilesTracker uses NSLock for thread safety (@unchecked Sendable)
 - Plan 05-02: TransferStatus Comparable sort: syncing < error < completed
+- Plan 05-03: TreeNavigationViewModel caches S3 clients per-project to avoid repeated credential setup
+- Plan 05-03: TreeNode is @Observable class for in-place expand/collapse state mutation
+- Plan 05-03: DriveConfirmView auto-suggests name from bucket/prefix selection
+- Plan 05-03: Login card uses shadow for depth instead of ZStack background
+- Plan 05-03: Preferences uses Form with .grouped style for native macOS Settings appearance
 
 ### Pending Todos
 
@@ -132,6 +138,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T14:43:22Z
-Stopped at: Completed 05-02-PLAN.md
-Resume file: .planning/phases/05-ux-polish/05-03-PLAN.md
+Last session: 2026-03-13T14:44:09Z
+Stopped at: Completed 05-03-PLAN.md
+Resume file: .planning/phases/05-ux-polish/05-04-PLAN.md

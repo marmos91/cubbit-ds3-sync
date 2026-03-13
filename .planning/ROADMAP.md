@@ -98,7 +98,7 @@ Plans:
   5. Quick actions in the menu bar (add drive, open in Finder, preferences, pause sync) work correctly
   6. The drive setup wizard guides the user through tenant-aware project and bucket selection in a simplified flow
   7. Users cannot create more than 3 drives
-**Plans:** 5 plans
+**Plans:** 3/5 plans executed
 
 Plans:
 - [ ] 05-01-PLAN.md -- Design system foundation (colors, typography, spacing, shimmer) and Finder sync badges via NSFileProviderItemDecorating
@@ -119,7 +119,7 @@ Note: Phase 4 depends only on Phase 1 and could theoretically run in parallel wi
 | 2. Sync Engine | 3/3 | Complete | 2026-03-12 |
 | 3. Conflict Resolution | 3/3 | Complete | - |
 | 4. Auth & Platform | 4/4 | Complete | 2026-03-13 |
-| 5. UX Polish | 0/5 | Not started | - |
+| 5. UX Polish | 3/5 | In Progress|  |
 
 ---
 *Roadmap created: 2026-03-11*

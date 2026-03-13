@@ -44,7 +44,7 @@
 - [ ] **UX-03**: Menu bar tray shows real-time transfer speed (upload/download)
 - [x] **UX-04**: Menu bar tray shows recently synced files
 - [x] **UX-05**: Menu bar tray quick actions: add drive, open in Finder, preferences, pause sync
-- [ ] **UX-06**: Simplified drive setup wizard with tenant-aware project/bucket selection
+- [x] **UX-06**: Simplified drive setup wizard with tenant-aware project/bucket selection
 - [x] **UX-07**: Drive limit maintained at 3 maximum
 
 ## v2 Requirements
@@ -111,7 +111,7 @@
 | UX-03 | Phase 5 | Pending |
 | UX-04 | Phase 5 | Complete |
 | UX-05 | Phase 5 | Complete |
-| UX-06 | Phase 5 | Pending |
+| UX-06 | Phase 5 | Complete |
 | UX-07 | Phase 5 | Complete |
 
 **Coverage:**
