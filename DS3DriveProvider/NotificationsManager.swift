@@ -11,6 +11,9 @@ final class NotificationManager: Sendable {
     // Manually synchronized via `queue`
     nonisolated(unsafe) private var _driveStatus: DS3DriveStatus
     nonisolated(unsafe) private var _debounceWorkItem: DispatchWorkItem?
+    nonisolated(unsafe) private var _lastTransferSpeedTime: DispatchTime = .now()
+    nonisolated(unsafe) private var _pendingTransferStats: DriveTransferStats?
+    nonisolated(unsafe) private var _transferThrottleWorkItem: DispatchWorkItem?
 
     init(drive: DS3Drive) {
         self.drive = drive
@@ -40,6 +43,11 @@ final class NotificationManager: Sendable {
     /// - Parameter status: the status to send
     func sendDriveChangedNotification(status: DS3DriveStatus) {
         queue.async {
+            // Cancel any pending debounced status change so it doesn't override
+            // this immediate notification (e.g. a stale .idle firing during an active sync)
+            self._debounceWorkItem?.cancel()
+            self._debounceWorkItem = nil
+
             guard status != self._driveStatus else { return }
 
             self._driveStatus = status
@@ -64,17 +72,42 @@ final class NotificationManager: Sendable {
 
     func sendTransferSpeedNotification(_ transferSpeed: DriveTransferStats) {
         queue.async {
-            guard
-                let encodedTransferSpeedData = try? JSONEncoder().encode(transferSpeed),
-                let encodedTransferSpeedString = String(data: encodedTransferSpeedData, encoding: .utf8)
-            else { return }
+            let throttle = DefaultSettings.Extension.transferSpeedThrottleInterval
+            let now = DispatchTime.now()
 
-            DistributedNotificationCenter
-                .default()
-                .post(
-                    Notification(name: .driveTransferStats, object: encodedTransferSpeedString)
-                )
+            self._pendingTransferStats = transferSpeed
+
+            let elapsed = Double(now.uptimeNanoseconds - self._lastTransferSpeedTime.uptimeNanoseconds) / 1_000_000_000
+            if elapsed >= throttle {
+                self._postTransferStats(transferSpeed)
+                self._lastTransferSpeedTime = now
+                self._transferThrottleWorkItem?.cancel()
+                self._transferThrottleWorkItem = nil
+            } else if self._transferThrottleWorkItem == nil {
+                // Schedule a trailing send so the last update always gets through
+                let remaining = throttle - elapsed
+                let workItem = DispatchWorkItem { [weak self] in
+                    guard let self, let pending = self._pendingTransferStats else { return }
+                    self._postTransferStats(pending)
+                    self._lastTransferSpeedTime = .now()
+                    self._pendingTransferStats = nil
+                    self._transferThrottleWorkItem = nil
+                }
+                self._transferThrottleWorkItem = workItem
+                self.queue.asyncAfter(deadline: .now() + remaining, execute: workItem)
+            }
         }
+    }
+
+    private func _postTransferStats(_ stats: DriveTransferStats) {
+        guard
+            let data = try? JSONEncoder().encode(stats),
+            let string = String(data: data, encoding: .utf8)
+        else { return }
+
+        DistributedNotificationCenter
+            .default()
+            .post(Notification(name: .driveTransferStats, object: string))
     }
 
     /// Sends an auth failure notification to the main app via DistributedNotificationCenter.
@@ -104,7 +137,7 @@ final class NotificationManager: Sendable {
 
             guard let data = try? JSONEncoder().encode(info),
                   let string = String(data: data, encoding: .utf8) else {
-                self.logger.error("Failed to encode conflict notification")
+                self.logger.error("Failed to encode conflict notification for \(filename, privacy: .public)")
                 return
             }
 

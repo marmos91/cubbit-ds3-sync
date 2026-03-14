@@ -110,15 +110,15 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                 return observer.finishEnumerating(upTo: page)
 
             } catch let error as FileProviderExtensionError {
-                self.logger.error("A FileProvider error occurred while list objects \(error)")
+                self.logger.error("enumerateItems failed for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error, privacy: .public)")
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
                 return observer.finishEnumeratingWithError(error.toPresentableError())
             } catch let error as S3ErrorType {
-                self.logger.error("A S3 error occurred while list objects \(error)")
+                self.logger.error("enumerateItems S3 error for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error.errorCode, privacy: .public)")
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
                 return observer.finishEnumeratingWithError(error.toFileProviderError())
             } catch {
-                self.logger.error("A generic error occurred while list objects \(error)")
+                self.logger.error("enumerateItems failed for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)")
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
                 return observer.finishEnumeratingWithError(NSFileProviderError(.cannotSynchronize) as NSError)
             }
@@ -201,11 +201,11 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle)
                 return observer.finishEnumeratingChanges(upTo: newAnchor, moreComing: false)
             } catch let error as FileProviderExtensionError {
-                self.logger.error("A FileProvider error occurred while enumerating changes: \(error)")
+                self.logger.error("enumerateChanges failed for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error, privacy: .public)")
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
                 return observer.finishEnumeratingWithError(error.toPresentableError())
             } catch let error as S3ErrorType {
-                self.logger.error("An S3 error occurred while enumerating changes: \(error)")
+                self.logger.error("enumerateChanges S3 error for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error.errorCode, privacy: .public)")
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
                 return observer.finishEnumeratingWithError(error.toFileProviderError())
             } catch is SyncEngineError {
@@ -213,7 +213,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle)
                 return observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
             } catch {
-                self.logger.error("An error occurred while enumerating changes: \(error)")
+                self.logger.error("enumerateChanges failed for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)")
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
                 return observer.finishEnumeratingWithError(NSFileProviderError(.cannotSynchronize) as NSError)
             }

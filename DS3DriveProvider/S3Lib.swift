@@ -20,13 +20,22 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         self.notificationManager = notificationManager
     }
 
-    /// Safely decode percent encoding, throwing parseError if decoding fails
-    private func decodedKey(_ key: String) throws -> String {
-        guard let decoded = key.removingPercentEncoding else {
-            logger.error("Failed to decode percent encoding for key: \(key, privacy: .public)")
+    /// Safely decode S3 URL-encoded keys.
+    /// S3 with `encodingType: .url` uses `+` for spaces (form-URL style),
+    /// but Swift's `removingPercentEncoding` only handles `%XX` sequences.
+    /// We first replace `+` with `%20`, then percent-decode.
+    /// Literal `+` characters in keys are returned by S3 as `%2B`, so this is safe.
+    static func decodeS3Key(_ key: String) throws -> String {
+        let normalized = key.replacingOccurrences(of: "+", with: "%20")
+        guard let decoded = normalized.removingPercentEncoding else {
             throw FileProviderExtensionError.parseError
         }
         return decoded
+    }
+
+    /// Safely decode percent encoding, throwing parseError if decoding fails
+    private func decodedKey(_ key: String) throws -> String {
+        return try Self.decodeS3Key(key)
     }
     
     func shutdown() throws {
@@ -70,7 +79,8 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         
         if let commonPrefixes = response.commonPrefixes {
             for commonPrefix in commonPrefixes {
-                guard let commonPrefix = commonPrefix.prefix?.removingPercentEncoding else {
+                guard let rawPrefix = commonPrefix.prefix,
+                      let commonPrefix = try? Self.decodeS3Key(rawPrefix) else {
                     continue
                 }
                 
@@ -88,7 +98,8 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         
         if let contents = response.contents {
             for object in contents {
-                guard let key = object.key?.removingPercentEncoding else {
+                guard let rawKey = object.key,
+                      let key = try? Self.decodeS3Key(rawKey) else {
                     continue
                 }
 
@@ -126,9 +137,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             return (items, nil)
         }
 
-        // S3 sometimes returns an empty string instead of nil for the continuation token
-        let nextToken = response.nextContinuationToken?.isEmpty == true ? nil : response.nextContinuationToken
-        return (items, nextToken)
+        return (items, response.nextContinuationToken)
     }
 
     /// Retrieves metadata for a remote S3Item using a HEAD request
@@ -151,10 +160,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             )
         }
         
-        guard let key = identifier.rawValue.removingPercentEncoding else {
-            logger.error("Failed to decode percent encoding for key: \(identifier.rawValue, privacy: .public)")
-            throw FileProviderExtensionError.parseError
-        }
+        let key = try decodedKey(identifier.rawValue)
 
         let request = S3.HeadObjectRequest(
             bucket: drive.syncAnchor.bucket.name,
@@ -295,7 +301,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         toKey key: String,
         withProgress progress: Progress? = nil
     ) async throws -> S3Item {
-        self.logger.debug("Moving \(s3Item.itemIdentifier.rawValue) to \(key)")
+        self.logger.debug("Moving \(s3Item.itemIdentifier.rawValue, privacy: .public) to \(key, privacy: .public)")
         
         try await self.copyS3Item(s3Item, toKey: key, withProgress: progress)
         try await self.deleteS3Item(s3Item, withProgress: progress)
@@ -321,7 +327,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         force: Bool = false
     ) async throws {
         if !force && s3Item.isFolder {
-            self.logger.debug("Copying folder \(s3Item.itemIdentifier.rawValue) to \(key)")
+            self.logger.debug("Copying folder \(s3Item.itemIdentifier.rawValue, privacy: .public) to \(key, privacy: .public)")
             
             return try await self.copyFolder(
                 s3Item,
@@ -336,7 +342,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             throw FileProviderExtensionError.parseError
         }
         
-        self.logger.debug("Copying s3Item \(s3Item.itemIdentifier.rawValue) to \(key): CopySource \(copySource)")
+        self.logger.debug("Copying s3Item \(s3Item.itemIdentifier.rawValue, privacy: .public) to \(key, privacy: .public)")
         
         let copyProgress = Progress(totalUnitCount: 1)
         progress?.addChild(copyProgress, withPendingUnitCount: 1)
@@ -464,21 +470,21 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                         size: bytesDownloaded,
                         duration: partDownloadDuration,
                         direction: .download,
-                        filename: s3Item.filename
+                        filename: s3Item.filename,
+                        totalSize: fileSize > 0 ? fileSize : nil
                     )
                 )
 
                 return eventLoop.makeSucceededFuture(())
             }
         } catch {
-            fileHandle.closeFile()
             try? FileManager.default.removeItem(at: fileURL)
             throw error
         }
-        
+
         return fileURL
     }
-    
+
     /// Downloads a byte range of an S3 object to a temporary file using HTTP Range GET.
     /// Used for partial content fetching of large files.
     /// - Parameters:
@@ -535,7 +541,6 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
 
             progress.completedUnitCount = progress.totalUnitCount
         } catch {
-            fileHandle.closeFile()
             try? FileManager.default.removeItem(at: fileURL)
             throw error
         }
@@ -577,8 +582,14 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         let key = try decodedKey(s3Item.itemIdentifier.rawValue)
         
         if let fileURL {
-            guard let data = try? Data(contentsOf: fileURL) else { throw FileProviderExtensionError.fileNotFound }
-            
+            let data: Data
+            do {
+                data = try Data(contentsOf: fileURL)
+            } catch {
+                logger.error("Failed to read file for upload: \(error.localizedDescription, privacy: .public)")
+                throw FileProviderExtensionError.unableToOpenFile
+            }
+
             size = Int64(data.count)
             
             request = S3.PutObjectRequest(
@@ -593,7 +604,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             )
         }
         
-        self.logger.debug("Sending standard PUT request for \(key)")
+        self.logger.debug("Sending standard PUT request for \(key, privacy: .public)")
         
         let uploadStart = Date()
         let putObjectResponse = try await self.s3.putObject(request)
@@ -605,13 +616,14 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 size: size,
                 duration: transferTime,
                 direction: .upload,
-                filename: s3Item.filename
+                filename: s3Item.filename,
+                totalSize: size
             )
         )
         
         let eTag = putObjectResponse.eTag ?? ""
 
-        self.logger.debug("Got ETag \(eTag) for \(key)")
+        self.logger.debug("Got ETag \(eTag, privacy: .public) for \(key, privacy: .public)")
 
         progress?.completedUnitCount += 1
 
@@ -641,7 +653,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             key: key
         )
 
-        self.logger.debug("Creating multipart upload for key \(key)")
+        self.logger.debug("Creating multipart upload for key \(key, privacy: .public)")
 
         let createMultipartResponse = try await self.s3.createMultipartUpload(createMultipartRequest)
 
@@ -684,13 +696,14 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                         size: Int64(data.count),
                         duration: transferTime,
                         direction: .upload,
-                        filename: s3Item.filename
+                        filename: s3Item.filename,
+                        totalSize: Int64(truncating: s3Item.documentSize ?? 0)
                     )
                 )
 
                 let eTag = uploadPartResponse.eTag ?? ""
 
-                self.logger.debug("Got eTag: \(eTag)")
+                self.logger.debug("Part \(partNumber) eTag: \(eTag, privacy: .public) for key \(key, privacy: .public)")
 
                 completedParts.append(S3.CompletedPart(eTag: eTag, partNumber: partNumber))
 
@@ -701,7 +714,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 data = fileHandle.readData(ofLength: partSize)
             }
 
-            self.logger.debug("Completing multipart upload with \(completedParts.count) parts")
+            self.logger.debug("Completing multipart upload for \(key, privacy: .public) with \(completedParts.count) parts")
 
             let completeMultipartRequest = S3.CompleteMultipartUploadRequest(
                 bucket: s3Item.drive.syncAnchor.bucket.name,
@@ -722,11 +735,11 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
 
             return eTag
         } catch {
-            self.logger.error("Multipart upload failed for key \(key, privacy: .public): \(error.localizedDescription)")
+            self.logger.error("Multipart upload failed for key \(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
             do {
                 try await self.abortS3MultipartUpload(for: s3Item, withUploadId: uploadId)
             } catch {
-                self.logger.warning("Failed to abort multipart upload \(uploadId, privacy: .public): \(error.localizedDescription)")
+                self.logger.warning("Failed to abort multipart upload \(uploadId, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
             throw error
         }
@@ -743,7 +756,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     ) async throws {
         let key = try decodedKey(s3Item.itemIdentifier.rawValue)
 
-        self.logger.warning("Aborting multipart upload for item with key \(key) and uploadId \(uploadId)")
+        self.logger.warning("Aborting multipart upload for key \(key, privacy: .public) uploadId \(uploadId, privacy: .public)")
         
         let abortRequest = S3.AbortMultipartUploadRequest(
             bucket: s3Item.drive.syncAnchor.bucket.name,
