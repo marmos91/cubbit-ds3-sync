@@ -49,17 +49,42 @@ The main app and extension communicate via:
 
 ## Debugging
 
+### Log Subsystems
+- Main app: `io.cubbit.DS3Drive` (categories: app, auth, sync, metadata)
+- Extension: `io.cubbit.DS3Drive.provider` (categories: extension, sync, transfer)
+
+**Important:** Our logs use `Info` level by default. You MUST pass `--info --debug` flags to `log show` or they won't appear. Without these flags you only see `Error`/`Fault` level.
+
 ### System Logs
-To view DS3 Drive and File Provider extension logs:
 ```bash
-# All DS3-related process logs (last N minutes)
-/usr/bin/log show --last 5m --predicate "process CONTAINS 'DS3'" 2>&1 | grep -v "CleanMyMac\|cache_delete\|dasd\|Dropbox"
+# Main app logs (auth, sync, app lifecycle)
+/usr/bin/log show --last 5m --info --debug --predicate "subsystem == 'io.cubbit.DS3Drive'" --style compact 2>&1
 
-# File Provider extension errors only
-/usr/bin/log show --last 5m --predicate "process CONTAINS 'DS3'" 2>&1 | grep -i "error\|failed\|fault"
+# File Provider extension logs (S3 operations, enumeration, transfers)
+/usr/bin/log show --last 5m --info --debug --predicate "subsystem == 'io.cubbit.DS3Drive.provider'" --style compact 2>&1
 
-# App Group shared container location
-# ~/Library/Group Containers/group.X889956QSM.io.cubbit.DS3Drive/
+# Both subsystems combined
+/usr/bin/log show --last 5m --info --debug --predicate "subsystem BEGINSWITH 'io.cubbit.DS3Drive'" --style compact 2>&1
+
+# Errors only (no --info --debug needed for errors)
+/usr/bin/log show --last 5m --predicate "subsystem BEGINSWITH 'io.cubbit.DS3Drive'" --style compact 2>&1 | grep -E "^.* E "
+
+# Auth-related events (token refresh, login, API keys)
+/usr/bin/log show --last 5m --info --debug --predicate "subsystem == 'io.cubbit.DS3Drive' AND category == 'auth'" --style compact 2>&1
+
+# Live streaming (real-time)
+/usr/bin/log stream --predicate "subsystem BEGINSWITH 'io.cubbit.DS3Drive'" --info --debug --style compact
+
+# Extension process lifecycle (spawn, exit, crash)
+/usr/bin/log show --last 5m --predicate "process == 'launchd' AND eventMessage CONTAINS 'DS3Drive.provider'" --style compact 2>&1
+
+# App Group container sandbox issues
+/usr/bin/log show --last 5m --predicate "process == 'containermanagerd'" --style compact 2>&1
+```
+
+### App Group Shared Container
+```
+~/Library/Group Containers/group.X889956QSM.io.cubbit.DS3Drive/
 ```
 
 ## Commit Guidelines

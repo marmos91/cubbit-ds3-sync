@@ -956,8 +956,8 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
         switch containerItemIdentifier {
         case .trashContainer:
-            // NOTE: Trash not supported — return proper NSFileProviderError
-            throw NSFileProviderError(.noSuchItem)
+            // Trash not supported — return an empty enumerator to avoid FP -1005 errors
+            return EmptyEnumerator()
 
         case .workingSet:
             // NOTE: The system is requesting the whole working set (probably to index it via spotlight

@@ -75,7 +75,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
     ) {
         Task {
             do {
-                self.notificationManager.sendDriveChangedNotification(status: .indexing)
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .indexing)
 
                 let (items, continuationToken) = try await self.s3Lib.listS3Items(
                     forDrive: self.drive,
@@ -130,7 +130,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
         from anchor: NSFileProviderSyncAnchor
     ) {
         Task {
-            self.notificationManager.sendDriveChangedNotification(status: .indexing)
+            self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .indexing)
 
             do {
                 self.logger.debug("Enumerating changes for prefix \(self.prefix ?? "nil")")
@@ -218,6 +218,26 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                 return observer.finishEnumeratingWithError(NSFileProviderError(.cannotSynchronize) as NSError)
             }
         }
+    }
+}
+
+/// An enumerator that immediately finishes with no items.
+/// Used for unsupported containers (e.g. trash) to avoid FP -1005 errors on startup.
+class EmptyEnumerator: NSObject, NSFileProviderEnumerator {
+    func invalidate() {}
+
+    func enumerateItems(
+        for observer: NSFileProviderEnumerationObserver,
+        startingAt page: NSFileProviderPage
+    ) {
+        observer.finishEnumerating(upTo: nil)
+    }
+
+    func enumerateChanges(
+        for observer: NSFileProviderChangeObserver,
+        from anchor: NSFileProviderSyncAnchor
+    ) {
+        observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
     }
 }
 
