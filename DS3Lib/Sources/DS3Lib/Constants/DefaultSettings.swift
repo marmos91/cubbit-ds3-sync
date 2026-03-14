@@ -98,6 +98,10 @@ public enum DefaultSettings {
         /// An interval to debounce the status change notifications sent by the file provider extension.
         /// It is used to avoid sending too many notifications when the status changes rapidly.
         public static let statusChangeDebounceInterval = 1.5
+
+        /// Minimum interval between transfer speed notifications (seconds).
+        /// Limits how often the tray UI refreshes during streaming downloads/uploads.
+        public static let transferSpeedThrottleInterval = 0.5
     }
 
     /// Default settings related to the filenames used to store data in the app group container.

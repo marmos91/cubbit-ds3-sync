@@ -25,6 +25,11 @@ public final class RecentFilesTracker: @unchecked Sendable {
         }) {
             entries[existingIndex].size = entry.size
             entries[existingIndex].timestamp = entry.timestamp
+            entries[existingIndex].transferredBytes = entry.transferredBytes
+            entries[existingIndex].speed = entry.speed
+            if let totalBytes = entry.totalBytes {
+                entries[existingIndex].totalBytes = totalBytes
+            }
             return
         }
 

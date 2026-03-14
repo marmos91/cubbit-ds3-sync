@@ -19,9 +19,13 @@ import DS3Lib
     /// Tracks recently transferred files for this drive
     var recentFilesTracker = RecentFilesTracker()
 
-    /// Returns recent files for this drive, sorted by status priority
-    var recentFiles: [RecentFileEntry] {
-        recentFilesTracker.entries(forDrive: drive.id)
+    /// Recent files for this drive, sorted by status priority.
+    /// Stored property so @Observable can trigger SwiftUI view updates.
+    var recentFiles: [RecentFileEntry] = []
+
+    /// Refreshes the `recentFiles` stored property from the tracker.
+    private func refreshRecentFiles() {
+        self.recentFiles = recentFilesTracker.entries(forDrive: drive.id)
     }
     
     init(drive: DS3Drive) {
@@ -70,16 +74,24 @@ import DS3Lib
         self.totalTransferDuration += driveTransferStats.duration
         self.driveStats.currentSpeedBs = Double(driveTransferStats.size) / driveTransferStats.duration
 
-        // Track in recent files
+        // Track in recent files with speed and progress
         if let filename = driveTransferStats.filename, !filename.isEmpty {
+            let speed = driveTransferStats.duration > 0
+                ? Double(driveTransferStats.size) / driveTransferStats.duration
+                : nil
+
             let entry = RecentFileEntry(
                 driveId: driveTransferStats.driveId,
                 filename: filename,
                 size: driveTransferStats.size,
                 status: .syncing,
-                timestamp: Date()
+                timestamp: Date(),
+                transferredBytes: driveTransferStats.size,
+                totalBytes: driveTransferStats.totalSize,
+                speed: speed
             )
             self.recentFilesTracker.add(entry)
+            self.refreshRecentFiles()
         }
 
         self.transferStatsResetTimer = Timer.scheduledTimer(withTimeInterval: DefaultSettings.Tray.driveStatsReset, repeats: false) { _ in
@@ -108,6 +120,7 @@ import DS3Lib
             for entry in self.recentFilesTracker.entries(forDrive: self.drive.id) where entry.status == .syncing {
                 self.recentFilesTracker.update(filename: entry.filename, driveId: self.drive.id, status: .completed)
             }
+            self.refreshRecentFiles()
         }
     }
 

@@ -532,7 +532,8 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                         size: bytesDownloaded,
                         duration: duration,
                         direction: .download,
-                        filename: identifier.rawValue.components(separatedBy: "/").last
+                        filename: identifier.rawValue.components(separatedBy: "/").last,
+                        totalSize: nil
                     )
                 )
 
@@ -668,6 +669,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             let partSize = DefaultSettings.S3.multipartUploadPartSize
 
             var partNumber: Int = 1
+            var bytesUploaded: Int64 = 0
 
             var completedParts: [S3.CompletedPart] = []
 
@@ -690,10 +692,12 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 let uploadPartResponse = try await self.s3.uploadPart(uploadPartRequest)
                 let transferTime = Date().timeIntervalSince(uploadStart)
 
+                bytesUploaded += Int64(data.count)
+
                 self.notificationManager.sendTransferSpeedNotification(
                     DriveTransferStats(
                         driveId: s3Item.drive.id,
-                        size: Int64(data.count),
+                        size: bytesUploaded,
                         duration: transferTime,
                         direction: .upload,
                         filename: s3Item.filename,
