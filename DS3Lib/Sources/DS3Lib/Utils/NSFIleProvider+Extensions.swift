@@ -12,12 +12,16 @@ public extension NSFileProviderSyncAnchor {
     }
 
     func toDate() -> Date {
+        guard self.rawValue.count == MemoryLayout<Date>.size else {
+            return Date.distantPast
+        }
+
         var ret = Date()
-        
+
         _ = withUnsafeMutableBytes(of: &ret) { ptr in
             self.rawValue.copyBytes(to: ptr)
         }
-        
+
         return ret
     }
 }

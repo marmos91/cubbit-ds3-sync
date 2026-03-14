@@ -32,6 +32,6 @@ public enum ETagUtils: Sendable {
         else {
             return false
         }
-        return normalizedLhs == normalizedRhs
+        return normalizedLhs.lowercased() == normalizedRhs.lowercased()
     }
 }

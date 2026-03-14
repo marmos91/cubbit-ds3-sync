@@ -163,9 +163,6 @@ final class FloatingPanelManager {
         }
     }
 
-    nonisolated deinit {
-        // KVO observation is automatically invalidated when the NSKeyValueObservation is deallocated
-    }
 }
 
 // MARK: - WindowAccessor

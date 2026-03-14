@@ -2,13 +2,13 @@ import SwiftUI
 import DS3Lib
 
 /// Side panel showing recent files per drive, matching the Figma file status design.
+/// Reads `driveViewModel.recentFiles` directly so @Observable triggers live updates.
 struct RecentFilesPanel: View {
-    let recentFiles: [RecentFileEntry]
     let driveViewModel: DS3DriveViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if recentFiles.isEmpty {
+            if driveViewModel.recentFiles.isEmpty {
                 emptyState
             } else {
                 fileList
@@ -21,7 +21,7 @@ struct RecentFilesPanel: View {
 
     @ViewBuilder
     private var fileList: some View {
-        let sorted = recentFiles.sorted { $0.status < $1.status }
+        let sorted = driveViewModel.recentFiles.sorted { $0.status < $1.status }
         ForEach(sorted.prefix(10)) { entry in
             RecentFileRow(entry: entry, driveViewModel: driveViewModel)
         }
@@ -66,7 +66,7 @@ private struct RecentFileRow: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
 
-                    Text("\(entry.displaySize), \(relativeTime)")
+                    Text(subtitleText)
                         .font(DS3Typography.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -114,6 +114,22 @@ private struct RecentFileRow: View {
                 Label(NSLocalizedString("Dismiss", comment: "Recent file context menu"), systemImage: "xmark")
             }
         }
+    }
+
+    private var subtitleText: String {
+        if entry.status == .syncing {
+            var parts: [String] = []
+            if let speed = entry.displaySpeed {
+                parts.append(speed)
+            }
+            if let percent = entry.progressPercent {
+                parts.append("\(percent)%")
+            }
+            if !parts.isEmpty {
+                return parts.joined(separator: " · ")
+            }
+        }
+        return "\(entry.displaySize), \(relativeTime)"
     }
 
     private var statusIcon: String {
