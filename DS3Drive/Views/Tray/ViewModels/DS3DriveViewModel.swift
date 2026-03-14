@@ -16,12 +16,19 @@ import DS3Lib
     var totalTransferDuration: TimeInterval = 0
     var transferStatsResetTimer: Timer?
 
+    /// Tracks the last reported cumulative size per filename to compute deltas
+    private var lastReportedSize: [String: Int64] = [:]
+
     /// Tracks recently transferred files for this drive
     var recentFilesTracker = RecentFilesTracker()
 
-    /// Returns recent files for this drive, sorted by status priority
-    var recentFiles: [RecentFileEntry] {
-        recentFilesTracker.entries(forDrive: drive.id)
+    /// Recent files for this drive, sorted by status priority.
+    /// Stored property so @Observable can trigger SwiftUI view updates.
+    var recentFiles: [RecentFileEntry] = []
+
+    /// Refreshes the `recentFiles` stored property from the tracker.
+    func refreshRecentFiles() {
+        self.recentFiles = recentFilesTracker.entries(forDrive: drive.id)
     }
     
     init(drive: DS3Drive) {
@@ -31,6 +38,7 @@ import DS3Lib
     }
     
     deinit {
+        transferStatsResetTimer?.invalidate()
         DistributedNotificationCenter
             .default()
             .removeObserver(self)
@@ -66,9 +74,20 @@ import DS3Lib
         else { return }
         
         self.transferStatsResetTimer?.invalidate()
-        self.totalTransferredSize += driveTransferStats.size
+
+        // Compute delta from cumulative size to avoid double-counting
+        let fileKey = driveTransferStats.filename ?? "_default_"
+        let previousSize = self.lastReportedSize[fileKey] ?? 0
+        let delta = max(0, driveTransferStats.size - previousSize)
+        self.lastReportedSize[fileKey] = driveTransferStats.size
+
+        self.totalTransferredSize += delta
         self.totalTransferDuration += driveTransferStats.duration
-        self.driveStats.currentSpeedBs = Double(driveTransferStats.size) / driveTransferStats.duration
+
+        // Speed: use delta / duration for instantaneous speed
+        if driveTransferStats.duration > 0 {
+            self.driveStats.currentSpeedBs = Double(delta) / driveTransferStats.duration
+        }
 
         // Track in recent files
         if let filename = driveTransferStats.filename, !filename.isEmpty {
@@ -80,9 +99,12 @@ import DS3Lib
                 timestamp: Date()
             )
             self.recentFilesTracker.add(entry)
+            self.refreshRecentFiles()
         }
 
-        self.transferStatsResetTimer = Timer.scheduledTimer(withTimeInterval: DefaultSettings.Tray.driveStatsReset, repeats: false) { _ in
+        self.transferStatsResetTimer = Timer.scheduledTimer(withTimeInterval: DefaultSettings.Tray.driveStatsReset, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.lastReportedSize.removeAll()
             self.totalTransferredSize = 0
             self.totalTransferDuration = 0
             self.driveStats.currentSpeedBs = nil
@@ -108,6 +130,7 @@ import DS3Lib
             for entry in self.recentFilesTracker.entries(forDrive: self.drive.id) where entry.status == .syncing {
                 self.recentFilesTracker.update(filename: entry.filename, driveId: self.drive.id, status: .completed)
             }
+            self.refreshRecentFiles()
         }
     }
 

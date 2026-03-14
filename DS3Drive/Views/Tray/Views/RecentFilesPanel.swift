@@ -110,6 +110,7 @@ private struct RecentFileRow: View {
 
             Button {
                 driveViewModel.recentFilesTracker.remove(id: entry.id)
+                driveViewModel.refreshRecentFiles()
             } label: {
                 Label(NSLocalizedString("Dismiss", comment: "Recent file context menu"), systemImage: "xmark")
             }
