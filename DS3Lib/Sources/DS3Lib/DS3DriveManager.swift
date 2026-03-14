@@ -23,10 +23,8 @@ public enum DS3DriveManagerError: Error {
 
     public init(appStatusManager: AppStatusManager) {
         self.setupObserver()
-        
+
         Task {
-            // TODO: remove this call as the enumerateChanges method is correctly implemented!
-            try await self.cleanFileProvider()
             try await self.syncFileProvider()
         }
     }
@@ -100,22 +98,25 @@ public enum DS3DriveManagerError: Error {
         return existingDomains.filter { !driveIds.contains($0.identifier.rawValue) }
     }
     
-    /// Syncs the file provider extensions with the status of the currently registered drives
+    /// Syncs the file provider extensions with the status of the currently registered drives.
+    /// Reconciles existing domains: removes stale ones and only adds drives not yet registered.
     public func syncFileProvider() async throws {
-        for domain in try await self.domainsToBeDeleted() {
-            self.logger.debug("Removing existing domain \(domain.displayName)")
+        let existingDomains = try await self.extensionExistingDomains()
+        let existingIds = Set(existingDomains.map { $0.identifier.rawValue })
+        let driveIds = Set(self.drives.map { $0.id.uuidString })
+
+        // Remove stale domains (registered but no longer in drives list)
+        for domain in existingDomains where !driveIds.contains(domain.identifier.rawValue) {
+            self.logger.debug("Removing stale domain \(domain.displayName)")
             try await NSFileProviderManager.remove(domain)
         }
-        
-        for drive in self.drives {
-            let domain = self.fileProviderDomain(forDrive: drive)
 
+        // Add only new drives (not already registered)
+        for drive in self.drives where !existingIds.contains(drive.id.uuidString) {
+            let domain = self.fileProviderDomain(forDrive: drive)
             self.logger.info("Adding domain \(domain.displayName)")
             try await NSFileProviderManager.add(domain)
-            self.logger.info("Domain \(domain.displayName) added")
-                
             try await NSFileProviderManager(for: domain)?.signalEnumerator(for: .rootContainer)
-            self.logger.info("Root enumerator signaled for domain \(domain.displayName)")
         }
     }
     
