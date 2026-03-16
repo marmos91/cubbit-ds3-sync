@@ -228,13 +228,12 @@ struct DS3DriveApp: App {
     private func startSyncAnimation() {
         guard syncAnimationTimer == nil else { return }
         syncAnimationFrame = 0
-        // Schedule on .common mode so it fires even when the menu is open
-        syncAnimationTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
-            DispatchQueue.main.async {
-                syncAnimationFrame += 1
-            }
+        // Use .common mode so the timer fires even when the menu is open
+        let timer = Timer(timeInterval: 0.5, repeats: true) { _ in
+            syncAnimationFrame += 1
         }
-        RunLoop.main.add(syncAnimationTimer!, forMode: .common)
+        RunLoop.main.add(timer, forMode: .common)
+        syncAnimationTimer = timer
     }
 
     private func stopSyncAnimation() {
