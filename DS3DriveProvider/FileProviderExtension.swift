@@ -193,15 +193,41 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             // NOTE: Trash disabled
             cb.handler(nil, NSFileProviderError(.noSuchItem))
             return Progress()
+        case .rootContainer:
+            let rootItem = S3Item(
+                identifier: identifier,
+                drive: drive,
+                objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
+            )
+            cb.handler(rootItem, nil)
+            return Progress()
         default:
             let progress = Progress(totalUnitCount: 1)
             let guard_ = OnceGuard()
+            let metadataStore = self.metadataStore
 
             Task {
                 do {
-                    let metadata = try await s3Lib.remoteS3Item(for: identifier, drive: drive)
-                    guard guard_.tryCall() else { return }
-                    cb.handler(metadata, nil)
+                    let cachedMetadata = try? await metadataStore?.fetchItemMetadata(byKey: identifier.rawValue, driveId: drive.id)
+
+                    if let cachedMetadata, let etag = cachedMetadata.etag {
+                        let cachedItem = S3Item(
+                            identifier: identifier,
+                            drive: drive,
+                            objectMetadata: S3Item.Metadata(
+                                etag: ETagUtils.normalize(etag),
+                                contentType: cachedMetadata.contentType,
+                                lastModified: cachedMetadata.lastModified,
+                                size: NSNumber(value: cachedMetadata.size)
+                            )
+                        )
+                        guard guard_.tryCall() else { return }
+                        cb.handler(cachedItem, nil)
+                    } else {
+                        let metadata = try await s3Lib.remoteS3Item(for: identifier, drive: drive)
+                        guard guard_.tryCall() else { return }
+                        cb.handler(metadata, nil)
+                    }
                 } catch let s3Error as S3ErrorType {
                     guard guard_.tryCall() else { return }
                     // Folders in S3 may exist only as common prefixes (no real object).

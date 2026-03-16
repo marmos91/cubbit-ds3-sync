@@ -218,6 +218,25 @@ public actor MetadataStore {
         try findItems(byDrive: driveId).count
     }
 
+    /// Sendable snapshot of a SyncedItem's metadata used to avoid redundant HEAD requests in `item(for:)`.
+    public struct CachedItemMetadata: Sendable {
+        public let etag: String?
+        public let lastModified: Date?
+        public let contentType: String?
+        public let size: Int64
+    }
+
+    /// Fetch a Sendable metadata snapshot for an item, or nil if not found.
+    public func fetchItemMetadata(byKey s3Key: String, driveId: UUID) throws -> CachedItemMetadata? {
+        guard let item = try findItem(byKey: s3Key, driveId: driveId) else { return nil }
+        return CachedItemMetadata(
+            etag: item.etag,
+            lastModified: item.lastModified,
+            contentType: item.contentType,
+            size: item.size
+        )
+    }
+
     /// Sendable snapshot of a SyncAnchorRecord's key fields.
     public struct SyncAnchorSnapshot: Sendable {
         public let driveId: UUID
