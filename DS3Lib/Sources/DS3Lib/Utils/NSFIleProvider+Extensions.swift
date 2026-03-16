@@ -18,8 +18,7 @@ public struct SyncAnchorPayload: Codable, Sendable {
     public func toData() -> Data {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        // swiftlint:disable:next force_try
-        return try! encoder.encode(self)
+        return (try? encoder.encode(self)) ?? Data()
     }
 
     public static func from(data: Data) -> SyncAnchorPayload? {
