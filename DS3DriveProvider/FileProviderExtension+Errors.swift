@@ -52,8 +52,12 @@ extension S3ErrorType {
     func toFileProviderError() -> NSError {
         let code: NSFileProviderError.Code
         switch self.errorCode {
-        case "AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch", "ExpiredToken":
+        case "InvalidAccessKeyId", "SignatureDoesNotMatch", "ExpiredToken":
             code = .notAuthenticated
+        case "AccessDenied":
+            // Permission denial (not credential failure). Maps to cannotSynchronize rather than
+            // notAuthenticated to avoid domain-wide throttling. System will retry with backoff.
+            code = .cannotSynchronize
         case "NoSuchKey", "NoSuchBucket", "NotFound", "404 Not Found":
             code = .noSuchItem
         case "EntityTooLarge":

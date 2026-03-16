@@ -4,10 +4,6 @@ import XCTest
 final class S3RecoveryTests: XCTestCase {
     // MARK: - isRecoverableAuthError returns true
 
-    func testAccessDeniedIsRecoverable() {
-        XCTAssertTrue(S3ErrorRecovery.isRecoverableAuthError("AccessDenied"))
-    }
-
     func testInvalidAccessKeyIdIsRecoverable() {
         XCTAssertTrue(S3ErrorRecovery.isRecoverableAuthError("InvalidAccessKeyId"))
     }
@@ -16,7 +12,15 @@ final class S3RecoveryTests: XCTestCase {
         XCTAssertTrue(S3ErrorRecovery.isRecoverableAuthError("SignatureDoesNotMatch"))
     }
 
+    func testExpiredTokenIsRecoverable() {
+        XCTAssertTrue(S3ErrorRecovery.isRecoverableAuthError("ExpiredToken"))
+    }
+
     // MARK: - isRecoverableAuthError returns false
+
+    func testAccessDeniedIsNotRecoverable() {
+        XCTAssertFalse(S3ErrorRecovery.isRecoverableAuthError("AccessDenied"))
+    }
 
     func testNoSuchKeyIsNotRecoverable() {
         XCTAssertFalse(S3ErrorRecovery.isRecoverableAuthError("NoSuchKey"))
@@ -37,7 +41,7 @@ final class S3RecoveryTests: XCTestCase {
     }
 
     func testRecoverableErrorCodesContainsExpectedCodes() {
-        let expected: Set<String> = ["AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch"]
+        let expected: Set<String> = ["InvalidAccessKeyId", "SignatureDoesNotMatch", "ExpiredToken"]
         XCTAssertEqual(S3ErrorRecovery.recoverableErrorCodes, expected)
     }
 }

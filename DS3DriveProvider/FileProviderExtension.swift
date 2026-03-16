@@ -1031,7 +1031,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     // MARK: - S3 Auth Error Recovery
 
     /// Wraps an S3 operation with credential reload and retry on auth errors.
-    /// On recoverable S3 auth errors (AccessDenied, InvalidAccessKeyId, SignatureDoesNotMatch),
+    /// On recoverable S3 auth errors (InvalidAccessKeyId, SignatureDoesNotMatch),
     /// attempts to reload credentials from SharedData (in case the main app already fixed them).
     /// If reload doesn't help, notifies the main app and returns `.notAuthenticated`.
     private func withAPIKeyRecovery<T>(
