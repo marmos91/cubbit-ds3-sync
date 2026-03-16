@@ -51,6 +51,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     private var metadataStore: MetadataStore?
     private var syncEngine: SyncEngine?
     private var networkMonitor: NetworkMonitor?
+    private var pollingTask: Task<Void, Never>?
 
     var drive: DS3Drive?
     let temporaryDirectory: URL?
@@ -135,6 +136,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         }
 
         super.init()
+        self.startPolling()
     }
 
     /// Notifies the main app that the extension failed to initialize
@@ -149,6 +151,8 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
     func invalidate() {
         self.logger.info("Extension invalidating for domain \(self.domain.identifier.rawValue, privacy: .public)")
+        self.pollingTask?.cancel()
+        self.pollingTask = nil
 
         do {
             try self.s3Lib?.shutdown()
@@ -1056,6 +1060,32 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 self.logger.error("Failed to signal working set: \(error.localizedDescription, privacy: .public)")
             }
         }
+    }
+
+    // MARK: - Periodic Polling
+
+    /// Starts a background task that periodically signals the system to re-enumerate
+    /// changes from the remote, ensuring local state stays up to date even when no
+    /// local modifications trigger a sync.
+    private func startPolling() {
+        guard self.enabled else { return }
+
+        self.pollingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(DefaultSettings.Extension.pollingIntervalSeconds))
+                guard !Task.isCancelled, let self else { break }
+
+                // Skip polling when drive is paused
+                if let driveId = self.drive?.id,
+                   (try? SharedData.default().isDrivePaused(driveId)) == true {
+                    continue
+                }
+
+                self.signalChanges()
+            }
+        }
+
+        self.logger.debug("Periodic polling started with interval \(DefaultSettings.Extension.pollingIntervalSeconds)s")
     }
 
     // MARK: - S3 Credential Reload

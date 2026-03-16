@@ -102,6 +102,9 @@ public enum DefaultSettings {
         /// Minimum interval between transfer speed notifications (seconds).
         /// Limits how often the tray UI refreshes during streaming downloads/uploads.
         public static let transferSpeedThrottleInterval = 0.5
+
+        /// Interval in seconds between periodic remote change polling signals.
+        public static let pollingIntervalSeconds: Int = 30
     }
 
     /// Default settings related to the filenames used to store data in the app group container.
