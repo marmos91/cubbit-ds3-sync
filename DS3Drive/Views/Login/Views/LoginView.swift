@@ -51,6 +51,7 @@ struct LoginView: View {
                             .foregroundStyle(DS3Colors.secondaryText)
                             .frame(width: 20)
                         TextField("Email", text: $email)
+                            .textContentType(.emailAddress)
                             .textFieldStyle(.plain)
                             .font(DS3Typography.body)
                     }
@@ -72,6 +73,7 @@ struct LoginView: View {
                             .foregroundStyle(DS3Colors.secondaryText)
                             .frame(width: 20)
                         SecureField("Password", text: $password)
+                            .textContentType(.password)
                             .textFieldStyle(.plain)
                             .font(DS3Typography.body)
                     }
