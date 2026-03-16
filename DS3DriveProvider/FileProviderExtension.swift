@@ -891,7 +891,6 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                     guard once.tryCall() else { return }
                     cb.handler(movedS3Item, NSFileProviderItemFields(), false, nil)
                 } catch let s3Error as S3ErrorType {
-                    // TODO: Check why this sometimes fails with NoSuchKey
                     self.logger.error("Move failed with S3 error code \(s3Error.errorCode, privacy: .public)")
                     nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     guard once.tryCall() else { return }
