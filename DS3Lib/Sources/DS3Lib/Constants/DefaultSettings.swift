@@ -145,6 +145,9 @@ public enum DefaultSettings {
         /// Max number of keys per S3 DeleteObjects request (hard AWS limit).
         public static let deleteBatchSize = 1000
 
+        /// Maximum number of concurrent part uploads during multipart upload.
+        public static let multipartUploadConcurrency = 4
+
         /// Timeout set for the S3 requests in seconds.
         public static let timeoutInSeconds: Int64 = 5 * 60 // 5 minutes
 
