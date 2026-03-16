@@ -151,6 +151,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
     func invalidate() {
         self.logger.info("Extension invalidating for domain \(self.domain.identifier.rawValue, privacy: .public)")
+        self.logger.debug("Stopping periodic polling task")
         self.pollingTask?.cancel()
         self.pollingTask = nil
 
