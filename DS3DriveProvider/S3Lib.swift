@@ -219,7 +219,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         deleteProgress.completedUnitCount += 1
     }
 
-    /// Deletes a remote S3Item recursively by listing all the items inside it and deleting them one by one.
+    /// Deletes a remote S3Item recursively using batch DeleteObjects API (up to 1000 keys per request).
     /// - Parameters:
     ///   - s3Item: the folder item to delete
     ///   - progress: the optional progress object to update
@@ -229,37 +229,59 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         withProgress progress: Progress? = nil
     ) async throws {
         var continuationToken: String?
-        var items = [S3Item]()
-        
         let folderPrefix = try decodedKey(s3Item.itemIdentifier.rawValue)
+        var totalFailures = 0
 
-        // Delete objects inside folder
         repeat {
-            (items, continuationToken) = try await self.listS3Items(
+            let (items, nextToken) = try await self.listS3Items(
                 forDrive: s3Item.drive,
                 withPrefix: folderPrefix,
                 recursively: true,
                 withContinuationToken: continuationToken
             )
+            continuationToken = nextToken
 
             if items.isEmpty {
                 break
             }
 
-            self.logger.debug("Deleting \(items.count) items")
+            // Keys from listS3Items are already percent-decoded — use directly
+            let objects = items.map { S3.ObjectIdentifier(key: $0.identifier.rawValue) }
+            let batchSize = DefaultSettings.S3.deleteBatchSize
 
-            while !items.isEmpty {
-                let item = items.removeFirst()
+            for startIndex in stride(from: 0, to: objects.count, by: batchSize) {
+                let endIndex = min(startIndex + batchSize, objects.count)
+                let chunk = Array(objects[startIndex..<endIndex])
+                self.logger.debug("Batch deleting \(chunk.count) items under \(folderPrefix, privacy: .public)")
 
-                try await self.deleteS3Item(item, withProgress: progress)
+                let deleteRequest = S3.DeleteObjectsRequest(
+                    bucket: s3Item.drive.syncAnchor.bucket.name,
+                    delete: S3.Delete(objects: chunk, quiet: true)
+                )
+
+                let response = try await self.s3.deleteObjects(deleteRequest)
+
+                let batchErrors = response.errors ?? []
+                let successCount = chunk.count - batchErrors.count
+                progress?.completedUnitCount += Int64(successCount)
+
+                if !batchErrors.isEmpty {
+                    totalFailures += batchErrors.count
+                    self.logger.error("Batch delete had \(batchErrors.count) failures under \(folderPrefix, privacy: .public)")
+                    for deleteError in batchErrors.prefix(5) {
+                        self.logger.error("  Failed to delete \(deleteError.key ?? "unknown", privacy: .public): \(deleteError.code ?? "unknown", privacy: .public)")
+                    }
+                }
             }
         } while continuationToken != nil
 
-        if items.isEmpty {
-            // Delete folder itself when no items are left
-            self.logger.debug("Deleting enclosing folder \(folderPrefix, privacy: .public)")
-            try await self.deleteS3Item(s3Item, withProgress: progress, force: true)
+        if totalFailures > 0 {
+            self.logger.error("Batch delete completed with \(totalFailures) total failures under \(folderPrefix, privacy: .public)")
         }
+
+        // Delete the folder key itself
+        self.logger.debug("Deleting enclosing folder \(folderPrefix, privacy: .public)")
+        try await self.deleteS3Item(s3Item, withProgress: progress, force: true)
     }
 
     /// Renames a remote S3Item
