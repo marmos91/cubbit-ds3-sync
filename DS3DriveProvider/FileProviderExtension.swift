@@ -193,6 +193,14 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             // NOTE: Trash disabled
             cb.handler(nil, NSFileProviderError(.noSuchItem))
             return Progress()
+        case .rootContainer:
+            let rootItem = S3Item(
+                identifier: identifier,
+                drive: drive,
+                objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
+            )
+            cb.handler(rootItem, nil)
+            return Progress()
         default:
             let progress = Progress(totalUnitCount: 1)
             let guard_ = OnceGuard()
