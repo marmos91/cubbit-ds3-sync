@@ -12,6 +12,25 @@
 		<string>com.apple.fileprovider-nonui</string>
 		<key>NSExtensionPrincipalClass</key>
 		<string>$(PRODUCT_MODULE_NAME).FileProviderExtension</string>
+		<key>NSExtensionFileProviderActions</key>
+		<array>
+			<dict>
+				<key>NSExtensionFileProviderActionIdentifier</key>
+				<string>io.cubbit.DS3Drive.DS3DriveProvider.action.copyS3URL</string>
+				<key>NSExtensionFileProviderActionName</key>
+				<string>Copy S3 URL</string>
+				<key>NSExtensionFileProviderActionActivationRule</key>
+				<string>TRUEPREDICATE</string>
+			</dict>
+			<dict>
+				<key>NSExtensionFileProviderActionIdentifier</key>
+				<string>io.cubbit.DS3Drive.DS3DriveProvider.action.evictItem</string>
+				<key>NSExtensionFileProviderActionName</key>
+				<string>Remove Download</string>
+				<key>NSExtensionFileProviderActionActivationRule</key>
+				<string>TRUEPREDICATE</string>
+			</dict>
+		</array>
 		<key>NSFileProviderDecorations</key>
 		<array>
 			<dict>

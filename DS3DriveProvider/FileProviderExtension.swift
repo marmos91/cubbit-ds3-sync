@@ -35,7 +35,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
     let logger: Logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.extension.rawValue)
 
-    private let domain: NSFileProviderDomain
+    let domain: NSFileProviderDomain
     private var enabled: Bool
 
     private var s3: S3?
@@ -44,7 +44,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     private var apiKeys: DS3ApiKey?
     private var endpoint: String?
     private var notificationManager: NotificationManager?
-    private var metadataStore: MetadataStore?
+    var metadataStore: MetadataStore?
     private var syncEngine: SyncEngine?
     private var networkMonitor: NetworkMonitor?
 
