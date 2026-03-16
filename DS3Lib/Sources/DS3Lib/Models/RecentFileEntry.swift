@@ -48,13 +48,25 @@ public struct RecentFileEntry: Identifiable, Sendable {
     /// When this transfer was recorded.
     public var timestamp: Date
 
+    /// Bytes transferred so far (cumulative). Used for progress percentage during syncing.
+    public var transferredBytes: Int64
+
+    /// Total file size in bytes (when known). Used for progress percentage calculation.
+    public var totalBytes: Int64?
+
+    /// Current transfer speed in bytes per second.
+    public var speed: Double?
+
     public init(
         id: UUID = UUID(),
         driveId: UUID,
         filename: String,
         size: Int64,
         status: TransferStatus,
-        timestamp: Date
+        timestamp: Date,
+        transferredBytes: Int64 = 0,
+        totalBytes: Int64? = nil,
+        speed: Double? = nil
     ) {
         self.id = id
         self.driveId = driveId
@@ -62,18 +74,38 @@ public struct RecentFileEntry: Identifiable, Sendable {
         self.size = size
         self.status = status
         self.timestamp = timestamp
+        self.transferredBytes = transferredBytes
+        self.totalBytes = totalBytes
+        self.speed = speed
     }
 
     /// Human-readable file size (e.g., "2.0 KB", "5.0 MB").
     public var displaySize: String {
+        Self.formatBytes(size)
+    }
+
+    /// Progress percentage (0–100) when totalBytes is known and currently syncing.
+    public var progressPercent: Int? {
+        guard let totalBytes, totalBytes > 0, status == .syncing else { return nil }
+        return min(100, Int((Double(transferredBytes) / Double(totalBytes)) * 100))
+    }
+
+    /// Human-readable transfer speed (e.g., "1.2 MB/s").
+    public var displaySpeed: String? {
+        guard let speed, speed > 0, status == .syncing else { return nil }
+        return "\(Self.formatBytes(Int64(speed)))/s"
+    }
+
+    /// Formats a byte count into a human-readable string.
+    private static func formatBytes(_ bytes: Int64) -> String {
         let kilobyte: Double = 1024
         let megabyte: Double = kilobyte * kilobyte
-        let doubleSize = Double(size)
+        let value = Double(bytes)
 
-        if doubleSize >= megabyte {
-            return String(format: "%.1f MB", doubleSize / megabyte)
+        if value >= megabyte {
+            return String(format: "%.1f MB", value / megabyte)
         } else {
-            return String(format: "%.1f KB", doubleSize / kilobyte)
+            return String(format: "%.1f KB", value / kilobyte)
         }
     }
 }

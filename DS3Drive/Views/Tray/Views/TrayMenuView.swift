@@ -172,10 +172,7 @@ struct TrayMenuView: View {
     private func showRecentFiles(forDriveId driveId: UUID) {
         guard let vm = driveViewModels.first(where: { $0.drive.id == driveId }) else { return }
         floatingPanelManager.show(.recentFiles(driveId: driveId)) {
-            RecentFilesPanel(
-                recentFiles: vm.recentFiles,
-                driveViewModel: vm
-            )
+            RecentFilesPanel(driveViewModel: vm)
         }
     }
 

@@ -11,7 +11,7 @@ public struct DriveTransferStats: Codable, Sendable {
     /// The drive ID that is performing the transfer
     public let driveId: UUID
 
-    /// The size of the file being transferred
+    /// The size of the chunk being transferred (cumulative bytes for streaming downloads)
     public let size: Int64
 
     /// The duration of the transfer so far
@@ -23,12 +23,16 @@ public struct DriveTransferStats: Codable, Sendable {
     /// The filename being transferred (optional for backward compatibility)
     public let filename: String?
 
-    public init(driveId: UUID, size: Int64, duration: TimeInterval, direction: TransferDirection, filename: String? = nil) {
+    /// The total file size in bytes (when known). Used for progress percentage calculation.
+    public let totalSize: Int64?
+
+    public init(driveId: UUID, size: Int64, duration: TimeInterval, direction: TransferDirection, filename: String? = nil, totalSize: Int64? = nil) {
         self.driveId = driveId
         self.size = size
         self.duration = duration
         self.direction = direction
         self.filename = filename
+        self.totalSize = totalSize
     }
 }
 

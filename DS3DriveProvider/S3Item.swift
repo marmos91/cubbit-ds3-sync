@@ -2,7 +2,6 @@ import Foundation
 import FileProvider
 import UniformTypeIdentifiers
 import DS3Lib
-import os.log
 
 class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unchecked Sendable {
     static let decorationPrefix = Bundle.main.bundleIdentifier!
@@ -26,8 +25,7 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     )
     
     let identifier: NSFileProviderItemIdentifier
-    
-    private let logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.sync.rawValue)
+
     private let separator = DefaultSettings.S3.delimiter
     
     let metadata: S3Item.Metadata
