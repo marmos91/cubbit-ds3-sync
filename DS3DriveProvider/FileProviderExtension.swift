@@ -4,6 +4,8 @@ import os.log
 import SotoS3
 import DS3Lib
 import SwiftData
+import ImageIO
+import UniformTypeIdentifiers
 
 /// Wraps a non-Sendable callback for safe use across Task boundaries.
 /// Apple's File Provider callbacks predate Swift concurrency and lack @Sendable annotations.
@@ -30,7 +32,7 @@ final class OnceGuard: @unchecked Sendable {
 }
 
 // swiftlint:disable:next type_body_length
-class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedExtension, @unchecked Sendable { /* TODO: handle thumbnails NSFileProviderThumbnailing (check FruitBasket project) */
+class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedExtension, NSFileProviderThumbnailing, @unchecked Sendable {
     typealias Logger = os.Logger
 
     let logger: Logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.extension.rawValue)
@@ -981,6 +983,102 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 metadataStore: self.metadataStore
             )
         }
+    }
+}
+
+// MARK: - Thumbnails
+
+extension FileProviderExtension {
+    func fetchThumbnails(
+        for itemIdentifiers: [NSFileProviderItemIdentifier],
+        requestedSize size: CGSize,
+        perThumbnailCompletionHandler: @escaping (NSFileProviderItemIdentifier, Data?, Error?) -> Void,
+        completionHandler: @escaping (Error?) -> Void
+    ) -> Progress {
+        let progress = Progress(totalUnitCount: Int64(itemIdentifiers.count))
+        let perCb = UnsafeCallback(perThumbnailCompletionHandler)
+        let cb = UnsafeCallback(completionHandler)
+
+        guard self.enabled else {
+            cb.handler(NSFileProviderError(.notAuthenticated) as NSError)
+            return progress
+        }
+
+        guard let drive = self.drive,
+              let s3Lib = self.s3Lib,
+              let temporaryDirectory = self.temporaryDirectory
+        else {
+            cb.handler(NSFileProviderError(.cannotSynchronize) as NSError)
+            return progress
+        }
+
+        let task = Task {
+            for identifier in itemIdentifiers {
+                guard !Task.isCancelled, !progress.isCancelled else { break }
+
+                do {
+                    let s3Item = try await self.withAPIKeyRecovery {
+                        try await s3Lib.remoteS3Item(for: identifier, drive: drive)
+                    }
+
+                    let fileExtension = (s3Item.filename as NSString).pathExtension
+                    guard let utType = UTType(filenameExtension: fileExtension),
+                          utType.conforms(to: .image) else {
+                        perCb.handler(identifier, nil, nil)
+                        progress.completedUnitCount += 1
+                        continue
+                    }
+
+                    let fileURL = try await self.withAPIKeyRecovery {
+                        try await s3Lib.getS3Item(
+                            s3Item,
+                            withTemporaryFolder: temporaryDirectory,
+                            withProgress: nil
+                        )
+                    }
+
+                    defer { try? FileManager.default.removeItem(at: fileURL) }
+
+                    let thumbnailData = Self.generateThumbnail(from: fileURL, fitting: size)
+                    perCb.handler(identifier, thumbnailData, nil)
+                } catch let s3Error as S3ErrorType {
+                    perCb.handler(identifier, nil, s3Error.toFileProviderError())
+                } catch {
+                    perCb.handler(identifier, nil, NSFileProviderError(.cannotSynchronize) as NSError)
+                }
+
+                progress.completedUnitCount += 1
+            }
+
+            cb.handler(nil)
+        }
+
+        progress.cancellationHandler = {
+            task.cancel()
+            cb.handler(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
+        }
+
+        return progress
+    }
+
+    /// Thread-safe thumbnail generation using ImageIO.
+    private static func generateThumbnail(from fileURL: URL, fitting maxSize: CGSize) -> Data? {
+        guard let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil) else { return nil }
+
+        let maxDimension = max(maxSize.width, maxSize.height)
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxDimension,
+            kCGImageSourceCreateThumbnailWithTransform: true
+        ]
+
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+
+        let data = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(data as CFMutableData, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(dest, cgImage, [kCGImageDestinationLossyCompressionQuality: 0.7] as CFDictionary)
+        guard CGImageDestinationFinalize(dest) else { return nil }
+        return data as Data
     }
 }
 
