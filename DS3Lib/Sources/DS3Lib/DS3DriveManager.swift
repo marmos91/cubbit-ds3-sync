@@ -25,7 +25,11 @@ public enum DS3DriveManagerError: Error {
         self.setupObserver()
 
         Task {
-            try await self.syncFileProvider()
+            do {
+                try await self.syncFileProvider()
+            } catch {
+                self.logger.error("Failed to sync file provider domains on startup: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
     
