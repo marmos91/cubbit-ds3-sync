@@ -252,11 +252,17 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             return Progress()
         }
 
-        // Folders (keys ending with /) have no downloadable content — return noSuchItem so
-        // the system treats the item as a directory and enumerates instead.
+        // Folders (keys ending with /) have no downloadable content.
+        // Return the folder metadata with nil URL so the system knows the item
+        // exists but has no content to download.
         if itemIdentifier.rawValue.hasSuffix(String(DefaultSettings.S3.delimiter)) {
             logger.debug("Skipping fetchContents for folder item: \(itemIdentifier.rawValue, privacy: .public)")
-            cb.handler(nil, nil, NSFileProviderError(.noSuchItem) as NSError)
+            let folderItem = S3Item(
+                identifier: itemIdentifier,
+                drive: drive,
+                objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
+            )
+            cb.handler(nil, folderItem, nil)
             return Progress()
         }
 
