@@ -998,6 +998,7 @@ extension FileProviderExtension {
         let progress = Progress(totalUnitCount: Int64(itemIdentifiers.count))
         let perCb = UnsafeCallback(perThumbnailCompletionHandler)
         let cb = UnsafeCallback(completionHandler)
+        let guard_ = OnceGuard()
 
         guard self.enabled else {
             cb.handler(NSFileProviderError(.notAuthenticated) as NSError)
@@ -1012,7 +1013,16 @@ extension FileProviderExtension {
             return progress
         }
 
+        self.logger.info("fetchThumbnails: starting for \(itemIdentifiers.count) items")
+
         let task = Task {
+            var downloadedFiles: [URL] = []
+            defer {
+                for file in downloadedFiles {
+                    try? FileManager.default.removeItem(at: file)
+                }
+            }
+
             for identifier in itemIdentifiers {
                 guard !Task.isCancelled, !progress.isCancelled else { break }
 
@@ -1037,24 +1047,29 @@ extension FileProviderExtension {
                         )
                     }
 
-                    defer { try? FileManager.default.removeItem(at: fileURL) }
+                    downloadedFiles.append(fileURL)
 
                     let thumbnailData = Self.generateThumbnail(from: fileURL, fitting: size)
                     perCb.handler(identifier, thumbnailData, nil)
+                    self.logger.debug("fetchThumbnails: generated thumbnail for \(identifier.rawValue, privacy: .public)")
                 } catch let s3Error as S3ErrorType {
+                    self.logger.error("fetchThumbnails: S3 error for \(identifier.rawValue, privacy: .public): \(s3Error.description, privacy: .public)")
                     perCb.handler(identifier, nil, s3Error.toFileProviderError())
                 } catch {
+                    self.logger.error("fetchThumbnails: error for \(identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     perCb.handler(identifier, nil, NSFileProviderError(.cannotSynchronize) as NSError)
                 }
 
                 progress.completedUnitCount += 1
             }
 
+            guard guard_.tryAcquire() else { return }
             cb.handler(nil)
         }
 
         progress.cancellationHandler = {
             task.cancel()
+            guard guard_.tryAcquire() else { return }
             cb.handler(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
         }
 
