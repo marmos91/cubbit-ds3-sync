@@ -230,7 +230,9 @@ struct DS3DriveApp: App {
         syncAnimationFrame = 0
         // Use .common mode so the timer fires even when the menu is open
         let timer = Timer(timeInterval: 0.5, repeats: true) { _ in
-            syncAnimationFrame += 1
+            DispatchQueue.main.async {
+                self.syncAnimationFrame += 1
+            }
         }
         RunLoop.main.add(timer, forMode: .common)
         syncAnimationTimer = timer
