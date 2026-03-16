@@ -361,21 +361,6 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
         self.logger.debug("Starting upload for item \(itemTemplate.itemIdentifier.rawValue, privacy: .public)")
 
-        if options.contains(.mayAlreadyExist) {
-            // TODO: Handle create with overwrite
-            self.logger.warning("Skipping upload for item \(itemTemplate.itemIdentifier.rawValue, privacy: .public)")
-            cb.handler(itemTemplate, NSFileProviderItemFields(), false, NSFileProviderError(.noSuchItem))
-            return Progress()
-        }
-
-        // TODO: Further improve this
-        // TODO: Handle symlinks and aliasFiles (check FruitBasket)
-        // Symlinks store their payload in the symlinkTargetPath property of
-        // the item. Upload them as item data here (even though they are more
-        // similar to an item property), so the server reports them
-        // as part of the userInfo on the way back. See DomainService.Entry's
-        // database initializer.
-
         guard itemTemplate.contentType != .symbolicLink else {
             self.logger.warning("Skipping symbolic link \(itemTemplate.itemIdentifier.rawValue, privacy: .public) upload. Feature not supported")
             cb.handler(itemTemplate, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [:]))
@@ -383,6 +368,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         }
 
         let parentIdentifier = itemTemplate.parentItemIdentifier == .rootContainer ? "" : itemTemplate.parentItemIdentifier.rawValue
+        let parentKey: String? = parentIdentifier.isEmpty ? nil : parentIdentifier
 
         var key = parentIdentifier + itemTemplate.filename
 
@@ -418,6 +404,87 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         progress.addChild(uploadProgress, withPendingUnitCount: numParts)
         let once = OnceGuard()
 
+        // Item may already exist on the server (e.g., after domain reimport). Check via HEAD first.
+        if options.contains(.mayAlreadyExist) {
+            self.logger.debug("createItem with .mayAlreadyExist for key \(key, privacy: .public)")
+
+            let task = Task {
+                do {
+                    let existingItem = try await s3Lib.remoteS3Item(
+                        for: s3Item.itemIdentifier, drive: drive
+                    )
+
+                    try? await self.metadataStore?.upsertItem(
+                        s3Key: key,
+                        driveId: drive.id,
+                        etag: existingItem.metadata.etag,
+                        lastModified: existingItem.metadata.lastModified,
+                        syncStatus: .synced,
+                        parentKey: parentKey,
+                        contentType: existingItem.contentType == .folder ? "folder" : nil,
+                        size: Int64(truncating: existingItem.metadata.size)
+                    )
+
+                    progress.completedUnitCount = numParts
+                    guard once.tryCall() else { return }
+                    cb.handler(existingItem, NSFileProviderItemFields(), false, nil)
+                } catch let s3Error as S3ErrorType where s3Error.errorCode == "NotFound" || s3Error.errorCode == "NoSuchKey" {
+                    // Item doesn't exist remotely — proceed with normal upload
+                    self.logger.debug("Item not found remotely (.mayAlreadyExist), proceeding with upload")
+                    do {
+                        nm.sendDriveChangedNotification(status: .sync)
+                        let createETag = try await self.withAPIKeyRecovery {
+                            try await s3Lib.putS3Item(s3Item, fileURL: url, withProgress: progress)
+                        }
+
+                        try? await self.metadataStore?.upsertItem(
+                            s3Key: key,
+                            driveId: drive.id,
+                            etag: ETagUtils.normalize(createETag),
+                            lastModified: Date(),
+                            syncStatus: .synced,
+                            parentKey: parentKey,
+                            contentType: s3Item.contentType == .folder ? "folder" : nil,
+                            size: Int64(itemSize)
+                        )
+
+                        progress.completedUnitCount = numParts
+                        nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                        self.signalChanges()
+                        guard once.tryCall() else { return }
+                        cb.handler(s3Item, NSFileProviderItemFields(), false, nil)
+                    } catch let s3Error as S3ErrorType {
+                        nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                        guard once.tryCall() else { return }
+                        cb.handler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
+                    } catch {
+                        nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                        guard once.tryCall() else { return }
+                        cb.handler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
+                    }
+                } catch let s3Error as S3ErrorType {
+                    self.logger.error("HEAD failed for .mayAlreadyExist check: \(s3Error.errorCode, privacy: .public)")
+                    nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                    guard once.tryCall() else { return }
+                    cb.handler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
+                } catch {
+                    // Network/unknown error — return transient error for retry
+                    self.logger.error("HEAD failed for .mayAlreadyExist check: \(error)")
+                    nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                    guard once.tryCall() else { return }
+                    cb.handler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.serverUnreachable) as NSError)
+                }
+            }
+
+            progress.cancellationHandler = {
+                task.cancel()
+                guard once.tryCall() else { return }
+                cb.handler(nil, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
+            }
+
+            return progress
+        }
+
         let task = Task {
             do {
                 nm.sendDriveChangedNotification(status: .sync)
@@ -436,7 +503,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                             for: s3Item,
                             fileURL: url,
                             drive: drive,
-                            parentKey: parentIdentifier.isEmpty ? nil : parentIdentifier,
+                            parentKey: parentKey,
                             size: Int64(itemSize),
                             progress: uploadProgress
                         )
@@ -468,7 +535,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                     etag: ETagUtils.normalize(createETag),
                     lastModified: Date(),
                     syncStatus: .synced,
-                    parentKey: parentIdentifier.isEmpty ? nil : parentIdentifier,
+                    parentKey: parentKey,
                     contentType: s3Item.contentType == .folder ? "folder" : nil,
                     size: Int64(itemSize)
                 )
