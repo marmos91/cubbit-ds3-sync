@@ -41,13 +41,11 @@ extension FileProviderExtension: NSFileProviderCustomAction {
             let urls = validIdentifiers.map { "s3://\(bucket)/\($0.rawValue)" }
             let joined = urls.joined(separator: "\n")
 
-            DispatchQueue.main.async { [self] in
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(joined, forType: .string)
-                self.logger.info("Copied \(urls.count) S3 URL(s) to clipboard")
-                progress.completedUnitCount = Int64(itemIdentifiers.count)
-                cb.handler(nil)
-            }
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(joined, forType: .string)
+            self.logger.info("Copied \(urls.count) S3 URL(s) to clipboard")
+            progress.completedUnitCount = Int64(itemIdentifiers.count)
+            cb.handler(nil)
 
         case CustomActionIdentifier.evictItem:
             guard let manager = NSFileProviderManager(for: self.domain) else {
