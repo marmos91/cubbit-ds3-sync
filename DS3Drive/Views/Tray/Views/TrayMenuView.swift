@@ -267,6 +267,8 @@ struct TrayMenuView: View {
 
     @MainActor
     private func signOut() async {
+        floatingPanelManager.dismiss()
+
         do {
             for drive in ds3DriveManager.drives {
                 try await ds3DriveManager.disconnect(driveWithId: drive.id)
