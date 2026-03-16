@@ -325,10 +325,21 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         withProgress progress: Progress? = nil
     ) async throws -> S3Item {
         self.logger.debug("Moving \(s3Item.itemIdentifier.rawValue, privacy: .public) to \(key, privacy: .public)")
-        
+
+
         try await self.copyS3Item(s3Item, toKey: key, withProgress: progress)
-        try await self.deleteS3Item(s3Item, withProgress: progress)
-        
+
+        // Delete the source. If another client already deleted it (NoSuchKey),
+        // the copy succeeded so we treat it as a successful move.
+        do {
+            try await self.deleteS3Item(s3Item, withProgress: progress)
+        } catch let error as S3ErrorType where error.errorCode == "NoSuchKey" || error.errorCode == "NotFound" {
+            self.logger.info("Source already deleted during move (\(error.errorCode, privacy: .public)) — treating as success")
+        } catch {
+            self.logger.error("Failed to delete source after copy during move: \(error)")
+            throw error
+        }
+
         return S3Item(
             identifier: NSFileProviderItemIdentifier(key),
             drive: s3Item.drive,
