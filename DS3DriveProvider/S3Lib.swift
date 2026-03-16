@@ -14,10 +14,12 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     private let notificationManager: NotificationManager
     private let s3: S3
     internal let isShutdown = ManagedAtomic(false) // <Bool>.makeAtomic(value: false)
-    
-    init(withS3 s3: S3, withNotificationManager notificationManager: NotificationManager) {
+    let pendingUploadStore: PendingUploadStore
+
+    init(withS3 s3: S3, withNotificationManager notificationManager: NotificationManager, pendingUploadStore: PendingUploadStore = PendingUploadStore()) {
         self.s3 = s3
         self.notificationManager = notificationManager
+        self.pendingUploadStore = pendingUploadStore
     }
 
     /// Safely decode S3 URL-encoded keys.
@@ -677,6 +679,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     ///   - fileURL: the optional fileURL to use for the upload (folders don't require a fileURL)
     ///   - progress: the optional progress to use for the upload
     @Sendable
+    // swiftlint:disable:next function_body_length
     private func putS3ItemMultipart(
         _ s3Item: S3Item,
         fileURL: URL? = nil,
@@ -687,19 +690,39 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         }
 
         let key = try decodedKey(s3Item.itemIdentifier.rawValue)
+        let bucket = s3Item.drive.syncAnchor.bucket.name
+        let driveId = s3Item.drive.id
 
-        let createMultipartRequest = S3.CreateMultipartUploadRequest(
-            bucket: s3Item.drive.syncAnchor.bucket.name,
-            key: key
-        )
+        let pending = await pendingUploadStore.pendingUpload(forKey: key)
+        let uploadId: String
+        var alreadyCompletedParts: [S3.CompletedPart] = []
 
-        self.logger.debug("Creating multipart upload for key \(key, privacy: .public)")
-
-        let createMultipartResponse = try await self.s3.createMultipartUpload(createMultipartRequest)
-
-        guard let uploadId = createMultipartResponse.uploadId else {
-            throw FileProviderExtensionError.parseError
+        if let pending, pending.bucket == bucket {
+            self.logger.info("Resuming multipart upload \(pending.uploadId, privacy: .public) for key \(key, privacy: .public)")
+            uploadId = pending.uploadId
+            alreadyCompletedParts = pending.completedPartETags.map { partNumber, etag in
+                S3.CompletedPart(eTag: etag, partNumber: partNumber)
+            }
+        } else {
+            let createRequest = S3.CreateMultipartUploadRequest(bucket: bucket, key: key)
+            self.logger.debug("Creating multipart upload for key \(key, privacy: .public)")
+            let createResponse = try await self.s3.createMultipartUpload(createRequest)
+            guard let newUploadId = createResponse.uploadId else {
+                throw FileProviderExtensionError.parseError
+            }
+            uploadId = newUploadId
+            await pendingUploadStore.register(uploadId: uploadId, bucket: bucket, key: key, driveId: driveId)
         }
+
+        let completedPartNumbers = Set(alreadyCompletedParts.compactMap(\.partNumber))
+
+        let context = MultipartUploadContext(
+            bucket: bucket,
+            key: key,
+            uploadId: uploadId,
+            driveId: driveId,
+            filename: s3Item.filename
+        )
 
         do {
             let partSize = DefaultSettings.S3.multipartUploadPartSize
@@ -712,23 +735,18 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 throw FileProviderExtensionError.parseError
             }
 
-            let parts = stride(from: 0, to: totalSize, by: partSize).enumerated().map { index, offset in
+            let allParts = stride(from: 0, to: totalSize, by: partSize).enumerated().map { index, offset in
                 PartDescriptor(partNumber: index + 1, offset: offset, length: min(partSize, totalSize - offset))
             }
 
-            let context = MultipartUploadContext(
-                bucket: s3Item.drive.syncAnchor.bucket.name,
-                key: key,
-                uploadId: uploadId,
-                driveId: s3Item.drive.id,
-                filename: s3Item.filename
-            )
+            let remainingParts = allParts.filter { !completedPartNumbers.contains($0.partNumber) }
+            progress?.completedUnitCount += Int64(alreadyCompletedParts.count)
 
             let maxConcurrency = DefaultSettings.S3.multipartUploadConcurrency
 
-            let completedParts: [S3.CompletedPart] = try await withThrowingTaskGroup(of: S3.CompletedPart.self) { group in
+            let newParts: [S3.CompletedPart] = try await withThrowingTaskGroup(of: S3.CompletedPart.self) { group in
                 var results: [S3.CompletedPart] = []
-                var partIterator = parts.makeIterator()
+                var partIterator = remainingParts.makeIterator()
 
                 func enqueueNext() {
                     guard let part = partIterator.next() else { return }
@@ -738,36 +756,45 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                     }
                 }
 
-                for _ in 0..<min(maxConcurrency, parts.count) {
+                for _ in 0..<min(maxConcurrency, remainingParts.count) {
                     enqueueNext()
                 }
 
                 for try await completedPart in group {
                     results.append(completedPart)
                     progress?.completedUnitCount += 1
+
+                    if let pn = completedPart.partNumber, let etag = completedPart.eTag {
+                        await self.pendingUploadStore.markPartCompleted(key: key, partNumber: pn, etag: etag)
+                    }
+
                     enqueueNext()
                 }
 
-                return results.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
+                return results
             }
+
+            let completedParts = (alreadyCompletedParts + newParts).sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
 
             self.logger.debug("Completing multipart upload for \(key, privacy: .public) with \(completedParts.count) parts")
 
-            let completeMultipartRequest = S3.CompleteMultipartUploadRequest(
+            let completeRequest = S3.CompleteMultipartUploadRequest(
                 bucket: context.bucket,
                 key: key,
                 multipartUpload: S3.CompletedMultipartUpload(parts: completedParts),
                 uploadId: uploadId
             )
 
-            let completeResponse = try await self.s3.completeMultipartUpload(completeMultipartRequest)
+            let completeResponse = try await self.s3.completeMultipartUpload(completeRequest)
 
             guard let eTag = completeResponse.eTag, !eTag.isEmpty else {
                 self.logger.error("CompleteMultipartUpload returned no ETag for key \(key, privacy: .public)")
                 try await self.abortS3MultipartUpload(for: s3Item, withUploadId: uploadId)
+                await pendingUploadStore.remove(forKey: key)
                 throw FileProviderExtensionError.uploadValidationFailed
             }
 
+            await pendingUploadStore.remove(forKey: key)
             self.logger.info("Multipart upload complete for key \(key, privacy: .public) with ETag \(eTag, privacy: .public)")
 
             return eTag
@@ -778,6 +805,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             } catch {
                 self.logger.warning("Failed to abort multipart upload \(uploadId, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
+            await pendingUploadStore.remove(forKey: key)
             throw error
         }
     }
