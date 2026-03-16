@@ -189,20 +189,20 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             Task {
                 do {
                     let metadata = try await s3Lib.remoteS3Item(for: identifier, drive: drive)
-                    guard guard_.tryAcquire() else { return }
+                    guard guard_.tryCall() else { return }
                     cb.handler(metadata, nil)
                 } catch let s3Error as S3ErrorType {
-                    guard guard_.tryAcquire() else { return }
+                    guard guard_.tryCall() else { return }
                     cb.handler(nil, s3Error.toFileProviderError())
                 } catch {
-                    guard guard_.tryAcquire() else { return }
+                    guard guard_.tryCall() else { return }
                     cb.handler(nil, NSFileProviderError(.cannotSynchronize) as NSError)
                 }
                 progress.completedUnitCount = 1
             }
 
             progress.cancellationHandler = {
-                guard guard_.tryAcquire() else { return }
+                guard guard_.tryCall() else { return }
                 cb.handler(nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
             }
 
@@ -277,17 +277,17 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 try? await metadataStore?.setMaterialized(s3Key: itemIdentifier.rawValue, driveId: drive.id, isMaterialized: true)
 
                 nm.sendDriveChangedNotificationWithDebounce(status: .idle)
-                guard guard_.tryAcquire() else { return }
+                guard guard_.tryCall() else { return }
                 cb.handler(fileURL, s3Item, nil)
             } catch let s3Error as S3ErrorType {
                 self.logger.error("Download failed with S3 error \(s3Error.errorCode, privacy: .public)")
                 nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                guard guard_.tryAcquire() else { return }
+                guard guard_.tryCall() else { return }
                 cb.handler(nil, nil, s3Error.toFileProviderError())
             } catch {
                 self.logger.error("Download failed for \(itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                guard guard_.tryAcquire() else { return }
+                guard guard_.tryCall() else { return }
                 cb.handler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
             }
 
@@ -295,7 +295,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         }
 
         progress.cancellationHandler = {
-            guard guard_.tryAcquire() else { return }
+            guard guard_.tryCall() else { return }
             cb.handler(nil, nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
         }
 
