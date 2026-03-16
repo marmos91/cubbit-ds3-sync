@@ -223,6 +223,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     ) async throws {
         var continuationToken: String?
         let folderPrefix = try decodedKey(s3Item.itemIdentifier.rawValue)
+        var totalFailures = 0
 
         repeat {
             let (items, nextToken) = try await self.listS3Items(
@@ -237,11 +238,12 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 break
             }
 
-            let objects = try items.map { S3.ObjectIdentifier(key: try decodedKey($0.identifier.rawValue)) }
-            let maxKeysPerRequest = 1000
+            // Keys from listS3Items are already percent-decoded — use directly
+            let objects = items.map { S3.ObjectIdentifier(key: $0.identifier.rawValue) }
+            let batchSize = DefaultSettings.S3.deleteBatchSize
 
-            for startIndex in stride(from: 0, to: objects.count, by: maxKeysPerRequest) {
-                let endIndex = min(startIndex + maxKeysPerRequest, objects.count)
+            for startIndex in stride(from: 0, to: objects.count, by: batchSize) {
+                let endIndex = min(startIndex + batchSize, objects.count)
                 let chunk = Array(objects[startIndex..<endIndex])
                 self.logger.debug("Batch deleting \(chunk.count) items under \(folderPrefix, privacy: .public)")
 
@@ -252,15 +254,23 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
 
                 let response = try await self.s3.deleteObjects(deleteRequest)
 
-                if let errors = response.errors, !errors.isEmpty {
-                    self.logger.error("Batch delete had \(errors.count) failures under \(folderPrefix, privacy: .public)")
-                    for deleteError in errors.prefix(5) {
+                let batchErrors = response.errors ?? []
+                let successCount = chunk.count - batchErrors.count
+                progress?.completedUnitCount += Int64(successCount)
+
+                if !batchErrors.isEmpty {
+                    totalFailures += batchErrors.count
+                    self.logger.error("Batch delete had \(batchErrors.count) failures under \(folderPrefix, privacy: .public)")
+                    for deleteError in batchErrors.prefix(5) {
                         self.logger.error("  Failed to delete \(deleteError.key ?? "unknown", privacy: .public): \(deleteError.code ?? "unknown", privacy: .public)")
                     }
-                    throw NSFileProviderError(.cannotSynchronize) as NSError
                 }
             }
         } while continuationToken != nil
+
+        if totalFailures > 0 {
+            self.logger.error("Batch delete completed with \(totalFailures) total failures under \(folderPrefix, privacy: .public)")
+        }
 
         // Delete the folder key itself
         self.logger.debug("Deleting enclosing folder \(folderPrefix, privacy: .public)")

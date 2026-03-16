@@ -138,6 +138,9 @@ public enum DefaultSettings {
         /// Multipart upload threshold to use multipart upload in bytes.
         public static let multipartThreshold = 5 * 1024 * 1024 // 5 MB
 
+        /// Max number of keys per S3 DeleteObjects request (hard AWS limit).
+        public static let deleteBatchSize = 1000
+
         /// Timeout set for the S3 requests in seconds.
         public static let timeoutInSeconds: Int64 = 5 * 60 // 5 minutes
 
