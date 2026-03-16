@@ -15,6 +15,11 @@ final class NotificationManager: Sendable {
     nonisolated(unsafe) private var _pendingTransferStats: DriveTransferStats?
     nonisolated(unsafe) private var _transferThrottleWorkItem: DispatchWorkItem?
 
+    /// Tracks the number of in-flight file operations (fetch, create, modify, delete).
+    /// Each immediate `.sync` increments; each debounced `.idle`/`.error` decrements.
+    /// Idle transitions are suppressed while > 0, preventing rapid sync↔idle flashing.
+    nonisolated(unsafe) private var _activeOperations: Int = 0
+
     init(drive: DS3Drive) {
         self.drive = drive
         self._driveStatus = .idle
@@ -24,10 +29,24 @@ final class NotificationManager: Sendable {
     /// - Parameter status: status to send
     func sendDriveChangedNotificationWithDebounce(status: DS3DriveStatus) {
         queue.async {
+            // Decrement active operation count when a file op completes.
+            // Only if there are tracked operations (matching a prior immediate .sync).
+            if self._activeOperations > 0 && (status == .idle || status == .error) {
+                self._activeOperations -= 1
+            }
+
+            // While file operations are still active, suppress idle/error debounce
+            // so the status stays on .sync until all operations finish.
+            guard self._activeOperations == 0 else {
+                self._debounceWorkItem?.cancel()
+                self._debounceWorkItem = nil
+                return
+            }
+
             self._debounceWorkItem?.cancel()
 
             let workItem = DispatchWorkItem { [weak self] in
-                self?.sendDriveChangedNotification(status: status)
+                self?._sendStatusNotification(status: status)
             }
 
             self._debounceWorkItem = workItem
@@ -48,26 +67,39 @@ final class NotificationManager: Sendable {
             self._debounceWorkItem?.cancel()
             self._debounceWorkItem = nil
 
-            guard status != self._driveStatus else { return }
+            // Track file operations: each immediate .sync increments the counter
+            if status == .sync {
+                self._activeOperations += 1
+            }
 
-            self._driveStatus = status
+            // Suppress idle while file operations are still active
+            if status == .idle && self._activeOperations > 0 { return }
 
-            let driveStatusChange = DS3DriveStatusChange(
-                driveId: self.drive.id,
-                status: self._driveStatus
-            )
-
-            guard
-                let encodedDriveStatusData = try? JSONEncoder().encode(driveStatusChange),
-                let encodedDriveStatusString = String(data: encodedDriveStatusData, encoding: .utf8)
-            else { return }
-
-            DistributedNotificationCenter
-                .default()
-                .post(
-                    Notification(name: .driveStatusChanged, object: encodedDriveStatusString)
-                )
+            self._sendStatusNotification(status: status)
         }
+    }
+
+    /// Posts the status change notification if the status actually changed.
+    private func _sendStatusNotification(status: DS3DriveStatus) {
+        guard status != self._driveStatus else { return }
+
+        self._driveStatus = status
+
+        let driveStatusChange = DS3DriveStatusChange(
+            driveId: self.drive.id,
+            status: self._driveStatus
+        )
+
+        guard
+            let encodedDriveStatusData = try? JSONEncoder().encode(driveStatusChange),
+            let encodedDriveStatusString = String(data: encodedDriveStatusData, encoding: .utf8)
+        else { return }
+
+        DistributedNotificationCenter
+            .default()
+            .post(
+                Notification(name: .driveStatusChanged, object: encodedDriveStatusString)
+            )
     }
 
     func sendTransferSpeedNotification(_ transferSpeed: DriveTransferStats) {

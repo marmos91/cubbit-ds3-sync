@@ -16,6 +16,10 @@ import DS3Lib
     var totalTransferDuration: TimeInterval = 0
     var transferStatsResetTimer: Timer?
 
+    /// Debounces idle transitions to prevent the tray icon from flashing
+    /// between sync and idle during parallel file operations.
+    private var idleDebounceTimer: Timer?
+
     /// Tracks the last reported cumulative size per filename to compute deltas
     private var lastReportedSize: [String: Int64] = [:]
 
@@ -39,6 +43,7 @@ import DS3Lib
     
     deinit {
         transferStatsResetTimer?.invalidate()
+        idleDebounceTimer?.invalidate()
         DistributedNotificationCenter
             .default()
             .removeObserver(self)
@@ -113,10 +118,20 @@ import DS3Lib
             self.totalTransferDuration = 0
             self.driveStats.currentSpeedBs = nil
             self.driveStats.lastUpdate = Date()
+
+            // Safety net: mark any remaining syncing entries as completed.
+            // The sync→idle transition may have fired while files were still
+            // transferring, leaving them stuck as .syncing in the tray.
+            for entry in self.recentFilesTracker.entries(forDrive: self.drive.id) where entry.status == .syncing {
+                self.recentFilesTracker.update(filename: entry.filename, driveId: self.drive.id, status: .completed)
+            }
+            self.refreshRecentFiles()
         }
     }
     
-    /// Updates drive status when it receives a notification from the extension
+    /// Updates drive status when it receives a notification from the extension.
+    /// Idle transitions are debounced by 2s to prevent the tray icon from
+    /// flashing between sync and idle during parallel file operations.
     /// - Parameter notification: the notification
     @objc @MainActor
     private func driveStatusChanged(_ notification: Notification) {
@@ -125,16 +140,32 @@ import DS3Lib
             let updateDriveStatusNotification = try? JSONDecoder().decode(DS3DriveStatusChange.self, from: Data(stringDrive.utf8)),
             updateDriveStatusNotification.driveId == self.drive.id // Only update if the notification is for this drive
         else { return }
-        
-        let previousStatus = self.driveStatus
-        self.driveStatus = updateDriveStatusNotification.status
 
-        // When transitioning from sync to idle, mark all syncing entries as completed
-        if previousStatus == .sync && updateDriveStatusNotification.status == .idle {
-            for entry in self.recentFilesTracker.entries(forDrive: self.drive.id) where entry.status == .syncing {
-                self.recentFilesTracker.update(filename: entry.filename, driveId: self.drive.id, status: .completed)
+        let newStatus = updateDriveStatusNotification.status
+
+        // Always cancel any pending idle transition
+        self.idleDebounceTimer?.invalidate()
+        self.idleDebounceTimer = nil
+
+        if newStatus == .idle {
+            // Debounce idle: wait 2s before applying so a new .sync arriving
+            // in the window cancels this transition, preventing icon flashing.
+            self.idleDebounceTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+                guard let self else { return }
+                let previousStatus = self.driveStatus
+                self.driveStatus = .idle
+
+                // When transitioning from sync to idle, mark all syncing entries as completed
+                if previousStatus == .sync {
+                    for entry in self.recentFilesTracker.entries(forDrive: self.drive.id) where entry.status == .syncing {
+                        self.recentFilesTracker.update(filename: entry.filename, driveId: self.drive.id, status: .completed)
+                    }
+                    self.refreshRecentFiles()
+                }
             }
-            self.refreshRecentFiles()
+        } else {
+            // Apply non-idle statuses (sync, indexing, error, paused) immediately
+            self.driveStatus = newStatus
         }
     }
 

@@ -35,9 +35,11 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         return decoded
     }
 
-    /// Safely decode percent encoding, throwing parseError if decoding fails
+    /// Returns the S3 key as-is. Item identifiers already contain decoded S3 keys
+    /// (decoded during listS3Items). Applying decodeS3Key again would corrupt
+    /// literal + characters in filenames (e.g., "Redditi + IRAP").
     private func decodedKey(_ key: String) throws -> String {
-        return try Self.decodeS3Key(key)
+        return key
     }
     
     func shutdown() throws {

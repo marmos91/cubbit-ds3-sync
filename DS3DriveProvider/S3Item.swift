@@ -55,7 +55,7 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     ) {
         self.identifier = item.itemIdentifier
         self.drive = drive
-        self.isPinned = false
+        self.isPinned = item.contentPolicy == .downloadEagerlyAndKeepDownloaded
         self.metadata = S3Item.Metadata(
             lastModified: item.contentModificationDate as? Date,
             size: (item.documentSize ?? 0) ?? 0
@@ -117,7 +117,7 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     }
     
     var contentPolicy: NSFileProviderContentPolicy {
-        isPinned ? .downloadEagerlyAndKeepDownloaded : .downloadLazily
+        isPinned ? .downloadEagerlyAndKeepDownloaded : .inherited
     }
     
     var capabilities: NSFileProviderItemCapabilities {

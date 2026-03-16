@@ -21,6 +21,10 @@ public enum DS3DriveManagerError: Error {
     /// The set of currently syncing drive IDs
     public var syncingDrives: Set<UUID> = []
 
+    /// Per-drive timers to debounce idle transitions and prevent the menu bar icon from flashing.
+    @ObservationIgnored
+    private var idleDebounceTimers: [UUID: Timer] = [:]
+
     public init(appStatusManager: AppStatusManager) {
         self.setupObserver()
 
@@ -34,6 +38,7 @@ public enum DS3DriveManagerError: Error {
     }
     
     deinit {
+        for timer in idleDebounceTimers.values { timer.invalidate() }
         DistributedNotificationCenter
             .default()
             .removeObserver(self)
@@ -51,6 +56,8 @@ public enum DS3DriveManagerError: Error {
     }
     
     /// Gets fired when the drive status changes.
+    /// Idle transitions are debounced by 2s per drive to prevent the menu bar
+    /// icon from flashing between syncing and idle during parallel file operations.
     /// - Parameter notification: the notification received from the extension
     @objc @MainActor
     private func driveStatusChanged(_ notification: Notification) {
@@ -58,15 +65,26 @@ public enum DS3DriveManagerError: Error {
             let stringDrive = notification.object as? String,
             let updateDriveStatusNotification = try? JSONDecoder().decode(DS3DriveStatusChange.self, from: Data(stringDrive.utf8))
         else { return }
-        
+
+        let driveId = updateDriveStatusNotification.driveId
+
+        // Cancel any pending idle timer for this drive
+        self.idleDebounceTimers[driveId]?.invalidate()
+        self.idleDebounceTimers[driveId] = nil
+
         switch updateDriveStatusNotification.status {
         case .sync, .indexing:
-            self.syncingDrives.insert(updateDriveStatusNotification.driveId)
+            self.syncingDrives.insert(driveId)
+            AppStatusManager.default().status = .syncing
         default:
-            self.syncingDrives.remove(updateDriveStatusNotification.driveId)
+            // Debounce removal: wait 2s before marking this drive as idle
+            self.idleDebounceTimers[driveId] = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+                guard let self else { return }
+                self.syncingDrives.remove(driveId)
+                self.idleDebounceTimers.removeValue(forKey: driveId)
+                AppStatusManager.default().status = self.syncingDrives.isEmpty ? .idle : .syncing
+            }
         }
-        
-        AppStatusManager.default().status = self.syncingDrives.isEmpty ? .idle : .syncing
     }
     
     /// Returns a stored DS3Drive with the given id, if any

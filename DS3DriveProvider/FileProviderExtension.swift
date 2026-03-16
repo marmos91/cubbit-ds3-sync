@@ -289,18 +289,9 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             return Progress()
         }
 
-        // Folders (keys ending with /) have no downloadable content.
-        // Return the folder metadata with nil URL so the system knows the item
-        // exists but has no content to download.
+        // Folders have no downloadable content — materialise with an empty file.
         if itemIdentifier.rawValue.hasSuffix(String(DefaultSettings.S3.delimiter)) {
-            logger.debug("Skipping fetchContents for folder item: \(itemIdentifier.rawValue, privacy: .public)")
-            let folderItem = S3Item(
-                identifier: itemIdentifier,
-                drive: drive,
-                objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
-            )
-            cb.handler(nil, folderItem, nil)
-            return Progress()
+            return materializeFolderItem(itemIdentifier, drive: drive, temporaryDirectory: temporaryDirectory, cb: cb)
         }
 
         let progress = Progress(totalUnitCount: 100)
@@ -312,21 +303,22 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 nm.sendDriveChangedNotification(status: .sync)
 
                 let (fileURL, s3Item) = try await self.withAPIKeyRecovery {
-                    let s3Item = try await self.s3Lib!.remoteS3Item(
-                        for: itemIdentifier,
-                        drive: drive
-                    )
+                    // Retry the entire fetch (HEAD + GET) so transient HTTP/2
+                    // errors (StreamClosed) are recovered automatically.
+                    try await withExponentialBackoff(maxRetries: 3, baseDelay: 1.0) {
+                        let s3Item = try await self.s3Lib!.remoteS3Item(
+                            for: itemIdentifier,
+                            drive: drive
+                        )
 
-                    // Download with exponential backoff retry
-                    let fileURL = try await withExponentialBackoff(maxRetries: 3, baseDelay: 1.0) {
-                        try await self.s3Lib!.getS3Item(
+                        let fileURL = try await self.s3Lib!.getS3Item(
                             s3Item,
                             withTemporaryFolder: temporaryDirectory,
                             withProgress: progress
                         )
-                    }
 
-                    return (fileURL, s3Item)
+                        return (fileURL, s3Item)
+                    }
                 }
 
                 self.logger.info("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize ?? 0, privacy: .public) downloaded successfully")
@@ -338,7 +330,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 guard once.tryCall() else { return }
                 cb.handler(fileURL, s3Item, nil)
             } catch let s3Error as S3ErrorType {
-                self.logger.error("Download failed with S3 error \(s3Error.errorCode, privacy: .public)")
+                self.logger.error("Download failed for \(itemIdentifier.rawValue, privacy: .public) with S3 error \(s3Error.errorCode, privacy: .public)")
                 nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 guard once.tryCall() else { return }
                 cb.handler(nil, nil, s3Error.toFileProviderError())
@@ -1112,6 +1104,31 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         nm.sendConflictNotification(filename: s3Item.filename, conflictKey: conflictKey)
 
         return conflictS3Item
+    }
+
+    /// Materialises a folder item by providing an empty temp file and marking it in MetadataStore.
+    private func materializeFolderItem(
+        _ itemIdentifier: NSFileProviderItemIdentifier,
+        drive: DS3Drive,
+        temporaryDirectory: URL,
+        cb: UnsafeCallback<(URL?, NSFileProviderItem?, Error?) -> Void>
+    ) -> Progress {
+        logger.debug("Materializing folder item: \(itemIdentifier.rawValue, privacy: .public)")
+        let folderItem = S3Item(
+            identifier: itemIdentifier,
+            drive: drive,
+            objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
+        )
+        do {
+            let emptyFileURL = temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try Data().write(to: emptyFileURL)
+            cb.handler(emptyFileURL, folderItem, nil)
+            let store = self.metadataStore
+            Task { try? await store?.setMaterialized(s3Key: itemIdentifier.rawValue, driveId: drive.id, isMaterialized: true) }
+        } catch {
+            cb.handler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
+        }
+        return Progress()
     }
 
     /// Signals the system to re-enumerate changes after a local CRUD operation.
