@@ -55,6 +55,14 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     private var networkMonitor: NetworkMonitor?
     private var pollingTask: Task<Void, Never>?
 
+    /// Limits concurrent fetchContents/fetchPartialContents calls to prevent
+    /// HTTP/2 stream exhaustion (NIOHTTP2.StreamClosed errors).
+    private let fetchSemaphore = AsyncSemaphore(value: 20)
+
+    /// Tracks folder prefixes with an active recursive enumeration to avoid duplicates.
+    private var activeRecursiveEnumerations = Set<String>()
+    private let enumerationLock = NSLock()
+
     var drive: DS3Drive?
     let temporaryDirectory: URL?
     private let hostname: String
@@ -171,7 +179,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     // Note: gets called when the extension wants to retrieve metadata for a specific item
     func item(
         for identifier: NSFileProviderItemIdentifier,
-        request: NSFileProviderRequest, // can be used to detect who made the request (finder, spotlight, etc) and act accordingly
+        request: NSFileProviderRequest,
         completionHandler: @escaping (NSFileProviderItem?, Error?) -> Void
     ) -> Progress {
         let cb = UnsafeCallback(completionHandler)
@@ -190,7 +198,6 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
         switch identifier {
         case .trashContainer:
-            // NOTE: Trash disabled
             cb.handler(nil, NSFileProviderError(.noSuchItem))
             return Progress()
         case .rootContainer:
@@ -202,63 +209,77 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             cb.handler(rootItem, nil)
             return Progress()
         default:
-            let progress = Progress(totalUnitCount: 1)
-            let guard_ = OnceGuard()
-            let metadataStore = self.metadataStore
-
-            Task {
-                do {
-                    let cachedMetadata = try? await metadataStore?.fetchItemMetadata(byKey: identifier.rawValue, driveId: drive.id)
-
-                    if let cachedMetadata, let etag = cachedMetadata.etag {
-                        let cachedItem = S3Item(
-                            identifier: identifier,
-                            drive: drive,
-                            objectMetadata: S3Item.Metadata(
-                                etag: ETagUtils.normalize(etag),
-                                contentType: cachedMetadata.contentType,
-                                lastModified: cachedMetadata.lastModified,
-                                size: NSNumber(value: cachedMetadata.size)
-                            )
-                        )
-                        guard guard_.tryCall() else { return }
-                        cb.handler(cachedItem, nil)
-                    } else {
-                        let metadata = try await s3Lib.remoteS3Item(for: identifier, drive: drive)
-                        guard guard_.tryCall() else { return }
-                        cb.handler(metadata, nil)
-                    }
-                } catch let s3Error as S3ErrorType {
-                    guard guard_.tryCall() else { return }
-                    // Folders in S3 may exist only as common prefixes (no real object).
-                    // HeadObject returns NotFound/NoSuchKey for these, but the folder is
-                    // valid — return a synthetic S3Item so the system can enumerate it.
-                    let isFolder = identifier.rawValue.hasSuffix(String(DefaultSettings.S3.delimiter))
-
-                    if isFolder && s3Error.isNotFound {
-                        let folderItem = S3Item(
-                            identifier: identifier,
-                            drive: drive,
-                            objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
-                        )
-                        cb.handler(folderItem, nil)
-                    } else {
-                        cb.handler(nil, s3Error.toFileProviderError())
-                    }
-                } catch {
-                    guard guard_.tryCall() else { return }
-                    cb.handler(nil, NSFileProviderError(.cannotSynchronize) as NSError)
-                }
-                progress.completedUnitCount = 1
-            }
-
-            progress.cancellationHandler = {
-                guard guard_.tryCall() else { return }
-                cb.handler(nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
-            }
-
-            return progress
+            return resolveRemoteItem(identifier: identifier, drive: drive, s3Lib: s3Lib, cb: cb)
         }
+    }
+
+    private func resolveRemoteItem(
+        identifier: NSFileProviderItemIdentifier,
+        drive: DS3Drive,
+        s3Lib: S3Lib,
+        cb: UnsafeCallback<(NSFileProviderItem?, Error?) -> Void>
+    ) -> Progress {
+        let progress = Progress(totalUnitCount: 1)
+        let guard_ = OnceGuard()
+        let metadataStore = self.metadataStore
+
+        Task {
+            do {
+                let item = try await fetchItemMetadataOrRemote(
+                    identifier: identifier, drive: drive, s3Lib: s3Lib, metadataStore: metadataStore
+                )
+                guard guard_.tryCall() else { return }
+                cb.handler(item, nil)
+            } catch let s3Error as S3ErrorType {
+                guard guard_.tryCall() else { return }
+                if identifier.rawValue.hasSuffix(String(DefaultSettings.S3.delimiter)) && s3Error.isNotFound {
+                    let folderSyncStatus = try? await metadataStore?.fetchItemSyncStatus(byKey: identifier.rawValue, driveId: drive.id)
+                    let folderItem = S3Item(
+                        identifier: identifier,
+                        drive: drive,
+                        objectMetadata: S3Item.Metadata(size: NSNumber(value: 0), syncStatus: folderSyncStatus)
+                    )
+                    cb.handler(folderItem, nil)
+                } else {
+                    cb.handler(nil, s3Error.toFileProviderError())
+                }
+            } catch {
+                guard guard_.tryCall() else { return }
+                cb.handler(nil, NSFileProviderError(.cannotSynchronize) as NSError)
+            }
+            progress.completedUnitCount = 1
+        }
+
+        progress.cancellationHandler = {
+            guard guard_.tryCall() else { return }
+            cb.handler(nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
+        }
+
+        return progress
+    }
+
+    private func fetchItemMetadataOrRemote(
+        identifier: NSFileProviderItemIdentifier,
+        drive: DS3Drive,
+        s3Lib: S3Lib,
+        metadataStore: MetadataStore?
+    ) async throws -> S3Item {
+        if let cached = try? await metadataStore?.fetchItemMetadata(byKey: identifier.rawValue, driveId: drive.id),
+           cached.etag != nil || cached.syncStatus == SyncStatus.error.rawValue {
+            return S3Item(
+                identifier: identifier,
+                drive: drive,
+                objectMetadata: S3Item.Metadata(
+                    etag: ETagUtils.normalize(cached.etag),
+                    contentType: cached.contentType,
+                    lastModified: cached.lastModified,
+                    size: NSNumber(value: cached.size),
+                    syncStatus: cached.syncStatus
+                )
+            )
+        }
+
+        return try await s3Lib.remoteS3Item(for: identifier, drive: drive)
     }
 
     // NOTE: gets called when the extension wants to retrieve the contents of a specific item
@@ -298,7 +319,11 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         let metadataStore = self.metadataStore
         let once = OnceGuard()
 
+        let fetchSemaphore = self.fetchSemaphore
         let task = Task {
+            await fetchSemaphore.wait()
+            defer { Task { await fetchSemaphore.signal() } }
+
             do {
                 nm.sendDriveChangedNotification(status: .sync)
 
@@ -323,14 +348,16 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
                 self.logger.info("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize ?? 0, privacy: .public) downloaded successfully")
 
-                // Mark as materialized in MetadataStore
+                // Mark as materialized and clear any previous error status
                 try? await metadataStore?.setMaterialized(s3Key: itemIdentifier.rawValue, driveId: drive.id, isMaterialized: true)
+                try? await metadataStore?.setSyncStatus(s3Key: itemIdentifier.rawValue, driveId: drive.id, status: .synced)
 
                 nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 guard once.tryCall() else { return }
                 cb.handler(fileURL, s3Item, nil)
             } catch let s3Error as S3ErrorType {
                 self.logger.error("Download failed for \(itemIdentifier.rawValue, privacy: .public) with S3 error \(s3Error.errorCode, privacy: .public)")
+                await self.markItemAndParentAsError(itemKey: itemIdentifier.rawValue, driveId: drive.id, metadataStore: metadataStore)
                 nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 guard once.tryCall() else { return }
                 cb.handler(nil, nil, s3Error.toFileProviderError())
@@ -341,6 +368,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 cb.handler(nil, nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
             } catch {
                 self.logger.error("Download failed for \(itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                await self.markItemAndParentAsError(itemKey: itemIdentifier.rawValue, driveId: drive.id, metadataStore: metadataStore)
                 nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 guard once.tryCall() else { return }
                 cb.handler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
@@ -392,24 +420,16 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             return Progress()
         }
 
-        let parentIdentifier = itemTemplate.parentItemIdentifier == .rootContainer ? "" : itemTemplate.parentItemIdentifier.rawValue
-        let parentKey: String? = parentIdentifier.isEmpty ? nil : parentIdentifier
+        let parentKey: String? = itemTemplate.parentItemIdentifier == .rootContainer ? nil : itemTemplate.parentItemIdentifier.rawValue
 
-        var key = parentIdentifier + itemTemplate.filename
+        var key = (parentKey ?? "") + itemTemplate.filename
 
-        if let prefix = drive.syncAnchor.prefix {
-            if !key.starts(with: prefix) {
-                key = prefix + key
-            }
+        if let prefix = drive.syncAnchor.prefix, !key.starts(with: prefix) {
+            key = prefix + key
         }
 
-        // documentSize is NSNumber?? (double optional from Obj-C optional protocol property)
-        var itemSize: Int
-        if let outer = itemTemplate.documentSize, let docSize = outer {
-            itemSize = docSize.intValue
-        } else {
-            itemSize = 0
-        }
+        // documentSize is NSNumber?? (double optional from Obj-C protocol property)
+        var itemSize = (itemTemplate.documentSize ?? nil)?.intValue ?? 0
 
         if itemTemplate.contentType == .folder || itemTemplate.contentType == .directory {
             key += String(DefaultSettings.S3.delimiter)
@@ -446,7 +466,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                         lastModified: existingItem.metadata.lastModified,
                         syncStatus: .synced,
                         parentKey: parentKey,
-                        contentType: existingItem.contentType == .folder ? "folder" : nil,
+                        contentType: existingItem.isFolder ? "folder" : nil,
                         size: Int64(truncating: existingItem.metadata.size)
                     )
 
@@ -469,7 +489,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                             lastModified: Date(),
                             syncStatus: .synced,
                             parentKey: parentKey,
-                            contentType: s3Item.contentType == .folder ? "folder" : nil,
+                            contentType: s3Item.isFolder ? "folder" : nil,
                             size: Int64(itemSize)
                         )
 
@@ -515,7 +535,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 nm.sendDriveChangedNotification(status: .sync)
 
                 // --- Conflict detection ---
-                if s3Item.contentType != .folder {
+                if !s3Item.isFolder {
                     do {
                         // If HEAD succeeds, the file exists on S3 from another client
                         _ = try await s3Lib.remoteS3Item(
@@ -561,7 +581,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                     lastModified: Date(),
                     syncStatus: .synced,
                     parentKey: parentKey,
-                    contentType: s3Item.contentType == .folder ? "folder" : nil,
+                    contentType: s3Item.isFolder ? "folder" : nil,
                     size: Int64(itemSize)
                 )
 
@@ -674,7 +694,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                         nm.sendDriveChangedNotification(status: .sync)
 
                         // --- Conflict detection ---
-                        if s3Item.contentType != .folder {
+                        if !s3Item.isFolder {
                             do {
                                 let remoteItem = try await s3Lib.remoteS3Item(for: s3Item.itemIdentifier, drive: drive)
                                 let remoteETag = remoteItem.metadata.etag
@@ -955,10 +975,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                         objectMetadata: S3Item.Metadata(size: 0)
                     )
 
-                    // Skip conflict check for folder keys (ending with "/")
-                    let isFolder = identifier.rawValue.hasSuffix(String(DefaultSettings.S3.delimiter))
-
-                    if !isFolder {
+                    if !s3Item.isFolder {
                         // --- Conflict detection ---
                         do {
                             let remoteItem = try await s3Lib.remoteS3Item(for: identifier, drive: drive)
@@ -1106,7 +1123,28 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         return conflictS3Item
     }
 
+    /// Marks a failed item and its parent folder with error status in MetadataStore,
+    /// then signals the system to re-enumerate so error decorations show in Finder.
+    private func markItemAndParentAsError(itemKey: String, driveId: UUID, metadataStore: MetadataStore?) async {
+        guard let metadataStore else { return }
+
+        // Mark the item itself as error
+        try? await metadataStore.setSyncStatus(s3Key: itemKey, driveId: driveId, status: .error)
+
+        // Derive the parent folder key and mark it as error too,
+        // so the parent folder shows an error icon instead of staying stuck in progress.
+        let delimiter = String(DefaultSettings.S3.delimiter)
+        let trimmed = itemKey.hasSuffix(delimiter) ? String(itemKey.dropLast()) : itemKey
+        if let lastSlash = trimmed.lastIndex(of: Character(delimiter)) {
+            let parentKey = String(trimmed[...lastSlash])
+            try? await metadataStore.setSyncStatus(s3Key: parentKey, driveId: driveId, status: .error)
+        }
+
+        self.signalChanges()
+    }
+
     /// Materialises a folder item by providing an empty temp file and marking it in MetadataStore.
+    /// Also triggers a background recursive enumeration so all descendants are discovered.
     private func materializeFolderItem(
         _ itemIdentifier: NSFileProviderItemIdentifier,
         drive: DS3Drive,
@@ -1114,6 +1152,11 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         cb: UnsafeCallback<(URL?, NSFileProviderItem?, Error?) -> Void>
     ) -> Progress {
         logger.debug("Materializing folder item: \(itemIdentifier.rawValue, privacy: .public)")
+
+        // Notify the tray immediately so the user sees feedback
+        self.notificationManager?.sendDriveChangedNotification(status: .indexing)
+
+        let progress = Progress(totalUnitCount: 1)
         let folderItem = S3Item(
             identifier: itemIdentifier,
             drive: drive,
@@ -1128,7 +1171,45 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         } catch {
             cb.handler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
         }
-        return Progress()
+        progress.completedUnitCount = 1
+        startRecursiveEnumerationIfNeeded(for: itemIdentifier.rawValue, drive: drive)
+
+        return progress
+    }
+
+    /// Spawns a background recursive enumeration for a folder if one isn't already running.
+    private func startRecursiveEnumerationIfNeeded(for folderPrefix: String, drive: DS3Drive) {
+        guard let s3Lib = self.s3Lib else { return }
+
+        let inserted = enumerationLock.withLock {
+            activeRecursiveEnumerations.insert(folderPrefix).inserted
+        }
+
+        guard inserted else {
+            logger.debug("Recursive enumeration already active for \(folderPrefix, privacy: .public)")
+            return
+        }
+
+        let manager = NSFileProviderManager(for: self.domain)
+        let metadataStore = self.metadataStore
+        let notificationManager = self.notificationManager
+
+        Task.detached { [weak self] in
+            let enumerator = RecursiveFolderEnumerator(
+                s3Lib: s3Lib,
+                drive: drive,
+                metadataStore: metadataStore,
+                manager: manager,
+                notificationManager: notificationManager
+            )
+
+            await enumerator.enumerateRecursively(folderPrefix: folderPrefix)
+
+            guard let self else { return }
+            self.enumerationLock.withLock {
+                _ = self.activeRecursiveEnumerations.remove(folderPrefix)
+            }
+        }
     }
 
     /// Signals the system to re-enumerate changes after a local CRUD operation.
@@ -1504,7 +1585,11 @@ extension FileProviderExtension: NSFileProviderPartialContentFetching {
         let progress = Progress(totalUnitCount: 1)
         let once = OnceGuard()
 
+        let fetchSemaphore = self.fetchSemaphore
         let task = Task {
+            await fetchSemaphore.wait()
+            defer { Task { await fetchSemaphore.signal() } }
+
             do {
                 nm.sendDriveChangedNotification(status: .sync)
 

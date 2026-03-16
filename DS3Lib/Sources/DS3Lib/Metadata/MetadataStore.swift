@@ -42,7 +42,68 @@ public actor MetadataStore {
         return try modelExecutor.modelContext.fetch(FetchDescriptor<SyncAnchorRecord>(predicate: predicate)).first
     }
 
+    // MARK: - Batch Types
+
+    /// Sendable data transfer object for batch upsert operations.
+    public struct ItemUpsertData: Sendable {
+        public let s3Key: String
+        public let driveId: UUID
+        public let etag: String?
+        public let lastModified: Date?
+        public let syncStatus: SyncStatus
+        public let parentKey: String?
+        public let contentType: String?
+        public let size: Int64
+
+        public init(
+            s3Key: String,
+            driveId: UUID,
+            etag: String? = nil,
+            lastModified: Date? = nil,
+            syncStatus: SyncStatus = .synced,
+            parentKey: String? = nil,
+            contentType: String? = nil,
+            size: Int64 = 0
+        ) {
+            self.s3Key = s3Key
+            self.driveId = driveId
+            self.etag = etag
+            self.lastModified = lastModified
+            self.syncStatus = syncStatus
+            self.parentKey = parentKey
+            self.contentType = contentType
+            self.size = size
+        }
+    }
+
     // MARK: - SyncedItem CRUD
+
+    /// Batch insert or update multiple SyncedItems with a single save at the end.
+    public func batchUpsertItems(_ items: [ItemUpsertData]) throws {
+        for data in items {
+            if let existing = try findItem(byKey: data.s3Key, driveId: data.driveId) {
+                existing.etag = data.etag
+                existing.lastModified = data.lastModified
+                existing.syncStatus = data.syncStatus.rawValue
+                existing.parentKey = data.parentKey
+                existing.contentType = data.contentType
+                existing.size = data.size
+            } else {
+                let item = SyncedItem(
+                    s3Key: data.s3Key,
+                    driveId: data.driveId,
+                    size: data.size,
+                    syncStatus: data.syncStatus.rawValue
+                )
+                item.etag = data.etag
+                item.lastModified = data.lastModified
+                item.parentKey = data.parentKey
+                item.contentType = data.contentType
+                modelExecutor.modelContext.insert(item)
+            }
+        }
+        try modelExecutor.modelContext.save()
+    }
 
     /// Insert or update a SyncedItem by s3Key within a specific drive.
     public func upsertItem(
@@ -224,6 +285,52 @@ public actor MetadataStore {
         public let lastModified: Date?
         public let contentType: String?
         public let size: Int64
+        public let syncStatus: String?
+    }
+
+    /// Sendable snapshot of a child item for cache-first folder enumeration.
+    public struct CachedChildItem: Sendable {
+        public let s3Key: String
+        public let etag: String?
+        public let lastModified: Date?
+        public let contentType: String?
+        public let size: Int64
+        public let syncStatus: String?
+    }
+
+    /// Fetch all children of a given parent key within a drive.
+    /// Used by S3Enumerator for cache-first enumeration after RecursiveFolderEnumerator
+    /// has already populated the metadata store.
+    /// - Parameters:
+    ///   - parentKey: The parent folder's S3 key, or nil for root items.
+    ///   - driveId: The drive to query.
+    /// - Returns: Array of cached child item snapshots.
+    public func fetchChildren(parentKey: String?, driveId: UUID) throws -> [CachedChildItem] {
+        let items: [SyncedItem]
+        let context = modelExecutor.modelContext
+
+        if let parentKey {
+            let predicate = #Predicate<SyncedItem> {
+                $0.driveId == driveId && $0.parentKey == parentKey
+            }
+            items = try context.fetch(FetchDescriptor<SyncedItem>(predicate: predicate))
+        } else {
+            let predicate = #Predicate<SyncedItem> {
+                $0.driveId == driveId && $0.parentKey == nil
+            }
+            items = try context.fetch(FetchDescriptor<SyncedItem>(predicate: predicate))
+        }
+
+        return items.map {
+            CachedChildItem(
+                s3Key: $0.s3Key,
+                etag: $0.etag,
+                lastModified: $0.lastModified,
+                contentType: $0.contentType,
+                size: $0.size,
+                syncStatus: $0.syncStatus
+            )
+        }
     }
 
     /// Fetch a Sendable metadata snapshot for an item, or nil if not found.
@@ -233,7 +340,8 @@ public actor MetadataStore {
             etag: item.etag,
             lastModified: item.lastModified,
             contentType: item.contentType,
-            size: item.size
+            size: item.size,
+            syncStatus: item.syncStatus
         )
     }
 
@@ -270,6 +378,19 @@ public actor MetadataStore {
     public func fetchItemKeysAndStatuses(driveId: UUID) throws -> [String: String] {
         let items = try findItems(byDrive: driveId)
         return Dictionary(uniqueKeysWithValues: items.map { ($0.s3Key, $0.syncStatus) })
+    }
+
+    /// Update only the sync status for an item, preserving all other fields.
+    /// If the item doesn't exist yet, creates it with the given status.
+    public func setSyncStatus(s3Key: String, driveId: UUID, status: SyncStatus) throws {
+        if let existing = try findItem(byKey: s3Key, driveId: driveId) {
+            existing.syncStatus = status.rawValue
+            try modelExecutor.modelContext.save()
+        } else {
+            let item = SyncedItem(s3Key: s3Key, driveId: driveId, size: 0, syncStatus: status.rawValue)
+            modelExecutor.modelContext.insert(item)
+            try modelExecutor.modelContext.save()
+        }
     }
 
     /// Set the materialization state for an item by S3 key within a specific drive.

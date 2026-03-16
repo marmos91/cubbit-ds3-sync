@@ -63,7 +63,7 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     }
     
     var itemIdentifier: NSFileProviderItemIdentifier {
-        return identifier
+        identifier
     }
     
     var parentItemIdentifier: NSFileProviderItemIdentifier {
@@ -83,18 +83,15 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     }
 
     var filename: String {
-        let components = self.identifier.rawValue.split(separator: self.separator)
-        let name = String(components.last ?? "")
-        
-        return name
+        String(identifier.rawValue.split(separator: separator).last ?? "")
     }
     
     var contentModificationDate: Date? {
-        return self.metadata.lastModified
+        metadata.lastModified
     }
 
     var documentSize: NSNumber? {
-        return self.metadata.size
+        metadata.size
     }
     
     var itemVersion: NSFileProviderItemVersion {
@@ -113,7 +110,7 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     }
     
     var isFolder: Bool {
-        return self.contentType == .folder || self.contentType == .directory
+        contentType == .folder
     }
     
     var contentPolicy: NSFileProviderContentPolicy {
@@ -145,10 +142,26 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
             return [Self.decorationError]
         case "conflict":
             return [Self.decorationConflict]
-        case "pending", nil:
-            return [Self.decorationCloudOnly]
         default:
             return [Self.decorationCloudOnly]
         }
+    }
+}
+
+// MARK: - MetadataStore Convenience
+
+extension MetadataStore.ItemUpsertData {
+    /// Creates upsert data from an S3Item, mapping parent identifiers and metadata.
+    init(from item: S3Item) {
+        self.init(
+            s3Key: item.itemIdentifier.rawValue,
+            driveId: item.drive.id,
+            etag: item.metadata.etag,
+            lastModified: item.metadata.lastModified,
+            syncStatus: .synced,
+            parentKey: item.parentItemIdentifier == .rootContainer ? nil : item.parentItemIdentifier.rawValue,
+            contentType: item.metadata.contentType,
+            size: Int64(truncating: item.metadata.size)
+        )
     }
 }

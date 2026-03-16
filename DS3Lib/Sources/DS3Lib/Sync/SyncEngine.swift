@@ -204,7 +204,7 @@ public actor SyncEngine {
     }
 
     /// Apply reconciliation changes to MetadataStore.
-    /// - Upserts new and modified items with syncStatus .synced
+    /// - Batch-upserts new and modified items with syncStatus .synced
     /// - Hard deletes removed items
     private func applyChanges(
         driveId: UUID,
@@ -213,10 +213,10 @@ public actor SyncEngine {
         deletedKeys: Set<String>,
         remoteItems: [String: S3ObjectInfo]
     ) async throws {
-        // Upsert new and modified items
-        for key in newKeys.union(modifiedKeys) {
+        // Batch upsert new and modified items
+        let upsertData = newKeys.union(modifiedKeys).map { key in
             let info = remoteItems[key]
-            try await metadataStore.upsertItem(
+            return MetadataStore.ItemUpsertData(
                 s3Key: key,
                 driveId: driveId,
                 etag: info?.etag,
@@ -226,6 +226,9 @@ public actor SyncEngine {
                 contentType: info?.contentType,
                 size: info?.size ?? 0
             )
+        }
+        if !upsertData.isEmpty {
+            try await metadataStore.batchUpsertItems(upsertData)
         }
 
         // Hard delete removed items from MetadataStore

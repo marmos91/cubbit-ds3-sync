@@ -86,6 +86,7 @@
 		D5A222862B5721CC00F1413B /* FileProviderExtension+Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2227C2B5721CC00F1413B /* FileProviderExtension+Errors.swift */; };
 		D5A222892B5721CC00F1413B /* S3Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222802B5721CC00F1413B /* S3Item.swift */; };
 		D5A2228A2B5721CC00F1413B /* S3Enumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222812B5721CC00F1413B /* S3Enumerator.swift */; };
+		B1F0A0012F6700000042AD93 /* RecursiveFolderEnumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F0A0002F6700000042AD93 /* RecursiveFolderEnumerator.swift */; };
 		D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */; };
 		D5A2228C2B5721CC00F1413B /* DS3DriveProvider.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D5A222832B5721CC00F1413B /* DS3DriveProvider.xcassets */; };
 		D5A4E0AB2B630A9800D7560B /* NotificationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */; };
@@ -211,6 +212,7 @@
 		D5A2227E2B5721CC00F1413B /* DS3DriveProvider.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = DS3DriveProvider.entitlements; sourceTree = "<group>"; };
 		D5A222802B5721CC00F1413B /* S3Item.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = S3Item.swift; sourceTree = "<group>"; };
 		D5A222812B5721CC00F1413B /* S3Enumerator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = S3Enumerator.swift; sourceTree = "<group>"; };
+		B1F0A0002F6700000042AD93 /* RecursiveFolderEnumerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecursiveFolderEnumerator.swift; sourceTree = "<group>"; };
 		D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "S3Item+Metadata.swift"; sourceTree = "<group>"; };
 		D5A222832B5721CC00F1413B /* DS3DriveProvider.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = DS3DriveProvider.xcassets; sourceTree = "<group>"; };
 		D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsManager.swift; sourceTree = "<group>"; };
@@ -622,6 +624,7 @@
 				D5A222802B5721CC00F1413B /* S3Item.swift */,
 				D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */,
 				D5A222812B5721CC00F1413B /* S3Enumerator.swift */,
+				B1F0A0002F6700000042AD93 /* RecursiveFolderEnumerator.swift */,
 				D540029D2B5EAEB000B54E97 /* S3Lib.swift */,
 				A10203032F6300000042AD93 /* S3LibListingAdapter.swift */,
 				D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */,
@@ -837,6 +840,7 @@
 				D5A222862B5721CC00F1413B /* FileProviderExtension+Errors.swift in Sources */,
 				D5A222892B5721CC00F1413B /* S3Item.swift in Sources */,
 				D5A2228A2B5721CC00F1413B /* S3Enumerator.swift in Sources */,
+				B1F0A0012F6700000042AD93 /* RecursiveFolderEnumerator.swift in Sources */,
 				D5A4E0AB2B630A9800D7560B /* NotificationsManager.swift in Sources */,
 				D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */,
 			);

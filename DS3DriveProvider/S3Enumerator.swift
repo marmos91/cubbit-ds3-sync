@@ -80,7 +80,46 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
     ) {
         Task {
             do {
-                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .indexing)
+                // Cache-first: for per-folder (non-recursive) first-page enumeration,
+                // serve from MetadataStore if items are already known (e.g. from
+                // RecursiveFolderEnumerator). This avoids hitting S3 when navigating
+                // into subfolders of an already-downloaded parent.
+                if !self.recursively && page.toContinuationToken() == nil,
+                   let metadataStore = self.metadataStore {
+                    let parentKey: String? = self.parent == .rootContainer ? nil : self.parent.rawValue
+                    let cachedChildren = try await metadataStore.fetchChildren(
+                        parentKey: parentKey,
+                        driveId: self.drive.id
+                    )
+
+                    if !cachedChildren.isEmpty {
+                        let items = cachedChildren.map { child in
+                            S3Item(
+                                identifier: NSFileProviderItemIdentifier(child.s3Key),
+                                drive: self.drive,
+                                objectMetadata: S3Item.Metadata(
+                                    etag: child.etag,
+                                    contentType: child.contentType,
+                                    lastModified: child.lastModified,
+                                    size: NSNumber(value: child.size),
+                                    syncStatus: child.syncStatus
+                                )
+                            )
+                        }
+
+                        self.logger.debug("enumerateItems: serving \(items.count) cached items for prefix \(self.prefix ?? "nil", privacy: .public)")
+                        observer.didEnumerate(items)
+                        observer.finishEnumerating(upTo: nil)
+
+                        // Schedule a background S3 listing to refresh the cache
+                        // and signal changes so enumerateChanges picks up any
+                        // remote modifications (new/deleted/updated items).
+                        self.refreshCacheInBackground()
+                        return
+                    }
+                }
+
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .indexing, isFileOperation: false)
 
                 let (items, continuationToken) = try await self.s3Lib.listS3Items(
                     forDrive: self.drive,
@@ -89,43 +128,64 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                     withContinuationToken: page.toContinuationToken()
                 )
 
-                // Upsert items into MetadataStore for subsequent enumerateChanges calls
-                if let metadataStore = self.metadataStore {
-                    for item in items {
-                        try await metadataStore.upsertItem(
-                            s3Key: item.itemIdentifier.rawValue,
-                            driveId: self.drive.id,
-                            etag: item.metadata.etag,
-                            lastModified: item.metadata.lastModified,
-                            syncStatus: .synced,
-                            parentKey: item.parentItemIdentifier == .rootContainer ? nil : item.parentItemIdentifier.rawValue,
-                            contentType: item.metadata.contentType,
-                            size: Int64(truncating: item.metadata.size)
-                        )
-                    }
-                }
-
+                // Signal observer FIRST so Finder shows items immediately
                 if !items.isEmpty {
                     observer.didEnumerate(items)
                 }
 
                 let page = continuationToken.map { NSFileProviderPage($0) }
 
-                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle)
-                return observer.finishEnumerating(upTo: page)
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle, isFileOperation: false)
+                observer.finishEnumerating(upTo: page)
 
+                // Batch upsert into MetadataStore in the background (doesn't block display)
+                if let metadataStore = self.metadataStore, !items.isEmpty {
+                    let upsertData = items.map { MetadataStore.ItemUpsertData(from: $0) }
+                    Task.detached {
+                        try? await metadataStore.batchUpsertItems(upsertData)
+                    }
+                }
             } catch let error as FileProviderExtensionError {
                 self.logger.error("enumerateItems failed for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error, privacy: .public)")
-                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error, isFileOperation: false)
                 return observer.finishEnumeratingWithError(error.toPresentableError())
             } catch let error as S3ErrorType {
                 self.logger.error("enumerateItems S3 error for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error.errorCode, privacy: .public)")
-                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error, isFileOperation: false)
                 return observer.finishEnumeratingWithError(error.toFileProviderError())
             } catch {
                 self.logger.error("enumerateItems failed for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)")
-                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error, isFileOperation: false)
                 return observer.finishEnumeratingWithError(NSFileProviderError(.cannotSynchronize) as NSError)
+            }
+        }
+    }
+
+    /// Fires a background S3 listing to refresh the MetadataStore cache after
+    /// serving cached items from `enumerateItems`. This ensures the DB stays
+    /// in sync with remote data even between polling cycles.
+    private func refreshCacheInBackground() {
+        Task.detached { [s3Lib, drive, prefix, metadataStore, logger, recursively] in
+            guard let metadataStore else { return }
+
+            do {
+                var continuationToken: String?
+                repeat {
+                    let (items, nextToken) = try await s3Lib.listS3Items(
+                        forDrive: drive,
+                        withPrefix: prefix,
+                        recursively: recursively,
+                        withContinuationToken: continuationToken
+                    )
+                    continuationToken = nextToken
+
+                    let upsertData = items.map { MetadataStore.ItemUpsertData(from: $0) }
+                    try await metadataStore.batchUpsertItems(upsertData)
+                } while continuationToken != nil
+
+                logger.debug("Background cache refresh complete for prefix \(prefix ?? "nil", privacy: .public)")
+            } catch {
+                logger.debug("Background cache refresh failed for prefix \(prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -135,7 +195,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
         from anchor: NSFileProviderSyncAnchor
     ) {
         Task {
-            self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .indexing)
+            self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .indexing, isFileOperation: false)
 
             do {
                 self.logger.debug("Enumerating changes for prefix \(self.prefix ?? "nil")")
@@ -159,7 +219,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                         observer.didUpdate(changedItems)
                     }
 
-                    self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle)
+                    self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle, isFileOperation: false)
                     return observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
                 }
 
@@ -206,23 +266,23 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                     itemCount: snapshot?.itemCount ?? 0
                 ))
 
-                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle)
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle, isFileOperation: false)
                 return observer.finishEnumeratingChanges(upTo: newAnchor, moreComing: false)
             } catch let error as FileProviderExtensionError {
                 self.logger.error("enumerateChanges failed for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error, privacy: .public)")
-                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error, isFileOperation: false)
                 return observer.finishEnumeratingWithError(error.toPresentableError())
             } catch let error as S3ErrorType {
                 self.logger.error("enumerateChanges S3 error for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error.errorCode, privacy: .public)")
-                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error, isFileOperation: false)
                 return observer.finishEnumeratingWithError(error.toFileProviderError())
             } catch is SyncEngineError {
                 self.logger.warning("Sync engine unavailable (network): skipping change enumeration")
-                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle)
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle, isFileOperation: false)
                 return observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
             } catch {
                 self.logger.error("enumerateChanges failed for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)")
-                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error)
+                self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error, isFileOperation: false)
                 return observer.finishEnumeratingWithError(NSFileProviderError(.cannotSynchronize) as NSError)
             }
         }
