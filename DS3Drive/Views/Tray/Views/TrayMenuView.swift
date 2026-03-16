@@ -37,7 +37,7 @@ struct TrayMenuView: View {
                 tenantName = loadTenantName()
                 rebuildDriveViewModels()
             }
-            .onChange(of: ds3DriveManager.drives.count) {
+            .onChange(of: ds3DriveManager.drives.map(\.id)) {
                 rebuildDriveViewModels()
             }
     }

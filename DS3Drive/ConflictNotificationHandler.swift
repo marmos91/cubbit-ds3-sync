@@ -54,14 +54,16 @@ final class ConflictNotificationHandler: NSObject, UNUserNotificationCenterDeleg
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        defer { completionHandler() }
-
-        guard response.actionIdentifier == Self.showInFinderActionIdentifier else { return }
+        guard response.actionIdentifier == Self.showInFinderActionIdentifier else {
+            completionHandler()
+            return
+        }
 
         let userInfo = response.notification.request.content.userInfo
         guard let driveIdString = userInfo["driveId"] as? String,
               let driveId = UUID(uuidString: driveIdString),
               let conflictKey = userInfo["conflictKey"] as? String else {
+            completionHandler()
             return
         }
 
@@ -72,18 +74,15 @@ final class ConflictNotificationHandler: NSObject, UNUserNotificationCenterDeleg
         let manager = NSFileProviderManager(for: domain)
         let itemIdentifier = NSFileProviderItemIdentifier(conflictKey)
 
-        Task {
+        completionHandler()
+        Task { @MainActor in
             do {
                 let url = try await manager?.getUserVisibleURL(for: itemIdentifier)
                 if let url {
-                    await MainActor.run {
-                        NSWorkspace.shared.activateFileViewerSelecting([url])
-                    }
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
                 }
             } catch {
-                await MainActor.run {
-                    self.logger.error("Failed to resolve conflict file URL: \(error)")
-                }
+                self.logger.error("Failed to resolve conflict file URL: \(error)")
             }
         }
     }
@@ -105,7 +104,8 @@ final class ConflictNotificationHandler: NSObject, UNUserNotificationCenterDeleg
             options: []
         )
 
-        UNUserNotificationCenter.current().setNotificationCategories([category])
+        let center = UNUserNotificationCenter.current()
+        center.setNotificationCategories([category])
     }
 
     /// Start listening for conflict IPC from the extension.

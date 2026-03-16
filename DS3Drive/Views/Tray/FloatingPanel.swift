@@ -97,21 +97,25 @@ final class FloatingPanelManager {
             .background(.regularMaterial)
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-        let hostingView = NSHostingView(rootView: wrappedContent)
-        let fittingSize = hostingView.fittingSize
+        let hostingController = NSHostingController(rootView: wrappedContent)
+        let fittingSize = hostingController.view.fittingSize
         let panelHeight = min(fittingSize.height, trayFrame.height)
 
-        // Top-align with the tray window
+        // Position panel: prefer left of tray, flip to right if off-screen
+        let screenFrame = trayWindow?.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+        let preferredX = trayFrame.minX - panelWidth - gap
+        let rightX = min(trayFrame.maxX + gap, screenFrame.maxX - panelWidth)
+        let panelX = preferredX >= screenFrame.minX ? preferredX : rightX
+
         let origin = NSPoint(
-            x: trayFrame.minX - panelWidth - gap,
+            x: panelX,
             y: trayFrame.maxY - panelHeight
         )
 
         let rect = NSRect(origin: origin, size: NSSize(width: panelWidth, height: panelHeight))
         let floatingPanel = FloatingPanel(contentRect: rect)
 
-        hostingView.frame = NSRect(origin: .zero, size: NSSize(width: panelWidth, height: panelHeight))
-        floatingPanel.contentView = hostingView
+        floatingPanel.contentViewController = hostingController
 
         floatingPanel.onMouseInsideChanged = { [weak self] inside in
             Task { @MainActor in

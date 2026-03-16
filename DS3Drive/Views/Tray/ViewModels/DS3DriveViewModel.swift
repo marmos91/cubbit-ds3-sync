@@ -16,6 +16,9 @@ import DS3Lib
     var totalTransferDuration: TimeInterval = 0
     var transferStatsResetTimer: Timer?
 
+    /// Tracks the last reported cumulative size per filename to compute deltas
+    private var lastReportedSize: [String: Int64] = [:]
+
     /// Tracks recently transferred files for this drive
     var recentFilesTracker = RecentFilesTracker()
 
@@ -35,6 +38,7 @@ import DS3Lib
     }
     
     deinit {
+        transferStatsResetTimer?.invalidate()
         DistributedNotificationCenter
             .default()
             .removeObserver(self)
@@ -70,11 +74,19 @@ import DS3Lib
         else { return }
         
         self.transferStatsResetTimer?.invalidate()
-        self.totalTransferredSize += driveTransferStats.size
+
+        // Compute delta from cumulative size to avoid double-counting
+        let fileKey = driveTransferStats.filename ?? "_default_"
+        let previousSize = self.lastReportedSize[fileKey] ?? 0
+        let delta = max(0, driveTransferStats.size - previousSize)
+        self.lastReportedSize[fileKey] = driveTransferStats.size
+
+        self.totalTransferredSize += delta
         self.totalTransferDuration += driveTransferStats.duration
 
+        // Speed: use delta / duration for instantaneous speed
         let speed: Double? = driveTransferStats.duration > 0
-            ? Double(driveTransferStats.size) / driveTransferStats.duration
+            ? Double(delta) / driveTransferStats.duration
             : nil
         self.driveStats.currentSpeedBs = speed
 
@@ -94,7 +106,9 @@ import DS3Lib
             self.refreshRecentFiles()
         }
 
-        self.transferStatsResetTimer = Timer.scheduledTimer(withTimeInterval: DefaultSettings.Tray.driveStatsReset, repeats: false) { _ in
+        self.transferStatsResetTimer = Timer.scheduledTimer(withTimeInterval: DefaultSettings.Tray.driveStatsReset, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.lastReportedSize.removeAll()
             self.totalTransferredSize = 0
             self.totalTransferDuration = 0
             self.driveStats.currentSpeedBs = nil
