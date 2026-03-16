@@ -800,6 +800,12 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             return eTag
         } catch {
             self.logger.error("Multipart upload failed for key \(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            do {
+                try await self.abortS3MultipartUpload(for: s3Item, withUploadId: uploadId)
+            } catch {
+                self.logger.warning("Failed to abort multipart upload \(uploadId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
+            await pendingUploadStore.remove(forKey: key)
             throw error
         }
     }
