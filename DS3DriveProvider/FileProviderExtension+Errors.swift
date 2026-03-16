@@ -50,7 +50,7 @@ extension S3ErrorType {
         switch self.errorCode {
         case "AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch", "ExpiredToken":
             code = .notAuthenticated
-        case "NoSuchKey", "NoSuchBucket":
+        case "NoSuchKey", "NoSuchBucket", "NotFound", "404 Not Found":
             code = .noSuchItem
         case "EntityTooLarge":
             code = .insufficientQuota
