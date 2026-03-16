@@ -19,6 +19,11 @@ final class MockS3ListingProvider: S3ListingProvider, @unchecked Sendable {
         if let error = shouldThrow { throw error }
         return items
     }
+
+    func listItemsPage(bucket: String, prefix: String?, continuationToken: String?) async throws -> S3ListingPage {
+        if let error = shouldThrow { throw error }
+        return S3ListingPage(items: items, continuationToken: nil)
+    }
 }
 
 // MARK: - Mock Sync Engine Delegate
