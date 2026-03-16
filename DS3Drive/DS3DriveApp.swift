@@ -21,7 +21,6 @@ struct DS3DriveApp: App {
     private var authFailureObserver: NSObjectProtocol?
     @State private var refreshTask: Task<Void, Never>?
 
-    // TODO: Hide tray menu when not logged in
     @State var trayMenuVisible: Bool = true
 
     /// Animation state for syncing tray icon (alternates between frames)
@@ -31,7 +30,7 @@ struct DS3DriveApp: App {
     var body: some Scene {
         // MARK: - Main view
         
-        WindowGroup {
+        WindowGroup(id: "io.cubbit.DS3Drive.main") {
             Group {
                 if ds3Authentication.isLogged {
                     if !tutorialShown {
