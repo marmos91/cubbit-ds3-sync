@@ -859,11 +859,6 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             let destinationParent = item.parentItemIdentifier == .rootContainer ? "" : item.parentItemIdentifier.rawValue
             self.logger.info("Move detected for key \(s3Item.itemIdentifier.rawValue, privacy: .public) from \(s3Item.parentItemIdentifier.rawValue, privacy: .public) to \(destinationParent, privacy: .public)")
 
-//            if options.contains(.mayAlreadyExist) {
-//                // TODO: Handle move with overwrite
-//                cb.handler(nil, [], false, NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [:]))
-//            }
-
             let moveOldKey = s3Item.itemIdentifier.rawValue
             taskHolder.task = Task {
                 do {
