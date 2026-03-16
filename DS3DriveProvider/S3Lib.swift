@@ -654,7 +654,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         return putObjectResponse.eTag
     }
 
-    /// Performs a multipart upload for a given S3Item.
+    /// Performs a multipart upload for a given S3Item using parallel part uploads.
     /// Validates ETag from CompleteMultipartUpload response and aborts orphaned parts on any failure.
     /// - Parameters:
     ///   - s3Item: the S3Item to upload
@@ -686,66 +686,59 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         }
 
         do {
-            let fileHandle = try FileHandle(forReadingFrom: fileURL)
-            defer { try? fileHandle.close() }
-
             let partSize = DefaultSettings.S3.multipartUploadPartSize
+            let fileAttributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
+            let totalSize = (fileAttributes[.size] as? Int) ?? 0
 
-            var partNumber: Int = 1
-            var bytesUploaded: Int64 = 0
-
-            var completedParts: [S3.CompletedPart] = []
-
-            var data = fileHandle.readData(ofLength: partSize)
-
-            if data.isEmpty {
-                self.logger.warning("Data is empty. Should have been processed as standard PUT request.")
+            if totalSize == 0 {
+                self.logger.warning("Data is empty. Aborting multipart and falling back.")
+                try await self.abortS3MultipartUpload(for: s3Item, withUploadId: uploadId)
+                throw FileProviderExtensionError.parseError
             }
 
-            let multipartStart = Date()
+            let parts = stride(from: 0, to: totalSize, by: partSize).enumerated().map { index, offset in
+                PartDescriptor(partNumber: index + 1, offset: offset, length: min(partSize, totalSize - offset))
+            }
 
-            while !data.isEmpty {
-                let uploadPartRequest = S3.UploadPartRequest(
-                    body: .byteBuffer(ByteBuffer(data: data)),
-                    bucket: s3Item.drive.syncAnchor.bucket.name,
-                    key: key,
-                    partNumber: partNumber,
-                    uploadId: uploadId
-                )
+            let context = MultipartUploadContext(
+                bucket: s3Item.drive.syncAnchor.bucket.name,
+                key: key,
+                uploadId: uploadId,
+                driveId: s3Item.drive.id,
+                filename: s3Item.filename
+            )
 
-                let uploadPartResponse = try await self.s3.uploadPart(uploadPartRequest)
-                let transferTime = Date().timeIntervalSince(multipartStart)
+            let maxConcurrency = DefaultSettings.S3.multipartUploadConcurrency
 
-                bytesUploaded += Int64(data.count)
+            let completedParts: [S3.CompletedPart] = try await withThrowingTaskGroup(of: S3.CompletedPart.self) { group in
+                var results: [S3.CompletedPart] = []
+                var partIterator = parts.makeIterator()
 
-                self.notificationManager.sendTransferSpeedNotification(
-                    DriveTransferStats(
-                        driveId: s3Item.drive.id,
-                        size: bytesUploaded,
-                        duration: transferTime,
-                        direction: .upload,
-                        filename: s3Item.filename,
-                        totalSize: Int64(truncating: s3Item.documentSize ?? 0)
-                    )
-                )
+                func enqueueNext() {
+                    guard let part = partIterator.next() else { return }
+                    group.addTask {
+                        let data = try self.readFilePart(at: fileURL, offset: part.offset, length: part.length)
+                        return try await self.uploadPart(context: context, partNumber: part.partNumber, data: data)
+                    }
+                }
 
-                let eTag = uploadPartResponse.eTag ?? ""
+                for _ in 0..<min(maxConcurrency, parts.count) {
+                    enqueueNext()
+                }
 
-                self.logger.debug("Part \(partNumber) eTag: \(eTag, privacy: .public) for key \(key, privacy: .public)")
+                for try await completedPart in group {
+                    results.append(completedPart)
+                    progress?.completedUnitCount += 1
+                    enqueueNext()
+                }
 
-                completedParts.append(S3.CompletedPart(eTag: eTag, partNumber: partNumber))
-
-                partNumber += 1
-
-                progress?.completedUnitCount += 1
-
-                data = fileHandle.readData(ofLength: partSize)
+                return results.sorted { ($0.partNumber ?? 0) < ($1.partNumber ?? 0) }
             }
 
             self.logger.debug("Completing multipart upload for \(key, privacy: .public) with \(completedParts.count) parts")
 
             let completeMultipartRequest = S3.CompleteMultipartUploadRequest(
-                bucket: s3Item.drive.syncAnchor.bucket.name,
+                bucket: context.bucket,
                 key: key,
                 multipartUpload: S3.CompletedMultipartUpload(parts: completedParts),
                 uploadId: uploadId
@@ -771,6 +764,70 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             }
             throw error
         }
+    }
+
+    /// Groups the constant parameters shared across all parts of a multipart upload.
+    private struct MultipartUploadContext {
+        let bucket: String
+        let key: String
+        let uploadId: String
+        let driveId: UUID
+        let filename: String
+    }
+
+    /// Describes an upload part by its position within the file.
+    private struct PartDescriptor {
+        let partNumber: Int
+        let offset: Int
+        let length: Int
+    }
+
+    @Sendable
+    private func uploadPart(
+        context: MultipartUploadContext,
+        partNumber: Int,
+        data: Data
+    ) async throws -> S3.CompletedPart {
+        let uploadPartRequest = S3.UploadPartRequest(
+            body: .byteBuffer(ByteBuffer(data: data)),
+            bucket: context.bucket,
+            key: context.key,
+            partNumber: partNumber,
+            uploadId: context.uploadId
+        )
+
+        let uploadStart = Date()
+        let uploadPartResponse = try await self.s3.uploadPart(uploadPartRequest)
+        let transferTime = Date().timeIntervalSince(uploadStart)
+
+        self.notificationManager.sendTransferSpeedNotification(
+            DriveTransferStats(
+                driveId: context.driveId,
+                size: Int64(data.count),
+                duration: transferTime,
+                direction: .upload,
+                filename: context.filename
+            )
+        )
+
+        guard let eTag = uploadPartResponse.eTag, !eTag.isEmpty else {
+            self.logger.error("Part \(partNumber) returned no ETag for key \(context.key, privacy: .public)")
+            throw FileProviderExtensionError.uploadValidationFailed
+        }
+        self.logger.debug("Part \(partNumber) uploaded with eTag: \(eTag)")
+
+        return S3.CompletedPart(eTag: eTag, partNumber: partNumber)
+    }
+
+    /// Reads a chunk of a file at the specified offset and length.
+    private func readFilePart(at fileURL: URL, offset: Int, length: Int) throws -> Data {
+        let handle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? handle.close() }
+        handle.seek(toFileOffset: UInt64(offset))
+        guard let data = try handle.read(upToCount: length), !data.isEmpty else {
+            throw FileProviderExtensionError.parseError
+        }
+        return data
     }
     
     /// Aborts a multipart upload for a given S3Item and uploadId
