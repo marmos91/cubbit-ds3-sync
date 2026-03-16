@@ -1063,13 +1063,13 @@ extension FileProviderExtension {
                 progress.completedUnitCount += 1
             }
 
-            guard guard_.tryAcquire() else { return }
+            guard guard_.tryCall() else { return }
             cb.handler(nil)
         }
 
         progress.cancellationHandler = {
             task.cancel()
-            guard guard_.tryAcquire() else { return }
+            guard guard_.tryCall() else { return }
             cb.handler(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
         }
 
