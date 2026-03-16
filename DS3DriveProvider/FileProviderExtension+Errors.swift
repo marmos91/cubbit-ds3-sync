@@ -39,6 +39,10 @@ enum FileProviderExtensionError: Error {
 }
 
 extension S3ErrorType {
+    var isNotFound: Bool {
+        errorCode == "NoSuchKey" || errorCode == "NotFound"
+    }
+
     /// Maps S3 error codes to NSFileProviderError codes for correct system retry behavior.
     /// - .notAuthenticated: system throttles domain, shows re-auth UI, waits for signalErrorResolved()
     /// - .noSuchItem: system removes item from working set

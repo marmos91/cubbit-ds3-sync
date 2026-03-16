@@ -193,7 +193,21 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                     cb.handler(metadata, nil)
                 } catch let s3Error as S3ErrorType {
                     guard guard_.tryCall() else { return }
-                    cb.handler(nil, s3Error.toFileProviderError())
+                    // Folders in S3 may exist only as common prefixes (no real object).
+                    // HeadObject returns NotFound/NoSuchKey for these, but the folder is
+                    // valid — return a synthetic S3Item so the system can enumerate it.
+                    let isFolder = identifier.rawValue.hasSuffix(String(DefaultSettings.S3.delimiter))
+
+                    if isFolder && s3Error.isNotFound {
+                        let folderItem = S3Item(
+                            identifier: identifier,
+                            drive: drive,
+                            objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
+                        )
+                        cb.handler(folderItem, nil)
+                    } else {
+                        cb.handler(nil, s3Error.toFileProviderError())
+                    }
                 } catch {
                     guard guard_.tryCall() else { return }
                     cb.handler(nil, NSFileProviderError(.cannotSynchronize) as NSError)
@@ -240,7 +254,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
         // Folders (keys ending with /) have no downloadable content — return noSuchItem so
         // the system treats the item as a directory and enumerates instead.
-        if itemIdentifier.rawValue.hasSuffix("/") {
+        if itemIdentifier.rawValue.hasSuffix(String(DefaultSettings.S3.delimiter)) {
             logger.debug("Skipping fetchContents for folder item: \(itemIdentifier.rawValue, privacy: .public)")
             cb.handler(nil, nil, NSFileProviderError(.noSuchItem) as NSError)
             return Progress()
