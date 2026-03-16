@@ -39,19 +39,14 @@ public actor SyncEngine {
         self.delegate = delegate
     }
 
-    /// Performs a full reconciliation cycle for the given drive.
-    ///
-    /// Steps:
-    /// 1. Check network connectivity
-    /// 2. Fetch all remote items from S3
-    /// 3. Fetch all local items from MetadataStore (as Sendable key/etag/status maps)
-    /// 4. Compute new, modified, and deleted key sets
-    /// 5. Check mass deletion threshold
-    /// 6. Update MetadataStore (upsert new/modified, delete removed)
-    /// 7. Advance sync anchor (also resets failure count)
-    /// 8. Notify delegate
-    ///
-    /// On failure: increment failure count, notify delegate if threshold reached, re-throw.
+    // Performs a paginated reconciliation cycle for the given drive.
+    // Streams S3 listing pages and diffs each page against MetadataStore incrementally,
+    // avoiding loading the full remote state into memory for large buckets.
+    //
+    // Note: new/modified items are applied per-page, but the sync anchor is only
+    // advanced after all pages complete. If the extension is terminated mid-pagination,
+    // already-applied changes will be re-processed on the next cycle (idempotent upserts).
+    // swiftlint:disable:next function_body_length
     public func reconcile(
         driveId: UUID,
         s3Provider: some S3ListingProvider,
@@ -65,29 +60,58 @@ public actor SyncEngine {
         }
 
         do {
-            // Step 2: Fetch remote items from S3
-            let remoteItems = try await s3Provider.listAllItems(bucket: bucket, prefix: prefix)
-            let remoteKeySet = Set(remoteItems.keys)
-
-            // Step 3: Fetch local state as Sendable types
+            // Step 2: Fetch local state
             let localKeysAndEtags = try await metadataStore.fetchItemKeysAndEtags(driveId: driveId)
             let localKeysAndStatuses = try await metadataStore.fetchItemKeysAndStatuses(driveId: driveId)
             let localKeySet = Set(localKeysAndEtags.keys)
 
-            // Step 4: Compute diffs
-            let newKeys = remoteKeySet.subtracting(localKeySet)
+            var allNewKeys = Set<String>()
+            var allModifiedKeys = Set<String>()
+            var allRemoteItems: [String: S3ObjectInfo] = [:]
+            var seenRemoteKeys = Set<String>()
+            var totalRemoteCount = 0
 
+            // Step 3: Stream pages from S3 and diff incrementally
+            var continuationToken: String?
+            repeat {
+                let page = try await s3Provider.listItemsPage(
+                    bucket: bucket, prefix: prefix, continuationToken: continuationToken
+                )
+
+                let pageKeys = Set(page.items.keys)
+                seenRemoteKeys.formUnion(pageKeys)
+                totalRemoteCount += page.items.count
+
+                let pageNewKeys = pageKeys.subtracting(localKeySet)
+                allNewKeys.formUnion(pageNewKeys)
+
+                let pageModifiedKeys = computeModifiedKeys(
+                    commonKeys: pageKeys.intersection(localKeySet),
+                    remoteItems: page.items,
+                    localEtags: localKeysAndEtags
+                )
+                allModifiedKeys.formUnion(pageModifiedKeys)
+
+                for key in pageNewKeys.union(pageModifiedKeys) {
+                    allRemoteItems[key] = page.items[key]
+                }
+
+                try await applyChanges(
+                    driveId: driveId,
+                    newKeys: pageNewKeys,
+                    modifiedKeys: pageModifiedKeys,
+                    deletedKeys: [],
+                    remoteItems: page.items
+                )
+
+                continuationToken = page.continuationToken
+            } while continuationToken != nil
+
+            // Step 4: Compute deletions
             let deletedKeys = computeDeletedKeys(
                 localKeySet: localKeySet,
-                remoteKeySet: remoteKeySet,
+                remoteKeySet: seenRemoteKeys,
                 localStatuses: localKeysAndStatuses
-            )
-
-            let commonKeys = remoteKeySet.intersection(localKeySet)
-            let modifiedKeys = computeModifiedKeys(
-                commonKeys: commonKeys,
-                remoteItems: remoteItems,
-                localEtags: localKeysAndEtags
             )
 
             // Step 5: Mass deletion check
@@ -101,20 +125,20 @@ public actor SyncEngine {
                 )
             }
 
-            // Step 6: Update MetadataStore
+            // Step 6: Apply deletions
             try await applyChanges(
                 driveId: driveId,
-                newKeys: newKeys,
-                modifiedKeys: modifiedKeys,
+                newKeys: [],
+                modifiedKeys: [],
                 deletedKeys: deletedKeys,
-                remoteItems: remoteItems
+                remoteItems: [:]
             )
 
-            // Step 7: Check if recovering from previous failures before resetting
+            // Step 7: Check if recovering from previous failures
             let previousFailures = try await metadataStore.fetchSyncAnchorSnapshot(driveId: driveId)?.consecutiveFailures ?? 0
 
-            // Step 8: Advance sync anchor (resets failure count)
-            try await metadataStore.advanceSyncAnchor(driveId: driveId, itemCount: remoteItems.count)
+            // Step 8: Advance sync anchor
+            try await metadataStore.advanceSyncAnchor(driveId: driveId, itemCount: totalRemoteCount)
 
             // Step 9: Notify delegate
             if previousFailures > 0 {
@@ -123,15 +147,15 @@ public actor SyncEngine {
             delegate?.syncEngineDidComplete(driveId: driveId)
 
             let result = ReconciliationResult(
-                newKeys: newKeys,
-                modifiedKeys: modifiedKeys,
+                newKeys: allNewKeys,
+                modifiedKeys: allModifiedKeys,
                 deletedKeys: deletedKeys,
-                remoteItems: remoteItems,
+                remoteItems: allRemoteItems,
                 massDeletionDetected: massDeletionDetected
             )
 
             logger.info(
-                "Reconciliation complete for drive \(driveId.uuidString, privacy: .public): \(newKeys.count) new, \(modifiedKeys.count) modified, \(deletedKeys.count) deleted"
+                "Reconciliation complete for drive \(driveId.uuidString, privacy: .public): \(allNewKeys.count) new, \(allModifiedKeys.count) modified, \(deletedKeys.count) deleted"
             )
 
             return result
