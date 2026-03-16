@@ -138,6 +138,9 @@ public enum DefaultSettings {
         /// Multipart upload threshold to use multipart upload in bytes.
         public static let multipartThreshold = 5 * 1024 * 1024 // 5 MB
 
+        /// Maximum number of concurrent part uploads during multipart upload.
+        public static let multipartUploadConcurrency = 4
+
         /// Timeout set for the S3 requests in seconds.
         public static let timeoutInSeconds: Int64 = 5 * 60 // 5 minutes
 
