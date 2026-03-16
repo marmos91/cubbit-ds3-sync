@@ -8,6 +8,10 @@
 	<array>
 		<string>group.X889956QSM.io.cubbit.DS3Drive</string>
 	</array>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>webcredentials:console.cubbit.eu</string>
+	</array>
 	<key>com.apple.security.files.user-selected.read-only</key>
 	<true/>
 	<key>com.apple.security.network.client</key>
