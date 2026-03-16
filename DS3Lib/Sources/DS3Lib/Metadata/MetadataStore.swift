@@ -279,4 +279,15 @@ public actor MetadataStore {
         item.isMaterialized = isMaterialized
         try modelExecutor.modelContext.save()
     }
+
+    /// Batch-updates the materialized state for all items of a drive.
+    /// Items whose keys are in `materializedKeys` are marked as materialized;
+    /// all others are marked as not materialized.
+    public func updateMaterializedState(driveId: UUID, materializedKeys: Set<String>) throws {
+        let items = try findItems(byDrive: driveId)
+        for item in items {
+            item.isMaterialized = materializedKeys.contains(item.s3Key)
+        }
+        try modelExecutor.modelContext.save()
+    }
 }

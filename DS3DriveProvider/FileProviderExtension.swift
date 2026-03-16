@@ -1117,6 +1117,64 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         self.logger.debug("Periodic polling started with interval \(DefaultSettings.Extension.pollingIntervalSeconds)s")
     }
 
+    // MARK: - Materialized Items Tracking
+
+    func materializedItemsDidChange(completionHandler: @escaping () -> Void) {
+        guard let manager = NSFileProviderManager(for: self.domain),
+              let drive = self.drive,
+              let metadataStore = self.metadataStore else {
+            completionHandler()
+            return
+        }
+
+        let cb = UnsafeCallback(completionHandler)
+        let driveId = drive.id
+
+        Task {
+            defer { cb.handler() }
+
+            do {
+                let enumerator = manager.enumeratorForMaterializedItems()
+                let materializedKeys = try await self.collectMaterializedKeys(from: enumerator)
+
+                try await metadataStore.updateMaterializedState(
+                    driveId: driveId,
+                    materializedKeys: materializedKeys
+                )
+
+                self.logger.debug("Updated materialized state for \(materializedKeys.count) items")
+            } catch {
+                self.logger.error("Failed to update materialized items: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    /// Collects all item identifiers from the materialized items enumerator, following pagination.
+    private func collectMaterializedKeys(from enumerator: NSFileProviderEnumerator) async throws -> Set<String> {
+        var allKeys = Set<String>()
+        var currentPage = NSFileProviderPage.initialPageSortedByName as NSFileProviderPage
+
+        while true {
+            let (keys, nextPage): (Set<String>, NSFileProviderPage?) = try await withCheckedThrowingContinuation { continuation in
+                let observer = MaterializedItemObserver()
+                observer.onFinish = { keys, next in
+                    continuation.resume(returning: (keys, next))
+                }
+                observer.onError = { error in
+                    continuation.resume(throwing: error)
+                }
+                enumerator.enumerateItems(for: observer, startingAt: currentPage)
+            }
+
+            allKeys.formUnion(keys)
+
+            guard let nextPage else { break }
+            currentPage = nextPage
+        }
+
+        return allKeys
+    }
+
     // MARK: - S3 Credential Reload
 
     /// Re-reads the API key from SharedData and reinitializes the S3 client if the key has changed.
@@ -1337,6 +1395,27 @@ extension FileProviderExtension {
         CGImageDestinationAddImage(dest, cgImage, [kCGImageDestinationLossyCompressionQuality: 0.7] as CFDictionary)
         guard CGImageDestinationFinalize(dest) else { return nil }
         return data as Data
+    }
+}
+
+// MARK: - Materialized Item Observer
+
+/// Collects item identifiers from the materialized items enumerator.
+private class MaterializedItemObserver: NSObject, NSFileProviderEnumerationObserver, @unchecked Sendable {
+    private var keys = Set<String>()
+    var onFinish: ((Set<String>, NSFileProviderPage?) -> Void)?
+    var onError: ((Error) -> Void)?
+
+    func didEnumerate(_ updatedItems: [NSFileProviderItemProtocol]) {
+        keys.formUnion(updatedItems.map(\.itemIdentifier.rawValue))
+    }
+
+    func finishEnumerating(upTo nextPage: NSFileProviderPage?) {
+        onFinish?(keys, nextPage)
+    }
+
+    func finishEnumeratingWithError(_ error: Error) {
+        onError?(error)
     }
 }
 
