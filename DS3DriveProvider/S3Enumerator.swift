@@ -64,8 +64,13 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
         let driveId = self.drive.id
 
         Task {
-            let date = (try? await metadataStore.fetchSyncAnchorSnapshot(driveId: driveId))?.lastSyncDate ?? Date()
-            cb.handler(NSFileProviderSyncAnchor(date))
+            let snapshot = try? await metadataStore.fetchSyncAnchorSnapshot(driveId: driveId)
+            let payload = SyncAnchorPayload(
+                date: snapshot?.lastSyncDate ?? Date(),
+                reconciliationId: SyncAnchorPayload.nilReconciliationId,
+                itemCount: snapshot?.itemCount ?? 0
+            )
+            cb.handler(NSFileProviderSyncAnchor(payload))
         }
     }
 
@@ -195,8 +200,11 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                     observer.didDeleteItems(withIdentifiers: deletedIdentifiers)
                 }
 
-                // Create new sync anchor from current date
-                let newAnchor = NSFileProviderSyncAnchor(Date())
+                let snapshot = try? await self.metadataStore?.fetchSyncAnchorSnapshot(driveId: self.drive.id)
+                let newAnchor = NSFileProviderSyncAnchor(SyncAnchorPayload(
+                    date: snapshot?.lastSyncDate ?? Date(),
+                    itemCount: snapshot?.itemCount ?? 0
+                ))
 
                 self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .idle)
                 return observer.finishEnumeratingChanges(upTo: newAnchor, moreComing: false)
