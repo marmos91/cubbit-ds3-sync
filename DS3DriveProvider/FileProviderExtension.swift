@@ -184,22 +184,27 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             return Progress()
         default:
             let progress = Progress(totalUnitCount: 1)
-
-            // TODO: Is it handling folders correctly?
+            let guard_ = OnceGuard()
 
             Task {
                 do {
                     let metadata = try await s3Lib.remoteS3Item(for: identifier, drive: drive)
+                    guard guard_.tryAcquire() else { return }
                     cb.handler(metadata, nil)
                 } catch let s3Error as S3ErrorType {
+                    guard guard_.tryAcquire() else { return }
                     cb.handler(nil, s3Error.toFileProviderError())
                 } catch {
+                    guard guard_.tryAcquire() else { return }
                     cb.handler(nil, NSFileProviderError(.cannotSynchronize) as NSError)
                 }
                 progress.completedUnitCount = 1
             }
 
-            progress.cancellationHandler = { cb.handler(nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)) }
+            progress.cancellationHandler = {
+                guard guard_.tryAcquire() else { return }
+                cb.handler(nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
+            }
 
             return progress
         }
@@ -243,6 +248,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
         let progress = Progress(totalUnitCount: 100)
         let metadataStore = self.metadataStore
+        let guard_ = OnceGuard()
         Task {
             do {
                 nm.sendDriveChangedNotification(status: .sync)
@@ -271,21 +277,27 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 try? await metadataStore?.setMaterialized(s3Key: itemIdentifier.rawValue, driveId: drive.id, isMaterialized: true)
 
                 nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                guard guard_.tryAcquire() else { return }
                 cb.handler(fileURL, s3Item, nil)
             } catch let s3Error as S3ErrorType {
                 self.logger.error("Download failed with S3 error \(s3Error.errorCode, privacy: .public)")
                 nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                guard guard_.tryAcquire() else { return }
                 cb.handler(nil, nil, s3Error.toFileProviderError())
             } catch {
                 self.logger.error("Download failed for \(itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                guard guard_.tryAcquire() else { return }
                 cb.handler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
             }
 
             progress.completedUnitCount = 100
         }
 
-        progress.cancellationHandler = { cb.handler(nil, nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)) }
+        progress.cancellationHandler = {
+            guard guard_.tryAcquire() else { return }
+            cb.handler(nil, nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
+        }
 
         return progress
     }
@@ -523,12 +535,14 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                             do {
                                 let remoteItem = try await s3Lib.remoteS3Item(for: s3Item.itemIdentifier, drive: drive)
                                 let remoteETag = remoteItem.metadata.etag
-                                let storedETag: String? = if let store = self.metadataStore {
-                                    try? await store.fetchItemEtag(
+                                let storedETag: String?
+                                if let store = self.metadataStore {
+                                    storedETag = try? await store.fetchItemEtag(
                                         byKey: s3Item.itemIdentifier.rawValue, driveId: drive.id
                                     )
                                 } else {
-                                    nil
+                                    self.logger.warning("MetadataStore unavailable — skipping modify conflict check for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
+                                    storedETag = nil
                                 }
 
                                 if let remoteETag, let storedETag, !ETagUtils.areEqual(remoteETag, storedETag) {
@@ -554,17 +568,11 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                                 // Remote file was deleted -- proceed with normal upload (re-create)
                                 self.logger.debug("Conflict check: remote file deleted, proceeding with upload for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
                             } catch let s3Error as S3ErrorType {
-                                // HEAD failed -- return transient error for File Provider retry
-                                self.logger.error("Conflict check HEAD failed: \(s3Error.errorCode, privacy: .public)")
-                                nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                                cb.handler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.serverUnreachable) as NSError)
-                                return
+                                // Any other S3 error — conflict check is best-effort, proceed with upload
+                                self.logger.warning("Conflict check HEAD failed (best-effort, proceeding): \(s3Error.errorCode, privacy: .public)")
                             } catch {
-                                // Network error during HEAD -- return transient error
-                                self.logger.error("Conflict check failed for \(s3Item.itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                                nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                                cb.handler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.serverUnreachable) as NSError)
-                                return
+                                // Network error during HEAD — conflict check is best-effort, proceed with upload
+                                self.logger.warning("Conflict check failed (best-effort, proceeding) for \(s3Item.itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
                             }
                         }
                         // --- End conflict detection ---
@@ -747,12 +755,14 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                         do {
                             let remoteItem = try await s3Lib.remoteS3Item(for: identifier, drive: drive)
                             let remoteETag = remoteItem.metadata.etag
-                            let storedETag: String? = if let store = self.metadataStore {
-                                try? await store.fetchItemEtag(
+                            let storedETag: String?
+                            if let store = self.metadataStore {
+                                storedETag = try? await store.fetchItemEtag(
                                     byKey: identifier.rawValue, driveId: drive.id
                                 )
                             } else {
-                                nil
+                                self.logger.warning("MetadataStore unavailable — skipping delete conflict check for \(identifier.rawValue, privacy: .public)")
+                                storedETag = nil
                             }
 
                             if let remoteETag, let storedETag, !ETagUtils.areEqual(remoteETag, storedETag) {
