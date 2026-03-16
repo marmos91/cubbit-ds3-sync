@@ -646,6 +646,14 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
         let taskHolder = TaskHolder()
 
+        // When multiple fields change at once (e.g., content + rename), handle
+        // content first and return remaining fields as still-pending.
+        var remainingFields = NSFileProviderItemFields()
+        if changedFields.contains(.contents) {
+            if changedFields.contains(.filename) { remainingFields.insert(.filename) }
+            if changedFields.contains(.parentItemIdentifier) { remainingFields.insert(.parentItemIdentifier) }
+        }
+
         if changedFields.contains(.contents) {
             // Modified
             switch s3Item.contentType {
@@ -662,11 +670,6 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                     cb.handler(nil, [], false, NSFileProviderError(.cannotSynchronize) as NSError)
                     return progress
                 }
-
-                // TODO: If the upload succeeds, but the server shouldn't accept new contents (remote timestamp > local timestamp),
-                // inform the completion handler that the system no longer needs to apply the contents,
-                // but that it needs to refetch them.
-                // Report all remaining changes as pending.
 
                 let documentSize = s3Item.documentSize?.intValue ?? 0
                 let numParts = max(Int64((documentSize + DefaultSettings.S3.multipartUploadPartSize - 1) / DefaultSettings.S3.multipartUploadPartSize), 1)
@@ -709,6 +712,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                                     putProgress.completedUnitCount = numParts
                                     nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                                     self.signalChanges()
+                                    // Return empty remaining fields: the conflict copy already has the correct name/location
                                     guard once.tryCall() else { return }
                                     cb.handler(conflictS3Item, NSFileProviderItemFields(), false, nil)
                                     return
@@ -744,7 +748,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                         nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                         self.signalChanges()
                         guard once.tryCall() else { return }
-                        cb.handler(s3Item, NSFileProviderItemFields(), false, nil)
+                        cb.handler(s3Item, remainingFields, false, nil)
                     } catch let s3Error as S3ErrorType {
                         self.logger.error("Upload failed with S3 error \(s3Error.errorCode, privacy: .public)")
                         nm.sendDriveChangedNotificationWithDebounce(status: .error)
@@ -761,6 +765,45 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                         guard once.tryCall() else { return }
                         cb.handler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
                     }
+                }
+            }
+        } else if changedFields.contains(.filename) && changedFields.contains(.parentItemIdentifier) {
+            // Renamed + moved
+            let newName = item.filename
+            let destinationParent = item.parentItemIdentifier == .rootContainer ? "" : item.parentItemIdentifier.rawValue
+            self.logger.debug("Rename+move detected for \(s3Item.itemIdentifier.rawValue, privacy: .public) to \(destinationParent, privacy: .public)\(newName, privacy: .public)")
+
+            let oldKey = s3Item.itemIdentifier.rawValue
+            Task {
+                do {
+                    nm.sendDriveChangedNotification(status: .sync)
+
+                    let delimiter = String(DefaultSettings.S3.delimiter)
+                    var newKey = destinationParent + newName
+                    if s3Item.isFolder && !newKey.hasSuffix(delimiter) {
+                        newKey += delimiter
+                    }
+
+                    let movedS3Item = try await s3Lib.moveS3Item(s3Item, toKey: newKey, withProgress: progress)
+
+                    try? await self.metadataStore?.deleteItem(byKey: oldKey, driveId: drive.id)
+                    try? await self.metadataStore?.upsertItem(
+                        s3Key: movedS3Item.itemIdentifier.rawValue,
+                        driveId: drive.id,
+                        syncStatus: .synced
+                    )
+
+                    nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                    self.signalChanges()
+                    cb.handler(movedS3Item, NSFileProviderItemFields(), false, nil)
+                } catch let s3Error as S3ErrorType {
+                    self.logger.error("Rename+move failed with S3 error \(s3Error.errorCode, privacy: .public)")
+                    nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                    cb.handler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
+                } catch {
+                    self.logger.error("Rename+move failed with error \(error)")
+                    nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                    cb.handler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
                 }
             }
         } else if changedFields.contains(.filename) {
