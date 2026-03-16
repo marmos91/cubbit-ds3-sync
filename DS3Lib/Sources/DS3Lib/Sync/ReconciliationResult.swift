@@ -58,9 +58,23 @@ public struct S3ObjectInfo: Sendable {
     }
 }
 
+/// A single page of S3 listing results.
+public struct S3ListingPage: Sendable {
+    public let items: [String: S3ObjectInfo]
+    public let continuationToken: String?
+
+    public init(items: [String: S3ObjectInfo], continuationToken: String?) {
+        self.items = items
+        self.continuationToken = continuationToken
+    }
+}
+
 /// Abstraction over S3 listing operations for dependency injection.
 /// The real implementation wraps SotoS3 ListObjectsV2; tests provide mock data.
 public protocol S3ListingProvider: Sendable {
     /// Lists all objects in the given bucket/prefix, returning a dictionary keyed by S3 key.
     func listAllItems(bucket: String, prefix: String?) async throws -> [String: S3ObjectInfo]
+
+    /// Lists a single page of objects. Returns items and an optional continuation token for the next page.
+    func listItemsPage(bucket: String, prefix: String?, continuationToken: String?) async throws -> S3ListingPage
 }

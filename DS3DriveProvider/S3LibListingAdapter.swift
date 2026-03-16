@@ -17,28 +17,36 @@ final class S3LibListingAdapter: S3ListingProvider, @unchecked Sendable {
         var continuationToken: String?
 
         repeat {
-            let (items, nextToken) = try await s3Lib.listS3Items(
-                forDrive: drive,
-                withPrefix: prefix,
-                recursively: true,
-                withContinuationToken: continuationToken
-            )
-
-            for item in items {
-                let key = item.itemIdentifier.rawValue
-                allItems[key] = S3ObjectInfo(
-                    etag: item.metadata.etag,
-                    lastModified: item.metadata.lastModified,
-                    size: Int64(truncating: item.metadata.size),
-                    contentType: item.metadata.contentType,
-                    parentKey: item.parentItemIdentifier == .rootContainer ? nil : item.parentItemIdentifier.rawValue,
-                    isFolder: item.isFolder
-                )
-            }
-
-            continuationToken = nextToken
+            let page = try await listItemsPage(bucket: bucket, prefix: prefix, continuationToken: continuationToken)
+            allItems.merge(page.items) { _, new in new }
+            continuationToken = page.continuationToken
         } while continuationToken != nil
 
         return allItems
+    }
+
+    func listItemsPage(bucket: String, prefix: String?, continuationToken: String?) async throws -> S3ListingPage {
+        assert(bucket == drive.syncAnchor.bucket.name, "Bucket mismatch: expected \(drive.syncAnchor.bucket.name), got \(bucket)")
+        let (items, nextToken) = try await s3Lib.listS3Items(
+            forDrive: drive,
+            withPrefix: prefix,
+            recursively: true,
+            withContinuationToken: continuationToken
+        )
+
+        var pageItems: [String: S3ObjectInfo] = [:]
+        for item in items {
+            let key = item.itemIdentifier.rawValue
+            pageItems[key] = S3ObjectInfo(
+                etag: item.metadata.etag,
+                lastModified: item.metadata.lastModified,
+                size: Int64(truncating: item.metadata.size),
+                contentType: item.metadata.contentType,
+                parentKey: item.parentItemIdentifier == .rootContainer ? nil : item.parentItemIdentifier.rawValue,
+                isFolder: item.isFolder
+            )
+        }
+
+        return S3ListingPage(items: pageItems, continuationToken: nextToken)
     }
 }
