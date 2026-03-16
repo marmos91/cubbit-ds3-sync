@@ -3,9 +3,8 @@ import Foundation
 /// Utility for detecting recoverable S3 authentication errors.
 /// Used by the File Provider extension to trigger API key self-healing.
 public enum S3ErrorRecovery {
-    /// S3 error codes that indicate an expired or invalid API key, recoverable by key recreation.
+    /// S3 error codes that indicate invalid credentials, recoverable by key recreation.
     public static let recoverableErrorCodes: Set<String> = [
-        "AccessDenied",
         "InvalidAccessKeyId",
         "SignatureDoesNotMatch"
     ]
