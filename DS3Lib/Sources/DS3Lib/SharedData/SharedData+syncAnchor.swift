@@ -20,7 +20,7 @@ extension SharedData {
         if let savedSyncAnchorData = Self.syncAnchorDefaults.data(forKey: DefaultSettings.UserDefaultsKeys.syncAnchor) {
             return NSFileProviderSyncAnchor(savedSyncAnchorData)
        } else {
-           let syncAnchor = NSFileProviderSyncAnchor(Date())
+           let syncAnchor = NSFileProviderSyncAnchor(SyncAnchorPayload())
            self.persistSyncAnchor(syncAnchor)
            return syncAnchor
        }
