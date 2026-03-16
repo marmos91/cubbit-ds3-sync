@@ -54,6 +54,7 @@ struct LoginView: View {
                             .textContentType(.emailAddress)
                             .textFieldStyle(.plain)
                             .font(DS3Typography.body)
+                            .textContentType(.username)
                     }
                     .padding(DS3Spacing.md)
                     .background(
@@ -66,6 +67,9 @@ struct LoginView: View {
                             self.focusedField = .email
                         }
                     }
+                    .onSubmit {
+                        focusedField = .password
+                    }
 
                     // Password field with SF Symbol
                     HStack(spacing: DS3Spacing.sm) {
@@ -76,6 +80,7 @@ struct LoginView: View {
                             .textContentType(.password)
                             .textFieldStyle(.plain)
                             .font(DS3Typography.body)
+                            .textContentType(.password)
                     }
                     .padding(DS3Spacing.md)
                     .background(

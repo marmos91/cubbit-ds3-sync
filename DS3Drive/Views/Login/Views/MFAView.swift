@@ -44,6 +44,7 @@ struct MFAView: View {
                         TextField("6-digit code", text: $tfaCode)
                             .textFieldStyle(.plain)
                             .font(DS3Typography.body)
+                            .textContentType(.oneTimeCode)
                     }
                     .padding(DS3Spacing.md)
                     .background(
