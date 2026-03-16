@@ -11,7 +11,8 @@ public struct ReconciliationResult: Sendable {
     /// S3 keys present in MetadataStore (synced) but not found remotely.
     public let deletedKeys: Set<String>
 
-    /// All remote items indexed by S3 key.
+    /// Remote items that were new or modified, indexed by S3 key.
+    /// Note: does not contain unchanged items — only those that triggered a MetadataStore update.
     public let remoteItems: [String: S3ObjectInfo]
 
     /// True if more than 50% of local items were detected as deleted in one cycle.

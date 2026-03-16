@@ -42,6 +42,10 @@ public actor SyncEngine {
     // Performs a paginated reconciliation cycle for the given drive.
     // Streams S3 listing pages and diffs each page against MetadataStore incrementally,
     // avoiding loading the full remote state into memory for large buckets.
+    //
+    // Note: new/modified items are applied per-page, but the sync anchor is only
+    // advanced after all pages complete. If the extension is terminated mid-pagination,
+    // already-applied changes will be re-processed on the next cycle (idempotent upserts).
     // swiftlint:disable:next function_body_length
     public func reconcile(
         driveId: UUID,
