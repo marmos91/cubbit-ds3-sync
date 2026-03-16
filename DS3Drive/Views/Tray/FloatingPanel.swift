@@ -1,6 +1,14 @@
 import SwiftUI
 import AppKit
 
+// MARK: - SidePanel
+
+/// Represents which side panel is currently displayed.
+enum SidePanel: Equatable {
+    case recentFiles(driveId: UUID)
+    case connectionInfo
+}
+
 // MARK: - FloatingPanel
 
 /// A non-activating, borderless NSPanel for displaying side content next to the tray menu.

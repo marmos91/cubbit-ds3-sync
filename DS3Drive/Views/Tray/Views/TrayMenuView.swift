@@ -2,12 +2,6 @@ import SwiftUI
 import os.log
 import DS3Lib
 
-/// Represents which side panel is currently displayed.
-enum SidePanel: Equatable {
-    case recentFiles(driveId: UUID)
-    case connectionInfo
-}
-
 struct TrayMenuView: View {
     @Environment(\.openURL) var openURL
     @Environment(\.openWindow) var openWindow
@@ -24,122 +18,73 @@ struct TrayMenuView: View {
     @State private var driveViewModels: [DS3DriveViewModel] = []
 
     var body: some View {
-        mainTrayContent
-            .frame(width: 310)
-            .fixedSize(horizontal: true, vertical: false)
-            .background(
-                WindowAccessor { window in
-                    floatingPanelManager.setTrayWindow(window)
-                }
-            )
-            .onAppear {
-                coordinatorURL = loadCoordinatorURL()
-                tenantName = loadTenantName()
-                rebuildDriveViewModels()
+        Group {
+            if ds3Authentication.isLogged {
+                loggedInMenu
+            } else {
+                loggedOutMenu
             }
-            .onChange(of: ds3DriveManager.drives.map(\.id)) {
-                rebuildDriveViewModels()
-            }
+        }
+        .frame(width: 310)
+        .fixedSize(horizontal: true, vertical: false)
+        .background(
+            WindowAccessor(onWindow: floatingPanelManager.setTrayWindow)
+        )
+        .onAppear {
+            coordinatorURL = loadCoordinatorURL()
+            tenantName = loadTenantName()
+            rebuildDriveViewModels()
+        }
+        .onChange(of: ds3DriveManager.drives.map(\.id)) {
+            rebuildDriveViewModels()
+        }
     }
 
-    // MARK: - Main Tray Content
+    // MARK: - Logged Out Menu
 
-    @ViewBuilder
-    private var mainTrayContent: some View {
+    private var loggedOutMenu: some View {
         VStack(spacing: 0) {
-            // Signed in as
-            if ds3Authentication.isLogged, let account = ds3Authentication.account {
-                HStack {
-                    Image(systemName: "person.circle")
-                        .font(DS3Typography.caption)
-                        .foregroundStyle(.secondary)
-                    Text(String(format: NSLocalizedString("Signed in as %@", comment: "Signed in label"), account.primaryEmail))
-                        .font(DS3Typography.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    Spacer()
-                }
-                .padding(.horizontal, DS3Spacing.lg)
-                .padding(.vertical, DS3Spacing.sm)
-
-                Divider()
+            TrayMenuItem(
+                title: NSLocalizedString("Sign In", comment: "Tray menu sign in")
+            ) {
+                openWindow(id: "io.cubbit.DS3Drive.main")
+                NSApp.activate(ignoringOtherApps: true)
             }
 
-            // Speed summary
+            Divider()
+
+            TrayMenuItem(
+                title: NSLocalizedString("Help", comment: "Tray menu help")
+            ) {
+                if let url = URL(string: HelpURLs.baseURL) { openURL(url) }
+            }
+
+            Divider()
+
+            quitItem
+
+            menuFooter(status: AppStatus.idle.toString())
+        }
+    }
+
+    // MARK: - Logged In Menu
+
+    private var loggedInMenu: some View {
+        VStack(spacing: 0) {
+            signedInHeader
+
             SpeedSummaryView(driveViewModels: driveViewModels)
 
             Divider()
 
-            // Drive rows
-            ForEach(driveViewModels, id: \.drive.id) { vm in
-                TrayDriveRowView(
-                    driveViewModel: vm,
-                    onHoverDrive: { driveId, hovering in
-                        if hovering {
-                            floatingPanelManager.cancelDismissTimer()
-                            showRecentFiles(forDriveId: driveId)
-                        } else {
-                            floatingPanelManager.scheduleDismiss()
-                        }
-                    }
-                )
+            driveListSection
 
-                Divider()
-            }
-
-            // Add new drive
-            TrayMenuItem(
-                title: canAddMoreDrives
-                    ? NSLocalizedString("Add a new Drive", comment: "Tray menu add new drive")
-                    : NSLocalizedString("You have reached the maximum number of Drives", comment: "Tray menu add new drive disabled"),
-                enabled: canAddMoreDrives
-            ) {
-                openWindow(id: "io.cubbit.DS3Drive.drive.new")
-                NSApp.activate(ignoringOtherApps: true)
-            }
+            addDriveItem
 
             Divider()
 
-            // Quick actions
-            TrayMenuItem(
-                title: NSLocalizedString("Help", comment: "Tray menu help")
-            ) {
-                openURL(URL(string: HelpURLs.baseURL)!)
-            }
+            quickActionsSection
 
-            Divider()
-
-            TrayMenuItem(
-                title: NSLocalizedString("Preferences", comment: "Tray open preferences")
-            ) {
-                openWindow(id: "io.cubbit.DS3Drive.preferences")
-                NSApp.activate(ignoringOtherApps: true)
-            }
-
-            Divider()
-
-            TrayMenuItem(
-                title: NSLocalizedString("Open web console", comment: "Tray menu open console button")
-            ) {
-                openURL(URL(string: ConsoleURLs.baseURL)!)
-            }
-
-            Divider()
-
-            // Connection Info row
-            TrayMenuItem(
-                title: NSLocalizedString("Connection Info", comment: "Tray menu connection info")
-            ) {
-                if floatingPanelManager.activePanel == .connectionInfo {
-                    floatingPanelManager.dismiss()
-                } else {
-                    showConnectionInfo()
-                }
-            }
-
-            Divider()
-
-            // Sign Out
             TrayMenuItem(
                 title: NSLocalizedString("Sign Out", comment: "Tray menu sign out")
             ) {
@@ -148,19 +93,106 @@ struct TrayMenuView: View {
 
             Divider()
 
-            TrayMenuItem(
-                title: NSLocalizedString("Quit", comment: "Tray menu quit")
-            ) {
-                NSApplication.shared.terminate(self)
-            }
+            quitItem
 
-            Spacer()
+            menuFooter(status: appStatusManager.status.toString())
+        }
+    }
+
+    // MARK: - Logged In Sections
+
+    @ViewBuilder
+    private var signedInHeader: some View {
+        if let account = ds3Authentication.account {
+            HStack {
+                Image(systemName: "person.circle")
+                Text(String(format: NSLocalizedString("Signed in as %@", comment: "Signed in label"), account.primaryEmail))
+                    .lineLimit(1)
+                Spacer()
+            }
+            .font(DS3Typography.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, DS3Spacing.lg)
+            .padding(.vertical, DS3Spacing.sm)
 
             Divider()
+        }
+    }
 
-            // Footer — show idle when not logged in to avoid misleading "Synchronizing"
+    private var driveListSection: some View {
+        ForEach(driveViewModels, id: \.drive.id) { vm in
+            TrayDriveRowView(
+                driveViewModel: vm,
+                onHoverDrive: handleDriveHover
+            )
+
+            Divider()
+        }
+    }
+
+    private var addDriveItem: some View {
+        let title = canAddMoreDrives
+            ? NSLocalizedString("Add a new Drive", comment: "Tray menu add new drive")
+            : NSLocalizedString("You have reached the maximum number of Drives", comment: "Tray menu add new drive disabled")
+
+        return TrayMenuItem(title: title, enabled: canAddMoreDrives) {
+            openWindow(id: "io.cubbit.DS3Drive.drive.new")
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
+    @ViewBuilder
+    private var quickActionsSection: some View {
+        TrayMenuItem(
+            title: NSLocalizedString("Help", comment: "Tray menu help")
+        ) {
+            if let url = URL(string: HelpURLs.baseURL) { openURL(url) }
+        }
+
+        Divider()
+
+        TrayMenuItem(
+            title: NSLocalizedString("Preferences", comment: "Tray open preferences")
+        ) {
+            openWindow(id: "io.cubbit.DS3Drive.preferences")
+            NSApp.activate(ignoringOtherApps: true)
+        }
+
+        Divider()
+
+        TrayMenuItem(
+            title: NSLocalizedString("Open web console", comment: "Tray menu open console button")
+        ) {
+            if let url = URL(string: ConsoleURLs.baseURL) { openURL(url) }
+        }
+
+        Divider()
+
+        TrayMenuItem(
+            title: NSLocalizedString("Connection Info", comment: "Tray menu connection info")
+        ) {
+            toggleConnectionInfo()
+        }
+
+        Divider()
+    }
+
+    // MARK: - Shared Components
+
+    private var quitItem: some View {
+        TrayMenuItem(
+            title: NSLocalizedString("Quit", comment: "Tray menu quit")
+        ) {
+            NSApp.terminate(nil)
+        }
+    }
+
+    private func menuFooter(status: String) -> some View {
+        Group {
+            Spacer()
+            Divider()
             TrayMenuFooterView(
-                status: (ds3Authentication.isLogged ? appStatusManager.status : .idle).toString(),
+                status: status,
                 version: DefaultSettings.appVersion,
                 build: DefaultSettings.appBuild
             )
@@ -177,29 +209,48 @@ struct TrayMenuView: View {
     }
 
     private func showConnectionInfo() {
+        let s3Endpoint = ds3Authentication.account?.endpointGateway
+            ?? NSLocalizedString("N/A", comment: "Not available")
+
         floatingPanelManager.show(.connectionInfo) {
             ConnectionInfoPanel(
                 coordinatorURL: coordinatorURL,
-                s3Endpoint: ds3Authentication.account?.endpointGateway ?? NSLocalizedString("N/A", comment: "Not available"),
+                s3Endpoint: s3Endpoint,
                 tenant: tenantName,
                 consoleURL: ConsoleURLs.baseURL,
-                onClose: { floatingPanelManager.dismiss() }
+                onClose: floatingPanelManager.dismiss
             )
+        }
+    }
+
+    private func toggleConnectionInfo() {
+        if floatingPanelManager.activePanel == .connectionInfo {
+            floatingPanelManager.dismiss()
+        } else {
+            showConnectionInfo()
         }
     }
 
     // MARK: - Helpers
 
-    var canAddMoreDrives: Bool {
+    private var canAddMoreDrives: Bool {
         ds3DriveManager.drives.count < DefaultSettings.maxDrives
+    }
+
+    private func handleDriveHover(driveId: UUID, hovering: Bool) {
+        if hovering {
+            floatingPanelManager.cancelDismissTimer()
+            showRecentFiles(forDriveId: driveId)
+        } else {
+            floatingPanelManager.scheduleDismiss()
+        }
     }
 
     private func rebuildDriveViewModels() {
         let currentIds = Set(driveViewModels.map(\.drive.id))
         let newDrives = ds3DriveManager.drives
-
-        // Only rebuild if the drive set changed
         let newIds = Set(newDrives.map(\.id))
+
         if currentIds != newIds {
             driveViewModels = newDrives.map { DS3DriveViewModel(drive: $0) }
         }
@@ -229,13 +280,7 @@ struct TrayMenuView: View {
 
 #Preview {
     TrayMenuView()
-        .environment(
-            DS3Authentication()
-        )
-        .environment(
-            AppStatusManager.default()
-        )
-        .environment(
-            DS3DriveManager(appStatusManager: AppStatusManager.default())
-        )
+        .environment(DS3Authentication())
+        .environment(AppStatusManager.default())
+        .environment(DS3DriveManager(appStatusManager: AppStatusManager.default()))
 }
