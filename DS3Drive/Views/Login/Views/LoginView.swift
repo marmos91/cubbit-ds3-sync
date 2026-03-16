@@ -66,6 +66,9 @@ struct LoginView: View {
                             self.focusedField = .email
                         }
                     }
+                    .onSubmit {
+                        focusedField = .password
+                    }
 
                     // Password field with SF Symbol
                     HStack(spacing: DS3Spacing.sm) {
