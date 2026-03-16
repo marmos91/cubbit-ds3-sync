@@ -326,8 +326,13 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     ) async throws -> S3Item {
         self.logger.debug("Moving \(s3Item.itemIdentifier.rawValue, privacy: .public) to \(key, privacy: .public)")
 
-
         try await self.copyS3Item(s3Item, toKey: key, withProgress: progress)
+
+        // Verify the copy landed before deleting the source (skip for folders which are virtual)
+        if !s3Item.isFolder {
+            let headRequest = S3.HeadObjectRequest(bucket: s3Item.drive.syncAnchor.bucket.name, key: key)
+            _ = try await self.s3.headObject(headRequest)
+        }
 
         // Delete the source. If another client already deleted it (NoSuchKey),
         // the copy succeeded so we treat it as a successful move.
