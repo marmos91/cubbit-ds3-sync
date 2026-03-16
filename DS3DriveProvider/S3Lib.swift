@@ -825,7 +825,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         defer { try? handle.close() }
         handle.seek(toFileOffset: UInt64(offset))
         guard let data = try handle.read(upToCount: length), !data.isEmpty else {
-            throw FileProviderExtensionError.fileNotFound
+            throw FileProviderExtensionError.parseError
         }
         return data
     }
