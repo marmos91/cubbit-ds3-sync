@@ -38,6 +38,9 @@ public actor PendingUploadStore {
         let containerURL = FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup
         )
+        if containerURL == nil {
+            logger.warning("App Group container unavailable, pending uploads will use temporary directory and won't survive restarts")
+        }
         self.fileURL = (containerURL ?? URL(fileURLWithPath: NSTemporaryDirectory()))
             .appendingPathComponent("pendingUploads.json")
         self.uploads = Self.loadFromDisk(url: self.fileURL)
