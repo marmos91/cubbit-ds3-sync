@@ -159,6 +159,9 @@ public enum DefaultSettings {
 
         /// Max number of retries for a failed request.
         public static let maxRetries = 5
+
+        /// Maximum concurrent S3 list requests during recursive folder enumeration.
+        public static let recursiveListConcurrency = 4
     }
 
     /// Settings related to the notifications sent between the main app and the file provider extension.

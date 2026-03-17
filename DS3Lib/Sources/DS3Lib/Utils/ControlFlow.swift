@@ -6,6 +6,38 @@ public enum ControlFlowError: Error {
     case maxRetriesReached
 }
 
+/// Actor-based async semaphore for limiting concurrency without blocking threads.
+/// Use `wait()` / `signal()` around the critical section.
+public actor AsyncSemaphore {
+    private var permits: Int
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    public init(value: Int) {
+        self.permits = value
+    }
+
+    /// Waits until a permit is available, then acquires one.
+    public func wait() async {
+        if permits > 0 {
+            permits -= 1
+            return
+        }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    /// Releases a permit, unblocking the next waiter if any.
+    public func signal() {
+        if !waiters.isEmpty {
+            let waiter = waiters.removeFirst()
+            waiter.resume()
+        } else {
+            permits += 1
+        }
+    }
+}
+
 /// Retries a block of code a given number of times before throwing an error
 /// - Parameters:
 ///   - retries: the number of retries
