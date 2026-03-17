@@ -1,6 +1,7 @@
 import Foundation
 import FileProvider
 import SwiftUI
+import SwiftData
 import os.log
 import DS3Lib
 
@@ -209,12 +210,41 @@ import DS3Lib
     /// Reenumerates the drive
     func reEnumerate() async throws {
         let domain = self.fileProviderDomain()
-        
+
         self.logger.info("Reenumerating domain \(domain.displayName)")
-        
+
         try await NSFileProviderManager(for: domain)?.reimportItems(below: .rootContainer)
-            
+
         self.logger.info("Enumerator signaled for domain \(domain.displayName)")
+    }
+
+    /// Resets the sync state for this drive by removing the domain, clearing metadata, and re-adding.
+    /// Forces a full re-enumeration from scratch with a clean database.
+    func resetSync() async throws {
+        let domain = self.fileProviderDomain()
+
+        self.logger.info("Resetting sync for domain \(domain.displayName)")
+
+        // 1. Remove the domain (kills the extension process)
+        try await NSFileProviderManager.remove(domain)
+
+        // 2. Clear MetadataStore data for this drive
+        do {
+            let container = try MetadataStore.createContainer()
+            let store = MetadataStore(modelContainer: container)
+            try await store.deleteItemsForDrive(driveId: drive.id)
+            try await store.deleteSyncAnchor(driveId: drive.id)
+            self.logger.info("MetadataStore cleared for drive \(self.drive.id)")
+        } catch {
+            self.logger.warning("Failed to clear MetadataStore: \(error.localizedDescription, privacy: .public)")
+        }
+
+        // 3. Re-add the domain (restarts extension with fresh state)
+        try await NSFileProviderManager.add(domain)
+        try await NSFileProviderManager(for: domain)?.signalEnumerator(for: .rootContainer)
+
+        self.driveStatus = .idle
+        self.logger.info("Sync reset complete for domain \(domain.displayName)")
     }
     
     /// Returns the drive's file provider domain

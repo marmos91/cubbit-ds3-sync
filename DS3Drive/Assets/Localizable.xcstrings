@@ -730,6 +730,9 @@
         }
       }
     },
+    "Reset Sync" : {
+      "comment" : "Drive menu reset sync"
+    },
     "Resume" : {
       "comment" : "Drive menu resume",
       "localizations" : {
