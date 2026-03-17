@@ -82,8 +82,8 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
             do {
                 // Cache-first: for per-folder (non-recursive) first-page enumeration,
                 // serve from MetadataStore if items are already known (e.g. from
-                // RecursiveFolderEnumerator). This avoids hitting S3 when navigating
-                // into subfolders of an already-downloaded parent.
+                // the BFS indexer). This avoids hitting S3 when navigating
+                // into subfolders of an already-indexed parent.
                 if !self.recursively && page.toContinuationToken() == nil,
                    let metadataStore = self.metadataStore {
                     let parentKey: String? = self.parent == .rootContainer ? nil : self.parent.rawValue

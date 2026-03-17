@@ -4,11 +4,8 @@ import os.log
 import DS3Lib
 
 /// Proactive breadth-first indexer that enumerates the S3 bucket level-by-level
-/// using delimited (non-recursive) listings. This ensures shallow folders are
-/// discovered before deep descendants, so Finder can serve them from the
-/// MetadataStore cache almost instantly.
-///
-/// Lifecycle: created and started in `FileProviderExtension.init`, stopped in `invalidate()`.
+/// using delimited (non-recursive) listings. Shallow folders are discovered before
+/// deep descendants, so Finder can serve them from the MetadataStore cache quickly.
 final class BreadthFirstIndexer: @unchecked Sendable {
     typealias Logger = os.Logger
 
@@ -18,25 +15,19 @@ final class BreadthFirstIndexer: @unchecked Sendable {
     private let drive: DS3Drive
     private let metadataStore: MetadataStore?
     private let manager: NSFileProviderManager?
-    private let notificationManager: NotificationManager?
-
-    /// Actor that manages the BFS queue and priority bumping.
     private let queueManager = QueueManager()
-
     private var task: Task<Void, Never>?
 
     init(
         s3Lib: S3Lib,
         drive: DS3Drive,
         metadataStore: MetadataStore?,
-        manager: NSFileProviderManager?,
-        notificationManager: NotificationManager?
+        manager: NSFileProviderManager?
     ) {
         self.s3Lib = s3Lib
         self.drive = drive
         self.metadataStore = metadataStore
         self.manager = manager
-        self.notificationManager = notificationManager
     }
 
     // MARK: - Lifecycle
@@ -59,7 +50,6 @@ final class BreadthFirstIndexer: @unchecked Sendable {
     }
 
     /// Bumps a prefix to the front of the BFS queue so it is enumerated next.
-    /// Called when the user navigates to an uncached folder.
     func prioritize(prefix: String) {
         Task {
             await queueManager.prioritize(prefix)
@@ -72,46 +62,32 @@ final class BreadthFirstIndexer: @unchecked Sendable {
     private func runLoop() async {
         while !Task.isCancelled {
             await runOneBFSPass()
-
             guard !Task.isCancelled else { return }
-
-            // Wait between full cycles
             try? await Task.sleep(for: .seconds(DefaultSettings.S3.bfsCycleIntervalSeconds))
         }
     }
 
-    /// Performs a single root-to-leaf BFS pass.
     private func runOneBFSPass() async {
         let rootPrefix = drive.syncAnchor.prefix ?? ""
         await queueManager.reset(rootPrefix: rootPrefix)
 
         logger.info("BFS pass starting from prefix \(rootPrefix, privacy: .public)")
 
-        let semaphore = AsyncSemaphore(value: DefaultSettings.S3.bfsListConcurrency)
         let delimiter = String(DefaultSettings.S3.delimiter)
-        let prefixSegmentCount = rootPrefix.split(separator: DefaultSettings.S3.delimiter).count
 
         while !Task.isCancelled {
-            // Check pause state
-            if let driveId = try? drive.id,
-               (try? SharedData.default().isDrivePaused(driveId)) == true {
+            if (try? SharedData.default().isDrivePaused(drive.id)) == true {
                 try? await Task.sleep(for: .seconds(5))
                 continue
             }
 
-            guard let prefix = await queueManager.dequeue() else {
-                break // Queue empty — pass complete
-            }
-
-            await semaphore.wait()
-            defer { Task { await semaphore.signal() } }
+            guard let prefix = await queueManager.dequeue() else { break }
 
             do {
                 var continuationToken: String?
                 var discoveredSubfolders: [String] = []
                 var upsertBatch: [MetadataStore.ItemUpsertData] = []
 
-                // Paginate through all items at this level
                 repeat {
                     guard !Task.isCancelled else { return }
 
@@ -127,35 +103,23 @@ final class BreadthFirstIndexer: @unchecked Sendable {
                         let key = item.itemIdentifier.rawValue
                         upsertBatch.append(MetadataStore.ItemUpsertData(from: item))
 
-                        // Discover subfolder prefixes to enqueue
                         if key.hasSuffix(delimiter) && key != prefix {
                             discoveredSubfolders.append(key)
                         }
                     }
 
-                    // Synthesize implicit parent folders between this prefix and any
-                    // deep items returned (shouldn't happen with delimiter, but be safe)
-                    synthesizeImplicitParents(
-                        from: items,
-                        delimiter: delimiter,
-                        prefixSegmentCount: prefixSegmentCount,
-                        into: &upsertBatch
-                    )
                 } while continuationToken != nil
 
-                // Batch upsert all items from this prefix
                 if let metadataStore, !upsertBatch.isEmpty {
                     try await metadataStore.batchUpsertItems(upsertBatch)
                 }
 
                 logger.debug("BFS indexed \(upsertBatch.count) items at prefix \(prefix.isEmpty ? "<root>" : prefix, privacy: .public)")
 
-                // Enqueue discovered subfolders for next levels
                 if !discoveredSubfolders.isEmpty {
                     await queueManager.enqueue(discoveredSubfolders)
                 }
 
-                // Signal the system so Finder picks up newly cached items
                 do {
                     try await manager?.signalEnumerator(for: .workingSet)
                 } catch {
@@ -163,53 +127,14 @@ final class BreadthFirstIndexer: @unchecked Sendable {
                 }
             } catch {
                 logger.error("BFS listing failed for prefix \(prefix, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                // Continue with next prefix rather than aborting the whole pass
             }
 
-            // Small delay between prefixes to avoid starving user operations
             if !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(DefaultSettings.S3.bfsLevelDelayMs))
             }
         }
 
         logger.info("BFS pass complete for drive \(self.drive.id, privacy: .public)")
-    }
-
-    // MARK: - Helpers
-
-    /// Synthesizes implicit parent folder entries for items whose parent folders
-    /// were not explicitly returned by the S3 listing.
-    private func synthesizeImplicitParents(
-        from items: [S3Item],
-        delimiter: String,
-        prefixSegmentCount: Int,
-        into batch: inout [MetadataStore.ItemUpsertData]
-    ) {
-        for item in items {
-            let key = item.itemIdentifier.rawValue
-            guard !key.hasSuffix(delimiter) else { continue }
-
-            var segments = key.split(separator: DefaultSettings.S3.delimiter)
-            segments.removeLast()
-
-            while segments.count > prefixSegmentCount {
-                let folderKey = segments.joined(separator: delimiter) + delimiter
-                if batch.contains(where: { $0.s3Key == folderKey }) { break }
-
-                let folderParentKey: String? = segments.count == prefixSegmentCount + 1
-                    ? nil
-                    : segments.dropLast().joined(separator: delimiter) + delimiter
-
-                batch.append(MetadataStore.ItemUpsertData(
-                    s3Key: folderKey,
-                    driveId: drive.id,
-                    syncStatus: .synced,
-                    parentKey: folderParentKey,
-                    size: 0
-                ))
-                segments.removeLast()
-            }
-        }
     }
 }
 

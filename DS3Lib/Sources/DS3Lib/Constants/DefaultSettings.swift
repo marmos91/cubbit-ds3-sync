@@ -160,12 +160,6 @@ public enum DefaultSettings {
         /// Max number of retries for a failed request.
         public static let maxRetries = 5
 
-        /// Maximum concurrent S3 list requests during recursive folder enumeration.
-        public static let recursiveListConcurrency = 4
-
-        /// Maximum concurrent S3 list requests for the BFS indexer.
-        public static let bfsListConcurrency = 2
-
         /// Seconds to wait between full BFS passes (root-to-leaf refresh cycles).
         public static let bfsCycleIntervalSeconds = 60
 

@@ -1218,7 +1218,6 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
     // MARK: - BFS Indexer
 
-    /// Starts the breadth-first indexer that proactively populates MetadataStore level-by-level.
     private func startBFSIndexer() {
         guard self.enabled,
               let drive = self.drive,
@@ -1228,8 +1227,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             s3Lib: s3Lib,
             drive: drive,
             metadataStore: self.metadataStore,
-            manager: NSFileProviderManager(for: self.domain),
-            notificationManager: self.notificationManager
+            manager: NSFileProviderManager(for: self.domain)
         )
         indexer.start()
         self.breadthFirstIndexer = indexer

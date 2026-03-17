@@ -327,7 +327,7 @@ public actor MetadataStore {
     }
 
     /// Fetch all children of a given parent key within a drive.
-    /// Used by S3Enumerator for cache-first enumeration after RecursiveFolderEnumerator
+    /// Used by S3Enumerator for cache-first enumeration after the BFS indexer
     /// has already populated the metadata store.
     /// - Parameters:
     ///   - parentKey: The parent folder's S3 key, or nil for root items.

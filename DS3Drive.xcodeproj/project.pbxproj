@@ -23,7 +23,6 @@
 		A10504052F6500000042AD93 /* ConnectionInfoPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10504042F6500000042AD93 /* ConnectionInfoPanel.swift */; };
 		A1D31EBB2F6500000042AD93 /* FloatingPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A140E4372F6500000042AD93 /* FloatingPanel.swift */; };
 		B1BF5A012F6800000042AD93 /* BreadthFirstIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1BF5A002F6800000042AD93 /* BreadthFirstIndexer.swift */; };
-		B1F0A0012F6700000042AD93 /* RecursiveFolderEnumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F0A0002F6700000042AD93 /* RecursiveFolderEnumerator.swift */; };
 		CE070E323BF098B9EFD808B7 /* FileProviderExtension+CustomActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4F9E4F14F282A0BEC87664A /* FileProviderExtension+CustomActions.swift */; };
 		D512EEBC2B59631400F550EC /* MFAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D512EEBB2B59631400F550EC /* MFAView.swift */; };
 		D54002A02B5EAEB000B54E97 /* S3Lib.swift in Sources */ = {isa = PBXBuildFile; fileRef = D540029D2B5EAEB000B54E97 /* S3Lib.swift */; };
@@ -141,7 +140,6 @@
 		A10504042F6500000042AD93 /* ConnectionInfoPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionInfoPanel.swift; sourceTree = "<group>"; };
 		A140E4372F6500000042AD93 /* FloatingPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingPanel.swift; sourceTree = "<group>"; };
 		B1BF5A002F6800000042AD93 /* BreadthFirstIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreadthFirstIndexer.swift; sourceTree = "<group>"; };
-		B1F0A0002F6700000042AD93 /* RecursiveFolderEnumerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecursiveFolderEnumerator.swift; sourceTree = "<group>"; };
 		C4F9E4F14F282A0BEC87664A /* FileProviderExtension+CustomActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+CustomActions.swift"; sourceTree = "<group>"; };
 		D512EEBB2B59631400F550EC /* MFAView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MFAView.swift; sourceTree = "<group>"; };
 		D540029D2B5EAEB000B54E97 /* S3Lib.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3Lib.swift; sourceTree = "<group>"; };
@@ -626,7 +624,6 @@
 				D5A222802B5721CC00F1413B /* S3Item.swift */,
 				D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */,
 				D5A222812B5721CC00F1413B /* S3Enumerator.swift */,
-				B1F0A0002F6700000042AD93 /* RecursiveFolderEnumerator.swift */,
 				B1BF5A002F6800000042AD93 /* BreadthFirstIndexer.swift */,
 				D540029D2B5EAEB000B54E97 /* S3Lib.swift */,
 				A10203032F6300000042AD93 /* S3LibListingAdapter.swift */,
@@ -843,7 +840,6 @@
 				D5A222862B5721CC00F1413B /* FileProviderExtension+Errors.swift in Sources */,
 				D5A222892B5721CC00F1413B /* S3Item.swift in Sources */,
 				D5A2228A2B5721CC00F1413B /* S3Enumerator.swift in Sources */,
-				B1F0A0012F6700000042AD93 /* RecursiveFolderEnumerator.swift in Sources */,
 				B1BF5A012F6800000042AD93 /* BreadthFirstIndexer.swift in Sources */,
 				D5A4E0AB2B630A9800D7560B /* NotificationsManager.swift in Sources */,
 				D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */,
