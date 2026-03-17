@@ -16,6 +16,19 @@ This repository contains the source code of the DS3 Drive application.
 
 DS3 Drive is a macOS desktop application that synchronizes your files with your Cubbit DS3 account. It uses Apple's File Provider framework to integrate with Finder, presenting remote S3 buckets as native macOS drives.
 
+## Installation
+
+### Homebrew
+
+```bash
+brew tap marmos91/tap
+brew install --cask marmos91/tap/ds3-drive
+```
+
+### Manual Download
+
+Download the latest `.dmg` from the [Releases](https://github.com/marmos91/cubbit-ds3-drive/releases) page.
+
 ## How to build
 
 ![Sync](/Assets/Tutorial1.png)
@@ -29,7 +42,7 @@ DS3 Drive is a macOS desktop application that synchronizes your files with your 
 
 To build the project, open `DS3Drive.xcodeproj` in Xcode. You need to specify your own provisioning profile and signing certificate in the `Signing & Capabilities` tab.
 
-Please ensure that the App Group (`group.io.cubbit.DS3Drive`) matches between the main app and the FileProvider extension.
+Please ensure that the App Group (`group.X889956QSM.io.cubbit.DS3Drive`) matches between the main app and the FileProvider extension.
 
 ## Assets
 
