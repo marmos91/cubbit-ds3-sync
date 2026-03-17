@@ -29,7 +29,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "D54775C22B57181D00DABCD4"
-               BuildableName = "DS3 Drive.app"
+               BuildableName = "Cubbit DS3 Drive.app"
                BlueprintName = "DS3Drive"
                ReferencedContainer = "container:DS3Drive.xcodeproj">
             </BuildableReference>
@@ -60,7 +60,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "D54775C22B57181D00DABCD4"
-            BuildableName = "DS3 Drive.app"
+            BuildableName = "Cubbit DS3 Drive.app"
             BlueprintName = "DS3Drive"
             ReferencedContainer = "container:DS3Drive.xcodeproj">
          </BuildableReference>
@@ -79,7 +79,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "D54775C22B57181D00DABCD4"
-            BuildableName = "DS3 Drive.app"
+            BuildableName = "Cubbit DS3 Drive.app"
             BlueprintName = "DS3Drive"
             ReferencedContainer = "container:DS3Drive.xcodeproj">
          </BuildableReference>
