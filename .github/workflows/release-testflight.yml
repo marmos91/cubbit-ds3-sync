@@ -41,6 +41,9 @@ jobs:
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          # Set as default so productbuild (invoked by xcodebuild) finds certs
+          # without prompting — just adding to search list is not enough
+          security default-keychain -d user -s "$KEYCHAIN_PATH"
           security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
@@ -131,18 +134,49 @@ jobs:
           mkdir -p ~/private_keys
           echo "$ASC_API_KEY_P8" | base64 --decode > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
 
-      - name: Export & upload to TestFlight
+      - name: Create installer package
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          ARCHIVE="$RUNNER_TEMP/DS3Drive.xcarchive"
+          APP_PATH="$ARCHIVE/Products/Applications/Cubbit DS3 Drive.app"
+          UNSIGNED_PKG="$RUNNER_TEMP/export/DS3Drive-unsigned.pkg"
+          SIGNED_PKG="$RUNNER_TEMP/export/DS3Drive.pkg"
+          mkdir -p "$RUNNER_TEMP/export"
+
+          # Step 1: Create unsigned package (no --sign avoids timestamp hang)
+          echo "Creating unsigned package..."
+          productbuild \
+            --component "$APP_PATH" /Applications \
+            "$UNSIGNED_PKG"
+          echo "Unsigned package created: $(ls -lh "$UNSIGNED_PKG" | awk '{print $5}')"
+
+          # Step 2: Sign with productsign using explicit keychain
+          # --timestamp=none avoids hanging on timestamp.apple.com from CI runners
+          echo "Signing package..."
+          productsign \
+            --sign "3rd Party Mac Developer Installer: Cubbit srl (X889956QSM)" \
+            --keychain "$KEYCHAIN_PATH" \
+            --timestamp=none \
+            "$UNSIGNED_PKG" "$SIGNED_PKG"
+
+          rm -f "$UNSIGNED_PKG"
+          echo "Signed package created:"
+          ls -lh "$SIGNED_PKG"
+
+      - name: Upload to TestFlight
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
-          xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/DS3Drive.xcarchive" \
-            -exportOptionsPlist ExportOptions-appstore.plist \
-            -exportPath "$RUNNER_TEMP/export" \
-            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          xcrun altool --upload-app \
+            -f "$RUNNER_TEMP/export/"*.pkg \
+            -t macos \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID" \
+            --verbose
 
       - name: Cleanup
         if: always()
