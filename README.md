@@ -1,4 +1,4 @@
-# DS3 Drive
+# Cubbit DS3 Drive
 
 [![Xcode - Build and Analyze](https://github.com/marmos91/cubbit-ds3-drive/actions/workflows/build.yml/badge.svg)](https://github.com/marmos91/cubbit-ds3-drive/actions/workflows/build.yml)
 [![Release — Homebrew Cask](https://github.com/marmos91/cubbit-ds3-drive/actions/workflows/release-homebrew.yml/badge.svg)](https://github.com/marmos91/cubbit-ds3-drive/actions/workflows/release-homebrew.yml)
@@ -7,7 +7,7 @@
 ![Swift](https://img.shields.io/badge/swift-5.9%2B-orange)
 [![License: GPL](https://img.shields.io/badge/license-GPL-green)](LICENSE)
 
-DS3 Drive is a macOS desktop application that syncs your local files with [Cubbit DS3](https://www.cubbit.io) cloud storage. It uses Apple's File Provider framework to integrate directly with Finder, presenting remote S3 buckets as native macOS drives.
+Cubbit DS3 Drive is a macOS desktop application that syncs your local files with [Cubbit DS3](https://www.cubbit.io) cloud storage. It uses Apple's File Provider framework to integrate directly with Finder, presenting remote S3 buckets as native macOS drives.
 
 <p align="center">
   <img alt="Finder Integration" src="/Assets/FinderIntegration.png?raw=true" width="700">
