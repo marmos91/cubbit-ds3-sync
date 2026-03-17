@@ -1,9 +1,9 @@
 # Requirements: DS3 Drive
 
 **Defined:** 2026-03-11
-**Core Value:** Files sync reliably and transparently between the user's Mac and Cubbit DS3, with zero friction
+**Core Value:** Files sync reliably and transparently between the user's Mac, iPhone, iPad and Cubbit DS3, with zero friction
 
-## v1 Requirements
+## v1.0 Requirements (macOS -- Complete)
 
 ### Foundation
 
@@ -47,7 +47,38 @@
 - [x] **UX-06**: Simplified drive setup wizard with tenant-aware project/bucket selection
 - [x] **UX-07**: Drive limit maintained at 3 maximum
 
-## v2 Requirements
+## v2.0 Requirements (iOS & iPadOS Universal App)
+
+### Platform Abstraction
+
+- [ ] **ABST-01**: IPC abstraction protocol (IPCService) wraps DistributedNotificationCenter on macOS and Darwin Notifications + App Group files on iOS
+- [ ] **ABST-02**: Platform services protocol (SystemService) abstracts device info, clipboard, file reveal, and login items behind platform-conditional implementations
+- [ ] **ABST-03**: App lifecycle manager abstracts SMAppService login item on macOS and Background App Refresh registration on iOS
+- [ ] **ABST-04**: DS3Lib Package.swift updated with .iOS(.v17) platform support and all macOS-only imports guarded with #if os(macOS)
+
+### iOS File Provider Extension
+
+- [ ] **IEXT-01**: Single multi-platform File Provider extension target compiles and runs on both macOS and iOS
+- [ ] **IEXT-02**: iOS-specific entitlements and provisioning profiles configured with App Group capability
+- [ ] **IEXT-03**: File upload/download uses streaming I/O to stay under 20MB iOS extension memory limit
+- [ ] **IEXT-04**: Background polling disabled on iOS; remote changes detected via enumeration-time checks and main app signaling
+
+### iOS Companion App
+
+- [ ] **IAPP-01**: User can log in with email, password, and tenant on iOS using shared DS3Authentication
+- [ ] **IAPP-02**: User can create and configure drives via project/bucket/prefix wizard on iOS
+- [ ] **IAPP-03**: User can view sync status per drive with transfer speed on iOS dashboard
+- [ ] **IAPP-04**: User can manage preferences (account, clear cache, about) on iOS
+- [ ] **IAPP-05**: iPad uses NavigationSplitView sidebar layout adaptive to Split View and Stage Manager
+- [ ] **IAPP-06**: Background App Refresh signals periodic sync enumeration (~30 min intervals)
+
+### iOS Polish & Distribution
+
+- [ ] **IPOL-01**: Share Extension allows uploading files to DS3 drives from other iOS apps via share sheet
+- [ ] **IPOL-02**: File Provider decorations show sync status badges in Files app on iOS
+- [ ] **IPOL-03**: CI pipeline builds and tests iOS targets on GitHub Actions (xcodebuild for iOS simulator)
+
+## Future Requirements
 
 ### Authentication
 
@@ -60,16 +91,18 @@
 - **SYNC-10**: Object locking support
 - **SYNC-11**: Bandwidth throttling (user-configurable upload/download limits)
 - **SYNC-12**: Spotlight integration (index synced file contents)
-- **SYNC-13**: Thumbnail generation for Finder Quick Look
+- **SYNC-13**: Thumbnail generation for Finder/Files Quick Look
 
 ### Platform
 
-- **PLAT-05**: iOS/iPadOS support using shared codebase
+- **PLAT-05**: PushKit server-push sync for instant iOS remote change detection (requires backend APNS)
 - **PLAT-06**: Zero Knowledge drive support
 
 ### UX
 
 - **UX-08**: Public ACL link sharing from Finder context menu
+- **UX-09**: iOS home screen widgets for drive status (WidgetKit)
+- **UX-10**: Siri Shortcuts for quick file access and drive actions
 
 ## Out of Scope
 
@@ -77,10 +110,13 @@
 |---------|--------|
 | Multi-cloud support (non-Cubbit S3) | Product is Cubbit-native, not a generic S3 client |
 | Built-in file editor/viewer | OS handles file operations, not the sync client |
-| Windows/Linux clients | macOS first, other platforms not planned |
+| Windows/Linux clients | Apple platforms first, other platforms not planned |
 | Real-time collaboration | S3 has no locking; sync client, not collaboration tool |
 | AI/ML features | Out of product scope |
 | Custom file system (FUSE) | Using Apple File Provider exclusively |
+| In-app file browser on iOS | Anti-pattern: Files app IS the file browser. Companion app is dashboard only |
+| Camera upload / document scanning | Separate product domain, high complexity, not core to file sync |
+| iOS offline editing | S3 has no conflict-free merge; on-demand sync is the pattern |
 
 ## Traceability
 
@@ -113,12 +149,30 @@
 | UX-05 | Phase 5 | Complete |
 | UX-06 | Phase 5 | Complete |
 | UX-07 | Phase 5 | Complete |
+| ABST-01 | Phase 6 | Pending |
+| ABST-02 | Phase 6 | Pending |
+| ABST-03 | Phase 6 | Pending |
+| ABST-04 | Phase 6 | Pending |
+| IEXT-01 | Phase 7 | Pending |
+| IEXT-02 | Phase 7 | Pending |
+| IEXT-03 | Phase 7 | Pending |
+| IEXT-04 | Phase 7 | Pending |
+| IAPP-01 | Phase 8 | Pending |
+| IAPP-02 | Phase 8 | Pending |
+| IAPP-03 | Phase 8 | Pending |
+| IAPP-04 | Phase 8 | Pending |
+| IAPP-05 | Phase 8 | Pending |
+| IAPP-06 | Phase 8 | Pending |
+| IPOL-01 | Phase 9 | Pending |
+| IPOL-02 | Phase 9 | Pending |
+| IPOL-03 | Phase 9 | Pending |
 
 **Coverage:**
-- v1 requirements: 27 total
-- Mapped to phases: 27
-- Unmapped: 0 ✓
+- v1.0 requirements: 27 total (26 complete, 1 pending)
+- v2.0 requirements: 17 total (all mapped to phases 6-9)
+- Mapped to phases: 44/44
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-11*
-*Last updated: 2026-03-11 after initial definition*
+*Last updated: 2026-03-17 after v2.0 phase mapping*
