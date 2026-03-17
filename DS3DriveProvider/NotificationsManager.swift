@@ -26,7 +26,11 @@ final class NotificationManager: Sendable {
     }
 
     /// Sends a notification to the app with the current status of the drive debounced. If you want to send the notification immediately, use `sendDriveChangedNotification(status: DS3DriveStatus)`
-    /// - Parameter status: status to send
+    /// - Parameters:
+    ///   - status: status to send
+    ///   - isFileOperation: whether this call is the completion of a file operation (fetch/create/modify/delete)
+    ///     that was previously tracked with an immediate `.sync`. Only file-operation completions should
+    ///     decrement the active operations counter. Enumerator status updates should pass `false`.
     func sendDriveChangedNotificationWithDebounce(status: DS3DriveStatus, isFileOperation: Bool = true) {
         queue.async {
             if isFileOperation {
