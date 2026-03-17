@@ -316,13 +316,13 @@
         }
       }
     },
-    "DS3 Drive" : {
+    "Cubbit DS3 Drive" : {
       "comment" : "Auth failure notification title",
       "localizations" : {
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "DS3 Drive"
+            "value" : "Cubbit DS3 Drive"
           }
         }
       }

@@ -247,7 +247,7 @@ struct DS3DriveApp: App {
 
     private static func showSessionExpiredNotification(logger: Logger) {
         let content = UNMutableNotificationContent()
-        content.title = NSLocalizedString("DS3 Drive", comment: "Auth failure notification title")
+        content.title = NSLocalizedString("Cubbit DS3 Drive", comment: "Auth failure notification title")
         content.body = NSLocalizedString("Session expired -- sign in to resume syncing", comment: "Auth failure notification body")
         content.sound = .default
 

@@ -35,7 +35,7 @@ struct LoginView: View {
                         .resizable()
                         .frame(width: 120, height: 44)
 
-                    Text("DS3 Drive")
+                    Text("Cubbit DS3 Drive")
                         .font(DS3Typography.caption)
                         .foregroundStyle(DS3Colors.secondaryText)
 
