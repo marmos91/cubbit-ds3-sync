@@ -89,7 +89,9 @@ final class FloatingPanelManager {
     }
 
     /// Shows a floating panel with the given SwiftUI content, positioned to the left of the tray window.
-    func show<Content: View>(_ sidePanel: SidePanel, @ViewBuilder content: () -> Content) {
+    /// - Parameter anchorScreenFrame: Optional screen-coordinate rect of the trigger element (e.g. drive row).
+    ///   When provided, the panel's top edge aligns with the anchor's top edge and extends downward.
+    func show<Content: View>(_ sidePanel: SidePanel, anchorScreenFrame: NSRect? = nil, @ViewBuilder content: () -> Content) {
         cancelDismissTimer()
         dismiss()
 
@@ -115,9 +117,14 @@ final class FloatingPanelManager {
         let rightX = min(trayFrame.maxX + gap, screenFrame.maxX - panelWidth)
         let panelX = preferredX >= screenFrame.minX ? preferredX : rightX
 
+        // Vertical position: anchor to drive row top if provided, otherwise tray top.
+        // Panel extends downward from the anchor point, clamped to screen bounds.
+        let topY = anchorScreenFrame?.maxY ?? trayFrame.maxY
+        let originY = max(screenFrame.minY, topY - panelHeight)
+
         let origin = NSPoint(
             x: panelX,
-            y: trayFrame.maxY - panelHeight
+            y: originY
         )
 
         let rect = NSRect(origin: origin, size: NSSize(width: panelWidth, height: panelHeight))
@@ -190,5 +197,30 @@ struct WindowAccessor: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         DispatchQueue.main.async { onWindow(nsView.window) }
+    }
+}
+
+// MARK: - ScreenFrameReader
+
+/// An invisible NSViewRepresentable that reports its frame in screen coordinates.
+struct ScreenFrameReader: NSViewRepresentable {
+    @MainActor let onChange: (NSRect) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            guard let window = view.window else { return }
+            let frameInWindow = view.convert(view.bounds, to: nil)
+            onChange(window.convertToScreen(frameInWindow))
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            guard let window = nsView.window else { return }
+            let frameInWindow = nsView.convert(nsView.bounds, to: nil)
+            onChange(window.convertToScreen(frameInWindow))
+        }
     }
 }

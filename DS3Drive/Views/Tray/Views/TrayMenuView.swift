@@ -201,9 +201,9 @@ struct TrayMenuView: View {
 
     // MARK: - Floating Panels
 
-    private func showRecentFiles(forDriveId driveId: UUID) {
+    private func showRecentFiles(forDriveId driveId: UUID, anchorFrame: NSRect? = nil) {
         guard let vm = driveViewModels.first(where: { $0.drive.id == driveId }) else { return }
-        floatingPanelManager.show(.recentFiles(driveId: driveId)) {
+        floatingPanelManager.show(.recentFiles(driveId: driveId), anchorScreenFrame: anchorFrame) {
             RecentFilesPanel(driveViewModel: vm)
         }
     }
@@ -237,10 +237,10 @@ struct TrayMenuView: View {
         ds3DriveManager.drives.count < DefaultSettings.maxDrives
     }
 
-    private func handleDriveHover(driveId: UUID, hovering: Bool) {
+    private func handleDriveHover(driveId: UUID, hovering: Bool, rowFrame: NSRect) {
         if hovering {
             floatingPanelManager.cancelDismissTimer()
-            showRecentFiles(forDriveId: driveId)
+            showRecentFiles(forDriveId: driveId, anchorFrame: rowFrame)
         } else {
             floatingPanelManager.scheduleDismiss()
         }
