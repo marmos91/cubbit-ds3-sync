@@ -821,6 +821,11 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                         newKey += delimiter
                     }
 
+                    // Apply drive prefix if needed
+                    if let prefix = drive.syncAnchor.prefix, !newKey.starts(with: prefix) {
+                        newKey = prefix + newKey
+                    }
+
                     let movedS3Item = try await s3Lib.moveS3Item(s3Item, toKey: newKey, withProgress: progress)
 
                     try? await self.metadataStore?.deleteItem(byKey: oldKey, driveId: drive.id)
