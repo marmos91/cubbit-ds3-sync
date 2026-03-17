@@ -87,6 +87,40 @@ The main app and extension communicate via:
 ~/Library/Group Containers/group.X889956QSM.io.cubbit.DS3Drive/
 ```
 
+### Extension Won't Load After Build Changes
+
+If the extension fails to load (no extension logs, "The application cannot be used right now", or `fileproviderd` logs `Extension doesn't have a group container ... Ignoring the extension`), run this recovery sequence:
+
+**Root cause:** `fileproviderd` and `containermanagerd` cache extension paths, sandbox profiles, and LaunchServices entries. When DerivedData paths change or ad-hoc signing is used, stale caches block the extension.
+
+**Fix (run in order):**
+```bash
+# 1. Stop the app from Xcode
+
+# 2. Delete ALL old DerivedData folders (keep only the active one)
+mdfind "kMDItemCFBundleIdentifier == 'io.cubbit.DS3Drive.provider'"  # find copies
+rm -rf ~/Library/Developer/Xcode/DerivedData/DS3Drive-<old-hash>     # delete old ones
+
+# 3. Delete stale extension container
+rm -rf ~/Library/Containers/io.cubbit.DS3Drive.provider
+
+# 4. Fix LaunchServices (use full path to lsregister)
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "<old-DerivedData-path>/DS3 Drive.app"
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "<current-DerivedData-path>/DS3 Drive.app"
+
+# 5. Restart fileproviderd
+killall fileproviderd
+
+# 6. Build & Run from Xcode (Cmd+R)
+
+# 7. Kill fileproviderd once more after app starts (it may have cached old state)
+killall fileproviderd
+
+# 8. Build & Run from Xcode again (Cmd+R)
+```
+
+**IMPORTANT:** Never use `xcodebuild` with `CODE_SIGN_IDENTITY="-"` (ad-hoc signing) — it strips App Group entitlements and poisons all caches.
+
 ## Commit Guidelines
 
 - Don't mention Claude Code in commits or PRs

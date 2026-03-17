@@ -88,9 +88,8 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     /// HTTP/2 stream exhaustion (NIOHTTP2.StreamClosed errors).
     private let fetchSemaphore = AsyncSemaphore(value: 20)
 
-    /// Tracks folder prefixes with an active recursive enumeration to avoid duplicates.
-    private var activeRecursiveEnumerations = Set<String>()
-    private let enumerationLock = NSLock()
+    /// Proactive breadth-first indexer that populates MetadataStore level-by-level.
+    private var breadthFirstIndexer: BreadthFirstIndexer?
 
     var drive: DS3Drive?
     let temporaryDirectory: URL?
@@ -176,6 +175,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
         super.init()
         self.startPolling()
+        self.startBFSIndexer()
     }
 
     /// Notifies the main app that the extension failed to initialize
@@ -193,6 +193,8 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         self.logger.debug("Stopping periodic polling task")
         self.pollingTask?.cancel()
         self.pollingTask = nil
+        self.breadthFirstIndexer?.stop()
+        self.breadthFirstIndexer = nil
 
         do {
             try self.s3Lib?.shutdown()
@@ -1167,7 +1169,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     }
 
     /// Materialises a folder item by providing an empty temp file and marking it in MetadataStore.
-    /// Also triggers a background recursive enumeration so all descendants are discovered.
+    /// Bumps the folder to the front of the BFS indexer queue so its children are discovered quickly.
     private func materializeFolderItem(
         _ itemIdentifier: NSFileProviderItemIdentifier,
         drive: DS3Drive,
@@ -1195,44 +1197,9 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             cb.handler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
         }
         progress.completedUnitCount = 1
-        startRecursiveEnumerationIfNeeded(for: itemIdentifier.rawValue, drive: drive)
+        breadthFirstIndexer?.prioritize(prefix: itemIdentifier.rawValue)
 
         return progress
-    }
-
-    /// Spawns a background recursive enumeration for a folder if one isn't already running.
-    private func startRecursiveEnumerationIfNeeded(for folderPrefix: String, drive: DS3Drive) {
-        guard let s3Lib = self.s3Lib else { return }
-
-        let inserted = enumerationLock.withLock {
-            activeRecursiveEnumerations.insert(folderPrefix).inserted
-        }
-
-        guard inserted else {
-            logger.debug("Recursive enumeration already active for \(folderPrefix, privacy: .public)")
-            return
-        }
-
-        let manager = NSFileProviderManager(for: self.domain)
-        let metadataStore = self.metadataStore
-        let notificationManager = self.notificationManager
-
-        Task.detached { [weak self] in
-            let enumerator = RecursiveFolderEnumerator(
-                s3Lib: s3Lib,
-                drive: drive,
-                metadataStore: metadataStore,
-                manager: manager,
-                notificationManager: notificationManager
-            )
-
-            await enumerator.enumerateRecursively(folderPrefix: folderPrefix)
-
-            guard let self else { return }
-            self.enumerationLock.withLock {
-                _ = self.activeRecursiveEnumerations.remove(folderPrefix)
-            }
-        }
     }
 
     /// Signals the system to re-enumerate changes after a local CRUD operation.
@@ -1247,6 +1214,25 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 self.logger.error("Failed to signal working set: \(error.localizedDescription, privacy: .public)")
             }
         }
+    }
+
+    // MARK: - BFS Indexer
+
+    /// Starts the breadth-first indexer that proactively populates MetadataStore level-by-level.
+    private func startBFSIndexer() {
+        guard self.enabled,
+              let drive = self.drive,
+              let s3Lib = self.s3Lib else { return }
+
+        let indexer = BreadthFirstIndexer(
+            s3Lib: s3Lib,
+            drive: drive,
+            metadataStore: self.metadataStore,
+            manager: NSFileProviderManager(for: self.domain),
+            notificationManager: self.notificationManager
+        )
+        indexer.start()
+        self.breadthFirstIndexer = indexer
     }
 
     // MARK: - Periodic Polling

@@ -162,6 +162,15 @@ public enum DefaultSettings {
 
         /// Maximum concurrent S3 list requests during recursive folder enumeration.
         public static let recursiveListConcurrency = 4
+
+        /// Maximum concurrent S3 list requests for the BFS indexer.
+        public static let bfsListConcurrency = 2
+
+        /// Seconds to wait between full BFS passes (root-to-leaf refresh cycles).
+        public static let bfsCycleIntervalSeconds = 60
+
+        /// Milliseconds to pause between BFS levels to avoid starving user operations.
+        public static let bfsLevelDelayMs = 200
     }
 
     /// Settings related to the notifications sent between the main app and the file provider extension.
