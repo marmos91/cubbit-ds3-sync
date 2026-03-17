@@ -7,10 +7,6 @@
 ![Swift](https://img.shields.io/badge/swift-5.9%2B-orange)
 [![License: GPL](https://img.shields.io/badge/license-GPL-green)](LICENSE)
 
-<p align="center">
-  <img alt="Cubbit" src="/Assets/Logo.png?raw=true" width="480">
-</p>
-
 DS3 Drive is a macOS desktop application that syncs your local files with [Cubbit DS3](https://www.cubbit.io) cloud storage. It uses Apple's File Provider framework to integrate directly with Finder, presenting remote S3 buckets as native macOS drives.
 
 <p align="center">
@@ -23,7 +19,7 @@ DS3 Drive is a macOS desktop application that syncs your local files with [Cubbi
 
 ```bash
 brew tap marmos91/tap
-brew install --cask marmos91/tap/ds3-drive
+brew install --cask marmos91/tap/cubbit-ds3-drive
 ```
 
 ### Manual Download
