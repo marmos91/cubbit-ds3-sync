@@ -15,7 +15,7 @@ class TutorialViewModel: ObservableObject {
         }
     }
     
-    func isLastSlide() -> Bool {
-        return currentSlideIndex == slides.count - 1
+    var isLastSlide: Bool {
+        currentSlideIndex == slides.count - 1
     }
 }
