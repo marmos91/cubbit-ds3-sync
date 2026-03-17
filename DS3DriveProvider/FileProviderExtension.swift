@@ -35,6 +35,35 @@ final class TaskHolder: @unchecked Sendable {
     var task: Task<Void, Never>?
 }
 
+/// Simple actor-based counting semaphore for limiting concurrent async operations.
+actor AsyncSemaphore {
+    private var permits: Int
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    init(value: Int) {
+        self.permits = value
+    }
+
+    func wait() async {
+        if permits > 0 {
+            permits -= 1
+        } else {
+            await withCheckedContinuation { continuation in
+                waiters.append(continuation)
+            }
+        }
+    }
+
+    func signal() {
+        if waiters.isEmpty {
+            permits += 1
+        } else {
+            let continuation = waiters.removeFirst()
+            continuation.resume()
+        }
+    }
+}
+
 // swiftlint:disable:next type_body_length
 class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedExtension, NSFileProviderThumbnailing, @unchecked Sendable {
     typealias Logger = os.Logger
@@ -328,21 +357,15 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 nm.sendDriveChangedNotification(status: .sync)
 
                 let (fileURL, s3Item) = try await self.withAPIKeyRecovery {
-                    // Retry the entire fetch (HEAD + GET) so transient HTTP/2
-                    // errors (StreamClosed) are recovered automatically.
+                    // Single GET request that returns both file data and metadata,
+                    // eliminating the separate HEAD request.
                     try await withExponentialBackoff(maxRetries: 3, baseDelay: 1.0) {
-                        let s3Item = try await self.s3Lib!.remoteS3Item(
-                            for: itemIdentifier,
-                            drive: drive
+                        try await s3Lib.downloadS3Item(
+                            identifier: itemIdentifier,
+                            drive: drive,
+                            temporaryFolder: temporaryDirectory,
+                            progress: progress
                         )
-
-                        let fileURL = try await self.s3Lib!.getS3Item(
-                            s3Item,
-                            withTemporaryFolder: temporaryDirectory,
-                            withProgress: progress
-                        )
-
-                        return (fileURL, s3Item)
                     }
                 }
 

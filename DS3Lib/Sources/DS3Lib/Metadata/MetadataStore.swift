@@ -78,35 +78,7 @@ public actor MetadataStore {
 
     // MARK: - SyncedItem CRUD
 
-    /// Batch insert or update multiple SyncedItems with a single save at the end.
-    public func batchUpsertItems(_ items: [ItemUpsertData]) throws {
-        for data in items {
-            if let existing = try findItem(byKey: data.s3Key, driveId: data.driveId) {
-                existing.etag = data.etag
-                existing.lastModified = data.lastModified
-                existing.syncStatus = data.syncStatus.rawValue
-                existing.parentKey = data.parentKey
-                existing.contentType = data.contentType
-                existing.size = data.size
-            } else {
-                let item = SyncedItem(
-                    s3Key: data.s3Key,
-                    driveId: data.driveId,
-                    size: data.size,
-                    syncStatus: data.syncStatus.rawValue
-                )
-                item.etag = data.etag
-                item.lastModified = data.lastModified
-                item.parentKey = data.parentKey
-                item.contentType = data.contentType
-                modelExecutor.modelContext.insert(item)
-            }
-        }
-        try modelExecutor.modelContext.save()
-    }
-
-    /// Insert or update a SyncedItem by s3Key within a specific drive.
-    public func upsertItem(
+    private func applyUpsert(
         s3Key: String,
         driveId: UUID,
         etag: String? = nil,
@@ -134,7 +106,63 @@ public actor MetadataStore {
             item.contentType = contentType
             modelExecutor.modelContext.insert(item)
         }
+    }
 
+    /// Batch insert or update multiple SyncedItems with a single save at the end.
+    public func batchUpsertItems(_ items: [ItemUpsertData]) throws {
+        for data in items {
+            try applyUpsert(
+                s3Key: data.s3Key,
+                driveId: data.driveId,
+                etag: data.etag,
+                lastModified: data.lastModified,
+                syncStatus: data.syncStatus,
+                parentKey: data.parentKey,
+                contentType: data.contentType,
+                size: data.size
+            )
+        }
+        try modelExecutor.modelContext.save()
+    }
+
+    /// Batch delete multiple SyncedItems with a single save at the end.
+    public func batchDeleteItems(_ keys: [(s3Key: String, driveId: UUID)]) throws {
+        let context = modelExecutor.modelContext
+        var changed = false
+        for (s3Key, driveId) in keys {
+            if let item = try findItem(byKey: s3Key, driveId: driveId) {
+                context.delete(item)
+                changed = true
+            }
+        }
+        if changed {
+            try context.save()
+        }
+    }
+
+    /// Insert or update a SyncedItem by s3Key within a specific drive.
+    public func upsertItem(
+        s3Key: String,
+        driveId: UUID,
+        etag: String? = nil,
+        lastModified: Date? = nil,
+        localFileHash: String? = nil,
+        syncStatus: SyncStatus = .pending,
+        parentKey: String? = nil,
+        contentType: String? = nil,
+        size: Int64 = 0
+    ) throws {
+        try applyUpsert(
+            s3Key: s3Key,
+            driveId: driveId,
+            etag: etag,
+            lastModified: lastModified,
+            localFileHash: localFileHash,
+            syncStatus: syncStatus,
+            parentKey: parentKey,
+            contentType: contentType,
+            size: size
+        )
         try modelExecutor.modelContext.save()
     }
 

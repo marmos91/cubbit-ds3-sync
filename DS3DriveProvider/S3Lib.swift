@@ -528,6 +528,90 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         return fileURL
     }
 
+    /// Downloads an S3 object and extracts metadata from the GET response in a single request.
+    /// Eliminates the need for a separate HEAD request when both file contents and metadata are needed.
+    /// - Parameters:
+    ///   - identifier: the item identifier to download
+    ///   - drive: the DS3Drive the item belongs to
+    ///   - temporaryFolder: the temporary folder to use for the download
+    ///   - progress: the optional progress object to update
+    /// - Returns: a tuple of the downloaded file URL and a fully-populated S3Item
+    @Sendable
+    func downloadS3Item(
+        identifier: NSFileProviderItemIdentifier,
+        drive: DS3Drive,
+        temporaryFolder: URL,
+        progress: Progress?
+    ) async throws -> (URL, S3Item) {
+        let key = try decodedKey(identifier.rawValue)
+        let filename = key.components(separatedBy: "/").last
+
+        let fileURL = try temporaryFileURL(withTemporaryFolder: temporaryFolder)
+        let fileHandle = try FileHandle(forWritingTo: fileURL)
+
+        defer { fileHandle.closeFile() }
+
+        var bytesDownloaded: Int64 = 0
+
+        let request = S3.GetObjectRequest(
+            bucket: drive.syncAnchor.bucket.name,
+            key: key
+        )
+
+        do {
+            let downloadStartTime = Date()
+
+            let response = try await self.s3.getObjectStreaming(request) { byteBuffer, eventLoop in
+                if Task.isCancelled {
+                    return eventLoop.makeFailedFuture(CancellationError())
+                }
+
+                let bufferSize = Int64(byteBuffer.readableBytes)
+                let bytesToWrite = Data([UInt8](byteBuffer.readableBytesView))
+
+                fileHandle.write(bytesToWrite)
+                bytesDownloaded += bufferSize
+
+                let duration = Date().timeIntervalSince(downloadStartTime)
+
+                self.notificationManager.sendTransferSpeedNotification(
+                    DriveTransferStats(
+                        driveId: drive.id,
+                        size: bytesDownloaded,
+                        duration: duration,
+                        direction: .download,
+                        filename: filename,
+                        totalSize: nil
+                    )
+                )
+
+                return eventLoop.makeSucceededFuture(())
+            }
+
+            let fileSize = response.contentLength ?? bytesDownloaded
+
+            if let progress {
+                progress.completedUnitCount = progress.totalUnitCount
+            }
+
+            let s3Item = S3Item(
+                identifier: identifier,
+                drive: drive,
+                objectMetadata: S3Item.Metadata(
+                    etag: response.eTag,
+                    contentType: response.contentType,
+                    lastModified: response.lastModified,
+                    size: NSNumber(value: fileSize)
+                )
+            )
+
+            return (fileURL, s3Item)
+        } catch {
+            try? FileManager.default.removeItem(at: fileURL)
+            throw error
+        }
+    }
+
     /// Downloads a byte range of an S3 object to a temporary file using HTTP Range GET.
     /// Used for partial content fetching of large files.
     /// - Parameters:
