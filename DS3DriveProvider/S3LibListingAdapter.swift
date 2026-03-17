@@ -47,6 +47,39 @@ final class S3LibListingAdapter: S3ListingProvider, @unchecked Sendable {
             )
         }
 
+        // Derive implicit parent folder keys from object paths.
+        // When listing recursively (no delimiter), S3 only returns objects in
+        // `contents` — folders without explicit zero-byte markers are absent.
+        // Without this, the SyncEngine would incorrectly mark them as deleted.
+        let delimiter = DefaultSettings.S3.delimiter
+        let prefixSegmentCount = prefix?.split(separator: delimiter).count ?? 0
+        let existingKeys = Array(pageItems.keys)
+
+        for key in existingKeys {
+            var segments = key.split(separator: delimiter)
+            segments.removeLast()
+
+            while segments.count > prefixSegmentCount {
+                let folderKey = segments.joined(separator: String(delimiter)) + String(delimiter)
+
+                if pageItems[folderKey] != nil {
+                    break
+                }
+
+                let parentKey: String? = segments.count == prefixSegmentCount + 1
+                    ? nil
+                    : segments.dropLast().joined(separator: String(delimiter)) + String(delimiter)
+
+                pageItems[folderKey] = S3ObjectInfo(
+                    size: 0,
+                    parentKey: parentKey,
+                    isFolder: true
+                )
+
+                segments.removeLast()
+            }
+        }
+
         return S3ListingPage(items: pageItems, continuationToken: nextToken)
     }
 }
