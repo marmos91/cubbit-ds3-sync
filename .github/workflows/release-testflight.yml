@@ -43,11 +43,14 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
-      - name: Import certificate
+      - name: Import certificates
         env:
           APPLE_DISTRIBUTION_P12: ${{ secrets.APPLE_DISTRIBUTION_P12 }}
           APPLE_DISTRIBUTION_P12_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_P12_PASSWORD }}
+          MAC_INSTALLER_P12: ${{ secrets.MAC_INSTALLER_P12 }}
+          MAC_INSTALLER_P12_PASSWORD: ${{ secrets.MAC_INSTALLER_P12_PASSWORD }}
         run: |
+          # Apple Distribution certificate (code signing)
           CERT_PATH="$RUNNER_TEMP/apple_distribution.p12"
           echo "$APPLE_DISTRIBUTION_P12" | base64 --decode > "$CERT_PATH"
           security import "$CERT_PATH" \
@@ -55,8 +58,20 @@ jobs:
             -P "$APPLE_DISTRIBUTION_P12_PASSWORD" \
             -T /usr/bin/codesign \
             -T /usr/bin/productsign
-          security set-key-partition-list -S apple-tool:,apple: -s -k "${{ secrets.KEYCHAIN_PASSWORD }}" "$KEYCHAIN_PATH"
           rm -f "$CERT_PATH"
+
+          # Mac Installer Distribution certificate (pkg signing)
+          CERT_PATH="$RUNNER_TEMP/mac_installer.p12"
+          echo "$MAC_INSTALLER_P12" | base64 --decode > "$CERT_PATH"
+          security import "$CERT_PATH" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$MAC_INSTALLER_P12_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/productsign \
+            -T /usr/bin/productbuild
+          rm -f "$CERT_PATH"
+
+          security set-key-partition-list -S apple-tool:,apple: -s -k "${{ secrets.KEYCHAIN_PASSWORD }}" "$KEYCHAIN_PATH"
 
       - name: Install provisioning profiles
         env:
