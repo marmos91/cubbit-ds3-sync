@@ -10,6 +10,7 @@ jobs:
   testflight:
     name: Archive & Upload to TestFlight
     runs-on: macos-15
+    timeout-minutes: 30
 
     steps:
       - uses: maxim-lobanov/setup-xcode@v1
@@ -127,26 +128,38 @@ jobs:
           ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
         run: |
-          mkdir -p "$RUNNER_TEMP/private_keys"
-          echo "$ASC_API_KEY_P8" | base64 --decode > "$RUNNER_TEMP/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          mkdir -p ~/private_keys
+          echo "$ASC_API_KEY_P8" | base64 --decode > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
 
-      - name: Export & Upload to TestFlight
+      - name: Export archive
+        run: |
+          # Export locally without uploading
+          EXPORT_PLIST="$RUNNER_TEMP/ExportOptions.plist"
+          cp ExportOptions-appstore.plist "$EXPORT_PLIST"
+          /usr/libexec/PlistBuddy -c "Delete :destination" "$EXPORT_PLIST" 2>/dev/null || true
+
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/DS3Drive.xcarchive" \
+            -exportOptionsPlist "$EXPORT_PLIST" \
+            -exportPath "$RUNNER_TEMP/export"
+
+          echo "Exported artifacts:"
+          ls -lh "$RUNNER_TEMP/export/"
+
+      - name: Upload to TestFlight
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
-          xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/DS3Drive.xcarchive" \
-            -exportOptionsPlist ExportOptions-appstore.plist \
-            -exportPath "$RUNNER_TEMP/export" \
-            -authenticationKeyPath "$RUNNER_TEMP/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            -allowProvisioningUpdates
+          xcrun altool --upload-app \
+            -f "$RUNNER_TEMP/export/"*.pkg \
+            -t macos \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID"
 
       - name: Cleanup
         if: always()
         run: |
           security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
-          rm -rf "$RUNNER_TEMP/private_keys"
+          rm -rf ~/private_keys
           rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/"*.provisionprofile
