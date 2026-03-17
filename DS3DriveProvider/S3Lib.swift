@@ -482,7 +482,19 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         defer { fileHandle.closeFile() }
         
         var bytesDownloaded: Int64 = 0
-        
+
+        // Send an initial notification so the file appears in the tray immediately
+        self.notificationManager.sendTransferSpeedNotification(
+            DriveTransferStats(
+                driveId: s3Item.drive.id,
+                size: 0,
+                duration: 0,
+                direction: .download,
+                filename: s3Item.filename,
+                totalSize: fileSize > 0 ? fileSize : nil
+            )
+        )
+
         let request = S3.GetObjectRequest(
             bucket: s3Item.drive.syncAnchor.bucket.name,
             key: try decodedKey(s3Item.identifier.rawValue)
@@ -733,7 +745,19 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         }
         
         self.logger.debug("Sending standard PUT request for \(key, privacy: .public)")
-        
+
+        // Send an initial notification so the file appears in the tray immediately
+        self.notificationManager.sendTransferSpeedNotification(
+            DriveTransferStats(
+                driveId: s3Item.drive.id,
+                size: 0,
+                duration: 0,
+                direction: .upload,
+                filename: s3Item.filename,
+                totalSize: size
+            )
+        )
+
         let uploadStart = Date()
         let putObjectResponse = try await self.s3.putObject(request)
         let transferTime = Date().timeIntervalSince(uploadStart)
@@ -802,12 +826,27 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
 
         let completedPartNumbers = Set(alreadyCompletedParts.compactMap(\.partNumber))
 
+        let documentTotalSize = Int64(truncating: s3Item.documentSize ?? 0)
+
         let context = MultipartUploadContext(
             bucket: bucket,
             key: key,
             uploadId: uploadId,
             driveId: driveId,
-            filename: s3Item.filename
+            filename: s3Item.filename,
+            totalSize: documentTotalSize
+        )
+
+        // Send an initial notification so the file appears in the tray immediately
+        self.notificationManager.sendTransferSpeedNotification(
+            DriveTransferStats(
+                driveId: driveId,
+                size: 0,
+                duration: 0,
+                direction: .upload,
+                filename: s3Item.filename,
+                totalSize: documentTotalSize
+            )
         )
 
         do {
@@ -903,6 +942,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         let uploadId: String
         let driveId: UUID
         let filename: String
+        let totalSize: Int64
     }
 
     /// Describes an upload part by its position within the file.
@@ -936,7 +976,8 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 size: Int64(data.count),
                 duration: transferTime,
                 direction: .upload,
-                filename: context.filename
+                filename: context.filename,
+                totalSize: context.totalSize
             )
         )
 
