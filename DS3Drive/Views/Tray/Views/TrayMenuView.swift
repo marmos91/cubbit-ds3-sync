@@ -88,7 +88,7 @@ struct TrayMenuView: View {
             TrayMenuItem(
                 title: NSLocalizedString("Sign Out", comment: "Tray menu sign out")
             ) {
-                Task { await signOut() }
+                signOut()
             }
 
             Divider()
@@ -265,17 +265,24 @@ struct TrayMenuView: View {
         return tenant.isEmpty ? DefaultSettings.defaultTenantName : tenant
     }
 
-    @MainActor
-    private func signOut() async {
+    private func signOut() {
         floatingPanelManager.dismiss()
 
-        do {
-            for drive in ds3DriveManager.drives {
-                try await ds3DriveManager.disconnect(driveWithId: drive.id)
+        ds3Authentication.logout()
+
+        openWindow(id: "io.cubbit.DS3Drive.main")
+        NSApp.activate(ignoringOtherApps: true)
+
+        // Drive cleanup is async — fire and forget after isLogged is already false
+        let drives = ds3DriveManager.drives
+        Task {
+            for drive in drives {
+                do {
+                    try await ds3DriveManager.disconnect(driveWithId: drive.id)
+                } catch {
+                    logger.error("Failed to disconnect drive \(drive.name, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                }
             }
-            try ds3Authentication.logout()
-        } catch {
-            logger.error("Sign out cleanup failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

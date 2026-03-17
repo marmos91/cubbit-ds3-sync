@@ -17,10 +17,7 @@ struct ProjectSelectorErrorView: View {
                         .multilineTextAlignment(.center)
                     
                     Button("Logout") {
-                        let viewModel = projectSelectionViewModel
-                        Task {
-                            try viewModel.authentication.logout()
-                        }
+                        projectSelectionViewModel.authentication.logout()
                     }
                 }
                 if projectSelectionViewModel.error != nil {

@@ -255,16 +255,21 @@ struct DS3Missing2FAResponse: Codable {
     }
 
     /// Logs out from Cubbit's IAM service
-    public func logout() throws {
-        guard self.isLogged else { throw DS3AuthenticationError.alreadyLoggedOut }
-        
+    public func logout() {
+        guard self.isLogged else { return }
+
         self.logger.debug("Logging out...")
-        
-        try self.deleteFromDisk()
-        
+
         self.accountSession = nil
         self.account = nil
         self.isLogged = false
+
+        // Best-effort disk cleanup — missing files should not prevent logout
+        do {
+            try self.deleteFromDisk()
+        } catch {
+            self.logger.warning("Disk cleanup during logout failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
     
     /// Gets a challenge from Cubbit's IAM service

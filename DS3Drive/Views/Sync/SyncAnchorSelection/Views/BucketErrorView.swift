@@ -17,10 +17,7 @@ struct BucketErrorView: View {
                         .multilineTextAlignment(.center)
                     
                     Button("Logout") {
-                        let viewModel = syncAnchorSelectionViewModel
-                        Task {
-                            try viewModel.authentication.logout()
-                        }
+                        syncAnchorSelectionViewModel.authentication.logout()
                     }
                 }
 
