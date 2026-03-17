@@ -67,18 +67,33 @@ import DS3Lib
     func loadProjects() async {
         self.isLoadingProjects = true
         self.error = nil
-        defer { self.isLoadingProjects = false }
+
+        async let fetch: [Project] = ds3SDK.getRemoteProjects()
+        async let minDelay: () = Task.sleep(for: .seconds(1))
 
         do {
-            let projects = try await ds3SDK.getRemoteProjects()
-            self.projectNodes = projects.map { project in
-                let node = TreeNode(id: project.id, name: project.name, type: .project, project: project)
-                return node
-            }
+            let projects = try await fetch
+            _ = try? await minDelay
+
+            self.projectNodes = projects
+                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                .map { project in
+                    TreeNode(id: project.id, name: project.name, type: .project, project: project)
+                }
         } catch {
             self.logger.error("Failed to load projects: \(error)")
             self.error = error
         }
+
+        self.isLoadingProjects = false
+    }
+
+    func refresh() async {
+        self.selectedNode = nil
+        self.s3Clients.removeAll()
+        for (_, client) in awsClients { try? client.syncShutdown() }
+        self.awsClients.removeAll()
+        await loadProjects()
     }
 
     // MARK: - Expand project -> load buckets
@@ -94,16 +109,18 @@ import DS3Lib
             let response = try await s3Client.listBuckets()
             let buckets = response.buckets ?? []
 
-            node.children = buckets.map { s3Bucket in
-                let bucket = Bucket(name: s3Bucket.name ?? "<No name>")
-                return TreeNode(
-                    id: "\(project.id)/\(bucket.name)",
-                    name: bucket.name,
-                    type: .bucket,
-                    project: project,
-                    bucket: bucket
-                )
-            }
+            node.children = buckets
+                .map { s3Bucket in
+                    let bucket = Bucket(name: s3Bucket.name ?? "<No name>")
+                    return TreeNode(
+                        id: "\(project.id)/\(bucket.name)",
+                        name: bucket.name,
+                        type: .bucket,
+                        project: project,
+                        bucket: bucket
+                    )
+                }
+                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
 
             node.isLoaded = true
             node.isExpanded = true
@@ -146,6 +163,7 @@ import DS3Lib
                     prefix: decoded
                 )
             }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
 
             node.isLoaded = true
             node.isExpanded = true
@@ -196,6 +214,7 @@ import DS3Lib
                     prefix: decoded
                 )
             }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
 
             node.isExpanded = true
         } catch {
@@ -342,15 +361,31 @@ struct TreeNavigationView: View {
     @ViewBuilder
     private var treeSidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Select a bucket")
-                .font(DS3Typography.headline)
-                .foregroundStyle(DS3Colors.primaryText)
-                .padding(.horizontal, DS3Spacing.lg)
-                .padding(.top, 36)
-                .padding(.bottom, DS3Spacing.sm)
+            HStack {
+                Text("Select a bucket")
+                    .font(DS3Typography.headline)
+                    .foregroundStyle(DS3Colors.primaryText)
+
+                Spacer()
+
+                Button {
+                    Task { await viewModel.refresh() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(DS3Typography.body)
+                        .foregroundStyle(DS3Colors.secondaryText)
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.isLoadingProjects)
+                .help("Refresh projects and buckets")
+            }
+            .padding(.horizontal, DS3Spacing.lg)
+            .padding(.top, 36)
+            .padding(.bottom, DS3Spacing.sm)
 
             if viewModel.isLoadingProjects {
                 shimmerPlaceholder
+                Spacer()
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 2) {
@@ -548,27 +583,15 @@ struct TreeNavigationView: View {
 
     private func detailDescription(for node: TreeNode) -> String {
         switch node.type {
-        case .project:
-            return "Expand to browse buckets in this project"
-        case .bucket:
-            return "Select this bucket to sync, or expand to choose a folder prefix"
-        case .folder:
-            return "Sync files from this folder prefix"
+        case .project: return "Expand to browse buckets in this project"
+        case .bucket: return "Select this bucket to sync, or expand to choose a folder prefix"
+        case .folder: return "Sync files from this folder prefix"
         }
     }
-
-    // MARK: - Modifier
 
     func onSyncAnchorSelected(_ action: @escaping (SyncAnchor) -> Void) -> Self {
         var copy = self
         copy.onSyncAnchorSelected = action
         return copy
     }
-}
-
-#Preview {
-    TreeNavigationView(
-        authentication: DS3Authentication.loadFromPersistenceOrCreateNew()
-    )
-    .frame(width: 800, height: 480)
 }
