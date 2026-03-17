@@ -67,6 +67,12 @@ extension FileProviderExtension: NSFileProviderCustomAction {
                             s3Key: identifier.rawValue, driveId: drive.id, isMaterialized: false
                         )
                         self.logger.info("Evicted item \(identifier.rawValue, privacy: .public)")
+                    } catch let error as NSError where error.domain == NSFileProviderErrorDomain
+                        && error.code == NSFileProviderError.nonEvictableChildren.rawValue {
+                        // Folder has children still uploading — the system already evicted
+                        // what it could. Log details and treat as partial success.
+                        let underlyingCount = (error.underlyingErrors as? [NSError])?.count ?? 0
+                        self.logger.info("Partially evicted folder \(identifier.rawValue, privacy: .public): \(underlyingCount) children still syncing")
                     } catch {
                         self.logger.error("Failed to evict item \(identifier.rawValue, privacy: .public): \(error)")
                         if firstError == nil { firstError = error }
