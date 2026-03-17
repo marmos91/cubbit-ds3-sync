@@ -65,8 +65,29 @@ jobs:
         run: |
           PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
           mkdir -p "$PROFILES_DIR"
-          echo "$APPSTORE_PROFILE_APP" | base64 --decode > "$PROFILES_DIR/DS3Drive_AppStore.mobileprovision"
-          echo "$APPSTORE_PROFILE_EXTENSION" | base64 --decode > "$PROFILES_DIR/DS3DriveProvider_AppStore.mobileprovision"
+
+          # Install profiles by UUID so xcodebuild can discover them
+          for VAR_NAME in APPSTORE_PROFILE_APP APPSTORE_PROFILE_EXTENSION; do
+            PROFILE_PATH="$RUNNER_TEMP/${VAR_NAME}.mobileprovision"
+            echo "${!VAR_NAME}" | base64 --decode > "$PROFILE_PATH"
+            UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "$(security cms -D -i "$PROFILE_PATH")")
+            cp "$PROFILE_PATH" "$PROFILES_DIR/${UUID}.mobileprovision"
+            rm -f "$PROFILE_PATH"
+            echo "Installed $VAR_NAME as ${UUID}.mobileprovision"
+          done
+
+      - name: Configure manual signing
+        run: |
+          PROJECT="DS3Drive.xcodeproj/project.pbxproj"
+
+          # Set provisioning profile specifiers per target
+          sed -i '' '/PRODUCT_BUNDLE_IDENTIFIER = io\.cubbit\.DS3Drive;/{
+            n; n; s/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "DS3Drive AppStore";/
+          }' "$PROJECT"
+
+          sed -i '' '/PRODUCT_BUNDLE_IDENTIFIER = io\.cubbit\.DS3Drive\.provider;/{
+            n; n; s/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "DS3DriveProvider AppStore";/
+          }' "$PROJECT"
 
       - name: Resolve Swift packages
         run: |
@@ -113,5 +134,4 @@ jobs:
         run: |
           security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
           rm -rf "$RUNNER_TEMP/private_keys"
-          rm -rf "$HOME/Library/MobileDevice/Provisioning Profiles/DS3Drive_AppStore.mobileprovision"
-          rm -rf "$HOME/Library/MobileDevice/Provisioning Profiles/DS3DriveProvider_AppStore.mobileprovision"
+          rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/"*.mobileprovision
