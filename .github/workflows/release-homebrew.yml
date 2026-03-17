@@ -73,12 +73,12 @@ jobs:
 
           # Install profiles by UUID so xcodebuild can discover them
           for VAR_NAME in DEVID_PROFILE_APP DEVID_PROFILE_EXTENSION; do
-            PROFILE_PATH="$RUNNER_TEMP/${VAR_NAME}.mobileprovision"
+            PROFILE_PATH="$RUNNER_TEMP/${VAR_NAME}.provisionprofile"
             echo "${!VAR_NAME}" | base64 --decode > "$PROFILE_PATH"
             UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "$(security cms -D -i "$PROFILE_PATH")")
-            cp "$PROFILE_PATH" "$PROFILES_DIR/${UUID}.mobileprovision"
+            cp "$PROFILE_PATH" "$PROFILES_DIR/${UUID}.provisionprofile"
             rm -f "$PROFILE_PATH"
-            echo "Installed $VAR_NAME as ${UUID}.mobileprovision"
+            echo "Installed $VAR_NAME as ${UUID}.provisionprofile"
           done
 
       - name: Configure manual signing
@@ -231,4 +231,4 @@ jobs:
         run: |
           security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
           rm -rf "$RUNNER_TEMP/private_keys"
-          rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/"*.mobileprovision
+          rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/"*.provisionprofile

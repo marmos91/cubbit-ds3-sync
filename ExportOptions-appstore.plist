@@ -11,9 +11,9 @@
 	<key>provisioningProfiles</key>
 	<dict>
 		<key>io.cubbit.DS3Drive</key>
-		<string>DS3Drive AppStore</string>
+		<string>DS3Drive Mac AppStore</string>
 		<key>io.cubbit.DS3Drive.provider</key>
-		<string>DS3DriveProvider AppStore</string>
+		<string>DS3DriveProvider Mac AppStore</string>
 	</dict>
 </dict>
 </plist>
