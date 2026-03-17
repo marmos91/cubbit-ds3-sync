@@ -990,7 +990,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DS3Drive/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "DS3 Drive";
+				INFOPLIST_KEY_CFBundleDisplayName = "Cubbit DS3 Drive";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -1010,7 +1010,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.DS3Drive;
-				PRODUCT_NAME = "DS3 Drive";
+				PRODUCT_NAME = "Cubbit DS3 Drive";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = macosx;
@@ -1039,7 +1039,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DS3Drive/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "DS3 Drive";
+				INFOPLIST_KEY_CFBundleDisplayName = "Cubbit DS3 Drive";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -1059,7 +1059,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.DS3Drive;
-				PRODUCT_NAME = "DS3 Drive";
+				PRODUCT_NAME = "Cubbit DS3 Drive";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = macosx;

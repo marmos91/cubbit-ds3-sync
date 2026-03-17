@@ -98,7 +98,7 @@
 	<key>NSFileProviderDomain</key>
 	<dict>
 		<key>NSFileProviderDomainDisplayName</key>
-		<string>DS3 Drive</string>
+		<string>Cubbit DS3 Drive</string>
 	</dict>
 	<key>CFBundleIcons</key>
 	<dict>
