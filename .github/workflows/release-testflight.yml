@@ -140,7 +140,6 @@ jobs:
             -archivePath "$RUNNER_TEMP/DS3Drive.xcarchive" \
             -exportOptionsPlist ExportOptions-appstore.plist \
             -exportPath "$RUNNER_TEMP/export" \
-            -allowProvisioningUpdates \
             -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID"
