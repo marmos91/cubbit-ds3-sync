@@ -7,7 +7,7 @@ struct TutorialProgress: View {
     @Binding var currentSlideIndex: Int
 
     var body: some View {
-        HStack {
+        HStack(spacing: 8) {
             ForEach(0..<totalSlides, id: \.self) { index in
                 Circle()
                     .fill(index == currentSlideIndex ? Color(nsColor: .separatorColor) : Color(nsColor: .controlBackgroundColor))
@@ -20,36 +20,37 @@ struct TutorialProgress: View {
                         }
                     }
                     .onTapGesture {
-                        currentSlideIndex = index
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            currentSlideIndex = index
+                        }
                     }
             }
-
-            Spacer()
         }
     }
 }
 
 struct TutorialView: View {
-    // TODO: Replace tutorial images (Tutorial1, Tutorial2, Tutorial3) with new screenshots matching the current UI
-    // - Tutorial1: should show the new tree navigation view (Projects -> Buckets -> Folders sidebar + content panel)
-    // - Tutorial2: should show the new tray menu with status dots, speed metrics, and floating recent files panel
-    // - Tutorial3: should show drives in Finder sidebar with the current app icon
     @StateObject private var vm = TutorialViewModel(
         slides: [
             Slide(
                 imageName: .tutorial1,
-                title: "Browse and sync your DS3 storage",
-                paragraph: "Navigate your projects, buckets, and folders in a single tree view. Pick exactly what you want to sync and create a virtual drive in your Finder"
+                title: "Select a project and bucket",
+                paragraph: "Navigate your projects and buckets in the sidebar. Expand a project to browse its buckets and pick the one you want to sync"
             ),
             Slide(
                 imageName: .tutorial2,
-                title: "Monitor your drives from the menu bar",
-                paragraph: "Keep track of sync status, transfer speed, and recent files at a glance. Manage up to 3 drives with pause, refresh, and reset controls"
+                title: "Name your drive",
+                paragraph: "Choose a name for your drive. This is how it will appear in Finder's sidebar"
             ),
             Slide(
                 imageName: .tutorial3,
-                title: "Access your files from the Finder",
-                paragraph: "Your DS3 storage appears as a native drive in Finder. Open, edit, and organize your cloud files without downloading them first"
+                title: "Control your drives from the menu bar",
+                paragraph: "Monitor sync status, add more drives, and access preferences — all from the tray menu"
+            ),
+            Slide(
+                imageName: .tutorial4,
+                title: "Access your files from Finder",
+                paragraph: "Your DS3 storage appears as a native drive in Finder. Open, edit, and organize your cloud files like any local folder"
             )
         ]
     )
@@ -61,40 +62,53 @@ struct TutorialView: View {
     }
 
     var body: some View {
-        HStack {
+        VStack(spacing: 0) {
             Image(currentSlide.imageName)
-                .ignoresSafeArea()
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
+                .padding(.horizontal, 32)
+                .padding(.top, 24)
+                .id(vm.currentSlideIndex)
+                .transition(.opacity)
 
-            VStack(alignment: .leading) {
+            Spacer()
+
+            VStack(spacing: 12) {
                 Text(currentSlide.title)
                     .font(DS3Typography.headline)
                     .fontWeight(.bold)
+                    .multilineTextAlignment(.center)
 
                 Text(currentSlide.paragraph)
                     .font(DS3Typography.body)
-                    .padding(.vertical)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Button(vm.isLastSlide ? "Get Started" : "Next") {
                     if vm.isLastSlide {
                         tutorialShown = true
                     } else {
-                        vm.nextSlide()
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            vm.nextSlide()
+                        }
                     }
                 }
-                .padding(.vertical)
+                .padding(.top, 4)
                 .buttonStyle(PrimaryButtonStyle())
 
                 TutorialProgress(
                     totalSlides: vm.slides.count,
                     currentSlideIndex: $vm.currentSlideIndex
                 )
-                .padding(.vertical)
             }
-            .frame(minWidth: 272)
-            .padding()
-            .padding(.horizontal)
+            .padding(.horizontal, 40)
+            .padding(.bottom, 24)
         }
-        .frame(width: 800, height: 450)
+        .frame(width: 700, height: 520)
+        .animation(.easeInOut(duration: 0.3), value: vm.currentSlideIndex)
     }
 }
 

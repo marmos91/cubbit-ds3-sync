@@ -268,9 +268,17 @@ struct TrayMenuView: View {
     private func signOut() {
         floatingPanelManager.dismiss()
 
+        // Check if a main window already exists before logout,
+        // because logout flips isLogged which re-renders any existing window to LoginView.
+        let mainWindowExists = NSApp.windows.contains {
+            $0.identifier?.rawValue.hasPrefix("io.cubbit.DS3Drive.main") == true && $0.isVisible
+        }
+
         ds3Authentication.logout()
 
-        openWindow(id: "io.cubbit.DS3Drive.main")
+        if !mainWindowExists {
+            openWindow(id: "io.cubbit.DS3Drive.main")
+        }
         NSApp.activate(ignoringOtherApps: true)
 
         // Drive cleanup is async — fire and forget after isLogged is already false
