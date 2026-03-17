@@ -22,8 +22,8 @@ struct PreferencesView: View {
         .frame(
             minWidth: 500,
             maxWidth: 500,
-            minHeight: 320,
-            maxHeight: 320
+            minHeight: 380,
+            maxHeight: 380
         )
     }
 }
