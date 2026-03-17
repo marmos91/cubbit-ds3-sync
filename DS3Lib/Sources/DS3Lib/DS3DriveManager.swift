@@ -75,10 +75,10 @@ public enum DS3DriveManagerError: Error {
         switch updateDriveStatusNotification.status {
         case .sync:
             self.syncingDrives.insert(driveId)
-            AppStatusManager.default().status = .syncing
+            AppStatusManager.default().setStatus(.syncing)
         case .indexing:
             self.syncingDrives.insert(driveId)
-            AppStatusManager.default().status = .indexing
+            AppStatusManager.default().setStatus(.indexing)
         default:
             // Debounce removal: wait 2s before marking this drive as idle
             self.idleDebounceTimers[driveId] = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
@@ -86,7 +86,7 @@ public enum DS3DriveManagerError: Error {
                 self.syncingDrives.remove(driveId)
                 self.idleDebounceTimers.removeValue(forKey: driveId)
                 if self.syncingDrives.isEmpty {
-                    AppStatusManager.default().status = .idle
+                    AppStatusManager.default().setStatus(.idle)
                 }
             }
         }

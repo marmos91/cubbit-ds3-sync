@@ -196,7 +196,13 @@ public actor SyncEngine {
         remoteItems: [String: S3ObjectInfo],
         localEtags: [String: String?]
     ) -> Set<String> {
-        Set(commonKeys.filter { key in
+        let delimiter = String(DefaultSettings.S3.delimiter)
+        return Set(commonKeys.filter { key in
+            // Folders don't have meaningful ETags in S3 — skip them.
+            // The BFS indexer (non-recursive) and SyncEngine (recursive) store
+            // different ETags for folders, causing infinite reconciliation.
+            guard !key.hasSuffix(delimiter) else { return false }
+
             let remoteEtag = remoteItems[key]?.etag
             let localEtag = localEtags[key].flatMap { $0 }
             return remoteEtag != localEtag
