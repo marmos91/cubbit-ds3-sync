@@ -136,7 +136,7 @@ jobs:
           # Export locally without uploading
           EXPORT_PLIST="$RUNNER_TEMP/ExportOptions.plist"
           cp ExportOptions-appstore.plist "$EXPORT_PLIST"
-          /usr/libexec/PlistBuddy -c "Delete :destination" "$EXPORT_PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Set :destination export" "$EXPORT_PLIST"
 
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/DS3Drive.xcarchive" \
