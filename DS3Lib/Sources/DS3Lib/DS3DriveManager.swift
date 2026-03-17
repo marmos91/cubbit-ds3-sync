@@ -73,16 +73,21 @@ public enum DS3DriveManagerError: Error {
         self.idleDebounceTimers[driveId] = nil
 
         switch updateDriveStatusNotification.status {
-        case .sync, .indexing:
+        case .sync:
             self.syncingDrives.insert(driveId)
             AppStatusManager.default().status = .syncing
+        case .indexing:
+            self.syncingDrives.insert(driveId)
+            AppStatusManager.default().status = .indexing
         default:
             // Debounce removal: wait 2s before marking this drive as idle
             self.idleDebounceTimers[driveId] = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
                 guard let self else { return }
                 self.syncingDrives.remove(driveId)
                 self.idleDebounceTimers.removeValue(forKey: driveId)
-                AppStatusManager.default().status = self.syncingDrives.isEmpty ? .idle : .syncing
+                if self.syncingDrives.isEmpty {
+                    AppStatusManager.default().status = .idle
+                }
             }
         }
     }

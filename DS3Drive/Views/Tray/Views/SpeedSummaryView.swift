@@ -13,6 +13,14 @@ struct SpeedSummaryView: View {
         totalSpeed > 0
     }
 
+    private var isSyncing: Bool {
+        driveViewModels.contains { $0.driveStatus == .sync }
+    }
+
+    private var isIndexing: Bool {
+        driveViewModels.contains { $0.driveStatus == .indexing }
+    }
+
     var body: some View {
         HStack(spacing: DS3Spacing.sm) {
             if isTransferring {
@@ -21,6 +29,20 @@ struct SpeedSummaryView: View {
                     .foregroundStyle(DS3Colors.accent)
 
                 Text(formatSpeed(totalSpeed))
+                    .font(DS3Typography.caption)
+                    .foregroundStyle(DS3Colors.secondaryText)
+            } else if isSyncing {
+                ProgressView()
+                    .controlSize(.mini)
+
+                Text(NSLocalizedString("Syncing files…", comment: "Speed summary syncing"))
+                    .font(DS3Typography.caption)
+                    .foregroundStyle(DS3Colors.secondaryText)
+            } else if isIndexing {
+                ProgressView()
+                    .controlSize(.mini)
+
+                Text(NSLocalizedString("Indexing files…", comment: "Speed summary indexing"))
                     .font(DS3Typography.caption)
                     .foregroundStyle(DS3Colors.secondaryText)
             } else {

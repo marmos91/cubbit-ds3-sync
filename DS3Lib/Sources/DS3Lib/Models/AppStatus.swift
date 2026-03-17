@@ -5,8 +5,11 @@ public enum AppStatus: String, Sendable {
     /// The app is idle. It is not performing any operation.
     case idle
     
-    /// The app is either synchronizing (performing transfers) or indexing files
+    /// The app is synchronizing (performing transfers)
     case syncing
+
+    /// The app is indexing (scanning/listing remote files)
+    case indexing
     
     /// The app is in error state. The user should perform an action to fix the error.
     case error
@@ -24,6 +27,8 @@ public enum AppStatus: String, Sendable {
         switch self {
         case .syncing:
             return NSLocalizedString("Synchronizing", comment: "Synchronizing status")
+        case .indexing:
+            return NSLocalizedString("Indexing", comment: "Indexing status")
         case .idle:
             return NSLocalizedString("Idle", comment: "Idle status")
         case .error:

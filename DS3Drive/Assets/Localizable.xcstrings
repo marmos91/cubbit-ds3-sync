@@ -457,6 +457,12 @@
         }
       }
     },
+    "Indexing files…" : {
+      "comment" : "Speed summary indexing"
+    },
+    "Indexing…" : {
+      "comment" : "Drive row indexing status"
+    },
     "Just now" : {
       "comment" : "Relative time\nRelative time just now",
       "localizations" : {
@@ -893,6 +899,12 @@
           }
         }
       }
+    },
+    "Syncing files…" : {
+      "comment" : "Speed summary syncing"
+    },
+    "Syncing…" : {
+      "comment" : "Drive row syncing status"
     },
     "Tenant" : {
       "comment" : "Connection info label",

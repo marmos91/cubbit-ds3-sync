@@ -113,7 +113,7 @@ struct DS3DriveApp: App {
                 switch appStatusManager.status {
                 case .idle:
                     Image(.trayIcon)
-                case .syncing:
+                case .syncing, .indexing:
                     // Animate: alternate between sync icon and base icon
                     if syncAnimationFrame % 2 == 0 {
                         Image(.trayIconSync)
@@ -131,7 +131,7 @@ struct DS3DriveApp: App {
                 }
             }
             .onChange(of: appStatusManager.status) { _, newStatus in
-                if newStatus == .syncing && ds3Authentication.isLogged {
+                if (newStatus == .syncing || newStatus == .indexing) && ds3Authentication.isLogged {
                     startSyncAnimation()
                 } else {
                     stopSyncAnimation()

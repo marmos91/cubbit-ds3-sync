@@ -11,9 +11,11 @@ struct TrayDriveRowView: View {
     @State var driveViewModel: DS3DriveViewModel
 
     @State private var isHover: Bool = false
+    @State private var screenFrame: NSRect = .zero
 
-    /// Callback to trigger the recent files side panel in TrayMenuView
-    var onHoverDrive: ((UUID, Bool) -> Void)?
+    /// Callback to trigger the recent files side panel in TrayMenuView.
+    /// Parameters: driveId, isHovering, row screen frame.
+    var onHoverDrive: ((UUID, Bool, NSRect) -> Void)?
 
     var body: some View {
         HStack(spacing: DS3Spacing.sm) {
@@ -42,9 +44,10 @@ struct TrayDriveRowView: View {
         .padding(.horizontal, DS3Spacing.lg)
         .padding(.vertical, DS3Spacing.sm)
         .background(isHover ? Color(nsColor: .selectedContentBackgroundColor).opacity(0.15) : Color.clear)
+        .background(ScreenFrameReader { screenFrame = $0 })
         .onHover { hovering in
             isHover = hovering
-            onHoverDrive?(driveViewModel.drive.id, hovering)
+            onHoverDrive?(driveViewModel.drive.id, hovering, screenFrame)
         }
         .contextMenu {
             driveContextMenuItems
@@ -78,12 +81,28 @@ struct TrayDriveRowView: View {
     @ViewBuilder
     private var metricsRow: some View {
         HStack(spacing: DS3Spacing.md) {
-            // Current speed or status
+            // Current speed or status text
             if let speed = driveViewModel.driveStats.currentSpeedBs {
                 Label {
                     Text(formatSpeed(speed))
                 } icon: {
                     Image(systemName: "arrow.up.arrow.down")
+                }
+                .font(DS3Typography.footnote)
+                .foregroundStyle(.secondary)
+            } else if driveViewModel.driveStatus == .indexing {
+                Label {
+                    Text(NSLocalizedString("Indexing…", comment: "Drive row indexing status"))
+                } icon: {
+                    Image(systemName: "magnifyingglass")
+                }
+                .font(DS3Typography.footnote)
+                .foregroundStyle(.secondary)
+            } else if driveViewModel.driveStatus == .sync {
+                Label {
+                    Text(NSLocalizedString("Syncing…", comment: "Drive row syncing status"))
+                } icon: {
+                    Image(systemName: "arrow.triangle.2.circlepath")
                 }
                 .font(DS3Typography.footnote)
                 .foregroundStyle(.secondary)
@@ -168,6 +187,19 @@ struct TrayDriveRowView: View {
             }
         } label: {
             Label(NSLocalizedString("Refresh", comment: "Drive menu refresh"), systemImage: "arrow.clockwise")
+        }
+
+        Button {
+            let viewModel = driveViewModel
+            Task {
+                do {
+                    try await viewModel.resetSync()
+                } catch {
+                    logger.error("Error resetting sync: \(error.localizedDescription)")
+                }
+            }
+        } label: {
+            Label(NSLocalizedString("Reset Sync", comment: "Drive menu reset sync"), systemImage: "arrow.counterclockwise")
         }
 
         Divider()
