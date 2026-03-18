@@ -1,16 +1,21 @@
 #if os(iOS)
 import UIKit
 
+@MainActor
 final class IOSSystemService: SystemService {
-    var deviceName: String {
-        UIDevice.current.name
+    nonisolated var deviceName: String {
+        MainActor.assumeIsolated {
+            UIDevice.current.name
+        }
     }
 
-    func copyToClipboard(_ text: String) {
-        UIPasteboard.general.string = text
+    nonisolated func copyToClipboard(_ text: String) {
+        MainActor.assumeIsolated {
+            UIPasteboard.general.string = text
+        }
     }
 
-    func revealInFileBrowser(url: URL) {
+    nonisolated func revealInFileBrowser(url: URL) {
         // No-op on iOS -- Files app handles file browsing
     }
 }

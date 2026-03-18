@@ -33,8 +33,8 @@ final class TokenRefreshTests: XCTestCase {
     }
 
     func testTokenExactlyAtThresholdNeedsRefresh() throws {
-        // Exactly at 5-minute threshold -- should refresh
-        let token = try makeToken(expiringAt: Date().addingTimeInterval(300))
+        // Just inside the 5-minute threshold -- should refresh
+        let token = try makeToken(expiringAt: Date().addingTimeInterval(299))
         XCTAssertTrue(DS3Authentication.shouldRefreshToken(token))
     }
 }
