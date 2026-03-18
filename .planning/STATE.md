@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: iOS & iPadOS Universal App
-status: not_started
-stopped_at: v2.0 roadmap created, v1.0 Phase 5 still has 1 pending plan
-last_updated: "2026-03-17T00:00:00Z"
-last_activity: 2026-03-17 -- v2.0 roadmap created with phases 6-9
+milestone: v1.0
+milestone_name: macOS App
+status: executing
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-03-18T09:23:00.970Z"
+last_activity: 2026-03-17 -- Phase 6 plan 02 complete (SystemService, LifecycleService, import fixes)
 progress:
-  total_phases: 9
-  completed_phases: 4
-  total_plans: 19
-  completed_plans: 18
-  percent: 95
+  total_phases: 4
+  completed_phases: 1
+  total_plans: 4
+  completed_plans: 4
+  percent: 50
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 
 ## Current Position
 
-Milestone: v2.0 (iOS & iPadOS Universal App) -- roadmap created, not yet started
-v1.0 remaining: Phase 5 plan 05-05 pending
-Status: v2.0 ready to plan Phase 6 after v1.0 completes
-Last activity: 2026-03-17 -- v2.0 roadmap created (phases 6-9, 17 requirements mapped)
+Milestone: v2.0 (iOS & iPadOS Universal App) -- Phase 6 executing
+Phase 6: Plan 2 of 4 complete
+Status: Executing Phase 6 Platform Abstraction
+Last activity: 2026-03-17 -- Phase 6 plan 02 complete (SystemService, LifecycleService, import fixes)
 
-Progress: [█████████░] 95% v1.0 (18 of 19 plans) | v2.0 not started
+Progress: [█████░░░░░] 50% v2.0 Phase 6 (2 of 4 plans)
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Progress: [█████████░] 95% v1.0 (18 of 19 plans) | v2.0 not 
 | 3. Conflict Resolution | 3 | 14 min | 5 min |
 | 4. Auth & Platform | 4/4 | 27 min | 7 min |
 | 5. UX Polish | 4/5 | 31 min | 8 min |
+| Phase 06 P02 | 9min | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -58,6 +59,13 @@ Progress: [█████████░] 95% v1.0 (18 of 19 plans) | v2.0 not 
 - v2.0: iOS minimum version iOS 17.0 (SwiftData is binding constraint)
 - v2.0: No file browser in iOS companion app -- Files app IS the browser (anti-pattern avoidance)
 - v2.0: Darwin notifications + App Group file payloads for iOS IPC (replaces DistributedNotificationCenter)
+- 06-01: Used AsyncStream.makeStream() for stream/continuation pairs (SwiftLint compliance)
+- 06-01: Factory method in separate IPCService+Factory.swift (compilation ordering)
+- 06-01: @preconcurrency import Foundation for DarwinNotificationCenter CFNotificationCenter Sendable
+- 06-01: Generic registerJSONObserver with Decodable & Sendable constraint for Swift 6
+- 06-02: Used import Observation instead of import SwiftUI -- @Observable macro lives in Observation framework
+- 06-02: DistributedNotificationCenter in DS3DriveManager temporarily guarded with #if os(macOS) pending Plan 03
+- 06-02: Protocol + platform-extension pattern: Protocol.swift (no #if), Protocol+macOS.swift, Protocol+iOS.swift
 
 ### Pending Todos
 
@@ -71,6 +79,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17
-Stopped at: v2.0 roadmap created
-Resume file: .planning/phases/05-ux-polish/05-05-PLAN.md (v1.0 completion), then plan Phase 6
+Last session: 2026-03-17T21:35:00Z
+Stopped at: Completed 06-02-PLAN.md
+Resume file: .planning/phases/06-platform-abstraction/06-02-SUMMARY.md
