@@ -89,6 +89,7 @@ public final class DarwinNotificationObservation: @unchecked Sendable {
     private let center: CFNotificationCenter
     private let name: CFNotificationName
     private let pointer: UnsafeMutableRawPointer
+    private let lock = NSLock()
     private var cancelled = false
 
     init(center: CFNotificationCenter, name: CFNotificationName, pointer: UnsafeMutableRawPointer) {
@@ -103,6 +104,9 @@ public final class DarwinNotificationObservation: @unchecked Sendable {
 
     /// Stop observing this notification. Safe to call multiple times.
     public func cancel() {
+        lock.lock()
+        defer { lock.unlock() }
+
         guard !cancelled else { return }
         cancelled = true
 

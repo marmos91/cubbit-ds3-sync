@@ -3,11 +3,11 @@
 
 final class MacOSLifecycleService: LifecycleService {
     var isAutoLaunchEnabled: Bool {
-        SMAppService().status == .enabled
+        SMAppService.mainApp.status == .enabled
     }
 
     func setAutoLaunch(_ enabled: Bool) throws {
-        let service = SMAppService()
+        let service = SMAppService.mainApp
         if enabled {
             try service.register()
         } else {

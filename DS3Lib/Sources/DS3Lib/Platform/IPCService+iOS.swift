@@ -36,6 +36,9 @@ final class IOSIPCService: IPCService, @unchecked Sendable {
     /// Active listener tasks (cancelled on stopListening).
     private var listenerTasks: [Task<Void, Never>] = []
 
+    /// Tracks file modification dates to avoid re-delivering duplicate messages during polling.
+    private var lastPolledModTimes: [String: Date] = [:]
+
     // MARK: - IPC File Names
 
     private enum IPCFile {
@@ -217,14 +220,23 @@ final class IOSIPCService: IPCService, @unchecked Sendable {
     }
 
     /// Read a single IPC file and yield the decoded value to the given continuation.
+    /// Skips files whose modification date hasn't changed since the last poll.
     private func readAndYield<T: Decodable>(
         file filename: String,
         decoder: JSONDecoder,
         continuation: AsyncStream<T>.Continuation
     ) {
         let url = ipcDirectory.appendingPathComponent(filename)
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let modDate = attrs[.modificationDate] as? Date else { return }
+
+        if let lastMod = lastPolledModTimes[filename], modDate <= lastMod {
+            return
+        }
+
         guard let data = try? Data(contentsOf: url) else { return }
         guard let value = try? decoder.decode(T.self, from: data) else { return }
+        lastPolledModTimes[filename] = modDate
         continuation.yield(value)
     }
 }
