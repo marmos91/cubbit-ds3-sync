@@ -93,12 +93,14 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
     var drive: DS3Drive?
     let temporaryDirectory: URL?
-    private let hostname: String
+    let systemService: any SystemService
+    let ipcService: any IPCService
 
     required init(domain: NSFileProviderDomain) {
         self.enabled = false
         self.domain = domain
-        self.hostname = Host.current().localizedName ?? ProcessInfo.processInfo.hostName
+        self.systemService = makeDefaultSystemService()
+        self.ipcService = makeDefaultIPCService()
         self.temporaryDirectory = try? NSFileProviderManager(for: domain)?.temporaryDirectoryURL()
 
         do {
@@ -108,7 +110,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                 withDomainIdentifier: domain.identifier
             )
             self.drive = drive
-            self.notificationManager = NotificationManager(drive: drive)
+            self.notificationManager = NotificationManager(drive: drive, ipcService: self.ipcService)
 
             let account = try sharedData.loadAccountFromPersistence()
             self.endpoint = account.endpointGateway
@@ -180,12 +182,9 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
     /// Notifies the main app that the extension failed to initialize
     private func notifyInitFailure(reason: String) {
-        DistributedNotificationCenter.default().postNotificationName(
-            NSNotification.Name(DefaultSettings.Notifications.extensionInitFailed),
-            object: domain.identifier.rawValue,
-            userInfo: ["reason": reason],
-            deliverImmediately: true
-        )
+        Task { [ipcService, domain] in
+            await ipcService.postExtensionInitFailure(domainId: domain.identifier.rawValue, reason: reason)
+        }
     }
 
     func invalidate() {
@@ -1125,7 +1124,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
         let conflictKey = ConflictNaming.conflictKey(
             originalKey: s3Item.itemIdentifier.rawValue,
-            hostname: self.hostname,
+            hostname: self.systemService.deviceName,
             date: Date()
         )
         let conflictS3Item = S3Item(

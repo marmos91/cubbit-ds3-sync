@@ -1,5 +1,5 @@
 import Foundation
-import SwiftUI
+import Observation
 
 /// The current status of a DS3 drive
 public enum DS3DriveStatus: String, Codable, Hashable, Sendable {

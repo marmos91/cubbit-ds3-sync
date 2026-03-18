@@ -51,10 +51,10 @@
 
 ### Platform Abstraction
 
-- [ ] **ABST-01**: IPC abstraction protocol (IPCService) wraps DistributedNotificationCenter on macOS and Darwin Notifications + App Group files on iOS
-- [ ] **ABST-02**: Platform services protocol (SystemService) abstracts device info, clipboard, file reveal, and login items behind platform-conditional implementations
-- [ ] **ABST-03**: App lifecycle manager abstracts SMAppService login item on macOS and Background App Refresh registration on iOS
-- [ ] **ABST-04**: DS3Lib Package.swift updated with .iOS(.v17) platform support and all macOS-only imports guarded with #if os(macOS)
+- [x] **ABST-01**: IPC abstraction protocol (IPCService) wraps DistributedNotificationCenter on macOS and Darwin Notifications + App Group files on iOS
+- [x] **ABST-02**: Platform services protocol (SystemService) abstracts device info, clipboard, file reveal, and login items behind platform-conditional implementations
+- [x] **ABST-03**: App lifecycle manager abstracts SMAppService login item on macOS and Background App Refresh registration on iOS
+- [x] **ABST-04**: DS3Lib Package.swift updated with .iOS(.v17) platform support and all macOS-only imports guarded with #if os(macOS)
 
 ### iOS File Provider Extension
 
@@ -149,10 +149,10 @@
 | UX-05 | Phase 5 | Complete |
 | UX-06 | Phase 5 | Complete |
 | UX-07 | Phase 5 | Complete |
-| ABST-01 | Phase 6 | Pending |
-| ABST-02 | Phase 6 | Pending |
-| ABST-03 | Phase 6 | Pending |
-| ABST-04 | Phase 6 | Pending |
+| ABST-01 | Phase 6 | Complete |
+| ABST-02 | Phase 6 | Complete |
+| ABST-03 | Phase 6 | Complete |
+| ABST-04 | Phase 6 | Complete |
 | IEXT-01 | Phase 7 | Pending |
 | IEXT-02 | Phase 7 | Pending |
 | IEXT-03 | Phase 7 | Pending |

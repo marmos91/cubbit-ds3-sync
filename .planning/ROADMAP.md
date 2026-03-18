@@ -131,7 +131,13 @@ Plans:
   2. The existing macOS app and extension continue to function identically after all abstraction changes -- no regressions in sync, auth, or IPC
   3. Platform-specific code (DistributedNotificationCenter, SMAppService, NSWorkspace, Host.current()) is reachable only through protocol abstractions, not called directly anywhere in shared code
   4. An iOS implementation of IPC (Darwin notifications + App Group file payloads) can send and receive messages between two processes in a unit test
-**Plans**: TBD
+**Plans:** 4 plans
+
+Plans:
+- [x] 06-01-PLAN.md -- IPCService protocol, macOS/iOS implementations, DarwinNotificationCenter wrapper, unit tests
+- [x] 06-02-PLAN.md -- SystemService and LifecycleService protocols, guard macOS-only imports, fix SwiftUI->Observation
+- [ ] 06-03-PLAN.md -- Wire IPCService/SystemService into consumers, update Package.swift for iOS, add CI build step
+- [ ] 06-04-PLAN.md -- Full automated verification suite and manual macOS regression smoke test
 
 ### Phase 7: iOS File Provider Extension
 **Goal**: The File Provider extension runs on iOS, loads in the Files app, and can enumerate, download, and upload files against S3 within iOS resource constraints
@@ -180,7 +186,7 @@ Plans:
 | 3. Conflict Resolution | v1.0 | 3/3 | Complete | - |
 | 4. Auth & Platform | v1.0 | 4/4 | Complete | 2026-03-13 |
 | 5. UX Polish | v1.0 | 3/5 | In Progress | - |
-| 6. Platform Abstraction | v2.0 | 0/? | Not started | - |
+| 6. Platform Abstraction | v2.0 | 2/4 | In Progress | - |
 | 7. iOS File Provider Extension | v2.0 | 0/? | Not started | - |
 | 8. iOS Companion App | v2.0 | 0/? | Not started | - |
 | 9. iOS Polish & Distribution | v2.0 | 0/? | Not started | - |
