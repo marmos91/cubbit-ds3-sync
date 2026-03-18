@@ -117,7 +117,7 @@ Plans:
 
 - [ ] **Phase 6: Platform Abstraction** - Extract macOS-specific APIs behind protocols so DS3Lib and the extension compile for iOS with zero regressions on macOS
 - [ ] **Phase 7: iOS File Provider Extension** - Multi-platform extension target that compiles, loads, and syncs files on iOS within memory and background execution constraints
-- [ ] **Phase 8: iOS Companion App** - iOS/iPadOS app with login, drive setup, sync dashboard, and preferences -- users manage drives here, browse files in Files app
+- [x] **Phase 8: iOS Companion App** - iOS/iPadOS app with login, drive setup, sync dashboard, and preferences -- users manage drives here, browse files in Files app (completed 2026-03-18)
 - [ ] **Phase 9: iOS Polish & Distribution** - Share Extension for uploading from other apps, sync badges in Files app, and CI pipeline for iOS builds
 
 ## Phase Details
@@ -149,7 +149,13 @@ Plans:
   3. A user can create, rename, move, and delete files through Files app on iOS with changes reflected in S3
   4. The extension stays under the 20MB memory limit during upload/download of files larger than 50MB (streaming I/O, no full-file buffering)
   5. Remote changes are detected during enumeration without background polling -- no periodic timers running in the extension on iOS
-**Plans**: TBD
+**Plans:** 4 plans
+
+Plans:
+- [x] 07-00-PLAN.md -- Wave 0: test stub scaffolds for StreamingIO, CacheTTL, and PlatformConditional test suites
+- [x] 07-01-PLAN.md -- Streaming I/O fixes (zero-copy ByteBuffer writes, streaming uploads), memory logging, platform-adaptive fetch semaphore
+- [x] 07-02-PLAN.md -- Platform guards for polling/BFS (#if os(macOS)), cache-first + 60s TTL enumeration (both platforms)
+- [x] 07-03-PLAN.md -- Stub iOS app target, multi-platform extension configuration, iOS entitlements, CI iOS Simulator build
 
 ### Phase 8: iOS Companion App
 **Goal**: Users can log in, create drives, and monitor sync status on iPhone and iPad -- the companion app is a dashboard for drive management, not a file browser
@@ -161,7 +167,15 @@ Plans:
   3. The iOS dashboard shows per-drive sync status (synced/syncing/error) and transfer speed that updates in real time via Darwin notification IPC
   4. A user can manage preferences (view account info, clear cache, log out) from the iOS settings screen
   5. On iPad, the app adapts to Split View and Stage Manager with a NavigationSplitView sidebar layout
-**Plans**: TBD
+**Plans:** 6/6 plans complete
+
+Plans:
+- [x] 08-01-PLAN.md -- iOS design system (colors, typography, spacing, button styles), app entry point, adaptive layout skeleton, orientation lock
+- [x] 08-02-PLAN.md -- iOS login view with email/password/2FA, inline errors, iPad card layout, Advanced section
+- [x] 08-03-PLAN.md -- Dashboard: drive list, drive cards with real-time IPC status, drive detail, empty state
+- [x] 08-04-PLAN.md -- Drive setup wizard: project/bucket/prefix drill-down, searchable lists, drive confirm and creation
+- [x] 08-05-PLAN.md -- Settings screen (account/general/about), Background App Refresh, cache management, signalEnumerator fix
+- [x] 08-06-PLAN.md -- Xcode project integration (add files to pbxproj), accent color asset, build verification, human verify
 
 ### Phase 9: iOS Polish & Distribution
 **Goal**: The iOS app is production-ready with share sheet integration, visual sync feedback in Files app, and automated CI builds
@@ -187,8 +201,8 @@ Plans:
 | 4. Auth & Platform | v1.0 | 4/4 | Complete | 2026-03-13 |
 | 5. UX Polish | v1.0 | 3/5 | In Progress | - |
 | 6. Platform Abstraction | v2.0 | 2/4 | In Progress | - |
-| 7. iOS File Provider Extension | v2.0 | 0/? | Not started | - |
-| 8. iOS Companion App | v2.0 | 0/? | Not started | - |
+| 7. iOS File Provider Extension | v2.0 | 4/4 | Complete | 2026-03-18 |
+| 8. iOS Companion App | v2.0 | 6/6 | Complete | 2026-03-18 |
 | 9. iOS Polish & Distribution | v2.0 | 0/? | Not started | - |
 
 ---

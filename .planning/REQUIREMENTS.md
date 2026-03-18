@@ -58,19 +58,19 @@
 
 ### iOS File Provider Extension
 
-- [ ] **IEXT-01**: Single multi-platform File Provider extension target compiles and runs on both macOS and iOS
-- [ ] **IEXT-02**: iOS-specific entitlements and provisioning profiles configured with App Group capability
-- [ ] **IEXT-03**: File upload/download uses streaming I/O to stay under 20MB iOS extension memory limit
-- [ ] **IEXT-04**: Background polling disabled on iOS; remote changes detected via enumeration-time checks and main app signaling
+- [x] **IEXT-01**: Single multi-platform File Provider extension target compiles and runs on both macOS and iOS
+- [x] **IEXT-02**: iOS-specific entitlements and provisioning profiles configured with App Group capability
+- [x] **IEXT-03**: File upload/download uses streaming I/O to stay under 20MB iOS extension memory limit
+- [x] **IEXT-04**: Background polling disabled on iOS; remote changes detected via enumeration-time checks and main app signaling
 
 ### iOS Companion App
 
-- [ ] **IAPP-01**: User can log in with email, password, and tenant on iOS using shared DS3Authentication
-- [ ] **IAPP-02**: User can create and configure drives via project/bucket/prefix wizard on iOS
-- [ ] **IAPP-03**: User can view sync status per drive with transfer speed on iOS dashboard
-- [ ] **IAPP-04**: User can manage preferences (account, clear cache, about) on iOS
-- [ ] **IAPP-05**: iPad uses NavigationSplitView sidebar layout adaptive to Split View and Stage Manager
-- [ ] **IAPP-06**: Background App Refresh signals periodic sync enumeration (~30 min intervals)
+- [x] **IAPP-01**: User can log in with email, password, and tenant on iOS using shared DS3Authentication
+- [x] **IAPP-02**: User can create and configure drives via project/bucket/prefix wizard on iOS
+- [x] **IAPP-03**: User can view sync status per drive with transfer speed on iOS dashboard
+- [x] **IAPP-04**: User can manage preferences (account, clear cache, about) on iOS
+- [x] **IAPP-05**: iPad uses NavigationSplitView sidebar layout adaptive to Split View and Stage Manager
+- [x] **IAPP-06**: Background App Refresh signals periodic sync enumeration (~30 min intervals)
 
 ### iOS Polish & Distribution
 
@@ -153,16 +153,16 @@
 | ABST-02 | Phase 6 | Complete |
 | ABST-03 | Phase 6 | Complete |
 | ABST-04 | Phase 6 | Complete |
-| IEXT-01 | Phase 7 | Pending |
-| IEXT-02 | Phase 7 | Pending |
-| IEXT-03 | Phase 7 | Pending |
-| IEXT-04 | Phase 7 | Pending |
-| IAPP-01 | Phase 8 | Pending |
-| IAPP-02 | Phase 8 | Pending |
-| IAPP-03 | Phase 8 | Pending |
-| IAPP-04 | Phase 8 | Pending |
-| IAPP-05 | Phase 8 | Pending |
-| IAPP-06 | Phase 8 | Pending |
+| IEXT-01 | Phase 7 | Complete |
+| IEXT-02 | Phase 7 | Complete |
+| IEXT-03 | Phase 7 | Complete |
+| IEXT-04 | Phase 7 | Complete |
+| IAPP-01 | Phase 8 | Complete |
+| IAPP-02 | Phase 8 | Complete |
+| IAPP-03 | Phase 8 | Complete |
+| IAPP-04 | Phase 8 | Complete |
+| IAPP-05 | Phase 8 | Complete |
+| IAPP-06 | Phase 8 | Complete |
 | IPOL-01 | Phase 9 | Pending |
 | IPOL-02 | Phase 9 | Pending |
 | IPOL-03 | Phase 9 | Pending |
