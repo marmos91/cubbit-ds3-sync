@@ -1,5 +1,7 @@
 import Foundation
+#if os(macOS)
 import ServiceManagement
+#endif
 
 /// Log subsystem identifiers for Console.app filtering
 public enum LogSubsystem {
@@ -84,7 +86,11 @@ public enum DefaultSettings {
 
     /// Whether the app is set to start at login or not.
     public static let appIsLoginItem: Bool = {
+        #if os(macOS)
         return SMAppService().status == .enabled
+        #else
+        return false
+        #endif
     }()
 
     /// Settings related to the tray menu.
@@ -183,5 +189,8 @@ public enum DefaultSettings {
 
         /// Name of the notification to send when authentication fails
         public static let authFailure = "io.cubbit.DS3Drive.notifications.authFailure"
+
+        /// Name of the notification to send commands from the app to the extension
+        public static let command = "io.cubbit.DS3Drive.notifications.command"
     }
 }

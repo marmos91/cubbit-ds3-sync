@@ -1,4 +1,3 @@
-import AppKit
 import DS3Lib
 import FileProvider
 import os.log
@@ -33,7 +32,7 @@ extension FileProviderExtension: NSFileProviderCustomAction {
             let bucket = drive.syncAnchor.bucket.name
             let validIdentifiers = itemIdentifiers.filter { !$0.isSystemContainer }
 
-            guard !validIdentifiers.isEmpty else {
+            if validIdentifiers.isEmpty {
                 cb.handler(NSFileProviderError(.noSuchItem) as NSError)
                 return progress
             }
@@ -41,8 +40,7 @@ extension FileProviderExtension: NSFileProviderCustomAction {
             let urls = validIdentifiers.map { "s3://\(bucket)/\($0.rawValue)" }
             let joined = urls.joined(separator: "\n")
 
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(joined, forType: .string)
+            self.systemService.copyToClipboard(joined)
             self.logger.info("Copied \(urls.count) S3 URL(s) to clipboard")
             progress.completedUnitCount = Int64(itemIdentifiers.count)
             cb.handler(nil)
@@ -56,7 +54,7 @@ extension FileProviderExtension: NSFileProviderCustomAction {
             Task {
                 var firstError: Error?
                 for identifier in itemIdentifiers {
-                    guard !identifier.isSystemContainer else {
+                    if identifier.isSystemContainer {
                         progress.completedUnitCount += 1
                         continue
                     }
@@ -69,8 +67,6 @@ extension FileProviderExtension: NSFileProviderCustomAction {
                         self.logger.info("Evicted item \(identifier.rawValue, privacy: .public)")
                     } catch let error as NSError where error.domain == NSFileProviderErrorDomain
                         && error.code == NSFileProviderError.nonEvictableChildren.rawValue {
-                        // Folder has children still uploading — the system already evicted
-                        // what it could. Log details and treat as partial success.
                         let underlyingCount = (error.underlyingErrors as? [NSError])?.count ?? 0
                         self.logger.info("Partially evicted folder \(identifier.rawValue, privacy: .public): \(underlyingCount) children still syncing")
                     } catch {

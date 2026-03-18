@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import ServiceManagement
 
@@ -6,10 +7,11 @@ import ServiceManagement
 /// - Throws: if the app cannot be registered or unregistered.
 public func setLoginItem(_ value: Bool) throws {
     let smAppService = SMAppService()
-    
+
     if value {
         try smAppService.register()
     } else {
         try smAppService.unregister()
     }
 }
+#endif

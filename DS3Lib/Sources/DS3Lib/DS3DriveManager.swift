@@ -1,5 +1,5 @@
 import Foundation
-import SwiftUI
+import Observation
 @preconcurrency import FileProvider
 import os.log
 
@@ -14,7 +14,13 @@ public enum DS3DriveManagerError: Error {
 @Observable public final class DS3DriveManager: @unchecked Sendable {
     @ObservationIgnored
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
-    
+
+    @ObservationIgnored
+    private let ipcService: any IPCService
+
+    @ObservationIgnored
+    private var statusListenerTask: Task<Void, Never>?
+
     /// The list of registered drives
     public var drives: [DS3Drive] = DS3DriveManager.loadFromDiskOrCreateNew()
 
@@ -25,8 +31,9 @@ public enum DS3DriveManagerError: Error {
     @ObservationIgnored
     private var idleDebounceTimers: [UUID: Timer] = [:]
 
-    public init(appStatusManager: AppStatusManager) {
-        self.setupObserver()
+    public init(appStatusManager: AppStatusManager, ipcService: (any IPCService)? = nil) {
+        self.ipcService = ipcService ?? makeDefaultIPCService()
+        self.startStatusListener()
 
         Task {
             do {
@@ -36,58 +43,51 @@ public enum DS3DriveManagerError: Error {
             }
         }
     }
-    
+
     deinit {
         for timer in idleDebounceTimers.values { timer.invalidate() }
-        DistributedNotificationCenter
-            .default()
-            .removeObserver(self)
+        statusListenerTask?.cancel()
     }
-    
-    /// Sets up the observer for the drive to listen for notifications from the extension
-    private func setupObserver() {
-        DistributedNotificationCenter.default().addObserver(
-            self,
-            selector: #selector(DS3DriveManager.driveStatusChanged),
-            name: .driveStatusChanged,
-            object: nil,
-            suspensionBehavior: .deliverImmediately
-        )
+
+    /// Starts listening for drive status changes via IPCService AsyncStream
+    private func startStatusListener() {
+        self.statusListenerTask = Task { [weak self] in
+            await self?.ipcService.startListening()
+            guard let self else { return }
+            for await change in self.ipcService.statusUpdates {
+                await self.handleDriveStatusChange(change)
+            }
+        }
     }
-    
-    /// Gets fired when the drive status changes.
+
+    /// Handles a drive status change from the IPCService stream.
     /// Idle transitions are debounced by 2s per drive to prevent the menu bar
     /// icon from flashing between syncing and idle during parallel file operations.
-    /// - Parameter notification: the notification received from the extension
-    @objc @MainActor
-    private func driveStatusChanged(_ notification: Notification) {
-        guard
-            let stringDrive = notification.object as? String,
-            let updateDriveStatusNotification = try? JSONDecoder().decode(DS3DriveStatusChange.self, from: Data(stringDrive.utf8))
-        else { return }
+    @MainActor
+    private func handleDriveStatusChange(_ change: DS3DriveStatusChange) {
+        let driveId = change.driveId
 
-        let driveId = updateDriveStatusNotification.driveId
+        idleDebounceTimers[driveId]?.invalidate()
+        idleDebounceTimers[driveId] = nil
 
-        // Cancel any pending idle timer for this drive
-        self.idleDebounceTimers[driveId]?.invalidate()
-        self.idleDebounceTimers[driveId] = nil
-
-        switch updateDriveStatusNotification.status {
-        case .sync:
-            self.syncingDrives.insert(driveId)
+        if change.status == .sync {
+            syncingDrives.insert(driveId)
             AppStatusManager.default().setStatus(.syncing)
-        case .indexing:
-            self.syncingDrives.insert(driveId)
+            return
+        }
+
+        if change.status == .indexing {
+            syncingDrives.insert(driveId)
             AppStatusManager.default().setStatus(.indexing)
-        default:
-            // Debounce removal: wait 2s before marking this drive as idle
-            self.idleDebounceTimers[driveId] = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
-                guard let self else { return }
-                self.syncingDrives.remove(driveId)
-                self.idleDebounceTimers.removeValue(forKey: driveId)
-                if self.syncingDrives.isEmpty {
-                    AppStatusManager.default().setStatus(.idle)
-                }
+            return
+        }
+
+        idleDebounceTimers[driveId] = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.syncingDrives.remove(driveId)
+            self.idleDebounceTimers.removeValue(forKey: driveId)
+            if self.syncingDrives.isEmpty {
+                AppStatusManager.default().setStatus(.idle)
             }
         }
     }

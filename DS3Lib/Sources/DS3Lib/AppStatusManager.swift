@@ -1,4 +1,5 @@
-import SwiftUI
+import Foundation
+import Observation
 import os.log
 
 /// Manages the global status of the app, displayed in the menu bar tray icon.
