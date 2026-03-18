@@ -7,10 +7,28 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		01EFC3F9CFF6BC02DC4E1291 /* IOSDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = D228D94AEB9D8D80132CF316 /* IOSDesignSystem.swift */; };
+		0D90EFF30F1E07F00CA4CCF4 /* SyncAnchorSelectionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221D52B571FED00F1413B /* SyncAnchorSelectionViewModel.swift */; };
+		1C7271CB4E888CB4F7607DCC /* SyncRecapViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221EE2B571FED00F1413B /* SyncRecapViewModel.swift */; };
+		1D761769DACC4258BAB685D2 /* DriveCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F281CBB037B577C0A48B7A1 /* DriveCardView.swift */; };
+		26DB2568B7327A9E95FA3043 /* DriveListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92782ABCB6F9964E5FC56C71 /* DriveListView.swift */; };
+		36D66273CE63FEA089FD9D04 /* ProjectSelectionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221E02B571FED00F1413B /* ProjectSelectionViewModel.swift */; };
+		41A6207DA1FD0EECAA1D984C /* PrefixListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E7F7F8B3758C1478B04E17F /* PrefixListView.swift */; };
+		4799FF43493438BDA352F280 /* DriveConfirmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5113DDDA0BF251D4D70D3D0 /* DriveConfirmView.swift */; };
+		4A20FD708E0B4A54CD5FCC70 /* OrientationLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CA9016467657EB5B6B0F187 /* OrientationLock.swift */; };
 		57472682E9069AA71BE714D2 /* DS3 Drive FileProvider.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D5A222432B57211500F1413B /* DS3 Drive FileProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		5FE7F7DE03FD7F3FE3A4283D /* IOSMFAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80F8E8B79FD49D0216AD0815 /* IOSMFAView.swift */; };
+		70A1EF5AE3CB27185A6C038B /* LoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221F92B571FED00F1413B /* LoginViewModel.swift */; };
 		70D8C6172D2650B51E277550 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C26ED37797692E9DBD42FF25 /* Foundation.framework */; };
 		7AD0A4607A2000B3186F2C96 /* DS3DriveStubApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D334C1489829B34DA2029F25 /* DS3DriveStubApp.swift */; };
+		8278951235ACBB3A91DECD8E /* EmptyDrivesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDEAF7AABE07055FC3332FD3 /* EmptyDrivesView.swift */; };
+		8865FDA6BC93E8AC9A1462CC /* BackgroundRefreshManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E28C5D8656BE4652D84BD2D /* BackgroundRefreshManager.swift */; };
+		8BD2528468047598B6F80C28 /* IOSMainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39439872734512266C6F7F51 /* IOSMainTabView.swift */; };
+		8BE6376FED3F59527905332C /* IOSLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B9955EBE95149FF2BFB97E5 /* IOSLoginView.swift */; };
+		8EC0EE041161FA18D536D6B0 /* DriveDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 830D73D29DDAA6E68151FC62 /* DriveDetailView.swift */; };
+		9348198334F3EA47F537CDD4 /* SyncViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221D22B571FED00F1413B /* SyncViewModel.swift */; };
 		9659EB9202B95BD6A9520860 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 63DAE38129B73666BC61012E /* Assets.xcassets */; };
+		9783D898595F0FCD77B116E6 /* IOSDriveViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AFAE49D6C5787515C65EE4 /* IOSDriveViewModel.swift */; };
 		A10203042F6300000042AD93 /* S3LibListingAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10203032F6300000042AD93 /* S3LibListingAdapter.swift */; };
 		A10305062F6400000042AD93 /* ConflictNotificationHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10305052F6400000042AD93 /* ConflictNotificationHandler.swift */; };
 		A10501012F6500000042AD93 /* DS3Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10501002F6500000042AD93 /* DS3Colors.swift */; };
@@ -26,7 +44,11 @@
 		A10504032F6500000042AD93 /* RecentFilesPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10504022F6500000042AD93 /* RecentFilesPanel.swift */; };
 		A10504052F6500000042AD93 /* ConnectionInfoPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10504042F6500000042AD93 /* ConnectionInfoPanel.swift */; };
 		A1D31EBB2F6500000042AD93 /* FloatingPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A140E4372F6500000042AD93 /* FloatingPanel.swift */; };
+		A945CD1DA2F9F225B525AEFB /* BucketListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9DC46A798E1E6ECDB179292 /* BucketListView.swift */; };
+		AED31D6C586582649FEA832B /* CacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFBD730F5BCDD36A139A43B6 /* CacheManager.swift */; };
 		B1BF5A012F6800000042AD93 /* BreadthFirstIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1BF5A002F6800000042AD93 /* BreadthFirstIndexer.swift */; };
+		BCEEF72CA17699E9AE656942 /* IOSSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1823D7B17115B90E2FD9181D /* IOSSettingsView.swift */; };
+		C263EF6921D364A74C3AA7AC /* IOSSetupWizardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A375DFBF89652E19F13BE1 /* IOSSetupWizardView.swift */; };
 		CE070E323BF098B9EFD808B7 /* FileProviderExtension+CustomActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4F9E4F14F282A0BEC87664A /* FileProviderExtension+CustomActions.swift */; };
 		D512EEBC2B59631400F550EC /* MFAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D512EEBB2B59631400F550EC /* MFAView.swift */; };
 		D54002A02B5EAEB000B54E97 /* S3Lib.swift in Sources */ = {isa = PBXBuildFile; fileRef = D540029D2B5EAEB000B54E97 /* S3Lib.swift */; };
@@ -101,7 +123,10 @@
 		D5BFAB7C2F6204620042AD93 /* DS3Lib in Frameworks */ = {isa = PBXBuildFile; productRef = ABCDEF012B57203A00000002 /* DS3Lib */; };
 		D5BFAB7D2F6204620042AD93 /* DS3Lib in Frameworks */ = {isa = PBXBuildFile; productRef = ABCDEF012B57203A00000003 /* DS3Lib */; };
 		D5D734F12B666C7700C6B11C /* DS3DriveViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5D734F02B666C7700C6B11C /* DS3DriveViewModel.swift */; };
+		D738642DC3905E7B3DECC70E /* IOSButtonStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = C608BDFB9ECDC1DAADE777A4 /* IOSButtonStyles.swift */; };
+		D882603BC9BDE1087C8F127A /* ProjectListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C16363596DA7E907629F3A /* ProjectListView.swift */; };
 		F642B40C69FA43A2E9431AE8 /* DS3Lib in Frameworks */ = {isa = PBXBuildFile; productRef = DFBF72DB6211D6ECFDD5B265 /* DS3Lib */; };
+		F75002765637761956B1A1A7 /* IOSAppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 614D568B5F5473C487A2AF1A /* IOSAppRootView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -147,7 +172,20 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1823D7B17115B90E2FD9181D /* IOSSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSSettingsView.swift; sourceTree = "<group>"; };
+		39439872734512266C6F7F51 /* IOSMainTabView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSMainTabView.swift; sourceTree = "<group>"; };
+		3B9955EBE95149FF2BFB97E5 /* IOSLoginView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSLoginView.swift; sourceTree = "<group>"; };
+		4CA9016467657EB5B6B0F187 /* OrientationLock.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrientationLock.swift; sourceTree = "<group>"; };
+		4E28C5D8656BE4652D84BD2D /* BackgroundRefreshManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundRefreshManager.swift; sourceTree = "<group>"; };
+		5F281CBB037B577C0A48B7A1 /* DriveCardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DriveCardView.swift; sourceTree = "<group>"; };
+		614D568B5F5473C487A2AF1A /* IOSAppRootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSAppRootView.swift; sourceTree = "<group>"; };
 		63DAE38129B73666BC61012E /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		6E7F7F8B3758C1478B04E17F /* PrefixListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PrefixListView.swift; sourceTree = "<group>"; };
+		77A375DFBF89652E19F13BE1 /* IOSSetupWizardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSSetupWizardView.swift; sourceTree = "<group>"; };
+		80F8E8B79FD49D0216AD0815 /* IOSMFAView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSMFAView.swift; sourceTree = "<group>"; };
+		830D73D29DDAA6E68151FC62 /* DriveDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DriveDetailView.swift; sourceTree = "<group>"; };
+		83AFAE49D6C5787515C65EE4 /* IOSDriveViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDriveViewModel.swift; sourceTree = "<group>"; };
+		92782ABCB6F9964E5FC56C71 /* DriveListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DriveListView.swift; sourceTree = "<group>"; };
 		A10203032F6300000042AD93 /* S3LibListingAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3LibListingAdapter.swift; sourceTree = "<group>"; };
 		A10305052F6400000042AD93 /* ConflictNotificationHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictNotificationHandler.swift; sourceTree = "<group>"; };
 		A10501002F6500000042AD93 /* DS3Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3Colors.swift; sourceTree = "<group>"; };
@@ -163,10 +201,15 @@
 		A10504022F6500000042AD93 /* RecentFilesPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFilesPanel.swift; sourceTree = "<group>"; };
 		A10504042F6500000042AD93 /* ConnectionInfoPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionInfoPanel.swift; sourceTree = "<group>"; };
 		A140E4372F6500000042AD93 /* FloatingPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingPanel.swift; sourceTree = "<group>"; };
+		AFBD730F5BCDD36A139A43B6 /* CacheManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CacheManager.swift; sourceTree = "<group>"; };
 		B1BF5A002F6800000042AD93 /* BreadthFirstIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreadthFirstIndexer.swift; sourceTree = "<group>"; };
+		B5113DDDA0BF251D4D70D3D0 /* DriveConfirmView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DriveConfirmView.swift; sourceTree = "<group>"; };
 		C26ED37797692E9DBD42FF25 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		C4F9E4F14F282A0BEC87664A /* FileProviderExtension+CustomActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+CustomActions.swift"; sourceTree = "<group>"; };
 		C5B119CD500B58810896D4B2 /* DS3DriveStubApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DS3DriveStubApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C608BDFB9ECDC1DAADE777A4 /* IOSButtonStyles.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSButtonStyles.swift; sourceTree = "<group>"; };
+		C9DC46A798E1E6ECDB179292 /* BucketListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BucketListView.swift; sourceTree = "<group>"; };
+		D228D94AEB9D8D80132CF316 /* IOSDesignSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDesignSystem.swift; sourceTree = "<group>"; };
 		D334C1489829B34DA2029F25 /* DS3DriveStubApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DS3DriveStubApp.swift; sourceTree = "<group>"; };
 		D512EEBB2B59631400F550EC /* MFAView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MFAView.swift; sourceTree = "<group>"; };
 		D540029D2B5EAEB000B54E97 /* S3Lib.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3Lib.swift; sourceTree = "<group>"; };
@@ -244,6 +287,8 @@
 		D5A222832B5721CC00F1413B /* DS3DriveProvider.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = DS3DriveProvider.xcassets; sourceTree = "<group>"; };
 		D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsManager.swift; sourceTree = "<group>"; };
 		D5D734F02B666C7700C6B11C /* DS3DriveViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3DriveViewModel.swift; sourceTree = "<group>"; };
+		EDEAF7AABE07055FC3332FD3 /* EmptyDrivesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EmptyDrivesView.swift; sourceTree = "<group>"; };
+		F2C16363596DA7E907629F3A /* ProjectListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProjectListView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -276,13 +321,69 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		44A645B8D9BDD9E87A9C55A6 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A7F813E0453018170E509CFB /* Common */,
+				961246A79AFB818F65C9F56C /* App */,
+				AE90F641350C20754CCC363A /* Login */,
+				A46FDD4171DE38A4741D037A /* Dashboard */,
+				E0A3A68B2B81408198C6C559 /* Setup */,
+				9F1D3B4136D4DDC8626ECCBC /* Settings */,
+			);
+			name = Views;
+			path = Views;
+			sourceTree = "<group>";
+		};
+		58D7B11E3167F877F313A3AD /* Helpers */ = {
+			isa = PBXGroup;
+			children = (
+				4CA9016467657EB5B6B0F187 /* OrientationLock.swift */,
+				4E28C5D8656BE4652D84BD2D /* BackgroundRefreshManager.swift */,
+				AFBD730F5BCDD36A139A43B6 /* CacheManager.swift */,
+			);
+			name = Helpers;
+			path = Helpers;
+			sourceTree = "<group>";
+		};
 		6E7A6D7308905B502A17816A /* DS3DriveStubApp */ = {
 			isa = PBXGroup;
 			children = (
 				D334C1489829B34DA2029F25 /* DS3DriveStubApp.swift */,
 				63DAE38129B73666BC61012E /* Assets.xcassets */,
+				44A645B8D9BDD9E87A9C55A6 /* Views */,
+				96811E45DB40205283CCB6CB /* ViewModels */,
+				58D7B11E3167F877F313A3AD /* Helpers */,
 			);
 			path = DS3DriveStubApp;
+			sourceTree = "<group>";
+		};
+		961246A79AFB818F65C9F56C /* App */ = {
+			isa = PBXGroup;
+			children = (
+				614D568B5F5473C487A2AF1A /* IOSAppRootView.swift */,
+				39439872734512266C6F7F51 /* IOSMainTabView.swift */,
+			);
+			name = App;
+			path = App;
+			sourceTree = "<group>";
+		};
+		96811E45DB40205283CCB6CB /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				83AFAE49D6C5787515C65EE4 /* IOSDriveViewModel.swift */,
+			);
+			name = ViewModels;
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		9F1D3B4136D4DDC8626ECCBC /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				1823D7B17115B90E2FD9181D /* IOSSettingsView.swift */,
+			);
+			name = Settings;
+			path = Settings;
 			sourceTree = "<group>";
 		};
 		A10501082F6500000042AD93 /* DesignSystem */ = {
@@ -293,6 +394,38 @@
 				A10501042F6500000042AD93 /* DS3Spacing.swift */,
 			);
 			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		A46FDD4171DE38A4741D037A /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+				92782ABCB6F9964E5FC56C71 /* DriveListView.swift */,
+				5F281CBB037B577C0A48B7A1 /* DriveCardView.swift */,
+				830D73D29DDAA6E68151FC62 /* DriveDetailView.swift */,
+				EDEAF7AABE07055FC3332FD3 /* EmptyDrivesView.swift */,
+			);
+			name = Dashboard;
+			path = Dashboard;
+			sourceTree = "<group>";
+		};
+		A7F813E0453018170E509CFB /* Common */ = {
+			isa = PBXGroup;
+			children = (
+				D228D94AEB9D8D80132CF316 /* IOSDesignSystem.swift */,
+				C608BDFB9ECDC1DAADE777A4 /* IOSButtonStyles.swift */,
+			);
+			name = Common;
+			path = Common;
+			sourceTree = "<group>";
+		};
+		AE90F641350C20754CCC363A /* Login */ = {
+			isa = PBXGroup;
+			children = (
+				3B9955EBE95149FF2BFB97E5 /* IOSLoginView.swift */,
+				80F8E8B79FD49D0216AD0815 /* IOSMFAView.swift */,
+			);
+			name = Login;
+			path = Login;
 			sourceTree = "<group>";
 		};
 		D54775BA2B57181D00DABCD4 = {
@@ -699,6 +832,19 @@
 			name = iOS;
 			sourceTree = "<group>";
 		};
+		E0A3A68B2B81408198C6C559 /* Setup */ = {
+			isa = PBXGroup;
+			children = (
+				77A375DFBF89652E19F13BE1 /* IOSSetupWizardView.swift */,
+				F2C16363596DA7E907629F3A /* ProjectListView.swift */,
+				C9DC46A798E1E6ECDB179292 /* BucketListView.swift */,
+				6E7F7F8B3758C1478B04E17F /* PrefixListView.swift */,
+				B5113DDDA0BF251D4D70D3D0 /* DriveConfirmView.swift */,
+			);
+			name = Setup;
+			path = Setup;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -846,6 +992,31 @@
 			buildActionMask = 2147483647;
 			files = (
 				7AD0A4607A2000B3186F2C96 /* DS3DriveStubApp.swift in Sources */,
+				01EFC3F9CFF6BC02DC4E1291 /* IOSDesignSystem.swift in Sources */,
+				D738642DC3905E7B3DECC70E /* IOSButtonStyles.swift in Sources */,
+				F75002765637761956B1A1A7 /* IOSAppRootView.swift in Sources */,
+				8BD2528468047598B6F80C28 /* IOSMainTabView.swift in Sources */,
+				8BE6376FED3F59527905332C /* IOSLoginView.swift in Sources */,
+				5FE7F7DE03FD7F3FE3A4283D /* IOSMFAView.swift in Sources */,
+				26DB2568B7327A9E95FA3043 /* DriveListView.swift in Sources */,
+				1D761769DACC4258BAB685D2 /* DriveCardView.swift in Sources */,
+				8EC0EE041161FA18D536D6B0 /* DriveDetailView.swift in Sources */,
+				8278951235ACBB3A91DECD8E /* EmptyDrivesView.swift in Sources */,
+				C263EF6921D364A74C3AA7AC /* IOSSetupWizardView.swift in Sources */,
+				D882603BC9BDE1087C8F127A /* ProjectListView.swift in Sources */,
+				A945CD1DA2F9F225B525AEFB /* BucketListView.swift in Sources */,
+				41A6207DA1FD0EECAA1D984C /* PrefixListView.swift in Sources */,
+				4799FF43493438BDA352F280 /* DriveConfirmView.swift in Sources */,
+				BCEEF72CA17699E9AE656942 /* IOSSettingsView.swift in Sources */,
+				9783D898595F0FCD77B116E6 /* IOSDriveViewModel.swift in Sources */,
+				4A20FD708E0B4A54CD5FCC70 /* OrientationLock.swift in Sources */,
+				8865FDA6BC93E8AC9A1462CC /* BackgroundRefreshManager.swift in Sources */,
+				AED31D6C586582649FEA832B /* CacheManager.swift in Sources */,
+				70A1EF5AE3CB27185A6C038B /* LoginViewModel.swift in Sources */,
+				36D66273CE63FEA089FD9D04 /* ProjectSelectionViewModel.swift in Sources */,
+				0D90EFF30F1E07F00CA4CCF4 /* SyncAnchorSelectionViewModel.swift in Sources */,
+				9348198334F3EA47F537CDD4 /* SyncViewModel.swift in Sources */,
+				1C7271CB4E888CB4F7607DCC /* SyncRecapViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

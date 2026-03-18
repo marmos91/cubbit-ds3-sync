@@ -209,7 +209,15 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                     try await metadataStore.batchUpsertItems(upsertData)
                 } while continuationToken != nil
 
-                logger.debug("Background cache refresh complete for prefix \(prefix ?? "nil", privacy: .public)")
+                // Signal enumerator so Files app picks up the refreshed cache
+                let domain = NSFileProviderDomain(
+                    identifier: NSFileProviderDomainIdentifier(rawValue: drive.id.uuidString),
+                    displayName: drive.name
+                )
+                try? await NSFileProviderManager(for: domain)?
+                    .signalEnumerator(for: .workingSet)
+
+                logger.debug("Background cache refresh + signal complete for prefix \(prefix ?? "nil", privacy: .public)")
             } catch {
                 logger.debug("Background cache refresh failed for prefix \(prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)")
             }

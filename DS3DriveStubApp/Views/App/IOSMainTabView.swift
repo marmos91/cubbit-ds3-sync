@@ -1,0 +1,139 @@
+#if os(iOS)
+import SwiftUI
+import DS3Lib
+
+/// Adaptive layout that renders a TabView on iPhone (compact) and NavigationSplitView on iPad (regular).
+/// Automatically adapts to Split View, Slide Over, and Stage Manager via `horizontalSizeClass`.
+struct IOSMainTabView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(DS3Authentication.self) private var ds3Authentication
+    @Environment(DS3DriveManager.self) private var ds3DriveManager
+
+    @State private var selectedTab: AppTab = .drives
+    @State private var selectedDrive: DS3Drive?
+    @State private var driveViewModel = IOSDriveViewModel(ipcService: makeDefaultIPCService())
+    @State private var showWizard = false
+
+    enum AppTab: Hashable {
+        case drives
+        case settings
+    }
+
+    var body: some View {
+        Group {
+            if horizontalSizeClass == .compact {
+                compactLayout
+            } else {
+                regularLayout
+            }
+        }
+        .fullScreenCover(isPresented: $showWizard) {
+            IOSSetupWizardView()
+                .environment(ds3Authentication)
+                .environment(ds3DriveManager)
+        }
+        .onAppear {
+            driveViewModel.startListening()
+        }
+        .onDisappear {
+            driveViewModel.stopListening()
+        }
+    }
+
+    // MARK: - Compact Layout (iPhone / iPad Split View compact)
+
+    private var compactLayout: some View {
+        TabView(selection: $selectedTab) {
+            NavigationStack {
+                DriveListView(
+                    selectedDrive: $selectedDrive,
+                    showWizard: $showWizard,
+                    driveViewModel: driveViewModel
+                )
+            }
+            .tabItem {
+                Label("Drives", systemImage: "externaldrive.fill")
+            }
+            .tag(AppTab.drives)
+
+            NavigationStack {
+                IOSSettingsView()
+            }
+            .tabItem {
+                Label("Settings", systemImage: "gearshape.fill")
+            }
+            .tag(AppTab.settings)
+        }
+    }
+
+    // MARK: - Regular Layout (iPad full screen / wide Split View)
+
+    private var regularLayout: some View {
+        NavigationSplitView {
+            sidebarContent
+                .navigationTitle("DS3 Drive")
+                .navigationSplitViewColumnWidth(min: 200, ideal: 250, max: 300)
+        } detail: {
+            detailView
+        }
+    }
+
+    // MARK: - Sidebar (iPad)
+
+    private var sidebarContent: some View {
+        List(selection: $selectedDrive) {
+            Section("Drives") {
+                ForEach(ds3DriveManager.drives) { drive in
+                    NavigationLink(value: drive) {
+                        HStack(spacing: IOSSpacing.sm) {
+                            Circle()
+                                .fill(driveViewModel.statusColor(for: driveViewModel.status(for: drive.id)))
+                                .frame(width: 8, height: 8)
+                            Text(drive.name)
+                                .font(IOSTypography.body)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+
+                if ds3DriveManager.drives.count < DefaultSettings.maxDrives {
+                    Button {
+                        showWizard = true
+                    } label: {
+                        Label("Add Drive", systemImage: "plus")
+                    }
+                    .keyboardShortcut("n", modifiers: .command)
+                } else {
+                    Label("Add Drive", systemImage: "plus")
+                        .foregroundStyle(IOSColors.secondaryText)
+                }
+            }
+
+            Section {
+                Button {
+                    selectedTab = .settings
+                    selectedDrive = nil
+                } label: {
+                    Label("Settings", systemImage: "gearshape.fill")
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
+        }
+    }
+
+    // MARK: - Detail View (iPad right pane)
+
+    @ViewBuilder
+    private var detailView: some View {
+        if selectedTab == .settings {
+            IOSSettingsView()
+        } else if let drive = selectedDrive {
+            DriveDetailView(drive: drive, driveViewModel: driveViewModel)
+        } else {
+            Text("Select a drive")
+                .font(IOSTypography.body)
+                .foregroundStyle(IOSColors.secondaryText)
+        }
+    }
+}
+#endif

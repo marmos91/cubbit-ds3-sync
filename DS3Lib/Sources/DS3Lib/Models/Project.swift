@@ -1,7 +1,7 @@
 import Foundation
 
 /// A project in the Cubbit's DS3 ecosystem
-@Observable public final class Project: Equatable, Codable, Identifiable, @unchecked Sendable {
+@Observable public final class Project: Hashable, Codable, Identifiable, @unchecked Sendable {
     /// The project unique ID
     public var id: String
 
