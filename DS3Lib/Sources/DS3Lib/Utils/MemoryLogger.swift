@@ -1,4 +1,4 @@
-import Foundation
+@preconcurrency import Darwin
 import os.log
 
 /// Logs the current physical memory footprint of the process using Darwin task_info.

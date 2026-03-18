@@ -50,7 +50,7 @@ jobs:
     steps:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.2'
+          xcode-version: '16.4'
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -63,7 +63,7 @@ jobs:
           xcodebuild build \
             -project DS3Drive.xcodeproj \
             -scheme DS3DriveStubApp \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
             CODE_SIGNING_ALLOWED=NO
       - name: Test DS3Lib
         run: |
