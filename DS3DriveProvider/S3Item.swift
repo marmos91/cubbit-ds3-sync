@@ -55,7 +55,11 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     ) {
         self.identifier = item.itemIdentifier
         self.drive = drive
+        #if os(macOS)
         self.isPinned = item.contentPolicy == .downloadEagerlyAndKeepDownloaded
+        #else
+        self.isPinned = false
+        #endif
         self.metadata = S3Item.Metadata(
             lastModified: item.contentModificationDate as? Date,
             size: (item.documentSize ?? 0) ?? 0
@@ -113,21 +117,26 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
         contentType == .folder
     }
     
+    #if os(macOS)
     var contentPolicy: NSFileProviderContentPolicy {
         isPinned ? .downloadEagerlyAndKeepDownloaded : .inherited
     }
+    #endif
     
     var capabilities: NSFileProviderItemCapabilities {
-        [
+        var caps: NSFileProviderItemCapabilities = [
             .allowsAddingSubItems,
             .allowsContentEnumerating,
             .allowsDeleting,
             .allowsReading,
             .allowsRenaming,
             .allowsReparenting,
-            .allowsWriting,
-            .allowsExcludingFromSync
+            .allowsWriting
         ]
+        #if os(macOS)
+        caps.insert(.allowsExcludingFromSync)
+        #endif
+        return caps
     }
 
     // MARK: - Decorations

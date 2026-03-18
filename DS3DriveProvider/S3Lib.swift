@@ -757,9 +757,9 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 let chunk = uploadHandle.readData(ofLength: chunkSize)
                 if chunk.isEmpty {
                     try? uploadHandle.close()
-                    return eventLoop.makeSucceededFuture(ByteBuffer())
+                    return eventLoop.makeSucceededFuture(.end)
                 }
-                return eventLoop.makeSucceededFuture(ByteBuffer(data: chunk))
+                return eventLoop.makeSucceededFuture(.byteBuffer(ByteBuffer(data: chunk)))
             }
 
             request = S3.PutObjectRequest(

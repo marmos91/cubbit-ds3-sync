@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
    LastUpgradeVersion = "2630"
-   version = "2.0">
+   version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES">
@@ -14,23 +14,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "D5A222422B57211500F1413B"
-               BuildableName = "DS3 Drive FileProvider.appex"
-               BlueprintName = "DS3DriveProvider"
-               ReferencedContainer = "container:DS3Drive.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "D54775C22B57181D00DABCD4"
-               BuildableName = "Cubbit DS3 Drive.app"
-               BlueprintName = "DS3Drive"
+               BlueprintIdentifier = "3EA0A133AEB506ED1513E961"
+               BuildableName = "DS3DriveStubApp.app"
+               BlueprintName = "DS3DriveStubApp"
                ReferencedContainer = "container:DS3Drive.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -45,23 +31,21 @@
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
-      selectedDebuggerIdentifier = ""
-      selectedLauncherIdentifier = "Xcode.IDEFoundation.Launcher.PosixSpawn"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       launchStyle = "0"
-      askForAppToLaunch = "Yes"
       useCustomWorkingDirectory = "NO"
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
-      allowLocationSimulation = "YES"
-      launchAutomaticallySubstyle = "2">
+      allowLocationSimulation = "YES">
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "D54775C22B57181D00DABCD4"
-            BuildableName = "Cubbit DS3 Drive.app"
-            BlueprintName = "DS3Drive"
+            BlueprintIdentifier = "3EA0A133AEB506ED1513E961"
+            BuildableName = "DS3DriveStubApp.app"
+            BlueprintName = "DS3DriveStubApp"
             ReferencedContainer = "container:DS3Drive.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -71,16 +55,14 @@
       shouldUseLaunchSchemeArgsEnv = "YES"
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
-      debugDocumentVersioning = "YES"
-      askForAppToLaunch = "Yes"
-      launchAutomaticallySubstyle = "2">
+      debugDocumentVersioning = "YES">
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "D54775C22B57181D00DABCD4"
-            BuildableName = "Cubbit DS3 Drive.app"
-            BlueprintName = "DS3Drive"
+            BlueprintIdentifier = "3EA0A133AEB506ED1513E961"
+            BuildableName = "DS3DriveStubApp.app"
+            BlueprintName = "DS3DriveStubApp"
             ReferencedContainer = "container:DS3Drive.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

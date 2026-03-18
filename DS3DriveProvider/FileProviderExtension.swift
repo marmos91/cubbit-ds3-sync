@@ -1588,6 +1588,7 @@ private class MaterializedItemObserver: NSObject, NSFileProviderEnumerationObser
 
 // MARK: - Partial Content Fetching
 
+#if os(macOS)
 extension FileProviderExtension: NSFileProviderPartialContentFetching {
     // swiftlint:disable:next function_parameter_count
     func fetchPartialContents(
@@ -1685,3 +1686,4 @@ extension FileProviderExtension: NSFileProviderPartialContentFetching {
         return progress
     }
 }
+#endif

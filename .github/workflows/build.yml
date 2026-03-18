@@ -43,7 +43,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
   build-ios:
-    name: Build DS3Lib for iOS
+    name: Build iOS Extension
     runs-on: macos-15
     needs: lint
 
@@ -55,9 +55,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
-      - name: Build DS3Lib for iOS
+      - name: Resolve Swift packages
         run: |
-          swift build --package-path DS3Lib --sdk $(xcrun --sdk iphonesimulator --show-sdk-path) --triple arm64-apple-ios17.0-simulator
+          xcodebuild -resolvePackageDependencies -project DS3Drive.xcodeproj -scheme DS3DriveStubApp
+      - name: Build DS3DriveStubApp for iOS Simulator
+        run: |
+          xcodebuild build \
+            -project DS3Drive.xcodeproj \
+            -scheme DS3DriveStubApp \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            CODE_SIGNING_ALLOWED=NO
       - name: Test DS3Lib
         run: |
           swift test --package-path DS3Lib
