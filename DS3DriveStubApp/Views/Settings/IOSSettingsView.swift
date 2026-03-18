@@ -14,7 +14,7 @@ struct IOSSettingsView: View {
     @State private var cacheSize: Int64 = 0
     @State private var isClearingCache = false
     @State private var isLoggingOut = false
-    @State private var syncNotificationsEnabled: Bool = UserDefaults.standard.bool(forKey: "syncNotificationsEnabled")
+    @AppStorage("syncNotificationsEnabled") private var syncNotificationsEnabled = false
     @State private var copiedFieldId: String?
 
     private var account: Account? { ds3Authentication.account }
@@ -154,13 +154,7 @@ struct IOSSettingsView: View {
     private var generalSection: some View {
         Section {
             // Sync Notifications toggle
-            Toggle(isOn: Binding(
-                get: { syncNotificationsEnabled },
-                set: { newValue in
-                    syncNotificationsEnabled = newValue
-                    UserDefaults.standard.set(newValue, forKey: "syncNotificationsEnabled")
-                }
-            )) {
+            Toggle(isOn: $syncNotificationsEnabled) {
                 Text("Sync Notifications")
                     .font(IOSTypography.body)
             }

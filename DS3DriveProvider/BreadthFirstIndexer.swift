@@ -3,8 +3,6 @@ import Foundation
 import os.log
 import DS3Lib
 
-#if os(macOS)
-
 /// Proactive breadth-first indexer that enumerates the S3 bucket level-by-level
 /// using delimited (non-recursive) listings. Shallow folders are discovered before
 /// deep descendants, so Finder can serve them from the MetadataStore cache quickly.
@@ -122,11 +120,7 @@ final class BreadthFirstIndexer: @unchecked Sendable {
                     await queueManager.enqueue(discoveredSubfolders)
                 }
 
-                do {
-                    try await manager?.signalEnumerator(for: .workingSet)
-                } catch {
-                    logger.warning("BFS failed to signal working set: \(error.localizedDescription, privacy: .public)")
-                }
+                try? await manager?.signalEnumerator(for: .workingSet)
             } catch {
                 logger.error("BFS listing failed for prefix \(prefix, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
@@ -172,5 +166,3 @@ extension BreadthFirstIndexer {
         }
     }
 }
-
-#endif

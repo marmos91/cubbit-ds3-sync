@@ -430,8 +430,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 break
             }
 
-            while !items.isEmpty {
-                let item = items.removeFirst()
+            for item in items {
                 let decodedItemKey = try decodedKey(item.identifier.rawValue)
                 let newKey = decodedItemKey.replacingOccurrences(of: prefix, with: newPrefix)
 

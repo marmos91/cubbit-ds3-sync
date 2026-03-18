@@ -161,27 +161,25 @@ struct PrefixListView: View {
         loading = true
         error = nil
 
-        do {
-            let vm = SyncAnchorSelectionViewModel(
-                project: selection.project,
-                authentication: ds3Authentication
-            )
-            anchorVM = vm
+        let vm = SyncAnchorSelectionViewModel(
+            project: selection.project,
+            authentication: ds3Authentication
+        )
+        anchorVM = vm
 
-            vm.selectBucket(selection.bucket)
+        vm.selectBucket(selection.bucket)
 
-            if let prefix = selection.prefix {
-                vm.selectedPrefix = prefix
-            }
+        if let prefix = selection.prefix {
+            vm.selectedPrefix = prefix
+        }
 
-            await vm.listFoldersForCurrentBucket()
+        await vm.listFoldersForCurrentBucket()
 
-            if let vmError = vm.error {
-                self.error = vmError
-            } else {
-                let currentPrefix = selection.prefix ?? ""
-                subfolders = vm.folders[currentPrefix] ?? []
-            }
+        if let vmError = vm.error {
+            self.error = vmError
+        } else {
+            let currentPrefix = selection.prefix ?? ""
+            subfolders = vm.folders[currentPrefix] ?? []
         }
 
         loading = false

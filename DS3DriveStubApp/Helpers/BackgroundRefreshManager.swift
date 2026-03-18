@@ -27,8 +27,11 @@ enum BackgroundRefreshManager {
 
     /// Signals all active drives to check for remote changes via the File Provider system.
     /// Loads the current drive list from disk and calls signalEnumerator for each.
-    static func signalAllDrives() async {
+    /// Returns `true` if all drives were signaled successfully.
+    @discardableResult
+    static func signalAllDrives() async -> Bool {
         let drives = DS3DriveManager.loadFromDiskOrCreateNew()
+        var allSucceeded = true
         for drive in drives {
             let domain = NSFileProviderDomain(
                 identifier: NSFileProviderDomainIdentifier(rawValue: drive.id.uuidString),
@@ -39,8 +42,10 @@ enum BackgroundRefreshManager {
                 logger.debug("Signaled enumerator for drive \(drive.name, privacy: .public)")
             } catch {
                 logger.error("Failed to signal enumerator for \(drive.name, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                allSucceeded = false
             }
         }
+        return allSucceeded
     }
 }
 #endif

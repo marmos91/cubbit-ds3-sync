@@ -8,7 +8,7 @@ enum CacheManager {
     /// - Returns: Total size in bytes.
     static func calculateCacheSize() async -> Int64 {
         await Task.detached {
-            return _calculateCacheSizeSync()
+            _calculateCacheSizeSync()
         }.value
     }
 
