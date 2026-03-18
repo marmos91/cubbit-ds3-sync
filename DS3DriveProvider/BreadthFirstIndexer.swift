@@ -3,6 +3,8 @@ import Foundation
 import os.log
 import DS3Lib
 
+#if os(macOS)
+
 /// Proactive breadth-first indexer that enumerates the S3 bucket level-by-level
 /// using delimited (non-recursive) listings. Shallow folders are discovered before
 /// deep descendants, so Finder can serve them from the MetadataStore cache quickly.
@@ -170,3 +172,5 @@ extension BreadthFirstIndexer {
         }
     }
 }
+
+#endif

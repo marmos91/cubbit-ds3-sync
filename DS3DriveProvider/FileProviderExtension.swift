@@ -82,14 +82,16 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     var metadataStore: MetadataStore?
     private var syncEngine: SyncEngine?
     private var networkMonitor: NetworkMonitor?
+    #if os(macOS)
     private var pollingTask: Task<Void, Never>?
+
+    /// Proactive breadth-first indexer that populates MetadataStore level-by-level.
+    private var breadthFirstIndexer: BreadthFirstIndexer?
+    #endif
 
     /// Limits concurrent fetchContents/fetchPartialContents calls to prevent
     /// HTTP/2 stream exhaustion (NIOHTTP2.StreamClosed errors).
     private let fetchSemaphore = AsyncSemaphore(value: 20)
-
-    /// Proactive breadth-first indexer that populates MetadataStore level-by-level.
-    private var breadthFirstIndexer: BreadthFirstIndexer?
 
     var drive: DS3Drive?
     let temporaryDirectory: URL?
@@ -176,8 +178,10 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         }
 
         super.init()
+        #if os(macOS)
         self.startPolling()
         self.startBFSIndexer()
+        #endif
     }
 
     /// Notifies the main app that the extension failed to initialize
@@ -189,11 +193,13 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
     func invalidate() {
         self.logger.info("Extension invalidating for domain \(self.domain.identifier.rawValue, privacy: .public)")
+        #if os(macOS)
         self.logger.debug("Stopping periodic polling task")
         self.pollingTask?.cancel()
         self.pollingTask = nil
         self.breadthFirstIndexer?.stop()
         self.breadthFirstIndexer = nil
+        #endif
 
         do {
             try self.s3Lib?.shutdown()
@@ -1201,7 +1207,9 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             cb.handler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
         }
         progress.completedUnitCount = 1
+        #if os(macOS)
         breadthFirstIndexer?.prioritize(prefix: itemIdentifier.rawValue)
+        #endif
 
         return progress
     }
@@ -1220,6 +1228,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         }
     }
 
+    #if os(macOS)
     // MARK: - BFS Indexer
 
     private func startBFSIndexer() {
@@ -1262,6 +1271,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
         self.logger.debug("Periodic polling started with interval \(DefaultSettings.Extension.pollingIntervalSeconds)s")
     }
+    #endif
 
     // MARK: - Materialized Items Tracking
 
