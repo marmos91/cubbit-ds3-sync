@@ -1,42 +1,33 @@
 import XCTest
 @testable import DS3Lib
 
-/// Wave 0 stub: Tests for cache TTL logic (IEXT-04).
-/// Plan 07-02 Task 2 will replace these stubs with full implementations.
 final class CacheTTLTests: XCTestCase {
 
     func testFreshCacheWithinTTL() {
-        // STUB: Will verify TTL returns "fresh" when < 60s ago
-        // Implemented by 07-02 Task 2
-        XCTExpectFailure("Wave 0 stub -- awaiting 07-02 implementation")
-        XCTFail("Not yet implemented")
+        let now = Date()
+        let lastEnumerated = now.addingTimeInterval(-30) // 30s ago
+        XCTAssertFalse(isCacheStale(lastEnumerated: lastEnumerated, ttl: 60, now: now))
     }
 
     func testStaleCacheBeyondTTL() {
-        // STUB: Will verify TTL returns "stale" when > 60s ago
-        // Implemented by 07-02 Task 2
-        XCTExpectFailure("Wave 0 stub -- awaiting 07-02 implementation")
-        XCTFail("Not yet implemented")
+        let now = Date()
+        let lastEnumerated = now.addingTimeInterval(-90) // 90s ago
+        XCTAssertTrue(isCacheStale(lastEnumerated: lastEnumerated, ttl: 60, now: now))
     }
 
     func testNilDateIsAlwaysStale() {
-        // STUB: Will verify nil date returns "stale"
-        // Implemented by 07-02 Task 2
-        XCTExpectFailure("Wave 0 stub -- awaiting 07-02 implementation")
-        XCTFail("Not yet implemented")
+        XCTAssertTrue(isCacheStale(lastEnumerated: nil, ttl: 60))
     }
 
     func testExactlyAtTTLBoundary() {
-        // STUB: Will verify exactly-at-boundary returns "stale"
-        // Implemented by 07-02 Task 2
-        XCTExpectFailure("Wave 0 stub -- awaiting 07-02 implementation")
-        XCTFail("Not yet implemented")
+        let now = Date()
+        let lastEnumerated = now.addingTimeInterval(-60) // exactly 60s ago
+        XCTAssertTrue(isCacheStale(lastEnumerated: lastEnumerated, ttl: 60, now: now))
     }
 
     func testZeroTTLIsAlwaysStale() {
-        // STUB: Will verify zero TTL is always stale
-        // Implemented by 07-02 Task 2
-        XCTExpectFailure("Wave 0 stub -- awaiting 07-02 implementation")
-        XCTFail("Not yet implemented")
+        let now = Date()
+        let lastEnumerated = now // just now
+        XCTAssertTrue(isCacheStale(lastEnumerated: lastEnumerated, ttl: 0, now: now))
     }
 }

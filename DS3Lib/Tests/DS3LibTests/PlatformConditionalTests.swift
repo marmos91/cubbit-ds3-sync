@@ -1,29 +1,31 @@
 import XCTest
+import os.log
 @testable import DS3Lib
 
-/// Wave 0 stub: Tests for platform-conditional code paths (IEXT-01, IEXT-04).
-/// Plan 07-02 Task 2 creates the CacheTTL utility tested here.
-/// Plan 07-01 Task 2 creates the MemoryLogger tested here.
+/// Tests that platform-shared utilities compile and function correctly.
+/// The #if os() guards in the extension target are verified by CI (iOS Simulator build).
+/// These tests verify the DS3Lib utilities that both platforms depend on.
 final class PlatformConditionalTests: XCTestCase {
 
     func testCacheTTLUtilityAvailableOnBothPlatforms() {
-        // STUB: Will verify isCacheStale() is callable (compiled for current platform)
-        // Implemented after 07-02 creates CacheTTL.swift
-        XCTExpectFailure("Wave 0 stub -- awaiting 07-02 implementation")
-        XCTFail("Not yet implemented")
+        // isCacheStale is in DS3Lib (shared), must work on both macOS and iOS
+        let result = isCacheStale(lastEnumerated: Date(), ttl: 60)
+        XCTAssertFalse(result, "Just-enumerated cache should be fresh")
     }
 
     func testMemoryLoggerAvailableOnBothPlatforms() {
-        // STUB: Will verify logMemoryUsage() is callable (compiled for current platform)
-        // Implemented after 07-01 creates MemoryLogger.swift
-        XCTExpectFailure("Wave 0 stub -- awaiting 07-01 implementation")
-        XCTFail("Not yet implemented")
+        // logMemoryUsage is in DS3Lib (shared), must work on both macOS and iOS
+        let logger = Logger(subsystem: "test.platform", category: "memory")
+        // Should not crash on any platform
+        logMemoryUsage(label: "platform-test", logger: logger)
     }
 
-    func testPlatformSpecificSemaphoreValue() {
-        // STUB: Will verify that the platform-adaptive fetch semaphore compiles correctly
-        // This is a compile-time test -- if it compiles, the #if os() guards work
-        XCTExpectFailure("Wave 0 stub -- awaiting 07-01 implementation")
-        XCTFail("Not yet implemented")
+    func testCacheTTLEdgeCases() {
+        // Verify the TTL utility handles extreme values correctly on both platforms
+        let distantPast = Date.distantPast
+        XCTAssertTrue(isCacheStale(lastEnumerated: distantPast, ttl: 60))
+
+        let distantFuture = Date.distantFuture
+        XCTAssertFalse(isCacheStale(lastEnumerated: distantFuture, ttl: 60))
     }
 }

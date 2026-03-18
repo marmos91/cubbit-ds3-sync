@@ -7,7 +7,8 @@ let package = Package(
     products: [.library(name: "DS3Lib", targets: ["DS3Lib"])],
     dependencies: [
         .package(url: "https://github.com/soto-project/soto", from: "6.8.0"),
-        .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0")
+        .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.62.0")
     ],
     targets: [
         .target(
@@ -20,6 +21,12 @@ let package = Package(
                 .swiftLanguageMode(.v6)
             ]
         ),
-        .testTarget(name: "DS3LibTests", dependencies: ["DS3Lib"])
+        .testTarget(
+            name: "DS3LibTests",
+            dependencies: [
+                "DS3Lib",
+                .product(name: "NIOCore", package: "swift-nio")
+            ]
+        )
     ]
 )

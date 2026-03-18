@@ -91,7 +91,11 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
     /// Limits concurrent fetchContents/fetchPartialContents calls to prevent
     /// HTTP/2 stream exhaustion (NIOHTTP2.StreamClosed errors).
+    #if os(iOS)
+    private let fetchSemaphore = AsyncSemaphore(value: 4)
+    #else
     private let fetchSemaphore = AsyncSemaphore(value: 20)
+    #endif
 
     var drive: DS3Drive?
     let temporaryDirectory: URL?
@@ -182,6 +186,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         self.startPolling()
         self.startBFSIndexer()
         #endif
+        logMemoryUsage(label: "init-complete", logger: logger)
     }
 
     /// Notifies the main app that the extension failed to initialize
@@ -362,6 +367,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
             do {
                 nm.sendDriveChangedNotification(status: .sync)
+                logMemoryUsage(label: "fetch-start:\(itemIdentifier.rawValue)", logger: self.logger)
 
                 let (fileURL, s3Item) = try await self.withAPIKeyRecovery {
                     // Single GET request that returns both file data and metadata,
@@ -376,6 +382,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                     }
                 }
 
+                logMemoryUsage(label: "fetch-complete:\(s3Item.filename)", logger: self.logger)
                 self.logger.info("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize ?? 0, privacy: .public) downloaded successfully")
 
                 // Mark as materialized and clear any previous error status
@@ -563,6 +570,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         let task = Task {
             do {
                 nm.sendDriveChangedNotification(status: .sync)
+                logMemoryUsage(label: "upload-start:\(key)", logger: self.logger)
 
                 // --- Conflict detection ---
                 if !s3Item.isFolder {
@@ -615,6 +623,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                     size: Int64(itemSize)
                 )
 
+                logMemoryUsage(label: "upload-complete:\(key)", logger: self.logger)
                 uploadProgress.completedUnitCount = numParts
                 nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 self.signalChanges()
@@ -1412,6 +1421,8 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         guard let drive = self.drive, let s3Lib = self.s3Lib, let nm = self.notificationManager else {
             throw NSFileProviderError(.cannotSynchronize)
         }
+
+        logMemoryUsage(label: "enumerate:\(containerItemIdentifier.rawValue)", logger: self.logger)
 
         switch containerItemIdentifier {
         case .trashContainer:
