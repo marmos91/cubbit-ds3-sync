@@ -3,8 +3,10 @@ import UIKit
 
 final class IOSSystemService: SystemService {
     var deviceName: String {
-        UIDevice.current.name
+        processInfo.hostName
     }
+
+    private let processInfo = ProcessInfo.processInfo
 
     func copyToClipboard(_ text: String) {
         Task { @MainActor in
