@@ -43,7 +43,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
   build-ios:
-    name: Build DS3Lib for iOS Simulator
+    name: Build DS3Lib for iOS
     runs-on: macos-15
     needs: lint
 
@@ -55,13 +55,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
-      - name: Build DS3Lib for iOS Simulator
+      - name: Build DS3Lib for iOS
         run: |
-          xcodebuild build \
-            -scheme DS3Lib \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO
-        working-directory: DS3Lib
+          swift build --package-path DS3Lib --sdk $(xcrun --sdk iphonesimulator --show-sdk-path) --triple arm64-apple-ios17.0-simulator
       - name: Test DS3Lib
         run: |
           swift test --package-path DS3Lib

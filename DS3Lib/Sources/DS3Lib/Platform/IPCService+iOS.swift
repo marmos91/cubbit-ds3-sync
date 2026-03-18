@@ -176,7 +176,7 @@ final class IOSIPCService: IPCService, @unchecked Sendable {
     // MARK: - Private helpers
 
     /// Register a Darwin notification listener that reads and decodes the corresponding IPC file.
-    private func registerListener<T: Decodable>(
+    private func registerListener<T: Decodable & Sendable>(
         named notificationName: String,
         file filename: String,
         decoder: JSONDecoder,
@@ -221,7 +221,7 @@ final class IOSIPCService: IPCService, @unchecked Sendable {
 
     /// Read a single IPC file and yield the decoded value to the given continuation.
     /// Skips files whose modification date hasn't changed since the last poll.
-    private func readAndYield<T: Decodable>(
+    private func readAndYield<T: Decodable & Sendable>(
         file filename: String,
         decoder: JSONDecoder,
         continuation: AsyncStream<T>.Continuation
