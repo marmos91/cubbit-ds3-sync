@@ -189,7 +189,7 @@ Plans:
 
 Plans:
 - [x] 09-01-PLAN.md -- Fix sync badge decoration identifiers, add Cubbit logo to iOS login, apply smooth animations
-- [ ] 09-02-PLAN.md -- Share Extension target foundation: UIViewController host, upload view model, root SwiftUI view, entitlements
+- [x] 09-02-PLAN.md -- Share Extension target foundation: UIViewController host, upload view model, root SwiftUI view, entitlements
 - [ ] 09-03-PLAN.md -- Share Extension polished UI views (drive/folder picker, progress, unauthenticated), URL scheme, CI pipeline update
 
 ## Progress
@@ -208,7 +208,7 @@ Plans:
 | 6. Platform Abstraction | v2.0 | 2/4 | In Progress | - |
 | 7. iOS File Provider Extension | v2.0 | 4/4 | Complete | 2026-03-18 |
 | 8. iOS Companion App | v2.0 | 6/6 | Complete | 2026-03-18 |
-| 9. iOS Polish & Distribution | v2.0 | 1/3 | In Progress | - |
+| 9. iOS Polish & Distribution | v2.0 | 2/3 | In Progress | - |
 
 ---
 *Roadmap created: 2026-03-11*

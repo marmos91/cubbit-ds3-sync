@@ -65,6 +65,15 @@ jobs:
             -scheme DS3DriveStubApp \
             -destination 'platform=iOS Simulator,name=iPhone 16' \
             CODE_SIGNING_ALLOWED=NO
-      - name: Test DS3Lib
+      - name: Test DS3Lib (macOS)
         run: |
           swift test --package-path DS3Lib
+      - name: Test DS3Lib on iOS Simulator
+        run: |
+          xcodebuild test \
+            -project DS3Drive.xcodeproj \
+            -scheme DS3Lib \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tail -20
+        continue-on-error: true
