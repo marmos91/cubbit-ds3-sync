@@ -45,9 +45,11 @@ struct IOSLoginView: View {
                 Spacer(minLength: IOSSpacing.xl)
 
                 // Logo
-                Image(systemName: "externaldrive.fill.badge.icloud")
-                    .font(.system(size: 48))
-                    .foregroundStyle(IOSColors.accent)
+                Image("CubbitLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 44)
+                    .accessibilityLabel("Cubbit")
 
                 // Title
                 Text("DS3 Drive")
@@ -73,6 +75,7 @@ struct IOSLoginView: View {
                     }
                     .foregroundStyle(IOSColors.statusError)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .transition(.opacity)
                 }
 
                 // Password field with show/hide toggle
@@ -143,6 +146,7 @@ struct IOSLoginView: View {
             }
             .padding(.horizontal, IOSSpacing.lg)
             .padding(.vertical, IOSSpacing.md)
+            .animation(IOSAnimations.errorAppear, value: loginViewModel.loginError != nil)
         }
         .scrollDismissesKeyboard(.interactively)
         .sheet(isPresented: $loginViewModel.need2FA) {

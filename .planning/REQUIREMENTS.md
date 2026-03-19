@@ -75,7 +75,7 @@
 ### iOS Polish & Distribution
 
 - [ ] **IPOL-01**: Share Extension allows uploading files to DS3 drives from other iOS apps via share sheet
-- [ ] **IPOL-02**: File Provider decorations show sync status badges in Files app on iOS
+- [x] **IPOL-02**: File Provider decorations show sync status badges in Files app on iOS
 - [ ] **IPOL-03**: CI pipeline builds and tests iOS targets on GitHub Actions (xcodebuild for iOS simulator)
 
 ## Future Requirements
@@ -164,7 +164,7 @@
 | IAPP-05 | Phase 8 | Complete |
 | IAPP-06 | Phase 8 | Complete |
 | IPOL-01 | Phase 9 | Pending |
-| IPOL-02 | Phase 9 | Pending |
+| IPOL-02 | Phase 9 | Complete |
 | IPOL-03 | Phase 9 | Pending |
 
 **Coverage:**

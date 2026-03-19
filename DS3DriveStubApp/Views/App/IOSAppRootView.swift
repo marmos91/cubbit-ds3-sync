@@ -8,11 +8,14 @@ struct IOSAppRootView: View {
     @Environment(DS3Authentication.self) private var ds3Authentication
 
     var body: some View {
-        if ds3Authentication.isLogged {
-            IOSMainTabView()
-        } else {
-            IOSLoginView()
+        Group {
+            if ds3Authentication.isLogged {
+                IOSMainTabView()
+            } else {
+                IOSLoginView()
+            }
         }
+        .animation(IOSAnimations.transition, value: ds3Authentication.isLogged)
     }
 }
 #endif

@@ -63,4 +63,17 @@ enum IOSSpacing {
     static let xxxl: CGFloat = 64
 }
 
+// MARK: - Animations
+
+enum IOSAnimations {
+    /// Standard view transition animation
+    static let transition = Animation.spring(duration: 0.3)
+
+    /// Subtle state change animation (progress, color changes)
+    static let stateChange = Animation.easeInOut(duration: 0.2)
+
+    /// Error/warning appearance
+    static let errorAppear = Animation.easeOut(duration: 0.25)
+}
+
 #endif
