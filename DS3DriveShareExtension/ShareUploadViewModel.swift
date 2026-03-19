@@ -116,11 +116,7 @@ final class ShareUploadViewModel {
             for provider in attachments
                 where provider.hasItemConformingToTypeIdentifier(UTType.item.identifier) {
                 do {
-                    let securityScoped = try await provider.loadItem(
-                        forTypeIdentifier: UTType.item.identifier
-                    )
-
-                    guard let url = securityScoped as? URL else {
+                    guard let url = try await Self.loadURL(from: provider) else {
                         logger.warning("Could not cast loaded item to URL")
                         continue
                     }
@@ -406,6 +402,20 @@ final class ShareUploadViewModel {
             return "music.note"
         default:
             return "doc"
+        }
+    }
+
+    /// Loads the URL from an NSItemProvider using the callback API to avoid
+    /// non-sendable `NSSecureCoding` crossing isolation boundaries.
+    private static func loadURL(from provider: NSItemProvider) async throws -> URL? {
+        try await withCheckedThrowingContinuation { continuation in
+            provider.loadItem(forTypeIdentifier: UTType.item.identifier) { result, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: result as? URL)
+                }
+            }
         }
     }
 }
