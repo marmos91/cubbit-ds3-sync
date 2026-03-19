@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 60;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -20,7 +20,7 @@
 		5FE7F7DE03FD7F3FE3A4283D /* IOSMFAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80F8E8B79FD49D0216AD0815 /* IOSMFAView.swift */; };
 		70A1EF5AE3CB27185A6C038B /* LoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221F92B571FED00F1413B /* LoginViewModel.swift */; };
 		70D8C6172D2650B51E277550 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C26ED37797692E9DBD42FF25 /* Foundation.framework */; };
-		7AD0A4607A2000B3186F2C96 /* DS3DriveStubApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D334C1489829B34DA2029F25 /* DS3DriveStubApp.swift */; };
+		7AD0A4607A2000B3186F2C96 /* DS3DriveApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D334C1489829B34DA2029F25 /* DS3DriveApp.swift */; };
 		8278951235ACBB3A91DECD8E /* EmptyDrivesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDEAF7AABE07055FC3332FD3 /* EmptyDrivesView.swift */; };
 		8865FDA6BC93E8AC9A1462CC /* BackgroundRefreshManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E28C5D8656BE4652D84BD2D /* BackgroundRefreshManager.swift */; };
 		8BD2528468047598B6F80C28 /* IOSMainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39439872734512266C6F7F51 /* IOSMainTabView.swift */; };
@@ -123,6 +123,9 @@
 		D5BFAB7C2F6204620042AD93 /* DS3Lib in Frameworks */ = {isa = PBXBuildFile; productRef = ABCDEF012B57203A00000002 /* DS3Lib */; };
 		D5BFAB7D2F6204620042AD93 /* DS3Lib in Frameworks */ = {isa = PBXBuildFile; productRef = ABCDEF012B57203A00000003 /* DS3Lib */; };
 		D5D734F12B666C7700C6B11C /* DS3DriveViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5D734F02B666C7700C6B11C /* DS3DriveViewModel.swift */; };
+		D5FB2DF02F6BF36700D25CE6 /* DS3DriveShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D5FB2DE62F6BF36700D25CE6 /* DS3DriveShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D5FB2E012F6BF37000D25CE6 /* DS3Lib in Frameworks */ = {isa = PBXBuildFile; productRef = D5FB2E002F6BF37000D25CE6 /* DS3Lib */; };
+		D5FB2E022F6BF37000D25CE6 /* SyncAnchorSelectionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221D52B571FED00F1413B /* SyncAnchorSelectionViewModel.swift */; };
 		D738642DC3905E7B3DECC70E /* IOSButtonStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = C608BDFB9ECDC1DAADE777A4 /* IOSButtonStyles.swift */; };
 		D882603BC9BDE1087C8F127A /* ProjectListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C16363596DA7E907629F3A /* ProjectListView.swift */; };
 		F642B40C69FA43A2E9431AE8 /* DS3Lib in Frameworks */ = {isa = PBXBuildFile; productRef = DFBF72DB6211D6ECFDD5B265 /* DS3Lib */; };
@@ -144,6 +147,13 @@
 			remoteGlobalIDString = D5A222422B57211500F1413B;
 			remoteInfo = DS3DriveProvider;
 		};
+		D5FB2DEE2F6BF36700D25CE6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D54775BB2B57181D00DABCD4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D5FB2DE52F6BF36700D25CE6;
+			remoteInfo = DS3DriveShareExtension;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -153,6 +163,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
+				D5FB2DF02F6BF36700D25CE6 /* DS3DriveShareExtension.appex in Embed Foundation Extensions */,
 				57472682E9069AA71BE714D2 /* DS3 Drive FileProvider.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
@@ -206,11 +217,11 @@
 		B5113DDDA0BF251D4D70D3D0 /* DriveConfirmView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DriveConfirmView.swift; sourceTree = "<group>"; };
 		C26ED37797692E9DBD42FF25 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		C4F9E4F14F282A0BEC87664A /* FileProviderExtension+CustomActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+CustomActions.swift"; sourceTree = "<group>"; };
-		C5B119CD500B58810896D4B2 /* DS3DriveStubApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DS3DriveStubApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C5B119CD500B58810896D4B2 /* DS3DriveApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DS3DriveApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C608BDFB9ECDC1DAADE777A4 /* IOSButtonStyles.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSButtonStyles.swift; sourceTree = "<group>"; };
 		C9DC46A798E1E6ECDB179292 /* BucketListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BucketListView.swift; sourceTree = "<group>"; };
 		D228D94AEB9D8D80132CF316 /* IOSDesignSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDesignSystem.swift; sourceTree = "<group>"; };
-		D334C1489829B34DA2029F25 /* DS3DriveStubApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DS3DriveStubApp.swift; sourceTree = "<group>"; };
+		D334C1489829B34DA2029F25 /* DS3DriveApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DS3DriveApp.swift; sourceTree = "<group>"; };
 		D512EEBB2B59631400F550EC /* MFAView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MFAView.swift; sourceTree = "<group>"; };
 		D540029D2B5EAEB000B54E97 /* S3Lib.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3Lib.swift; sourceTree = "<group>"; };
 		D546D5452B5916CC00231120 /* NoBucketsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoBucketsView.swift; sourceTree = "<group>"; };
@@ -287,9 +298,24 @@
 		D5A222832B5721CC00F1413B /* DS3DriveProvider.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = DS3DriveProvider.xcassets; sourceTree = "<group>"; };
 		D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsManager.swift; sourceTree = "<group>"; };
 		D5D734F02B666C7700C6B11C /* DS3DriveViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3DriveViewModel.swift; sourceTree = "<group>"; };
+		D5FB2DE62F6BF36700D25CE6 /* DS3DriveShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DS3DriveShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		EDEAF7AABE07055FC3332FD3 /* EmptyDrivesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EmptyDrivesView.swift; sourceTree = "<group>"; };
 		F2C16363596DA7E907629F3A /* ProjectListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProjectListView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D5FB2DF32F6BF36700D25CE6 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = D5FB2DE52F6BF36700D25CE6 /* DS3DriveShareExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		D5FB2DE72F6BF36700D25CE6 /* DS3DriveShareExtension */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (D5FB2DF32F6BF36700D25CE6 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = DS3DriveShareExtension; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		C7DDC45F6F079546696437A1 /* Frameworks */ = {
@@ -318,6 +344,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D5FB2DE32F6BF36700D25CE6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5FB2E012F6BF37000D25CE6 /* DS3Lib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -331,7 +365,6 @@
 				E0A3A68B2B81408198C6C559 /* Setup */,
 				9F1D3B4136D4DDC8626ECCBC /* Settings */,
 			);
-			name = Views;
 			path = Views;
 			sourceTree = "<group>";
 		};
@@ -342,20 +375,19 @@
 				4E28C5D8656BE4652D84BD2D /* BackgroundRefreshManager.swift */,
 				AFBD730F5BCDD36A139A43B6 /* CacheManager.swift */,
 			);
-			name = Helpers;
 			path = Helpers;
 			sourceTree = "<group>";
 		};
-		6E7A6D7308905B502A17816A /* DS3DriveStubApp */ = {
+		6E7A6D7308905B502A17816A /* DS3DriveApp */ = {
 			isa = PBXGroup;
 			children = (
-				D334C1489829B34DA2029F25 /* DS3DriveStubApp.swift */,
+				D334C1489829B34DA2029F25 /* DS3DriveApp.swift */,
 				63DAE38129B73666BC61012E /* Assets.xcassets */,
 				44A645B8D9BDD9E87A9C55A6 /* Views */,
 				96811E45DB40205283CCB6CB /* ViewModels */,
 				58D7B11E3167F877F313A3AD /* Helpers */,
 			);
-			path = DS3DriveStubApp;
+			path = DS3DriveApp;
 			sourceTree = "<group>";
 		};
 		961246A79AFB818F65C9F56C /* App */ = {
@@ -364,7 +396,6 @@
 				614D568B5F5473C487A2AF1A /* IOSAppRootView.swift */,
 				39439872734512266C6F7F51 /* IOSMainTabView.swift */,
 			);
-			name = App;
 			path = App;
 			sourceTree = "<group>";
 		};
@@ -373,7 +404,6 @@
 			children = (
 				83AFAE49D6C5787515C65EE4 /* IOSDriveViewModel.swift */,
 			);
-			name = ViewModels;
 			path = ViewModels;
 			sourceTree = "<group>";
 		};
@@ -382,7 +412,6 @@
 			children = (
 				1823D7B17115B90E2FD9181D /* IOSSettingsView.swift */,
 			);
-			name = Settings;
 			path = Settings;
 			sourceTree = "<group>";
 		};
@@ -404,7 +433,6 @@
 				830D73D29DDAA6E68151FC62 /* DriveDetailView.swift */,
 				EDEAF7AABE07055FC3332FD3 /* EmptyDrivesView.swift */,
 			);
-			name = Dashboard;
 			path = Dashboard;
 			sourceTree = "<group>";
 		};
@@ -414,7 +442,6 @@
 				D228D94AEB9D8D80132CF316 /* IOSDesignSystem.swift */,
 				C608BDFB9ECDC1DAADE777A4 /* IOSButtonStyles.swift */,
 			);
-			name = Common;
 			path = Common;
 			sourceTree = "<group>";
 		};
@@ -424,7 +451,6 @@
 				3B9955EBE95149FF2BFB97E5 /* IOSLoginView.swift */,
 				80F8E8B79FD49D0216AD0815 /* IOSMFAView.swift */,
 			);
-			name = Login;
 			path = Login;
 			sourceTree = "<group>";
 		};
@@ -435,9 +461,10 @@
 				D54775D62B57185100DABCD4 /* LICENSE */,
 				D54775C52B57181D00DABCD4 /* DS3Drive */,
 				D5A222472B57211500F1413B /* DS3DriveProvider */,
+				D5FB2DE72F6BF36700D25CE6 /* DS3DriveShareExtension */,
 				D5A222442B57211500F1413B /* Frameworks */,
 				D54775C42B57181D00DABCD4 /* Products */,
-				6E7A6D7308905B502A17816A /* DS3DriveStubApp */,
+				6E7A6D7308905B502A17816A /* DS3DriveApp */,
 			);
 			sourceTree = "<group>";
 		};
@@ -446,7 +473,8 @@
 			children = (
 				D54775C32B57181D00DABCD4 /* Cubbit DS3 Drive.app */,
 				D5A222432B57211500F1413B /* DS3 Drive FileProvider.appex */,
-				C5B119CD500B58810896D4B2 /* DS3DriveStubApp.app */,
+				C5B119CD500B58810896D4B2 /* DS3DriveApp.app */,
+				D5FB2DE62F6BF36700D25CE6 /* DS3DriveShareExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -841,16 +869,15 @@
 				6E7F7F8B3758C1478B04E17F /* PrefixListView.swift */,
 				B5113DDDA0BF251D4D70D3D0 /* DriveConfirmView.swift */,
 			);
-			name = Setup;
 			path = Setup;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		3EA0A133AEB506ED1513E961 /* DS3DriveStubApp */ = {
+		3EA0A133AEB506ED1513E961 /* DS3DriveApp */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 0B52E9AD64A4AED08998CDAB /* Build configuration list for PBXNativeTarget "DS3DriveStubApp" */;
+			buildConfigurationList = 0B52E9AD64A4AED08998CDAB /* Build configuration list for PBXNativeTarget "DS3DriveApp" */;
 			buildPhases = (
 				05413A74161325E7F400E2AD /* Sources */,
 				C7DDC45F6F079546696437A1 /* Frameworks */,
@@ -861,13 +888,14 @@
 			);
 			dependencies = (
 				512697C2D2565298F62287DA /* PBXTargetDependency */,
+				D5FB2DEF2F6BF36700D25CE6 /* PBXTargetDependency */,
 			);
-			name = DS3DriveStubApp;
+			name = DS3DriveApp;
 			packageProductDependencies = (
 				DFBF72DB6211D6ECFDD5B265 /* DS3Lib */,
 			);
-			productName = DS3DriveStubApp;
-			productReference = C5B119CD500B58810896D4B2 /* DS3DriveStubApp.app */;
+			productName = DS3DriveApp;
+			productReference = C5B119CD500B58810896D4B2 /* DS3DriveApp.app */;
 			productType = "com.apple.product-type.application";
 		};
 		D54775C22B57181D00DABCD4 /* DS3Drive */ = {
@@ -912,6 +940,29 @@
 			productReference = D5A222432B57211500F1413B /* DS3 Drive FileProvider.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		D5FB2DE52F6BF36700D25CE6 /* DS3DriveShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D5FB2DF42F6BF36700D25CE6 /* Build configuration list for PBXNativeTarget "DS3DriveShareExtension" */;
+			buildPhases = (
+				D5FB2DE22F6BF36700D25CE6 /* Sources */,
+				D5FB2DE32F6BF36700D25CE6 /* Frameworks */,
+				D5FB2DE42F6BF36700D25CE6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D5FB2DE72F6BF36700D25CE6 /* DS3DriveShareExtension */,
+			);
+			name = DS3DriveShareExtension;
+			packageProductDependencies = (
+				D5FB2E002F6BF37000D25CE6 /* DS3Lib */,
+			);
+			productName = DS3DriveShareExtension;
+			productReference = D5FB2DE62F6BF36700D25CE6 /* DS3DriveShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -919,7 +970,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1520;
+				LastSwiftUpdateCheck = 2630;
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					D54775C22B57181D00DABCD4 = {
@@ -927,6 +978,9 @@
 					};
 					D5A222422B57211500F1413B = {
 						CreatedOnToolsVersion = 15.2;
+					};
+					D5FB2DE52F6BF36700D25CE6 = {
+						CreatedOnToolsVersion = 26.3;
 					};
 				};
 			};
@@ -948,7 +1002,8 @@
 			targets = (
 				D54775C22B57181D00DABCD4 /* DS3Drive */,
 				D5A222422B57211500F1413B /* DS3DriveProvider */,
-				3EA0A133AEB506ED1513E961 /* DS3DriveStubApp */,
+				3EA0A133AEB506ED1513E961 /* DS3DriveApp */,
+				D5FB2DE52F6BF36700D25CE6 /* DS3DriveShareExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -984,6 +1039,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D5FB2DE42F6BF36700D25CE6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -991,7 +1053,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7AD0A4607A2000B3186F2C96 /* DS3DriveStubApp.swift in Sources */,
+				7AD0A4607A2000B3186F2C96 /* DS3DriveApp.swift in Sources */,
 				01EFC3F9CFF6BC02DC4E1291 /* IOSDesignSystem.swift in Sources */,
 				D738642DC3905E7B3DECC70E /* IOSButtonStyles.swift in Sources */,
 				F75002765637761956B1A1A7 /* IOSAppRootView.swift in Sources */,
@@ -1112,6 +1174,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D5FB2DE22F6BF36700D25CE6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5FB2E022F6BF37000D25CE6 /* SyncAnchorSelectionViewModel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1126,6 +1196,11 @@
 			target = D5A222422B57211500F1413B /* DS3DriveProvider */;
 			targetProxy = D5A222502B57211500F1413B /* PBXContainerItemProxy */;
 		};
+		D5FB2DEF2F6BF36700D25CE6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D5FB2DE52F6BF36700D25CE6 /* DS3DriveShareExtension */;
+			targetProxy = D5FB2DEE2F6BF36700D25CE6 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -1135,11 +1210,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_OBJC_WEAK = NO;
-				CODE_SIGN_ENTITLEMENTS = DS3DriveStubApp/DS3DriveStubApp.entitlements;
+				CODE_SIGN_ENTITLEMENTS = DS3DriveApp/DS3DriveApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = DS3DriveStubApp/Info.plist;
+				INFOPLIST_FILE = DS3DriveApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Cubbit DS3 Drive";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1149,7 +1224,7 @@
 				);
 				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.DS3Drive;
-				PRODUCT_NAME = DS3DriveStubApp;
+				PRODUCT_NAME = DS3DriveApp;
 				SDKROOT = iphoneos;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -1461,17 +1536,76 @@
 			};
 			name = Release;
 		};
+		D5FB2DF12F6BF36700D25CE6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = DS3DriveShareExtension/DS3DriveShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DS3DriveShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Cubbit DS3 Drive";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.DS3Drive.share;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D5FB2DF22F6BF36700D25CE6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = DS3DriveShareExtension/DS3DriveShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DS3DriveShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Cubbit DS3 Drive";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.DS3Drive.share;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		DC7FCC45A22F1E187B193802 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_OBJC_WEAK = NO;
-				CODE_SIGN_ENTITLEMENTS = DS3DriveStubApp/DS3DriveStubApp.entitlements;
+				CODE_SIGN_ENTITLEMENTS = DS3DriveApp/DS3DriveApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = DS3DriveStubApp/Info.plist;
+				INFOPLIST_FILE = DS3DriveApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Cubbit DS3 Drive";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1481,7 +1615,7 @@
 				);
 				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = io.cubbit.DS3Drive;
-				PRODUCT_NAME = DS3DriveStubApp;
+				PRODUCT_NAME = DS3DriveApp;
 				SDKROOT = iphoneos;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -1495,7 +1629,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		0B52E9AD64A4AED08998CDAB /* Build configuration list for PBXNativeTarget "DS3DriveStubApp" */ = {
+		0B52E9AD64A4AED08998CDAB /* Build configuration list for PBXNativeTarget "DS3DriveApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1A2D83500822A39CC6059595 /* Release */,
@@ -1531,6 +1665,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		D5FB2DF42F6BF36700D25CE6 /* Build configuration list for PBXNativeTarget "DS3DriveShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D5FB2DF12F6BF36700D25CE6 /* Debug */,
+				D5FB2DF22F6BF36700D25CE6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -1546,6 +1689,10 @@
 			productName = DS3Lib;
 		};
 		ABCDEF012B57203A00000003 /* DS3Lib */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DS3Lib;
+		};
+		D5FB2E002F6BF37000D25CE6 /* DS3Lib */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = DS3Lib;
 		};

@@ -250,10 +250,8 @@ import DS3Lib
     /// Returns the drive's file provider domain
     /// - Returns: the drive's file provider domain
     func fileProviderDomain() -> NSFileProviderDomain {
-        return NSFileProviderDomain(
-            identifier: NSFileProviderDomainIdentifier(
-                rawValue: self.drive.id.uuidString
-            ),
+        NSFileProviderDomain(
+            identifier: NSFileProviderDomainIdentifier(rawValue: self.drive.id.uuidString),
             displayName: self.drive.name
         )
     }

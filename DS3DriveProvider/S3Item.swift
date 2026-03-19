@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 import DS3Lib
 
 class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unchecked Sendable {
-    static let decorationPrefix = Bundle.main.bundleIdentifier!
+    static let decorationPrefix = "io.cubbit.DS3Drive.DS3DriveProvider"
 
     // MARK: - Decoration Identifiers
 

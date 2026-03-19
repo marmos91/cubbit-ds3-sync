@@ -57,14 +57,23 @@ jobs:
           lfs: true
       - name: Resolve Swift packages
         run: |
-          xcodebuild -resolvePackageDependencies -project DS3Drive.xcodeproj -scheme DS3DriveStubApp
-      - name: Build DS3DriveStubApp for iOS Simulator
+          xcodebuild -resolvePackageDependencies -project DS3Drive.xcodeproj -scheme DS3DriveApp
+      - name: Build DS3DriveApp for iOS Simulator
         run: |
           xcodebuild build \
             -project DS3Drive.xcodeproj \
-            -scheme DS3DriveStubApp \
+            -scheme DS3DriveApp \
             -destination 'platform=iOS Simulator,name=iPhone 16' \
             CODE_SIGNING_ALLOWED=NO
-      - name: Test DS3Lib
+      - name: Test DS3Lib (macOS)
         run: |
           swift test --package-path DS3Lib
+      - name: Test DS3Lib on iOS Simulator
+        run: |
+          xcodebuild test \
+            -project DS3Drive.xcodeproj \
+            -scheme DS3Lib \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tail -20
+        continue-on-error: true

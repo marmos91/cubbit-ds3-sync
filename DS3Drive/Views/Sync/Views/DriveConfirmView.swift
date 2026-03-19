@@ -52,8 +52,7 @@ struct DriveConfirmView: View {
                 .foregroundStyle(DS3Colors.secondaryText)
 
             HStack(spacing: DS3Spacing.sm) {
-                Image(systemName: "folder.fill")
-                    .foregroundStyle(.orange)
+                ProjectEmblemView(shortName: syncAnchor.project.short())
                 Text(syncAnchor.project.name)
                     .font(DS3Typography.body)
 
@@ -156,11 +155,7 @@ struct DriveConfirmView: View {
 
     private func validateName() {
         let trimmed = driveName.trimmingCharacters(in: .whitespaces)
-        if trimmed.isEmpty {
-            nameError = "Drive name cannot be empty"
-        } else {
-            nameError = nil
-        }
+        nameError = trimmed.isEmpty ? "Drive name cannot be empty" : nil
     }
 
     // MARK: - Create drive
@@ -181,12 +176,7 @@ struct DriveConfirmView: View {
     // MARK: - Helpers
 
     private func displayPrefix(_ prefix: String) -> String {
-        let decoded = prefix.removingPercentEncoding ?? prefix
-        var display = decoded
-        if display.hasSuffix("/") {
-            display = String(display.dropLast())
-        }
-        return display
+        prefix.hasSuffix("/") ? String(prefix.dropLast()) : prefix
     }
 
     // MARK: - Modifiers

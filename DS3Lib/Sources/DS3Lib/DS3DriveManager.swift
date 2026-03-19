@@ -70,15 +70,9 @@ public enum DS3DriveManagerError: Error {
         idleDebounceTimers[driveId]?.invalidate()
         idleDebounceTimers[driveId] = nil
 
-        if change.status == .sync {
+        if change.status == .sync || change.status == .indexing {
             syncingDrives.insert(driveId)
-            AppStatusManager.default().setStatus(.syncing)
-            return
-        }
-
-        if change.status == .indexing {
-            syncingDrives.insert(driveId)
-            AppStatusManager.default().setStatus(.indexing)
+            AppStatusManager.default().setStatus(change.status == .sync ? .syncing : .indexing)
             return
         }
 
@@ -96,7 +90,7 @@ public enum DS3DriveManagerError: Error {
     /// - Parameter id: the id of the drive to retrieve
     /// - Returns: the DS3Drive, if any
     public func driveWithID(_ id: UUID) -> DS3Drive? {
-        return self.drives.first(where: { $0.id == id })
+        self.drives.first(where: { $0.id == id })
     }
     
     /// Removes all domains from the file provider
@@ -155,17 +149,15 @@ public enum DS3DriveManagerError: Error {
             
             let removedDrive = self.drives.remove(at: index)
             try await NSFileProviderManager.remove(self.fileProviderDomain(forDrive: removedDrive))
-            return try self.persist()
+            try self.persist()
         }
     }
     
     /// Returns the drive's file provider domain
     /// - Returns: the drive's file provider domain
     public func fileProviderDomain(forDrive drive: DS3Drive) -> NSFileProviderDomain {
-        return NSFileProviderDomain(
-            identifier: NSFileProviderDomainIdentifier(
-                rawValue: drive.id.uuidString
-            ),
+        NSFileProviderDomain(
+            identifier: NSFileProviderDomainIdentifier(rawValue: drive.id.uuidString),
             displayName: drive.name
         )
     }
@@ -186,7 +178,7 @@ public enum DS3DriveManagerError: Error {
         if let index = self.drives.firstIndex(where: { $0.id == drive.id }) {
             self.drives[index] = drive
             try self.persist()
-            return try await self.syncFileProvider()
+            try await self.syncFileProvider()
         }
          
         throw DS3DriveManagerError.driveNotFound
