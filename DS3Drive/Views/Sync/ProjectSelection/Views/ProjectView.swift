@@ -22,15 +22,7 @@ struct ProjectView: View {
             .onHover { hovering in
                 self.isHover = hovering
             }
-            .onChange(of: isHover) {
-                DispatchQueue.main.async {
-                    if self.isHover {
-                        NSCursor.pointingHand.push()
-                    } else {
-                        NSCursor.pop()
-                    }
-                }
-            }
+            .pointingHandCursor()
             .onTapGesture {
                 onProjectSelected?(project)
             }

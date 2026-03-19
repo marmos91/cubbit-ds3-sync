@@ -22,7 +22,7 @@ struct ProjectListView: View {
         Group {
             if projectVM?.loading == true {
                 shimmerPlaceholder
-            } else if let error = projectVM?.error {
+            } else if let error = projectVM?.error ?? projectVM?.authenticationError {
                 errorView(error)
             } else if filteredProjects.isEmpty {
                 emptyView
@@ -65,21 +65,36 @@ struct ProjectListView: View {
 
     // MARK: - Error State
 
+    private var isAuthError: Bool {
+        projectVM?.authenticationError != nil
+    }
+
     private func errorView(_ error: Error) -> some View {
         VStack(spacing: IOSSpacing.md) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.title)
                 .foregroundStyle(Color.red)
-            Text("Could not load projects. Check your connection and try again.")
+            Text(isAuthError
+                ? "Your session has expired. Please log in again."
+                : "Could not load projects. Check your connection and try again.")
                 .font(IOSTypography.body)
                 .foregroundStyle(Color.red)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, IOSSpacing.lg)
-            Button("Retry") {
-                Task { await projectVM?.loadProjects() }
+
+            if isAuthError {
+                Button("Logout") {
+                    ds3Authentication.logout()
+                }
+                .buttonStyle(IOSPrimaryButtonStyle())
+                .padding(.horizontal, IOSSpacing.xl)
+            } else {
+                Button("Retry") {
+                    Task { await projectVM?.loadProjects() }
+                }
+                .buttonStyle(IOSPrimaryButtonStyle())
+                .padding(.horizontal, IOSSpacing.xl)
             }
-            .buttonStyle(IOSPrimaryButtonStyle())
-            .padding(.horizontal, IOSSpacing.xl)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

@@ -1500,6 +1500,13 @@ extension FileProviderExtension {
             for identifier in itemIdentifiers {
                 guard !Task.isCancelled, !progress.isCancelled else { break }
 
+                // Skip folders — they have no S3 object to HEAD and no thumbnail to generate
+                if identifier.rawValue.last == "/" || identifier == .rootContainer {
+                    perCb.handler(identifier, nil, nil)
+                    progress.completedUnitCount += 1
+                    continue
+                }
+
                 do {
                     let s3Item = try await self.withAPIKeyRecovery {
                         try await s3Lib.remoteS3Item(for: identifier, drive: drive)

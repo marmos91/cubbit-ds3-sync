@@ -24,6 +24,36 @@ extension View {
     }
 }
 
+// MARK: - Pointing hand cursor modifier
+
+struct PointingHandCursor: ViewModifier {
+    @State private var isHover = false
+
+    func body(content: Content) -> some View {
+        content
+            .onHover { hovering in
+                isHover = hovering
+            }
+            .onChange(of: isHover) {
+                DispatchQueue.main.async {
+                    if isHover {
+                        NSCursor.pointingHand.push()
+                    } else {
+                        NSCursor.pop()
+                    }
+                }
+            }
+    }
+}
+
+extension View {
+    func pointingHandCursor() -> some View {
+        modifier(PointingHandCursor())
+    }
+}
+
+// MARK: - Will disappear handler
+
 struct WillDisappearHandler: NSViewControllerRepresentable {
     func makeNSViewController(context: Context) -> NSViewController {
         context.coordinator

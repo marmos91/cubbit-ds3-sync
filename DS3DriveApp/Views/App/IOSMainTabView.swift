@@ -53,7 +53,12 @@ struct IOSMainTabView: View {
                 )
             }
             .tabItem {
-                Label("Drives", systemImage: "externaldrive.fill")
+                Label {
+                    Text("Drives")
+                } icon: {
+                    Image(.rawDriveIcon)
+                        .renderingMode(.template)
+                }
             }
             .tag(AppTab.drives)
 

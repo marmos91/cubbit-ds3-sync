@@ -19,6 +19,7 @@ struct ProjectSelectorErrorView: View {
                     Button("Logout") {
                         projectSelectionViewModel.authentication.logout()
                     }
+                    .pointingHandCursor()
                 }
                 if projectSelectionViewModel.error != nil {
                     Text(projectSelectionViewModel.error?.localizedDescription ?? "No error")
@@ -31,6 +32,7 @@ struct ProjectSelectorErrorView: View {
                             await viewModel.loadProjects()
                         }
                     }
+                    .pointingHandCursor()
                 }
             }
             .padding()

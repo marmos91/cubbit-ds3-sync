@@ -32,15 +32,7 @@ struct ColumnSelectionRowView: View {
         .onHover { hovering in
             self.isHover = hovering
         }
-        .onChange(of: self.isHover) {
-            DispatchQueue.main.async {
-                if self.isHover {
-                    NSCursor.pointingHand.push()
-                } else {
-                    NSCursor.pop()
-                }
-            }
-        }
+        .pointingHandCursor()
         .onTapGesture {
             onBucketSelected?()
         }

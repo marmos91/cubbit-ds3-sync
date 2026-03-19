@@ -20,6 +20,7 @@ struct NoProjectsView: View {
                         await viewModel.loadProjects()
                     }
                 }
+                .pointingHandCursor()
             }
             .padding()
             .overlay {

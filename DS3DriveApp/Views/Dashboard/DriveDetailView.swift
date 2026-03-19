@@ -24,8 +24,18 @@ struct DriveDetailView: View {
 
     var body: some View {
         List {
-            statusSection
+            // Header card
+            Section {
+                driveHeader
+            }
+
+            // Info
+            infoSection
+
+            // Actions
             actionsSection
+
+            // Danger
             dangerSection
         }
         .listStyle(.insetGrouped)
@@ -41,46 +51,92 @@ struct DriveDetailView: View {
         }
     }
 
-    // MARK: - Status Section
+    // MARK: - Drive Header
 
-    private var statusSection: some View {
-        Section {
-            // Status row
-            HStack {
-                Text("Status")
-                    .font(IOSTypography.body)
-                Spacer()
-                HStack(spacing: IOSSpacing.sm) {
-                    statusBadgeImage
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 14, height: 14)
-                    Text(IOSDriveViewModel.statusLabel(for: currentStatus))
-                        .font(IOSTypography.body)
-                        .foregroundStyle(IOSColors.secondaryText)
+    private var driveHeader: some View {
+        HStack(spacing: IOSSpacing.md) {
+            ZStack(alignment: .bottomLeading) {
+                Image(.rawDriveIcon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 48, height: 48)
+
+                statusBadgeImage
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 18, height: 18)
+                    .offset(x: -3, y: 3)
+            }
+
+            VStack(alignment: .leading, spacing: IOSSpacing.xs) {
+                Text(drive.name)
+                    .font(IOSTypography.headline)
+
+                HStack(spacing: IOSSpacing.xs) {
+                    Circle()
+                        .fill(IOSDriveViewModel.statusColor(for: currentStatus))
+                        .frame(width: 7, height: 7)
+
+                    if currentStatus == .sync, let speed = currentSpeed, speed > 0 {
+                        Text("\(IOSDriveViewModel.statusLabel(for: currentStatus)) — \(IOSDriveViewModel.formatSpeed(speed))")
+                            .font(IOSTypography.caption)
+                            .foregroundStyle(IOSDriveViewModel.statusColor(for: currentStatus))
+                    } else {
+                        Text(IOSDriveViewModel.statusLabel(for: currentStatus))
+                            .font(IOSTypography.caption)
+                            .foregroundStyle(IOSDriveViewModel.statusColor(for: currentStatus))
+                    }
                 }
             }
 
-            // Transfer speed (visible when syncing)
-            if currentStatus == .sync, let speed = currentSpeed, speed > 0 {
-                detailRow("Transfer Speed", value: IOSDriveViewModel.formatSpeed(speed))
-            }
-
-            detailRow("Bucket", value: drive.syncAnchor.bucket.name)
-            detailRow("Path", value: drive.syncAnchor.prefix ?? "/")
-            detailRow("Project", value: drive.syncAnchor.project.name)
+            Spacer()
         }
     }
 
-    private func detailRow(_ label: String, value: String) -> some View {
-        HStack {
+    // MARK: - Info Section
+
+    private var infoSection: some View {
+        Section("Details") {
+            detailRow("Project", value: drive.syncAnchor.project.name) {
+                projectEmblem(drive.syncAnchor.project.short())
+            }
+            detailRow("Bucket", value: drive.syncAnchor.bucket.name) {
+                Image(.bucketIcon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
+            }
+            detailRow("Path", value: drive.syncAnchor.prefix ?? "/") {
+                Image(systemName: "folder")
+                    .font(.system(size: 13))
+                    .foregroundStyle(IOSColors.secondaryText)
+            }
+        }
+    }
+
+    private func detailRow<Icon: View>(_ label: String, value: String, @ViewBuilder icon: () -> Icon) -> some View {
+        HStack(spacing: IOSSpacing.sm) {
+            icon()
+                .frame(width: 20)
             Text(label)
                 .font(IOSTypography.body)
             Spacer()
             Text(value)
                 .font(IOSTypography.body)
                 .foregroundStyle(IOSColors.secondaryText)
+                .lineLimit(1)
         }
+    }
+
+    private func projectEmblem(_ shortName: String) -> some View {
+        Text(shortName.uppercased())
+            .font(.system(size: 8, weight: .bold))
+            .foregroundStyle(.black)
+            .frame(width: 20, height: 20)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.orange)
+            )
     }
 
     private var statusBadgeImage: Image {

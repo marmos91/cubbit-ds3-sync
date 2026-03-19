@@ -40,30 +40,59 @@ struct DriveConfirmView: View {
     // MARK: - Summary Card
 
     private var summaryCard: some View {
-        VStack(alignment: .leading, spacing: IOSSpacing.sm) {
-            summaryRow(label: "Project", value: setupViewModel.selectedProject?.name ?? "")
-            Divider()
-            summaryRow(label: "Bucket", value: setupViewModel.selectedBucket?.name ?? "")
-            Divider()
-            summaryRow(label: "Path", value: setupViewModel.selectedPrefix ?? "/")
+        VStack(alignment: .leading, spacing: 0) {
+            summaryRow(label: "Project") {
+                Text(setupViewModel.selectedProject?.short().uppercased() ?? "")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.black)
+                    .frame(width: 22, height: 22)
+                    .background(
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(Color.orange)
+                    )
+                Text(setupViewModel.selectedProject?.name ?? "")
+            }
+
+            Divider().padding(.leading, 70)
+
+            summaryRow(label: "Bucket") {
+                Image(.bucketIcon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 18, height: 18)
+                Text(setupViewModel.selectedBucket?.name ?? "")
+            }
+
+            if let prefix = setupViewModel.selectedPrefix, !prefix.isEmpty {
+                Divider().padding(.leading, 70)
+
+                summaryRow(label: "Path") {
+                    Image(systemName: "folder")
+                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14))
+                    Text(prefix.hasSuffix("/") ? String(prefix.dropLast()) : prefix)
+                }
+            }
         }
         .padding(IOSSpacing.md)
         .background(IOSColors.secondaryBackground)
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
-    private func summaryRow(label: String, value: String) -> some View {
-        HStack {
+    private func summaryRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: IOSSpacing.sm) {
             Text(label)
                 .font(IOSTypography.caption)
                 .foregroundStyle(IOSColors.secondaryText)
-                .frame(width: 60, alignment: .leading)
-            Text(value)
+                .frame(width: 54, alignment: .leading)
+
+            content()
                 .font(IOSTypography.body)
                 .foregroundStyle(IOSColors.primaryText)
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
+        .padding(.vertical, IOSSpacing.sm)
     }
 
     // MARK: - Drive Name

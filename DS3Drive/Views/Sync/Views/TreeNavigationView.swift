@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import SwiftUI
 import SotoS3
 import os.log
@@ -89,11 +90,79 @@ import DS3Lib
     }
 
     func refresh() async {
+        // Capture expansion state and selection before clearing
+        let expandedIDs = collectExpandedIDs()
+        let selectedID = selectedNode?.id
+
         self.selectedNode = nil
         self.s3Clients.removeAll()
         for (_, client) in awsClients { try? client.syncShutdown() }
         self.awsClients.removeAll()
+
         await loadProjects()
+        await restoreExpansion(expandedIDs: expandedIDs, selectedID: selectedID)
+    }
+
+    // MARK: - Expansion state preservation
+
+    private func collectExpandedIDs() -> Set<String> {
+        var ids = Set<String>()
+        for node in projectNodes {
+            collectExpandedIDs(from: node, into: &ids)
+        }
+        return ids
+    }
+
+    private func collectExpandedIDs(from node: TreeNode, into ids: inout Set<String>) {
+        if node.isExpanded {
+            ids.insert(node.id)
+            for child in node.children {
+                collectExpandedIDs(from: child, into: &ids)
+            }
+        }
+    }
+
+    private func restoreExpansion(expandedIDs: Set<String>, selectedID: String?) async {
+        guard !expandedIDs.isEmpty else { return }
+
+        for projectNode in projectNodes where expandedIDs.contains(projectNode.id) {
+            await expandProject(projectNode)
+            for bucketNode in projectNode.children where expandedIDs.contains(bucketNode.id) {
+                await expandBucket(bucketNode)
+                await restoreFolderExpansion(children: bucketNode.children, expandedIDs: expandedIDs)
+            }
+        }
+
+        // Restore selection
+        if let selectedID {
+            selectedNode = findNode(withID: selectedID)
+        }
+    }
+
+    private func restoreFolderExpansion(children: [TreeNode], expandedIDs: Set<String>) async {
+        for folderNode in children where expandedIDs.contains(folderNode.id) {
+            await expandFolder(folderNode)
+            await restoreFolderExpansion(children: folderNode.children, expandedIDs: expandedIDs)
+        }
+    }
+
+    private func findNode(withID id: String) -> TreeNode? {
+        for project in projectNodes {
+            if let found = findNode(withID: id, in: project) {
+                return found
+            }
+        }
+        return nil
+    }
+
+    private func findNode(withID id: String, in node: TreeNode) -> TreeNode? {
+        if node.id == id { return node }
+        for child in node.children {
+            if let found = findNode(withID: id, in: child) {
+                return found
+            }
+        }
+        return nil
     }
 
     // MARK: - Expand project -> load buckets
@@ -376,6 +445,7 @@ struct TreeNavigationView: View {
                         .foregroundStyle(DS3Colors.secondaryText)
                 }
                 .buttonStyle(.plain)
+                .pointingHandCursor()
                 .disabled(viewModel.isLoadingProjects)
                 .help("Refresh projects and buckets")
             }
@@ -423,9 +493,7 @@ struct TreeNavigationView: View {
                     }
 
                     // Icon
-                    Image(systemName: iconForNode(node))
-                        .foregroundStyle(iconColorForNode(node))
-                        .font(DS3Typography.body)
+                    iconView(for: node)
 
                     // Name
                     Text(node.name)
@@ -444,6 +512,7 @@ struct TreeNavigationView: View {
                         .fill(viewModel.selectedNode?.id == node.id ? Color.accentColor.opacity(0.15) : Color.clear)
                 )
                 .contentShape(Rectangle())
+                .pointingHandCursor()
                 .onTapGesture {
                     viewModel.selectNode(node)
                     Task {
@@ -470,9 +539,7 @@ struct TreeNavigationView: View {
 
             if let node = viewModel.selectedNode {
                 VStack(spacing: DS3Spacing.md) {
-                    Image(systemName: iconForNode(node))
-                        .font(.system(size: 40))
-                        .foregroundStyle(iconColorForNode(node))
+                    detailIconView(for: node)
 
                     Text(node.name)
                         .font(DS3Typography.title)
@@ -565,19 +632,51 @@ struct TreeNavigationView: View {
         }
     }
 
-    private func iconForNode(_ node: TreeNode) -> String {
+    @ViewBuilder
+    private func iconView(for node: TreeNode) -> some View {
         switch node.type {
-        case .project: return "cube.fill"
-        case .bucket: return "cylinder"
-        case .folder: return "folder"
+        case .project:
+            Text(node.project?.short().uppercased() ?? "")
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(width: 20, height: 20)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.orange)
+                )
+        case .bucket:
+            Image(.bucketIcon)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
+        case .folder:
+            Image(systemName: "folder")
+                .foregroundStyle(.secondary)
+                .font(DS3Typography.body)
         }
     }
 
-    private func iconColorForNode(_ node: TreeNode) -> Color {
+    @ViewBuilder
+    private func detailIconView(for node: TreeNode) -> some View {
         switch node.type {
-        case .project: return .orange
-        case .bucket: return .accentColor
-        case .folder: return .secondary
+        case .project:
+            Text(node.project?.short().uppercased() ?? "")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(width: 48, height: 48)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.orange)
+                )
+        case .bucket:
+            Image(.bucketIcon)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 40, height: 40)
+        case .folder:
+            Image(systemName: "folder")
+                .font(.system(size: 40))
+                .foregroundStyle(.secondary)
         }
     }
 

@@ -19,6 +19,7 @@ struct BucketErrorView: View {
                     Button("Logout") {
                         syncAnchorSelectionViewModel.authentication.logout()
                     }
+                    .pointingHandCursor()
                 }
 
                 if syncAnchorSelectionViewModel.error != nil {
@@ -32,6 +33,7 @@ struct BucketErrorView: View {
                             await viewModel.loadBuckets()
                         }
                     }
+                    .pointingHandCursor()
                 }
             }
             .padding()

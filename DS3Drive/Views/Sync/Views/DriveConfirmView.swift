@@ -46,42 +46,61 @@ struct DriveConfirmView: View {
 
     @ViewBuilder
     private var summarySection: some View {
-        VStack(alignment: .leading, spacing: DS3Spacing.sm) {
-            Text("Selected path")
-                .font(DS3Typography.caption)
-                .foregroundStyle(DS3Colors.secondaryText)
-
-            HStack(spacing: DS3Spacing.sm) {
-                ProjectEmblemView(shortName: syncAnchor.project.short())
+        VStack(alignment: .leading, spacing: 0) {
+            summaryRow(label: "Project") {
+                Text(syncAnchor.project.short().uppercased())
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(.black)
+                    .frame(width: 18, height: 18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.orange)
+                    )
                 Text(syncAnchor.project.name)
-                    .font(DS3Typography.body)
+            }
 
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(DS3Colors.secondaryText)
+            Divider().padding(.leading, 70)
 
-                Image(systemName: "externaldrive.connected.to.line.below")
-                    .foregroundStyle(Color.accentColor)
+            summaryRow(label: "Bucket") {
+                Image(.bucketIcon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
                 Text(syncAnchor.bucket.name)
-                    .font(DS3Typography.body)
+            }
 
-                if let prefix = syncAnchor.prefix, !prefix.isEmpty {
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(DS3Colors.secondaryText)
+            if let prefix = syncAnchor.prefix, !prefix.isEmpty {
+                Divider().padding(.leading, 70)
 
+                summaryRow(label: "Path") {
                     Image(systemName: "folder")
                         .foregroundStyle(.secondary)
+                        .font(.system(size: 13))
                     Text(displayPrefix(prefix))
-                        .font(DS3Typography.body)
                 }
             }
-            .padding(DS3Spacing.md)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(DS3Colors.secondaryBackground)
-            )
         }
+        .padding(DS3Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(DS3Colors.secondaryBackground)
+        )
+    }
+
+    private func summaryRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: DS3Spacing.sm) {
+            Text(label)
+                .font(DS3Typography.caption)
+                .foregroundStyle(DS3Colors.secondaryText)
+                .frame(width: 54, alignment: .leading)
+
+            content()
+                .font(DS3Typography.body)
+                .foregroundStyle(DS3Colors.primaryText)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .padding(.vertical, DS3Spacing.sm)
     }
 
     // MARK: - Name section
@@ -126,6 +145,7 @@ struct DriveConfirmView: View {
                 }
             }
             .buttonStyle(.plain)
+            .pointingHandCursor()
             .padding(.leading, DS3Spacing.lg)
 
             Spacer()

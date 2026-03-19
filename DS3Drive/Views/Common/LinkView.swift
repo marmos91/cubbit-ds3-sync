@@ -11,15 +11,10 @@ struct LinkView: View {
             .font(DS3Typography.body)
             .underline()
             .tint(isHover ? Color.accentColor.opacity(0.8) : Color.accentColor)
-            .onHover(perform: { hovering in
-                if hovering {
-                    NSCursor.pointingHand.push()
-                } else {
-                    NSCursor.pop()
-                }
-
+            .onHover { hovering in
                 isHover = hovering
-            })
+            }
+            .pointingHandCursor()
 
     }
 }

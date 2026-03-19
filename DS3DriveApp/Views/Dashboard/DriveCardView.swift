@@ -2,7 +2,7 @@
 import SwiftUI
 import DS3Lib
 
-/// Individual drive card showing status dot, name, bucket/prefix path, transfer speed, and swipe actions.
+/// Individual drive card showing status, name, bucket/prefix path, and contextual info.
 struct DriveCardView: View {
     let drive: DS3Drive
     let status: DS3DriveStatus
@@ -12,17 +12,18 @@ struct DriveCardView: View {
 
     var body: some View {
         HStack(spacing: IOSSpacing.md) {
+            // Drive icon with status badge
             ZStack(alignment: .bottomLeading) {
                 Image(.rawDriveIcon)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 32, height: 32)
+                    .frame(width: 40, height: 40)
 
                 statusBadgeImage
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 14, height: 14)
-                    .offset(x: -2, y: 2)
+                    .frame(width: 16, height: 16)
+                    .offset(x: -3, y: 3)
             }
             .accessibilityLabel(statusLabel)
 
@@ -31,31 +32,26 @@ struct DriveCardView: View {
                     .font(IOSTypography.headline)
                     .lineLimit(1)
 
-                Label {
-                    Text("\(drive.syncAnchor.bucket.name)/\(drive.syncAnchor.prefix ?? "")")
-                } icon: {
+                HStack(spacing: IOSSpacing.xs) {
                     Image(.bucketIcon)
                         .resizable()
                         .scaledToFit()
                         .frame(width: 12, height: 12)
+                    Text(bucketPath)
+                        .font(IOSTypography.caption)
+                        .foregroundStyle(IOSColors.secondaryText)
+                        .lineLimit(1)
                 }
-                .font(IOSTypography.caption)
-                .foregroundStyle(IOSColors.secondaryText)
-                .lineLimit(1)
+
+                // Status row
+                statusRow
             }
 
-            Spacer()
-
-            if let speed, status == .sync {
-                Text(IOSDriveViewModel.formatSpeed(speed))
-                    .font(IOSTypography.caption)
-                    .foregroundStyle(IOSColors.secondaryText)
-            }
+            Spacer(minLength: 0)
         }
-        .padding(IOSSpacing.md)
+        .padding(.vertical, IOSSpacing.xs)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Drive \(drive.name), status \(statusLabel), bucket \(drive.syncAnchor.bucket.name)")
-        .hoverEffect(.highlight)
         .swipeActions(edge: .leading) {
             Button {
                 onPauseResume()
@@ -77,7 +73,36 @@ struct DriveCardView: View {
         }
     }
 
+    // MARK: - Status Row
+
+    @ViewBuilder
+    private var statusRow: some View {
+        HStack(spacing: IOSSpacing.xs) {
+            Circle()
+                .fill(IOSDriveViewModel.statusColor(for: status))
+                .frame(width: 7, height: 7)
+
+            if status == .sync, let speed, speed > 0 {
+                Text("\(statusLabel) — \(IOSDriveViewModel.formatSpeed(speed))")
+                    .font(IOSTypography.caption)
+                    .foregroundStyle(IOSDriveViewModel.statusColor(for: status))
+            } else {
+                Text(statusLabel)
+                    .font(IOSTypography.caption)
+                    .foregroundStyle(IOSDriveViewModel.statusColor(for: status))
+            }
+        }
+    }
+
     // MARK: - Helpers
+
+    private var bucketPath: String {
+        let bucket = drive.syncAnchor.bucket.name
+        if let prefix = drive.syncAnchor.prefix, !prefix.isEmpty {
+            return "\(bucket)/\(prefix)"
+        }
+        return bucket
+    }
 
     private var statusBadgeImage: Image {
         switch status {

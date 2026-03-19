@@ -35,15 +35,7 @@ struct TrayMenuItem: View {
                 self.isHover = isHover
             }
         }
-        .onChange(of: isHover) {
-            DispatchQueue.main.async {
-                if self.isHover {
-                    NSCursor.pointingHand.push()
-                } else {
-                    NSCursor.pop()
-                }
-            }
-        }
+        .pointingHandCursor()
     }
 }
 

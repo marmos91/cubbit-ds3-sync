@@ -91,7 +91,7 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     }
     
     var contentModificationDate: Date? {
-        metadata.lastModified
+        metadata.lastModified ?? (isFolder ? Date() : nil)
     }
 
     var documentSize: NSNumber? {
@@ -110,7 +110,18 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
             return .folder
         }
 
-        return self.identifier.rawValue.last == self.separator ? .folder : .item
+        if self.identifier.rawValue.last == self.separator {
+            return .folder
+        }
+
+        // Infer UTType from file extension for proper thumbnails and icons
+        let name = filename
+        if let ext = name.split(separator: ".").last,
+           let utType = UTType(filenameExtension: String(ext)) {
+            return utType
+        }
+
+        return .item
     }
     
     var isFolder: Bool {
@@ -165,8 +176,8 @@ extension MetadataStore.ItemUpsertData {
         self.init(
             s3Key: item.itemIdentifier.rawValue,
             driveId: item.drive.id,
-            etag: item.metadata.etag,
-            lastModified: item.metadata.lastModified,
+            etag: ETagUtils.normalize(item.metadata.etag),
+            lastModified: item.contentModificationDate,
             syncStatus: .synced,
             parentKey: item.parentItemIdentifier == .rootContainer ? nil : item.parentItemIdentifier.rawValue,
             contentType: item.metadata.contentType,
