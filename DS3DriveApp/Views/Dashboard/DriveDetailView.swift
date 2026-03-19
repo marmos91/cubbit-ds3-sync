@@ -52,9 +52,9 @@ struct DriveDetailView: View {
                 Spacer()
                 HStack(spacing: IOSSpacing.sm) {
                     Circle()
-                        .fill(driveViewModel.statusColor(for: currentStatus))
+                        .fill(IOSDriveViewModel.statusColor(for: currentStatus))
                         .frame(width: 10, height: 10)
-                    Text(driveViewModel.statusLabel(for: currentStatus))
+                    Text(IOSDriveViewModel.statusLabel(for: currentStatus))
                         .font(IOSTypography.body)
                         .foregroundStyle(IOSColors.secondaryText)
                 }
@@ -62,45 +62,23 @@ struct DriveDetailView: View {
 
             // Transfer speed (visible when syncing)
             if currentStatus == .sync, let speed = currentSpeed, speed > 0 {
-                HStack {
-                    Text("Transfer Speed")
-                        .font(IOSTypography.body)
-                    Spacer()
-                    Text(IOSDriveViewModel.formatSpeed(speed))
-                        .font(IOSTypography.body)
-                        .foregroundStyle(IOSColors.secondaryText)
-                }
+                detailRow("Transfer Speed", value: IOSDriveViewModel.formatSpeed(speed))
             }
 
-            // Bucket
-            HStack {
-                Text("Bucket")
-                    .font(IOSTypography.body)
-                Spacer()
-                Text(drive.syncAnchor.bucket.name)
-                    .font(IOSTypography.body)
-                    .foregroundStyle(IOSColors.secondaryText)
-            }
+            detailRow("Bucket", value: drive.syncAnchor.bucket.name)
+            detailRow("Path", value: drive.syncAnchor.prefix ?? "/")
+            detailRow("Project", value: drive.syncAnchor.project.name)
+        }
+    }
 
-            // Path
-            HStack {
-                Text("Path")
-                    .font(IOSTypography.body)
-                Spacer()
-                Text(drive.syncAnchor.prefix ?? "/")
-                    .font(IOSTypography.body)
-                    .foregroundStyle(IOSColors.secondaryText)
-            }
-
-            // Project
-            HStack {
-                Text("Project")
-                    .font(IOSTypography.body)
-                Spacer()
-                Text(drive.syncAnchor.project.name)
-                    .font(IOSTypography.body)
-                    .foregroundStyle(IOSColors.secondaryText)
-            }
+    private func detailRow(_ label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(IOSTypography.body)
+            Spacer()
+            Text(value)
+                .font(IOSTypography.body)
+                .foregroundStyle(IOSColors.secondaryText)
         }
     }
 
@@ -108,31 +86,19 @@ struct DriveDetailView: View {
 
     private var actionsSection: some View {
         Section {
-            // Open in Files
-            Button {
-                openInFiles()
-            } label: {
+            Button { openInFiles() } label: {
                 Label("Open in Files", systemImage: "folder.fill")
             }
 
-            // Refresh
-            Button {
-                refreshDrive()
-            } label: {
+            Button { refreshDrive() } label: {
                 Label("Refresh", systemImage: "arrow.clockwise")
             }
 
-            // View in Console
-            Button {
-                viewInConsole()
-            } label: {
+            Button { viewInConsole() } label: {
                 Label("View in Console", systemImage: "safari")
             }
 
-            // Pause / Resume
-            Button {
-                togglePauseResume()
-            } label: {
+            Button { togglePauseResume() } label: {
                 if currentStatus == .paused {
                     Label("Resume", systemImage: "play.circle")
                 } else {
@@ -183,11 +149,10 @@ struct DriveDetailView: View {
 
     private func togglePauseResume() {
         Task {
-            if currentStatus == .paused {
-                await driveViewModel.postCommand(.resumeDrive(driveId: drive.id))
-            } else {
-                await driveViewModel.postCommand(.pauseDrive(driveId: drive.id))
-            }
+            let command: IPCCommand = currentStatus == .paused
+                ? .resumeDrive(driveId: drive.id)
+                : .pauseDrive(driveId: drive.id)
+            await driveViewModel.postCommand(command)
         }
     }
 

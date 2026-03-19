@@ -12,13 +12,18 @@ struct DriveCardView: View {
 
     var body: some View {
         HStack(spacing: IOSSpacing.md) {
-            // Status dot
-            Circle()
-                .fill(statusColor)
-                .frame(width: 10, height: 10)
-                .accessibilityLabel(statusLabel)
+            ZStack(alignment: .bottomLeading) {
+                Image(systemName: "externaldrive.fill")
+                    .font(.system(size: 24))
+                    .foregroundStyle(IOSColors.accent)
 
-            // Drive info
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 10, height: 10)
+                    .offset(x: -2, y: 2)
+            }
+            .accessibilityLabel(statusLabel)
+
             VStack(alignment: .leading, spacing: IOSSpacing.xs) {
                 Text(drive.name)
                     .font(IOSTypography.headline)
@@ -32,7 +37,6 @@ struct DriveCardView: View {
 
             Spacer()
 
-            // Transfer speed (visible only when syncing)
             if let speed, status == .sync {
                 Text(IOSDriveViewModel.formatSpeed(speed))
                     .font(IOSTypography.caption)
@@ -72,22 +76,11 @@ struct DriveCardView: View {
     // MARK: - Helpers
 
     private var statusColor: Color {
-        switch status {
-        case .idle: IOSColors.statusSynced
-        case .sync, .indexing: IOSColors.statusSyncing
-        case .error: IOSColors.statusError
-        case .paused: IOSColors.statusPaused
-        }
+        IOSDriveViewModel.statusColor(for: status)
     }
 
     private var statusLabel: String {
-        switch status {
-        case .idle: "Synced"
-        case .sync: "Syncing"
-        case .indexing: "Indexing"
-        case .error: "Error"
-        case .paused: "Paused"
-        }
+        IOSDriveViewModel.statusLabel(for: status)
     }
 }
 #endif

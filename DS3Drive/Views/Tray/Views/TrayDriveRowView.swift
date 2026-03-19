@@ -19,8 +19,15 @@ struct TrayDriveRowView: View {
 
     var body: some View {
         HStack(spacing: DS3Spacing.sm) {
-            // Status dot indicator
-            statusDot
+            // Drive icon with status dot overlay
+            ZStack(alignment: .bottomLeading) {
+                Image(systemName: "externaldrive.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(.secondary)
+
+                statusDot
+                    .offset(x: -2, y: 2)
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(driveViewModel.drive.name)
@@ -65,14 +72,10 @@ struct TrayDriveRowView: View {
 
     private var statusColor: Color {
         switch driveViewModel.driveStatus {
-        case .idle:
-            return DS3Colors.statusSynced
-        case .sync, .indexing:
-            return DS3Colors.statusSyncing
-        case .error:
-            return DS3Colors.statusError
-        case .paused:
-            return DS3Colors.statusPaused
+        case .idle: DS3Colors.statusSynced
+        case .sync, .indexing: DS3Colors.statusSyncing
+        case .error: DS3Colors.statusError
+        case .paused: DS3Colors.statusPaused
         }
     }
 

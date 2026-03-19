@@ -4,6 +4,11 @@ import SwiftUI
 import DS3Lib
 import os.log
 
+extension Notification.Name {
+    static let shareExtensionComplete = Notification.Name("ShareExtensionComplete")
+    static let shareExtensionCancel = Notification.Name("ShareExtensionCancel")
+}
+
 /// UIViewController that hosts the Share Extension's SwiftUI view hierarchy.
 /// Acts as the bridge between UIKit's extension lifecycle and the SwiftUI-based UI.
 class ShareViewController: UIViewController {
@@ -36,14 +41,14 @@ class ShareViewController: UIViewController {
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(completeExtension),
-            name: Notification.Name("ShareExtensionComplete"),
+            name: .shareExtensionComplete,
             object: nil
         )
 
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(cancelExtension),
-            name: Notification.Name("ShareExtensionCancel"),
+            name: .shareExtensionCancel,
             object: nil
         )
     }

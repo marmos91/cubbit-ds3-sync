@@ -20,54 +20,28 @@ struct ShareFolderPickerView: View {
     let onCancel: () -> Void
 
     @State private var folderPath: [FolderLevel] = []
-    @State private var subfolders: [String] = []
-    @State private var loading = true
-    @State private var error: Error?
 
     var body: some View {
         NavigationStack(path: $folderPath) {
-            folderContent(prefix: currentRootPrefix, title: rootTitle)
-                .navigationDestination(for: FolderLevel.self) { level in
-                    FolderLevelView(
-                        viewModel: viewModel,
-                        prefix: level.prefix,
-                        title: level.displayName,
-                        onCancel: onCancel,
-                        onUploadHere: { prefix in
-                            uploadHere(prefix: prefix)
-                        },
-                        onNavigate: { level in
-                            folderPath.append(level)
-                        }
-                    )
-                }
-        }
-    }
-
-    // MARK: - Root Content
-
-    private var currentRootPrefix: String {
-        viewModel.selectedDrive?.syncAnchor.prefix ?? ""
-    }
-
-    private var rootTitle: String {
-        viewModel.selectedDrive?.name ?? "Choose Location"
-    }
-
-    @ViewBuilder
-    private func folderContent(prefix: String, title: String) -> some View {
-        FolderLevelView(
-            viewModel: viewModel,
-            prefix: prefix,
-            title: title,
-            onCancel: onCancel,
-            onUploadHere: { prefix in
-                uploadHere(prefix: prefix)
-            },
-            onNavigate: { level in
-                folderPath.append(level)
+            FolderLevelView(
+                viewModel: viewModel,
+                prefix: viewModel.selectedDrive?.syncAnchor.prefix ?? "",
+                title: viewModel.selectedDrive?.name ?? "Choose Location",
+                onCancel: onCancel,
+                onUploadHere: { prefix in uploadHere(prefix: prefix) },
+                onNavigate: { level in folderPath.append(level) }
+            )
+            .navigationDestination(for: FolderLevel.self) { level in
+                FolderLevelView(
+                    viewModel: viewModel,
+                    prefix: level.prefix,
+                    title: level.displayName,
+                    onCancel: onCancel,
+                    onUploadHere: { prefix in uploadHere(prefix: prefix) },
+                    onNavigate: { level in folderPath.append(level) }
+                )
             }
-        )
+        }
     }
 
     // MARK: - Actions
@@ -247,11 +221,9 @@ private struct FolderLevelView: View {
     private func loadFolders() async {
         loading = true
         error = nil
+        defer { loading = false }
 
-        guard let drive = viewModel.selectedDrive else {
-            loading = false
-            return
-        }
+        guard let drive = viewModel.selectedDrive else { return }
 
         let vm = SyncAnchorSelectionViewModel(
             project: drive.syncAnchor.project,
@@ -270,8 +242,6 @@ private struct FolderLevelView: View {
         } else {
             subfolders = vm.folders[currentPrefix ?? ""] ?? []
         }
-
-        loading = false
     }
 }
 #endif

@@ -131,16 +131,4 @@ struct ShareExtensionView: View {
     }
 }
 
-// MARK: - ViewModel Extension for View Access
-
-extension ShareUploadViewModel {
-    /// Exposes the last-used drive ID for the view to show a checkmark indicator.
-    var lastUsedDriveIdForDisplay: UUID? {
-        if let driveIdString = UserDefaults(suiteName: "group.X889956QSM.io.cubbit.DS3Drive")?
-            .string(forKey: "share.lastUsedDriveId") {
-            return UUID(uuidString: driveIdString)
-        }
-        return nil
-    }
-}
 #endif

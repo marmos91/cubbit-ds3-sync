@@ -160,6 +160,7 @@ struct PrefixListView: View {
     private func loadFolders() async {
         loading = true
         error = nil
+        defer { loading = false }
 
         let vm = SyncAnchorSelectionViewModel(
             project: selection.project,
@@ -168,21 +169,15 @@ struct PrefixListView: View {
         anchorVM = vm
 
         vm.selectBucket(selection.bucket)
-
-        if let prefix = selection.prefix {
-            vm.selectedPrefix = prefix
-        }
+        vm.selectedPrefix = selection.prefix
 
         await vm.listFoldersForCurrentBucket()
 
         if let vmError = vm.error {
             self.error = vmError
         } else {
-            let currentPrefix = selection.prefix ?? ""
-            subfolders = vm.folders[currentPrefix] ?? []
+            subfolders = vm.folders[selection.prefix ?? ""] ?? []
         }
-
-        loading = false
     }
 
     // MARK: - Actions

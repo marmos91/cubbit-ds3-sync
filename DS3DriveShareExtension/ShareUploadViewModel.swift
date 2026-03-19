@@ -1,5 +1,4 @@
 #if os(iOS)
-import Foundation
 import SwiftUI
 import DS3Lib
 import SotoS3
@@ -76,7 +75,7 @@ final class ShareUploadViewModel {
 
     // MARK: - Private
 
-    private var lastUsedDriveId: UUID?
+    private(set) var lastUsedDriveId: UUID?
     private var lastUsedFolderPrefix: String?
     private let appGroupDefaults = UserDefaults(suiteName: "group.X889956QSM.io.cubbit.DS3Drive")
 
@@ -347,7 +346,7 @@ final class ShareUploadViewModel {
             state = .complete
             logger.info("All \(self.files.count) files uploaded successfully")
             try? await Task.sleep(for: .milliseconds(500))
-            NotificationCenter.default.post(name: Notification.Name("ShareExtensionComplete"), object: nil)
+            NotificationCenter.default.post(name: .shareExtensionComplete, object: nil)
         } else {
             state = .partialFailure
             logger.warning("\(self.failedCount) of \(self.files.count) files failed to upload")
@@ -372,15 +371,7 @@ final class ShareUploadViewModel {
     /// Cancels the extension and dismisses the share sheet.
     func cancel() {
         uploadTask?.cancel()
-        NotificationCenter.default.post(name: Notification.Name("ShareExtensionCancel"), object: nil)
-    }
-
-    // MARK: - Open Main App
-
-    /// Share Extensions cannot open URLs directly.
-    /// Dismisses the share sheet so the user can open the main app manually.
-    func openMainApp() {
-        cancel()
+        NotificationCenter.default.post(name: .shareExtensionCancel, object: nil)
     }
 
     // MARK: - Helpers
@@ -409,11 +400,7 @@ final class ShareUploadViewModel {
             return "film"
         case "zip", "tar", "gz", "rar", "7z":
             return "doc.zipper"
-        case "pdf":
-            return "doc.fill"
-        case "doc", "docx", "txt", "rtf", "pages":
-            return "doc.fill"
-        case "xls", "xlsx", "csv", "numbers":
+        case "pdf", "doc", "docx", "txt", "rtf", "pages", "xls", "xlsx", "csv", "numbers":
             return "doc.fill"
         case "mp3", "aac", "wav", "flac", "m4a":
             return "music.note"

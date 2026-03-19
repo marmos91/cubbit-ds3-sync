@@ -73,7 +73,7 @@ struct ShareDrivePickerView: View {
 
             Spacer()
 
-            if drive.id == viewModel.lastUsedDriveIdForDisplay {
+            if drive.id == viewModel.lastUsedDriveId {
                 Image(systemName: "checkmark")
                     .foregroundStyle(ShareColors.accent)
             }

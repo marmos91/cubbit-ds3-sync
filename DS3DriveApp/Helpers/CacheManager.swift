@@ -44,18 +44,10 @@ enum CacheManager {
     /// - Parameter bytes: The number of bytes.
     /// - Returns: A formatted string (e.g. "12.3 GB", "45 MB", "128 KB").
     static func formatSize(_ bytes: Int64) -> String {
-        if bytes >= 1_073_741_824 {
-            let gb = Double(bytes) / 1_073_741_824.0
-            return String(format: "%.1f GB", gb)
-        } else if bytes >= 1_048_576 {
-            let mb = bytes / 1_048_576
-            return "\(mb) MB"
-        } else if bytes >= 1024 {
-            let kb = bytes / 1024
-            return "\(kb) KB"
-        } else {
-            return "0 KB"
-        }
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useKB, .useMB, .useGB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
     }
 
     /// Removes all files in the App Group shared container, preserving

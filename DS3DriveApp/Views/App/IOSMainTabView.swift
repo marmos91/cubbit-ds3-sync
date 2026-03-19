@@ -86,9 +86,16 @@ struct IOSMainTabView: View {
                 ForEach(ds3DriveManager.drives) { drive in
                     NavigationLink(value: drive) {
                         HStack(spacing: IOSSpacing.sm) {
-                            Circle()
-                                .fill(driveViewModel.statusColor(for: driveViewModel.status(for: drive.id)))
-                                .frame(width: 8, height: 8)
+                            ZStack(alignment: .bottomLeading) {
+                                Image(systemName: "externaldrive.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundStyle(IOSColors.accent)
+
+                                Circle()
+                                    .fill(IOSDriveViewModel.statusColor(for: driveViewModel.status(for: drive.id)))
+                                    .frame(width: 8, height: 8)
+                                    .offset(x: -2, y: 2)
+                            }
                             Text(drive.name)
                                 .font(IOSTypography.body)
                                 .lineLimit(1)

@@ -77,12 +77,6 @@ struct ShareUploadProgressView: View {
         .onChange(of: viewModel.state) { _, newState in
             if newState == .complete {
                 UIAccessibility.post(notification: .announcement, argument: "Upload complete")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    NotificationCenter.default.post(
-                        name: Notification.Name("ShareExtensionComplete"),
-                        object: nil
-                    )
-                }
             }
         }
     }
@@ -91,12 +85,9 @@ struct ShareUploadProgressView: View {
 
     private var navigationTitle: String {
         switch viewModel.state {
-        case .complete:
-            return "Upload Complete"
-        case .partialFailure:
-            return "Upload Failed"
-        default:
-            return "Uploading..."
+        case .complete: "Upload Complete"
+        case .partialFailure: "Upload Failed"
+        default: "Uploading..."
         }
     }
 
@@ -105,7 +96,7 @@ struct ShareUploadProgressView: View {
     @ViewBuilder
     private func fileRow(_ file: SharedFileItem) -> some View {
         HStack(spacing: ShareSpacing.sm) {
-            Image(systemName: fileTypeIcon(for: file))
+            Image(systemName: viewModel.iconForFile(file))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(ShareColors.accent)
                 .frame(width: 24)
@@ -160,30 +151,20 @@ struct ShareUploadProgressView: View {
 
     // MARK: - Helpers
 
-    private func fileTypeIcon(for file: SharedFileItem) -> String {
-        viewModel.iconForFile(file)
-    }
-
     private func statusDescription(for file: SharedFileItem) -> String {
         switch file.status {
-        case .pending:
-            return "Pending"
-        case .uploading:
-            return "Uploading"
-        case .completed:
-            return "Uploaded"
-        case .failed(let message):
-            return "Failed: \(message)"
+        case .pending: "Pending"
+        case .uploading: "Uploading"
+        case .completed: "Uploaded"
+        case .failed(let message): "Failed: \(message)"
         }
     }
 
     private func progressValue(for file: SharedFileItem) -> String {
-        switch file.status {
-        case .uploading(let progress):
+        if case .uploading(let progress) = file.status {
             return "\(Int(progress * 100)) percent"
-        default:
-            return ""
         }
+        return ""
     }
 }
 #endif

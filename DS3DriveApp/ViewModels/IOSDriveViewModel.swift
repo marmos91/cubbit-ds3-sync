@@ -1,6 +1,4 @@
 #if os(iOS)
-import Foundation
-import Observation
 import SwiftUI
 import DS3Lib
 
@@ -82,7 +80,7 @@ import DS3Lib
 
     // MARK: - Display helpers
 
-    func statusLabel(for status: DS3DriveStatus) -> String {
+    static func statusLabel(for status: DS3DriveStatus) -> String {
         switch status {
         case .idle: "Synced"
         case .sync: "Syncing"
@@ -92,7 +90,7 @@ import DS3Lib
         }
     }
 
-    func statusColor(for status: DS3DriveStatus) -> Color {
+    static func statusColor(for status: DS3DriveStatus) -> Color {
         switch status {
         case .idle: IOSColors.statusSynced
         case .sync, .indexing: IOSColors.statusSyncing

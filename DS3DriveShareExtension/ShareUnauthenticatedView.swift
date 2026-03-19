@@ -10,15 +10,46 @@ struct ShareUnauthenticatedView: View {
     let hasDrives: Bool
     let onCancel: () -> Void
 
+    private var iconName: String {
+        hasDrives ? "externaldrive.fill.badge.exclamationmark" : "person.crop.circle.badge.exclamationmark"
+    }
+
+    private var title: String {
+        hasDrives ? "No Drives Available" : "Sign In to Upload"
+    }
+
+    private var message: String {
+        hasDrives
+            ? "Set up a drive in DS3 Drive to start uploading files."
+            : "Open DS3 Drive to sign in and set up a drive first."
+    }
+
     var body: some View {
         VStack(spacing: ShareSpacing.md) {
             Spacer()
 
-            if hasDrives {
-                noDrivesContent
-            } else {
-                unauthenticatedContent
+            Image(systemName: iconName)
+                .font(.system(size: 48))
+                .foregroundStyle(ShareColors.secondaryText)
+                .symbolRenderingMode(.hierarchical)
+
+            Text(title)
+                .font(ShareTypography.title)
+                .foregroundStyle(ShareColors.primaryText)
+
+            Text(message)
+                .font(ShareTypography.body)
+                .foregroundStyle(ShareColors.secondaryText)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, ShareSpacing.xl)
+
+            Button("Open DS3 Drive") {
+                onCancel()
             }
+            .buttonStyle(SharePrimaryButtonStyle())
+            .padding(.horizontal, ShareSpacing.xl)
+            .padding(.top, ShareSpacing.sm)
+            .accessibilityLabel("Open DS3 Drive app")
 
             Spacer()
         }
@@ -28,63 +59,6 @@ struct ShareUnauthenticatedView: View {
                     onCancel()
                 }
             }
-        }
-    }
-
-    // MARK: - Unauthenticated Content
-
-    private var unauthenticatedContent: some View {
-        VStack(spacing: ShareSpacing.md) {
-            Image(systemName: "person.crop.circle.badge.exclamationmark")
-                .font(.system(size: 48))
-                .foregroundStyle(ShareColors.secondaryText)
-                .symbolRenderingMode(.hierarchical)
-
-            Text("Sign In to Upload")
-                .font(ShareTypography.title)
-                .foregroundStyle(ShareColors.primaryText)
-
-            Text("Open DS3 Drive to sign in and set up a drive first.")
-                .font(ShareTypography.body)
-                .foregroundStyle(ShareColors.secondaryText)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, ShareSpacing.xl)
-
-            Button("Open DS3 Drive") {
-                onCancel()
-            }
-            .buttonStyle(SharePrimaryButtonStyle())
-            .padding(.horizontal, ShareSpacing.xl)
-            .padding(.top, ShareSpacing.sm)
-            .accessibilityLabel("Open DS3 Drive app")
-        }
-    }
-
-    // MARK: - No Drives Content
-
-    private var noDrivesContent: some View {
-        VStack(spacing: ShareSpacing.md) {
-            Image(systemName: "externaldrive.fill.badge.exclamationmark")
-                .font(.system(size: 48))
-                .foregroundStyle(ShareColors.secondaryText)
-
-            Text("No Drives Available")
-                .font(ShareTypography.title)
-                .foregroundStyle(ShareColors.primaryText)
-
-            Text("Set up a drive in DS3 Drive to start uploading files.")
-                .font(ShareTypography.body)
-                .foregroundStyle(ShareColors.secondaryText)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, ShareSpacing.xl)
-
-            Button("Open DS3 Drive") {
-                onCancel()
-            }
-            .buttonStyle(SharePrimaryButtonStyle())
-            .padding(.horizontal, ShareSpacing.xl)
-            .padding(.top, ShareSpacing.sm)
-            .accessibilityLabel("Open DS3 Drive app")
         }
     }
 }

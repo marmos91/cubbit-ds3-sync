@@ -54,19 +54,16 @@ struct DriveListView: View {
                         },
                         onPauseResume: {
                             Task {
-                                let status = driveViewModel.status(for: drive.id)
-                                if status == .paused {
-                                    await driveViewModel.postCommand(.resumeDrive(driveId: drive.id))
-                                } else {
-                                    await driveViewModel.postCommand(.pauseDrive(driveId: drive.id))
-                                }
+                                let command: IPCCommand = driveViewModel.status(for: drive.id) == .paused
+                                    ? .resumeDrive(driveId: drive.id)
+                                    : .pauseDrive(driveId: drive.id)
+                                await driveViewModel.postCommand(command)
                             }
                         }
                     )
                 }
             }
 
-            // Add Drive row
             addDriveRow
         }
         .refreshable {
@@ -102,13 +99,8 @@ struct DriveListView: View {
     // MARK: - Refresh
 
     private func refreshDrives() async {
-        // Re-read drives from SharedData
-        let freshDrives = DS3DriveManager.loadFromDiskOrCreateNew()
-        await MainActor.run {
-            ds3DriveManager.drives = freshDrives
-        }
+        ds3DriveManager.drives = DS3DriveManager.loadFromDiskOrCreateNew()
 
-        // Signal all enumerators to check for remote changes
         for drive in ds3DriveManager.drives {
             let domain = NSFileProviderDomain(
                 identifier: NSFileProviderDomainIdentifier(rawValue: drive.id.uuidString),
