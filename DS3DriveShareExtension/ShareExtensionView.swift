@@ -6,7 +6,7 @@ import DS3Lib
 
 /// Mirror of IOSDesignSystem tokens for Share Extension target.
 /// The Share Extension runs as a separate target and cannot directly import
-/// files from DS3DriveStubApp. These tokens mirror the values exactly.
+/// files from DS3DriveApp. These tokens mirror the values exactly.
 enum ShareColors {
     static let accent = Color.accentColor
     static let background = Color(uiColor: .systemBackground)

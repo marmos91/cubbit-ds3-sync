@@ -20,7 +20,8 @@ struct IOSSettingsView: View {
     private var account: Account? { ds3Authentication.account }
 
     private var tenantName: String {
-        (try? SharedData.default().loadTenantNameFromPersistence()) ?? DefaultSettings.defaultTenantName
+        let tenant = (try? SharedData.default().loadTenantNameFromPersistence()) ?? ""
+        return tenant.isEmpty ? DefaultSettings.defaultTenantName : tenant
     }
 
     private var coordinatorURL: String {
@@ -116,7 +117,7 @@ struct IOSSettingsView: View {
                 }
 
                 // Manage Account link
-                Link(destination: URL(string: "https://console.cubbit.io")!) {
+                Link(destination: URL(string: ConsoleURLs.profileURL)!) {
                     HStack {
                         Text("Manage Account")
                             .font(IOSTypography.body)
@@ -153,6 +154,16 @@ struct IOSSettingsView: View {
 
     private var generalSection: some View {
         Section {
+            // Active Drives row
+            HStack {
+                Text("Active Drives")
+                    .font(IOSTypography.body)
+                Spacer()
+                Text("\(ds3DriveManager.drives.count)")
+                    .font(IOSTypography.body)
+                    .foregroundStyle(IOSColors.secondaryText)
+            }
+
             // Sync Notifications toggle
             Toggle(isOn: $syncNotificationsEnabled) {
                 Text("Sync Notifications")
@@ -211,7 +222,7 @@ struct IOSSettingsView: View {
             }
 
             // Support link
-            Link(destination: URL(string: "https://support.cubbit.io")!) {
+            Link(destination: URL(string: HelpURLs.baseURL)!) {
                 HStack {
                     Text("Support")
                         .font(IOSTypography.body)

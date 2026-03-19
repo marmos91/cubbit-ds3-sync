@@ -2,7 +2,7 @@ import SwiftUI
 import DS3Lib
 
 @main
-struct DS3DriveStubApp: App {
+struct DS3DriveApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @Environment(\.scenePhase) private var scenePhase
 
@@ -18,6 +18,7 @@ struct DS3DriveStubApp: App {
                 .environment(ds3DriveManager)
                 .environment(appStatusManager)
                 .onChange(of: scenePhase) { _, newPhase in
+                    guard ds3Authentication.isLogged else { return }
                     if newPhase == .active {
                         Task { await BackgroundRefreshManager.signalAllDrives() }
                     } else if newPhase == .background {
@@ -25,7 +26,13 @@ struct DS3DriveStubApp: App {
                     }
                 }
                 .onAppear {
-                    if !hasStartedRefreshTimer {
+                    if !hasStartedRefreshTimer && ds3Authentication.isLogged {
+                        _ = ds3Authentication.startProactiveRefreshTimer()
+                        hasStartedRefreshTimer = true
+                    }
+                }
+                .onChange(of: ds3Authentication.isLogged) { _, isLogged in
+                    if isLogged && !hasStartedRefreshTimer {
                         _ = ds3Authentication.startProactiveRefreshTimer()
                         hasStartedRefreshTimer = true
                     }

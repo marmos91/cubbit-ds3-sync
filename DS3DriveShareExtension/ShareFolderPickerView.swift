@@ -255,7 +255,7 @@ private struct FolderLevelView: View {
 
         let vm = SyncAnchorSelectionViewModel(
             project: drive.syncAnchor.project,
-            authentication: DS3Authentication()
+            authentication: DS3Authentication.loadFromPersistenceOrCreateNew()
         )
 
         vm.selectBucket(Bucket(name: drive.syncAnchor.bucket.name))

@@ -176,7 +176,7 @@ struct DriveDetailView: View {
     private func viewInConsole() {
         let projectId = drive.syncAnchor.project.id
         let bucketName = drive.syncAnchor.bucket.name
-        if let url = URL(string: "https://console.cubbit.io/projects/\(projectId)/buckets/\(bucketName)") {
+        if let url = URL(string: "\(ConsoleURLs.projectsURL)/\(projectId)/buckets/\(bucketName)") {
             openURL(url)
         }
     }
