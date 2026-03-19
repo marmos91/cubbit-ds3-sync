@@ -51,8 +51,9 @@ struct ProjectListView: View {
         List {
             ForEach(0..<5, id: \.self) { _ in
                 HStack(spacing: IOSSpacing.sm) {
-                    Image(systemName: "folder.fill")
-                        .foregroundStyle(IOSColors.secondaryText)
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(IOSColors.secondaryText.opacity(0.3))
+                        .frame(width: 32, height: 32)
                     Text("Loading project name")
                         .font(IOSTypography.body)
                 }
@@ -87,7 +88,7 @@ struct ProjectListView: View {
 
     private var emptyView: some View {
         VStack(spacing: IOSSpacing.md) {
-            Image(systemName: "folder.fill")
+            Image(systemName: "tray.fill")
                 .font(.largeTitle)
                 .foregroundStyle(IOSColors.secondaryText)
             Text("No projects found. Create a project in the DS3 Console.")
@@ -108,8 +109,7 @@ struct ProjectListView: View {
                 navigationPath.append(project)
             } label: {
                 HStack(spacing: IOSSpacing.sm) {
-                    Image(systemName: "folder.fill")
-                        .foregroundStyle(IOSColors.accent)
+                    projectEmblem(project.short())
                     Text(project.name)
                         .font(IOSTypography.body)
                         .foregroundStyle(IOSColors.primaryText)
@@ -117,6 +117,17 @@ struct ProjectListView: View {
             }
         }
         .listStyle(.insetGrouped)
+    }
+
+    private func projectEmblem(_ shortName: String) -> some View {
+        Text(shortName.uppercased())
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(.black)
+            .frame(width: 32, height: 32)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.orange)
+            )
     }
 }
 #endif

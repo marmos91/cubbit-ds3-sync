@@ -56,7 +56,7 @@ struct BucketListView: View {
         List {
             ForEach(0..<5, id: \.self) { _ in
                 HStack(spacing: IOSSpacing.sm) {
-                    Image(systemName: "externaldrive.fill")
+                    Image(systemName: "cylinder")
                         .foregroundStyle(IOSColors.secondaryText)
                     Text("Loading bucket name")
                         .font(IOSTypography.body)
@@ -92,7 +92,7 @@ struct BucketListView: View {
 
     private var emptyView: some View {
         VStack(spacing: IOSSpacing.md) {
-            Image(systemName: "externaldrive.fill")
+            Image(systemName: "cylinder")
                 .font(.largeTitle)
                 .foregroundStyle(IOSColors.secondaryText)
             Text("No buckets found. Create a bucket in the DS3 Console.")
@@ -119,7 +119,7 @@ struct BucketListView: View {
                     )
                 } label: {
                     HStack(spacing: IOSSpacing.sm) {
-                        Image(systemName: "externaldrive.fill")
+                        Image(systemName: "cylinder")
                             .foregroundStyle(IOSColors.accent)
                         Text(bucket.name)
                             .font(IOSTypography.body)
