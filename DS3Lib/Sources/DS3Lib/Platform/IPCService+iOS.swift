@@ -54,8 +54,11 @@ final class IOSIPCService: IPCService, @unchecked Sendable {
 
     init() {
         // Resolve IPC directory in the App Group shared container
-        let containerURL = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup)!
+        guard let containerURL = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup)
+        else {
+            fatalError("App Group '\(DefaultSettings.appGroup)' not accessible. Check entitlements and provisioning profile.")
+        }
         self.ipcDirectory = containerURL.appendingPathComponent("ipc", isDirectory: true)
 
         // Create directory if needed

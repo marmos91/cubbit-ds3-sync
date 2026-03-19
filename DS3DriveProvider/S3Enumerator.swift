@@ -9,10 +9,29 @@ enum EnumeratorError: Error {
     case missingParameters
 }
 
+/// Actor-isolated cache for tracking last enumeration timestamps per folder prefix.
+/// Used by the cache-first + TTL pattern to skip redundant S3 refreshes.
+private actor EnumerationTimestampCache {
+    static let shared = EnumerationTimestampCache()
+    private var timestamps: [String: Date] = [:]
+
+    func lastEnumerated(forPrefix prefix: String) -> Date? {
+        timestamps[prefix]
+    }
+
+    func recordEnumeration(forPrefix prefix: String) {
+        timestamps[prefix] = Date()
+    }
+}
+
 class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
     typealias Logger = os.Logger
 
     let logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.sync.rawValue)
+
+    /// Time-to-live for cached enumeration results. If a folder was enumerated
+    /// less than this many seconds ago, skip the S3 refresh.
+    private static let cacheTTL: TimeInterval = 60
 
     private let parent: NSFileProviderItemIdentifier
 
@@ -111,9 +130,16 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                         observer.didEnumerate(items)
                         observer.finishEnumerating(upTo: nil)
 
-                        // Schedule a background S3 listing to refresh the cache
-                        // and signal changes so enumerateChanges picks up any
-                        // remote modifications (new/deleted/updated items).
+                        // TTL check: skip S3 refresh if recently enumerated
+                        let cacheKey = parentKey ?? "__root__"
+                        let lastEnumerated = await EnumerationTimestampCache.shared.lastEnumerated(forPrefix: cacheKey)
+                        if !isCacheStale(lastEnumerated: lastEnumerated, ttl: Self.cacheTTL) {
+                            self.logger.debug("enumerateItems: TTL fresh, skipping S3 refresh for \(self.prefix ?? "nil", privacy: .public)")
+                            return
+                        }
+
+                        // Schedule background S3 refresh and record timestamp
+                        await EnumerationTimestampCache.shared.recordEnumeration(forPrefix: cacheKey)
                         self.refreshCacheInBackground()
                         return
                     }
@@ -183,7 +209,15 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                     try await metadataStore.batchUpsertItems(upsertData)
                 } while continuationToken != nil
 
-                logger.debug("Background cache refresh complete for prefix \(prefix ?? "nil", privacy: .public)")
+                // Signal enumerator so Files app picks up the refreshed cache
+                let domain = NSFileProviderDomain(
+                    identifier: NSFileProviderDomainIdentifier(rawValue: drive.id.uuidString),
+                    displayName: drive.name
+                )
+                try? await NSFileProviderManager(for: domain)?
+                    .signalEnumerator(for: .workingSet)
+
+                logger.debug("Background cache refresh + signal complete for prefix \(prefix ?? "nil", privacy: .public)")
             } catch {
                 logger.debug("Background cache refresh failed for prefix \(prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)")
             }

@@ -84,12 +84,16 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     private var networkMonitor: NetworkMonitor?
     private var pollingTask: Task<Void, Never>?
 
-    /// Limits concurrent fetchContents/fetchPartialContents calls to prevent
-    /// HTTP/2 stream exhaustion (NIOHTTP2.StreamClosed errors).
-    private let fetchSemaphore = AsyncSemaphore(value: 20)
-
     /// Proactive breadth-first indexer that populates MetadataStore level-by-level.
     private var breadthFirstIndexer: BreadthFirstIndexer?
+
+    /// Limits concurrent fetchContents/fetchPartialContents calls to prevent
+    /// HTTP/2 stream exhaustion (NIOHTTP2.StreamClosed errors).
+    #if os(iOS)
+    private let fetchSemaphore = AsyncSemaphore(value: 4)
+    #else
+    private let fetchSemaphore = AsyncSemaphore(value: 20)
+    #endif
 
     var drive: DS3Drive?
     let temporaryDirectory: URL?
@@ -178,6 +182,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         super.init()
         self.startPolling()
         self.startBFSIndexer()
+        logMemoryUsage(label: "init-complete", logger: logger)
     }
 
     /// Notifies the main app that the extension failed to initialize
@@ -356,6 +361,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
 
             do {
                 nm.sendDriveChangedNotification(status: .sync)
+                logMemoryUsage(label: "fetch-start:\(itemIdentifier.rawValue)", logger: self.logger)
 
                 let (fileURL, s3Item) = try await self.withAPIKeyRecovery {
                     // Single GET request that returns both file data and metadata,
@@ -370,6 +376,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                     }
                 }
 
+                logMemoryUsage(label: "fetch-complete:\(s3Item.filename)", logger: self.logger)
                 self.logger.info("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize ?? 0, privacy: .public) downloaded successfully")
 
                 // Mark as materialized and clear any previous error status
@@ -557,6 +564,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         let task = Task {
             do {
                 nm.sendDriveChangedNotification(status: .sync)
+                logMemoryUsage(label: "upload-start:\(key)", logger: self.logger)
 
                 // --- Conflict detection ---
                 if !s3Item.isFolder {
@@ -609,6 +617,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                     size: Int64(itemSize)
                 )
 
+                logMemoryUsage(label: "upload-complete:\(key)", logger: self.logger)
                 uploadProgress.completedUnitCount = numParts
                 nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 self.signalChanges()
@@ -1001,7 +1010,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
                     let s3Item = S3Item(
                         identifier: identifier,
                         drive: drive,
-                        objectMetadata: S3Item.Metadata(size: 0)
+                        objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
                     )
 
                     if !s3Item.isFolder {
@@ -1403,6 +1412,8 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             throw NSFileProviderError(.cannotSynchronize)
         }
 
+        logMemoryUsage(label: "enumerate:\(containerItemIdentifier.rawValue)", logger: self.logger)
+
         switch containerItemIdentifier {
         case .trashContainer:
             // Trash not supported — return an empty enumerator to avoid FP -1005 errors
@@ -1567,6 +1578,7 @@ private class MaterializedItemObserver: NSObject, NSFileProviderEnumerationObser
 
 // MARK: - Partial Content Fetching
 
+#if os(macOS)
 extension FileProviderExtension: NSFileProviderPartialContentFetching {
     // swiftlint:disable:next function_parameter_count
     func fetchPartialContents(
@@ -1664,3 +1676,4 @@ extension FileProviderExtension: NSFileProviderPartialContentFetching {
         return progress
     }
 }
+#endif

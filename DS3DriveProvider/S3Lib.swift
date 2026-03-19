@@ -430,8 +430,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 break
             }
 
-            while !items.isEmpty {
-                let item = items.removeFirst()
+            for item in items {
                 let decodedItemKey = try decodedKey(item.identifier.rawValue)
                 let newKey = decodedItemKey.replacingOccurrences(of: prefix, with: newPrefix)
 
@@ -505,10 +504,16 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             
             _ = try await self.s3.getObjectStreaming(request) { byteBuffer, eventLoop in
                 let bufferSize = Int64(byteBuffer.readableBytes)
-                let bytesToWrite = Data([UInt8](byteBuffer.readableBytesView))
-                
-                fileHandle.write(bytesToWrite)
-                
+                byteBuffer.withUnsafeReadableBytes { bufferPointer in
+                    guard let baseAddress = bufferPointer.baseAddress else { return }
+                    let data = Data(
+                        bytesNoCopy: UnsafeMutableRawPointer(mutating: baseAddress),
+                        count: bufferPointer.count,
+                        deallocator: .none
+                    )
+                    fileHandle.write(data)
+                }
+
                 let partDownloadDuration = Date().timeIntervalSince(downloadPartStartTime)
                 
                 bytesDownloaded += bufferSize
@@ -579,9 +584,15 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 }
 
                 let bufferSize = Int64(byteBuffer.readableBytes)
-                let bytesToWrite = Data([UInt8](byteBuffer.readableBytesView))
-
-                fileHandle.write(bytesToWrite)
+                byteBuffer.withUnsafeReadableBytes { bufferPointer in
+                    guard let baseAddress = bufferPointer.baseAddress else { return }
+                    let data = Data(
+                        bytesNoCopy: UnsafeMutableRawPointer(mutating: baseAddress),
+                        count: bufferPointer.count,
+                        deallocator: .none
+                    )
+                    fileHandle.write(data)
+                }
                 bytesDownloaded += bufferSize
 
                 let duration = Date().timeIntervalSince(downloadStartTime)
@@ -658,9 +669,15 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
 
             _ = try await self.s3.getObjectStreaming(request) { byteBuffer, eventLoop in
                 let bufferSize = Int64(byteBuffer.readableBytes)
-                let bytesToWrite = Data([UInt8](byteBuffer.readableBytesView))
-
-                fileHandle.write(bytesToWrite)
+                byteBuffer.withUnsafeReadableBytes { bufferPointer in
+                    guard let baseAddress = bufferPointer.baseAddress else { return }
+                    let data = Data(
+                        bytesNoCopy: UnsafeMutableRawPointer(mutating: baseAddress),
+                        count: bufferPointer.count,
+                        deallocator: .none
+                    )
+                    fileHandle.write(data)
+                }
                 bytesDownloaded += bufferSize
 
                 let duration = Date().timeIntervalSince(downloadStart)
@@ -722,18 +739,30 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         let key = try decodedKey(s3Item.itemIdentifier.rawValue)
         
         if let fileURL {
-            let data: Data
+            let uploadHandle: FileHandle
             do {
-                data = try Data(contentsOf: fileURL)
+                uploadHandle = try FileHandle(forReadingFrom: fileURL)
             } catch {
-                logger.error("Failed to read file for upload: \(error.localizedDescription, privacy: .public)")
+                logger.error("Failed to open file for upload: \(error.localizedDescription, privacy: .public)")
                 throw FileProviderExtensionError.unableToOpenFile
             }
 
-            size = Int64(data.count)
-            
+            let fileAttributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
+            size = (fileAttributes[.size] as? Int64) ?? 0
+
+            // Use streaming payload -- reads file in 64KB chunks
+            let chunkSize = 65_536
+            let payload = AWSPayload.stream(size: Int(size)) { eventLoop in
+                let chunk = uploadHandle.readData(ofLength: chunkSize)
+                if chunk.isEmpty {
+                    try? uploadHandle.close()
+                    return eventLoop.makeSucceededFuture(.end)
+                }
+                return eventLoop.makeSucceededFuture(.byteBuffer(ByteBuffer(data: chunk)))
+            }
+
             request = S3.PutObjectRequest(
-                body: AWSPayload.data(data),
+                body: payload,
                 bucket: s3Item.drive.syncAnchor.bucket.name,
                 key: key
             )

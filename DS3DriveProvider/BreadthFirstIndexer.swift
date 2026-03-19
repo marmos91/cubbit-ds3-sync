@@ -120,11 +120,7 @@ final class BreadthFirstIndexer: @unchecked Sendable {
                     await queueManager.enqueue(discoveredSubfolders)
                 }
 
-                do {
-                    try await manager?.signalEnumerator(for: .workingSet)
-                } catch {
-                    logger.warning("BFS failed to signal working set: \(error.localizedDescription, privacy: .public)")
-                }
+                try? await manager?.signalEnumerator(for: .workingSet)
             } catch {
                 logger.error("BFS listing failed for prefix \(prefix, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
