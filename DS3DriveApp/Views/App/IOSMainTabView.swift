@@ -33,6 +33,7 @@ struct IOSMainTabView: View {
                 .environment(ds3DriveManager)
         }
         .onAppear {
+            driveViewModel.loadPersistedPauseState(drives: ds3DriveManager.drives)
             driveViewModel.startListening()
         }
         .onDisappear {

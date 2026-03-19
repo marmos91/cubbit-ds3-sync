@@ -38,7 +38,12 @@ import DS3Lib
     
     init(drive: DS3Drive) {
         self.drive = drive
-        
+
+        // Restore paused state from persistence so it survives app restart
+        if (try? SharedData.default().isDrivePaused(drive.id)) == true {
+            self.driveStatus = .paused
+        }
+
         self.setupObserver()
     }
     
@@ -143,6 +148,12 @@ import DS3Lib
         else { return }
 
         let newStatus = updateDriveStatusNotification.status
+
+        // While paused, ignore extension status updates (they'd be stale .idle/.error
+        // from failed operations). Only allow the .paused status itself through.
+        if self.driveStatus == .paused && newStatus != .paused {
+            return
+        }
 
         // Always cancel any pending idle transition
         self.idleDebounceTimer?.invalidate()

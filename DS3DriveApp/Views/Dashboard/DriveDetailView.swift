@@ -148,12 +148,7 @@ struct DriveDetailView: View {
     }
 
     private func togglePauseResume() {
-        Task {
-            let command: IPCCommand = currentStatus == .paused
-                ? .resumeDrive(driveId: drive.id)
-                : .pauseDrive(driveId: drive.id)
-            await driveViewModel.postCommand(command)
-        }
+        driveViewModel.togglePause(for: drive.id)
     }
 
     private func disconnectDrive() {

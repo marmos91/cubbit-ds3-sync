@@ -53,12 +53,7 @@ struct DriveListView: View {
                             }
                         },
                         onPauseResume: {
-                            Task {
-                                let command: IPCCommand = driveViewModel.status(for: drive.id) == .paused
-                                    ? .resumeDrive(driveId: drive.id)
-                                    : .pauseDrive(driveId: drive.id)
-                                await driveViewModel.postCommand(command)
-                            }
+                            driveViewModel.togglePause(for: drive.id)
                         }
                     )
                 }

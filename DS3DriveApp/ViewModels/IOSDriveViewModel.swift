@@ -41,6 +41,11 @@ import DS3Lib
         statusTask = Task { [weak self] in
             guard let self else { return }
             for await change in self.ipcService.statusUpdates {
+                // While paused, ignore extension status updates (they'd be stale
+                // .idle/.error from failed operations)
+                if self.driveStatuses[change.driveId] == .paused && change.status != .paused {
+                    continue
+                }
                 self.driveStatuses[change.driveId] = change.status
             }
         }
@@ -65,6 +70,24 @@ import DS3Lib
 
         Task {
             await ipcService.stopListening()
+        }
+    }
+
+    /// Restores persisted pause state for all drives so it survives app restart.
+    func loadPersistedPauseState(drives: [DS3Drive]) {
+        for drive in drives where (try? SharedData.default().isDrivePaused(drive.id)) == true {
+            driveStatuses[drive.id] = .paused
+        }
+    }
+
+    /// Toggles pause/resume for a drive using SharedData persistence.
+    func togglePause(for driveId: UUID) {
+        let isPaused = driveStatuses[driveId] == .paused
+        do {
+            try SharedData.default().setDrivePaused(driveId, paused: !isPaused)
+            driveStatuses[driveId] = isPaused ? .idle : .paused
+        } catch {
+            // Silently fail — SharedData errors are non-fatal for UI
         }
     }
 
@@ -106,12 +129,15 @@ import DS3Lib
     }
 
     static func formatSpeed(_ bytesPerSecond: Double) -> String {
-        if bytesPerSecond >= 1_048_576 {
-            String(format: "%.1f MB/s", bytesPerSecond / 1_048_576)
-        } else if bytesPerSecond >= 1024 {
-            String(format: "%.1f KB/s", bytesPerSecond / 1024)
+        let kilobyte = 1024.0
+        let megabyte = kilobyte * kilobyte
+
+        if bytesPerSecond >= megabyte {
+            return String(format: "%.1f MB/s", bytesPerSecond / megabyte)
+        } else if bytesPerSecond >= kilobyte {
+            return String(format: "%.1f KB/s", bytesPerSecond / kilobyte)
         } else {
-            String(format: "%.0f B/s", bytesPerSecond)
+            return String(format: "%.0f B/s", bytesPerSecond)
         }
     }
 }

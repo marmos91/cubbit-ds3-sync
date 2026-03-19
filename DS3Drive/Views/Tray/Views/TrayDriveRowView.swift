@@ -85,7 +85,15 @@ struct TrayDriveRowView: View {
     private var metricsRow: some View {
         HStack(spacing: DS3Spacing.md) {
             // Current speed or status text
-            if let speed = driveViewModel.driveStats.currentSpeedBs {
+            if driveViewModel.driveStatus == .paused {
+                Label {
+                    Text(NSLocalizedString("Paused", comment: "Drive row paused status"))
+                } icon: {
+                    Image(systemName: "pause.circle")
+                }
+                .font(DS3Typography.footnote)
+                .foregroundStyle(DS3Colors.statusPaused)
+            } else if let speed = driveViewModel.driveStats.currentSpeedBs {
                 Label {
                     Text(formatSpeed(speed))
                 } icon: {
@@ -213,6 +221,7 @@ struct TrayDriveRowView: View {
             let isPaused = driveViewModel.driveStatus == .paused
             do {
                 try SharedData.default().setDrivePaused(driveId, paused: !isPaused)
+                driveViewModel.driveStatus = isPaused ? .idle : .paused
             } catch {
                 logger.error("Error toggling pause state: \(error.localizedDescription)")
             }

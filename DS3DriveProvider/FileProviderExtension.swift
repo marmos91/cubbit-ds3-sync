@@ -182,6 +182,13 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         super.init()
         self.startPolling()
         self.startBFSIndexer()
+
+        // If drive is paused, notify the main app so UI reflects the state
+        if let driveId = self.drive?.id,
+           (try? SharedData.default().isDrivePaused(driveId)) == true {
+            self.notificationManager?.sendDriveChangedNotification(status: .paused)
+        }
+
         logMemoryUsage(label: "init-complete", logger: logger)
     }
 
@@ -339,8 +346,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             return Progress()
         }
 
-        if (try? SharedData.default().isDrivePaused(drive.id)) == true {
-            logger.info("Drive paused, deferring fetchContents operation")
+        if isDrivePaused(drive.id, operation: "fetchContents") {
             cb.handler(nil, nil, NSFileProviderError(.serverUnreachable) as NSError)
             return Progress()
         }
@@ -437,8 +443,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             return Progress()
         }
 
-        if (try? SharedData.default().isDrivePaused(drive.id)) == true {
-            logger.info("Drive paused, deferring createItem operation")
+        if isDrivePaused(drive.id, operation: "createItem") {
             cb.handler(nil, [], false, NSFileProviderError(.serverUnreachable) as NSError)
             return Progress()
         }
@@ -673,8 +678,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             return Progress()
         }
 
-        if (try? SharedData.default().isDrivePaused(drive.id)) == true {
-            logger.info("Drive paused, deferring modifyItem operation")
+        if isDrivePaused(drive.id, operation: "modifyItem") {
             cb.handler(nil, [], false, NSFileProviderError(.serverUnreachable) as NSError)
             return Progress()
         }
@@ -994,6 +998,11 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             return Progress()
         }
 
+        if isDrivePaused(drive.id, operation: "deleteItem") {
+            cb.handler(NSFileProviderError(.serverUnreachable) as NSError)
+            return Progress()
+        }
+
         switch identifier {
         case .trashContainer, .rootContainer:
             self.logger.debug("Skipping deletion of container \(identifier.rawValue, privacy: .public)")
@@ -1213,6 +1222,13 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         breadthFirstIndexer?.prioritize(prefix: itemIdentifier.rawValue)
 
         return progress
+    }
+
+    /// Returns true when the drive is paused, logging the deferred operation name.
+    private func isDrivePaused(_ driveId: UUID, operation: String) -> Bool {
+        guard (try? SharedData.default().isDrivePaused(driveId)) == true else { return false }
+        logger.info("Drive paused, deferring \(operation, privacy: .public) operation")
+        return true
     }
 
     /// Signals the system to re-enumerate changes after a local CRUD operation.

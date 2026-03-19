@@ -48,21 +48,16 @@ struct DriveCardView: View {
         .accessibilityLabel("Drive \(drive.name), status \(statusLabel), bucket \(drive.syncAnchor.bucket.name)")
         .hoverEffect(.highlight)
         .swipeActions(edge: .leading) {
-            if status == .paused {
-                Button {
-                    onPauseResume()
-                } label: {
+            Button {
+                onPauseResume()
+            } label: {
+                if status == .paused {
                     Label("Resume", systemImage: "play.circle")
-                }
-                .tint(.green)
-            } else {
-                Button {
-                    onPauseResume()
-                } label: {
+                } else {
                     Label("Pause", systemImage: "pause.circle")
                 }
-                .tint(.orange)
             }
+            .tint(status == .paused ? .green : .orange)
         }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
