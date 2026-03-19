@@ -203,8 +203,8 @@ public actor SyncEngine {
             // different ETags for folders, causing infinite reconciliation.
             guard !key.hasSuffix(delimiter) else { return false }
 
-            let remoteEtag = remoteItems[key]?.etag
-            let localEtag = localEtags[key].flatMap { $0 }
+            let remoteEtag = ETagUtils.normalize(remoteItems[key]?.etag)
+            let localEtag = ETagUtils.normalize(localEtags[key].flatMap { $0 })
             return remoteEtag != localEtag
         })
     }
@@ -225,7 +225,7 @@ public actor SyncEngine {
             return MetadataStore.ItemUpsertData(
                 s3Key: key,
                 driveId: driveId,
-                etag: info?.etag,
+                etag: ETagUtils.normalize(info?.etag),
                 lastModified: info?.lastModified,
                 syncStatus: .synced,
                 parentKey: info?.parentKey,

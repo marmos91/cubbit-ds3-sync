@@ -121,7 +121,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                      identifier: NSFileProviderItemIdentifier(key),
                      drive: drive,
                      objectMetadata: S3Item.Metadata(
-                         etag: object.eTag,
+                         etag: ETagUtils.normalize(object.eTag),
                          lastModified: object.lastModified,
                          size: (object.size ?? 0) as NSNumber
                      )
@@ -180,7 +180,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             identifier: identifier,
             drive: drive,
             objectMetadata: S3Item.Metadata(
-                etag: response.eTag,
+                etag: ETagUtils.normalize(response.eTag),
                 contentType: response.contentType,
                 lastModified: response.lastModified,
                 versionId: response.versionId,
@@ -621,7 +621,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 identifier: identifier,
                 drive: drive,
                 objectMetadata: S3Item.Metadata(
-                    etag: response.eTag,
+                    etag: ETagUtils.normalize(response.eTag),
                     contentType: response.contentType,
                     lastModified: response.lastModified,
                     size: NSNumber(value: fileSize)

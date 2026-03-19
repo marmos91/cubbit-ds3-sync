@@ -104,7 +104,7 @@ struct DriveListView: View {
                 identifier: NSFileProviderDomainIdentifier(rawValue: drive.id.uuidString),
                 displayName: drive.name
             )
-            try? await NSFileProviderManager(for: domain)?.signalEnumerator(for: .workingSet)
+            try? await NSFileProviderManager(for: domain)?.reimportItems(below: .rootContainer)
         }
     }
 }

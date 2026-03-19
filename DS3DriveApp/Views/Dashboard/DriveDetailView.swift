@@ -13,6 +13,7 @@ struct DriveDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showDisconnectAlert = false
+    @State private var isRefreshing = false
 
     private var currentStatus: DS3DriveStatus {
         driveViewModel.status(for: drive.id)
@@ -157,8 +158,13 @@ struct DriveDetailView: View {
             }
 
             Button { refreshDrive() } label: {
-                Label("Refresh", systemImage: "arrow.clockwise")
+                if isRefreshing {
+                    Label("Refreshing…", systemImage: "arrow.clockwise")
+                } else {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
             }
+            .disabled(isRefreshing)
 
             Button { viewInConsole() } label: {
                 Label("View in Console", systemImage: "safari")
@@ -196,12 +202,20 @@ struct DriveDetailView: View {
     }
 
     private func refreshDrive() {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+
         Task {
             let domain = NSFileProviderDomain(
                 identifier: NSFileProviderDomainIdentifier(rawValue: drive.id.uuidString),
                 displayName: drive.name
             )
-            try? await NSFileProviderManager(for: domain)?.signalEnumerator(for: .workingSet)
+            try? await NSFileProviderManager(for: domain)?.reimportItems(below: .rootContainer)
+
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+
+            try? await Task.sleep(for: .milliseconds(600))
+            isRefreshing = false
         }
     }
 
