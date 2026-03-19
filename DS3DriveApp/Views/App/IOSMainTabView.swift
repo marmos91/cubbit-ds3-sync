@@ -88,13 +88,15 @@ struct IOSMainTabView: View {
                     NavigationLink(value: drive) {
                         HStack(spacing: IOSSpacing.sm) {
                             ZStack(alignment: .bottomLeading) {
-                                Image(systemName: "externaldrive.fill")
-                                    .font(.system(size: 18))
-                                    .foregroundStyle(IOSColors.accent)
+                                Image(.rawDriveIcon)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 24, height: 24)
 
-                                Circle()
-                                    .fill(IOSDriveViewModel.statusColor(for: driveViewModel.status(for: drive.id)))
-                                    .frame(width: 8, height: 8)
+                                statusBadgeImage(for: driveViewModel.status(for: drive.id))
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 10, height: 10)
                                     .offset(x: -2, y: 2)
                             }
                             Text(drive.name)
@@ -126,6 +128,17 @@ struct IOSMainTabView: View {
                 }
                 .keyboardShortcut(",", modifiers: .command)
             }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func statusBadgeImage(for status: DS3DriveStatus) -> Image {
+        switch status {
+        case .idle: Image(.statusIdleBadge)
+        case .sync, .indexing: Image(.statusSyncBadge)
+        case .error: Image(.statusErrorBadge)
+        case .paused: Image(.statusPauseBadge)
         }
     }
 

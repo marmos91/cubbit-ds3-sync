@@ -51,9 +51,10 @@ struct DriveDetailView: View {
                     .font(IOSTypography.body)
                 Spacer()
                 HStack(spacing: IOSSpacing.sm) {
-                    Circle()
-                        .fill(IOSDriveViewModel.statusColor(for: currentStatus))
-                        .frame(width: 10, height: 10)
+                    statusBadgeImage
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 14, height: 14)
                     Text(IOSDriveViewModel.statusLabel(for: currentStatus))
                         .font(IOSTypography.body)
                         .foregroundStyle(IOSColors.secondaryText)
@@ -79,6 +80,15 @@ struct DriveDetailView: View {
             Text(value)
                 .font(IOSTypography.body)
                 .foregroundStyle(IOSColors.secondaryText)
+        }
+    }
+
+    private var statusBadgeImage: Image {
+        switch currentStatus {
+        case .idle: Image(.statusIdleBadge)
+        case .sync, .indexing: Image(.statusSyncBadge)
+        case .error: Image(.statusErrorBadge)
+        case .paused: Image(.statusPauseBadge)
         }
     }
 

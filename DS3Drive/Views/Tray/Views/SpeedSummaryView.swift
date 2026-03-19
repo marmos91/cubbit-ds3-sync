@@ -50,17 +50,19 @@ struct SpeedSummaryView: View {
                     .font(DS3Typography.caption)
                     .foregroundStyle(DS3Colors.secondaryText)
             } else if allPaused {
-                Image(systemName: "pause.circle")
-                    .font(DS3Typography.caption)
-                    .foregroundStyle(DS3Colors.statusPaused)
+                Image(.statusPauseBadge)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 12, height: 12)
 
                 Text(NSLocalizedString("All drives paused", comment: "Speed summary all paused"))
                     .font(DS3Typography.caption)
                     .foregroundStyle(DS3Colors.secondaryText)
             } else {
-                Image(systemName: "checkmark.circle")
-                    .font(DS3Typography.caption)
-                    .foregroundStyle(DS3Colors.statusSynced)
+                Image(.statusIdleBadge)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 12, height: 12)
 
                 Text(NSLocalizedString("All drives up to date", comment: "Speed summary idle"))
                     .font(DS3Typography.caption)

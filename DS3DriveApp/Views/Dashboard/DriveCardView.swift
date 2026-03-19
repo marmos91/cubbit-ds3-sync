@@ -13,13 +13,15 @@ struct DriveCardView: View {
     var body: some View {
         HStack(spacing: IOSSpacing.md) {
             ZStack(alignment: .bottomLeading) {
-                Image(systemName: "externaldrive.fill")
-                    .font(.system(size: 24))
-                    .foregroundStyle(IOSColors.accent)
+                Image(.rawDriveIcon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 32, height: 32)
 
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 10, height: 10)
+                statusBadgeImage
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 14, height: 14)
                     .offset(x: -2, y: 2)
             }
             .accessibilityLabel(statusLabel)
@@ -29,10 +31,17 @@ struct DriveCardView: View {
                     .font(IOSTypography.headline)
                     .lineLimit(1)
 
-                Text("s3://\(drive.syncAnchor.bucket.name)/\(drive.syncAnchor.prefix ?? "")")
-                    .font(IOSTypography.caption)
-                    .foregroundStyle(IOSColors.secondaryText)
-                    .lineLimit(1)
+                Label {
+                    Text("\(drive.syncAnchor.bucket.name)/\(drive.syncAnchor.prefix ?? "")")
+                } icon: {
+                    Image(.bucketIcon)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 12, height: 12)
+                }
+                .font(IOSTypography.caption)
+                .foregroundStyle(IOSColors.secondaryText)
+                .lineLimit(1)
             }
 
             Spacer()
@@ -70,8 +79,13 @@ struct DriveCardView: View {
 
     // MARK: - Helpers
 
-    private var statusColor: Color {
-        IOSDriveViewModel.statusColor(for: status)
+    private var statusBadgeImage: Image {
+        switch status {
+        case .idle: Image(.statusIdleBadge)
+        case .sync, .indexing: Image(.statusSyncBadge)
+        case .error: Image(.statusErrorBadge)
+        case .paused: Image(.statusPauseBadge)
+        }
     }
 
     private var statusLabel: String {
