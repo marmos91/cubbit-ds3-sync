@@ -109,7 +109,7 @@ public enum DS3DriveManagerError: Error {
     /// Called by the UI when the user manually pauses a drive.
     /// Updates the internal tracking so `AppStatusManager` reflects the change immediately.
     @MainActor
-    public func notifyDrivePausedFromUI(driveId: UUID, paused: Bool) {
+    public func notifyDrivePausedFromUI(driveId: UUID) {
         idleDebounceTimers[driveId]?.invalidate()
         idleDebounceTimers[driveId] = nil
 

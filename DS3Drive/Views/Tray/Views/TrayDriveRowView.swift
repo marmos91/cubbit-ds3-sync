@@ -243,7 +243,7 @@ struct TrayDriveRowView: View {
                 } else {
                     // Pause: stop immediately
                     driveViewModel.driveStatus = .paused
-                    ds3DriveManager.notifyDrivePausedFromUI(driveId: driveId, paused: true)
+                    ds3DriveManager.notifyDrivePausedFromUI(driveId: driveId)
                 }
             } catch {
                 logger.error("Error toggling pause state: \(error.localizedDescription)")
