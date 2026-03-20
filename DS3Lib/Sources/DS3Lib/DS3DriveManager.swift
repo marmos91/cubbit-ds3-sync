@@ -31,10 +31,6 @@ public enum DS3DriveManagerError: Error {
     @ObservationIgnored
     private var driveStatuses: [UUID: DS3DriveStatus] = [:]
 
-    /// Per-drive timers to debounce idle transitions and prevent the menu bar icon from flashing.
-    @ObservationIgnored
-    private var idleDebounceTimers: [UUID: Timer] = [:]
-
     public init(appStatusManager: AppStatusManager, ipcService: (any IPCService)? = nil) {
         self.ipcService = ipcService ?? makeDefaultIPCService()
         self.startStatusListener()
@@ -52,9 +48,6 @@ public enum DS3DriveManagerError: Error {
     }
 
     deinit {
-        for timer in idleDebounceTimers.values {
-            timer.invalidate()
-        }
         statusListenerTask?.cancel()
     }
 
@@ -70,15 +63,10 @@ public enum DS3DriveManagerError: Error {
     }
 
     /// Handles a drive status change from the IPCService stream.
-    /// Idle transitions are debounced by 2s per drive to prevent the menu bar
-    /// icon from flashing between syncing and idle during parallel file operations.
+    /// Status is passed through immediately; AppStatusManager handles anti-flicker.
     @MainActor
     private func handleDriveStatusChange(_ change: DS3DriveStatusChange) {
         let driveId = change.driveId
-
-        idleDebounceTimers[driveId]?.invalidate()
-        idleDebounceTimers[driveId] = nil
-
         driveStatuses[driveId] = change.status
 
         switch change.status {
@@ -95,14 +83,8 @@ public enum DS3DriveManagerError: Error {
             AppStatusManager.default().setStatus(.error)
 
         case .idle:
-            idleDebounceTimers[driveId] = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    guard let self else { return }
-                    self.syncingDrives.remove(driveId)
-                    self.idleDebounceTimers.removeValue(forKey: driveId)
-                    self.recomputeAppStatus()
-                }
-            }
+            syncingDrives.remove(driveId)
+            recomputeAppStatus()
         }
     }
 
@@ -110,9 +92,6 @@ public enum DS3DriveManagerError: Error {
     /// Updates the internal tracking so `AppStatusManager` reflects the change immediately.
     @MainActor
     public func notifyDrivePausedFromUI(driveId: UUID) {
-        idleDebounceTimers[driveId]?.invalidate()
-        idleDebounceTimers[driveId] = nil
-
         driveStatuses[driveId] = .paused
         syncingDrives.remove(driveId)
         recomputeAppStatus()
@@ -123,9 +102,6 @@ public enum DS3DriveManagerError: Error {
     /// The extension will send the actual status via IPC once it finishes scanning.
     @MainActor
     public func notifyDriveResumedFromUI(driveId: UUID) {
-        idleDebounceTimers[driveId]?.invalidate()
-        idleDebounceTimers[driveId] = nil
-
         driveStatuses[driveId] = .sync
         syncingDrives.insert(driveId)
         AppStatusManager.default().setStatus(.syncing)
