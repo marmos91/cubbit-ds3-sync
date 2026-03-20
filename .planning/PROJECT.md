@@ -2,99 +2,101 @@
 
 ## What This Is
 
-DS3 Drive is a native macOS (and later iOS/iPadOS) desktop sync application for Cubbit DS3 distributed cloud storage. It integrates with Finder via Apple's File Provider framework to present S3 buckets as native drives with on-demand sync — similar to Dropbox or Google Drive, but backed by Cubbit's geo-distributed, sovereign storage platform.
+DS3 Drive is a native macOS, iOS, and iPadOS sync application for Cubbit DS3 distributed cloud storage. It integrates with Finder (macOS) and Files app (iOS/iPadOS) via Apple's File Provider framework to present S3 buckets as native drives with on-demand sync. Users log in, set up drives, and files sync transparently -- similar to Dropbox or Google Drive, but backed by Cubbit's geo-distributed, sovereign storage platform.
 
 ## Core Value
 
-Files sync reliably and transparently between the user's Mac and Cubbit DS3, with zero friction — login, API key management, and S3 configuration happen under the hood so the experience feels like Dropbox.
+Files sync reliably and transparently between the user's Mac, iPhone, iPad and Cubbit DS3, with zero friction -- login, API key management, and S3 configuration happen under the hood so the experience feels like Dropbox.
 
 ## Requirements
 
 ### Validated
 
-- ✓ File Provider extension syncs files with S3 backend — existing
-- ✓ Challenge-response authentication (Curve25519/ED25519) — existing
-- ✓ Multipart upload for large files (>5MB) — existing
-- ✓ Menu bar tray icon with sync status — existing (partially working)
-- ✓ Drive setup wizard (project → bucket → prefix selection) — existing
-- ✓ 2FA support — existing
-- ✓ Multiple drives (up to 3) — existing
+- ✓ File Provider extension syncs files with S3 backend — v1.0
+- ✓ Challenge-response authentication (Curve25519/ED25519) with tenant support — v1.0
+- ✓ Multipart upload for large files (>5MB) with ETag validation — v1.0
+- ✓ Menu bar tray icon with per-drive sync status, speed, recent files, quick actions — v1.0
+- ✓ Drive setup wizard (project -> bucket -> prefix selection) — v1.0
+- ✓ 2FA support — v1.0
+- ✓ Multiple drives (up to 3) — v1.0
+- ✓ Conflict detection via ETag comparison and conflict copies — v1.0
+- ✓ Remote deletion tracking and on-demand sync — v1.0
+- ✓ Configurable coordinator URL and multitenancy — v1.0
+- ✓ Structured OSLog logging across all targets — v1.0
+- ✓ Finder sync badges (synced/syncing/error/cloud-only) — v1.0
+- ✓ Pause/resume drive sync — v1.0
+- ✓ Platform abstraction (IPCService, SystemService, LifecycleService) for cross-platform code — v2.0
+- ✓ iOS File Provider extension with streaming I/O and memory safety — v2.0
+- ✓ iOS companion app with login, drive setup, sync dashboard, settings — v2.0
+- ✓ iPad adaptive layout (NavigationSplitView, Split View, Stage Manager) — v2.0
+- ✓ Share Extension for uploading files from any iOS app — v2.0
+- ✓ Sync status badges in iOS Files app — v2.0
+- ✓ CI pipeline for both macOS and iOS builds — v2.0
+- ✓ Background App Refresh for periodic iOS sync — v2.0
 
 ### Active
 
-- [ ] Revamp to work with current Cubbit DS3 APIs (IAM v1 + Composer Hub)
-- [ ] Multitenancy — tenant field in login, auto-discover S3 endpoint from Composer Hub APIs
-- [ ] Configurable coordinator URL — separate API base URL for DS3 Composer operations
-- [ ] Local metadata database (SwiftData) for reliable sync state tracking (ETag, LastModified, local hash, sync status)
-- [ ] Conflict resolution via conflict copies (compare version/ETag before writes)
-- [ ] Remote deletion tracking in change enumeration
-- [ ] On-demand sync (cloud files downloaded only when opened, like iCloud)
-- [ ] Stable, performant sync engine (fix blocking issues, improve throughput)
-- [ ] Menu bar tray: sync status per drive, transfer speed, recent files, quick actions (add drive, preferences, open in Finder, pause sync)
-- [ ] Rename app to "DS3 Drive"
-- [ ] Simplified UX: automatic API key creation/management hidden from user
-- [ ] Improved File Provider error handling and logging/debugging infrastructure
-- [ ] Finder status overlays (sync badges per file)
+- [ ] OAuth login (Google, Microsoft) based on tenant configuration
+- [ ] v3 organization-based authentication (username + organization_name)
+- [ ] Versioned bucket support (browse/restore previous versions)
+- [ ] Bandwidth throttling (user-configurable upload/download limits)
+- [ ] iOS home screen widgets for drive status (WidgetKit)
+- [ ] PushKit server-push sync for instant iOS remote change detection
 
 ### Out of Scope
 
-- iOS/iPadOS — macOS first, extend later using same codebase
-- OAuth login (Google, Microsoft) — v2, depends on tenant config
-- v3 organization-based auth — rolling out soon, but not until tenant→org migration complete
-- Versioned bucket support — future
-- Object locking — future
+- Multi-cloud support (non-Cubbit S3) — product is Cubbit-native, not a generic S3 client
+- Built-in file editor/viewer — OS handles file operations, not the sync client
+- Windows/Linux clients — Apple platforms first, other platforms not planned
+- Real-time collaboration — S3 has no locking; sync client, not collaboration tool
+- Custom file system (FUSE) — using Apple File Provider exclusively
+- In-app file browser on iOS — Files app IS the file browser, companion app is dashboard only
+- Camera upload / document scanning — separate product domain, not core to file sync
+- iOS offline editing — S3 has no conflict-free merge; on-demand sync is the pattern
+- Object locking — future, not planned for current cycle
 - Zero Knowledge drives — future
-- Public ACL links — future
-- Thumbnails in Finder — future
+- Public ACL link sharing — future
 - Spotlight integration — future
-- Multi-cloud support (non-Cubbit S3) — not planned
-- Bandwidth throttling — future
+- Siri Shortcuts — future
 
 ## Context
 
-### Existing Codebase (Brownfield)
+### Current State
 
-The app exists as `CubbitDS3Sync` — a SwiftUI macOS app with a File Provider extension (`Provider/`) and shared library (`DS3Lib/`). It's experimental and has known issues:
+Shipped v2.0 with full macOS and iOS/iPadOS support.
 
-- Sync engine sometimes blocks (likely due to missing local state DB and poor error recovery)
-- DS3 APIs have changed since initial development
-- Menu bar tray not working correctly
-- File Provider extension is hard to debug (no structured logging infrastructure)
-- No conflict detection or remote deletion tracking
-- Performance issues with large directories (no pagination caching, no incremental sync)
+**Tech stack:** Swift/SwiftUI, File Provider (NSFileProviderReplicatedExtension), Soto v6 (S3), SwiftData, OSLog
+**Platforms:** macOS 14+ (Sonoma), iOS 17+, iPadOS 17+
+**Architecture:** Main app (SwiftUI) + File Provider extension + DS3Lib (shared SPM package) + Share Extension (iOS)
+**Tests:** 156 unit tests (DS3Lib)
+
+**Known issues / tech debt:**
+- FOUN-04 (SwiftData metadata database shared via App Group) still pending — sync state tracked in-memory
+- Phase 5 plans 05-04, 05-05 unexecuted (menu bar tray overhaul, Italian localization)
+- ROADMAP checkboxes were not fully updated during v2.0 execution
 
 ### Platform Architecture (Cubbit DS3)
 
-- **Coordinator**: Control plane managing metadata, auth, orchestration. Can be Cubbit-managed (`api.cubbit.eu`) or self-hosted
+- **Coordinator**: Control plane managing metadata, auth, orchestration
 - **Tenants**: Logically isolated domains with dedicated S3 gateways at `s3.<tenant-name>.cubbit.eu`
-- **Swarms**: Geo-distributed storage fabric (nodes, agents, nexuses)
-- **Gateways**: S3-compatible access points (public or private)
-- Default tenant (NGC): endpoint `s3.cubbit.eu` — currently the only supported tenant
+- **Gateways**: S3-compatible access points
 
 ### API Services Used
 
-- **IAM** (`/iam/v1/`): Authentication (challenge-response), token management, account info, IAM users
+- **IAM** (`/iam/v1/`): Authentication, token management, account info
 - **Composer Hub** (`/composer-hub/v1/`): Projects, tenant routing, S3 endpoint discovery
-- **Keyvault** (`/keyvault/api/v3/`): API key CRUD for IAM users (separate service)
+- **Keyvault** (`/keyvault/api/v3/`): API key CRUD for IAM users
 - **S3** (via Soto): All file operations against tenant S3 gateway
-
-### Competitive Landscape
-
-Main competitors: ExpanDrive (File Provider + S3, free for personal use), Mountain Duck (Smart Sync + File Provider), rclone (open-source CLI). DS3 Drive differentiates by being open-source, Cubbit-native, and consumer-focused.
-
-### Design
-
-Figma available (starting point, not definitive): https://www.figma.com/design/E0QXd1ecdYVm9mDKjOntIK/Sync-Share-2.0
 
 ## Constraints
 
-- **Platform**: macOS 14+ (Sonoma), aarch64-darwin (Apple Silicon). iOS/iPadOS deferred
+- **Platforms**: macOS 14+ (Sonoma), iOS 17+, iPadOS 17+ — Apple Silicon and Intel
 - **Framework**: SwiftUI + File Provider (NSFileProviderReplicatedExtension)
-- **S3 Client**: Soto v6 (keep existing dependency)
-- **Local DB**: SwiftData (cross-platform ready for iOS/iPadOS)
-- **Auth**: IAM v1 challenge-response (email + password + tenant_id). Keep extensible for v3 org-based auth
+- **S3 Client**: Soto v6
+- **Local DB**: SwiftData (cross-platform)
+- **Auth**: IAM v1 challenge-response (email + password + tenant_id)
 - **Backend**: No custom backend — S3 + existing Cubbit coordinator APIs only
-- **Signing**: Requires provisioning profiles and matching App Group between main app and extension
+- **Signing**: Requires provisioning profiles and matching App Group between all targets
 - **Assets**: Git LFS for images
 - **License**: GPL
 
@@ -102,14 +104,18 @@ Figma available (starting point, not definitive): https://www.figma.com/design/E
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| macOS first, iOS/iPadOS later | Reduce scope, File Provider is most mature on macOS | — Pending |
-| SwiftData for local metadata DB | Cross-platform (macOS/iOS), modern Swift API, SQLite-backed | — Pending |
-| Conflict copies (not last-write-wins) | S3 has no locking; conflict copies prevent data loss (Dropbox pattern) | — Pending |
-| Keep Soto v6 | Works, mature, no benefit to switching to aws-sdk-swift | — Pending |
-| v1 auth with tenant_id field | v3 org-based auth not ready (tenant→org migration pending) | — Pending |
-| Auto-discover S3 endpoint | Composer Hub APIs return gateway URL per tenant/project | — Pending |
-| On-demand sync (not full sync) | File Provider on-demand is the modern Apple pattern, saves disk space | — Pending |
-| Rename to DS3 Drive | Match Cubbit product naming standards | — Pending |
+| macOS first, iOS/iPadOS later | Reduce scope, File Provider is most mature on macOS | ✓ Good — both platforms now shipped |
+| SwiftData for local metadata DB | Cross-platform (macOS/iOS), modern Swift API, SQLite-backed | ⚠️ Revisit — FOUN-04 still pending, sync state is in-memory |
+| Conflict copies (not last-write-wins) | S3 has no locking; conflict copies prevent data loss (Dropbox pattern) | ✓ Good |
+| Keep Soto v6 | Works, mature, no benefit to switching to aws-sdk-swift | ✓ Good |
+| v1 auth with tenant_id field | v3 org-based auth not ready (tenant->org migration pending) | ✓ Good — works, extensible |
+| Auto-discover S3 endpoint | Composer Hub APIs return gateway URL per tenant/project | ✓ Good |
+| On-demand sync (not full sync) | File Provider on-demand is the modern Apple pattern, saves disk space | ✓ Good |
+| Protocol abstractions for cross-platform | IPCService/SystemService/LifecycleService enable shared code | ✓ Good — clean separation |
+| Darwin notifications for iOS IPC | Lightweight, no framework dependency, fits App Group pattern | ✓ Good |
+| Streaming I/O for iOS extension | Stay under 20MB memory limit with zero-copy ByteBuffer | ✓ Good |
+| Share Extension with mirrored tokens | Target isolation prevents cross-target file sharing issues | ✓ Good |
+| Sequential uploads in Share Extension | Conserve memory in ~120MB extension limit | ✓ Good |
 
 ---
-*Last updated: 2026-03-11 after initialization*
+*Last updated: 2026-03-20 after v2.0 milestone*

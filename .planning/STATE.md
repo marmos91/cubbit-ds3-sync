@@ -1,53 +1,52 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: macOS App
-current_plan: 03 (next to execute)
-status: executing
-stopped_at: Checkpoint at 09-03 Task 3 (human-verify)
-last_updated: "2026-03-19T08:46:40.614Z"
+milestone: v2.0
+milestone_name: iOS & iPadOS Universal App
+current_plan: null
+status: milestone_complete
+stopped_at: null
+last_updated: "2026-03-20"
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
+  completed_phases: 4
+  total_plans: 17
+  completed_plans: 17
 ---
 
 # Project State
 
 ## Current Position
 
-**Phase:** 09-ios-polish-distribution
-**Current Plan:** 03 (next to execute)
-**Status:** In Progress
+**Milestone:** v2.0 iOS & iPadOS Universal App — SHIPPED
+**Status:** Milestone Complete
 
 ## Progress
 
 ```
-Phase 09: [===>------] 2/3 plans complete
+Milestone v2.0: [==========] 17/17 plans complete (100%)
 ```
+
+## Project Reference
+
+See: .planning/PROJECT.md (updated 2026-03-20)
+
+**Core value:** Files sync reliably and transparently between Mac, iPhone, iPad and Cubbit DS3
+**Current focus:** Planning next milestone
 
 ## Decisions
 
-- **09-02:** Mirrored IOSDesignSystem tokens in Share Extension (ShareColors/ShareTypography/ShareSpacing) to avoid cross-target file sharing
-- **09-02:** Sequential file uploads in Share Extension to conserve memory within ~120MB limit
-- **09-02:** Folder picker is a placeholder in Plan 02; Plan 03 adds full NavigationStack drill-down
-- **09-02:** Unauthenticated CTA dismisses sheet (Share Extensions cannot open URLs)
-- [Phase 09]: ShareFolderPickerView owns its own NavigationStack to avoid nesting issues
-- [Phase 09]: Design tokens (ShareColors/ShareTypography/ShareSpacing) changed from private to internal for cross-file access
+- Protocol abstraction pattern (IPCService, SystemService, LifecycleService) for cross-platform shared code
+- Darwin notifications + App Group file payloads for iOS IPC
+- Streaming I/O for iOS extension memory safety (zero-copy ByteBuffer)
+- Cache-first + 60s TTL enumeration pattern for both platforms
+- Sequential file uploads in Share Extension to conserve memory
+- Mirrored design tokens in Share Extension for target isolation
 
 ## Blockers
 
 None
 
-## Performance Metrics
-
-| Phase | Plan | Duration | Tasks | Files |
-|-------|------|----------|-------|-------|
-| 09 | 02 | 5min | 2 | 5 |
-| Phase 09 P03 | 4min | 2 tasks | 7 files |
-
 ## Last Session
 
-**Timestamp:** 2026-03-19T08:36:22Z
-**Stopped At:** Checkpoint at 09-03 Task 3 (human-verify)
+**Timestamp:** 2026-03-20
+**Stopped At:** Milestone v2.0 completed
