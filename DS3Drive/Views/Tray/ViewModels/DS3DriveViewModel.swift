@@ -32,6 +32,10 @@ import SwiftUI
     private var perFileDownloadSpeed: [String: Double] = [:]
     private let speedSmoothingAlpha: Double = 0.3
 
+    /// Last update timestamp per file key, used to expire stale speed entries.
+    private var lastFileUpdate: [String: Date] = [:]
+    private let fileTransferTimeout: TimeInterval = 3.0
+
     /// Tracks recently transferred files for this drive
     var recentFilesTracker = RecentFilesTracker()
 
@@ -105,6 +109,7 @@ import SwiftUI
             guard let self else { return }
             self.lastReportedSize.removeAll()
             self.lastReportedDuration.removeAll()
+            self.lastFileUpdate.removeAll()
             self.perFileUploadSpeed.removeAll()
             self.perFileDownloadSpeed.removeAll()
             self.totalTransferredSize = 0
@@ -134,6 +139,7 @@ import SwiftUI
         let deltaDuration = driveTransferStats.duration - previousDuration
         self.lastReportedSize[fileKey] = driveTransferStats.size
         self.lastReportedDuration[fileKey] = driveTransferStats.duration
+        self.lastFileUpdate[fileKey] = Date()
 
         self.totalTransferredSize += deltaBytes
         self.totalTransferDuration += deltaDuration
@@ -156,14 +162,11 @@ import SwiftUI
 
         // Remove completed file so it doesn't inflate the total
         if let totalSize = driveTransferStats.totalSize, driveTransferStats.size >= totalSize {
-            if isUpload {
-                self.perFileUploadSpeed.removeValue(forKey: fileKey)
-            } else {
-                self.perFileDownloadSpeed.removeValue(forKey: fileKey)
-            }
-            self.lastReportedSize.removeValue(forKey: fileKey)
-            self.lastReportedDuration.removeValue(forKey: fileKey)
+            self.removeFileSpeedTracking(fileKey, isUpload: isUpload)
         }
+
+        // Expire stale entries (files that stopped sending updates)
+        self.expireInactiveFileTransfers()
 
         self.driveStats.uploadSpeedBs = self.perFileUploadSpeed.isEmpty
             ? nil : self.perFileUploadSpeed.values.reduce(0, +)
@@ -185,6 +188,32 @@ import SwiftUI
             )
             self.recentFilesTracker.add(entry)
             self.refreshRecentFiles()
+        }
+    }
+
+    /// Removes a file's speed tracking data.
+    private func removeFileSpeedTracking(_ fileKey: String, isUpload: Bool) {
+        if isUpload {
+            self.perFileUploadSpeed.removeValue(forKey: fileKey)
+        } else {
+            self.perFileDownloadSpeed.removeValue(forKey: fileKey)
+        }
+        self.lastReportedSize.removeValue(forKey: fileKey)
+        self.lastReportedDuration.removeValue(forKey: fileKey)
+        self.lastFileUpdate.removeValue(forKey: fileKey)
+    }
+
+    /// Removes speed tracking for files that haven't reported progress recently.
+    /// This handles files whose completion notifications were throttled or dropped.
+    private func expireInactiveFileTransfers() {
+        let cutoff = Date().addingTimeInterval(-self.fileTransferTimeout)
+        let staleKeys = self.lastFileUpdate.filter { $0.value < cutoff }.map(\.key)
+        for key in staleKeys {
+            self.perFileUploadSpeed.removeValue(forKey: key)
+            self.perFileDownloadSpeed.removeValue(forKey: key)
+            self.lastReportedSize.removeValue(forKey: key)
+            self.lastReportedDuration.removeValue(forKey: key)
+            self.lastFileUpdate.removeValue(forKey: key)
         }
     }
 
