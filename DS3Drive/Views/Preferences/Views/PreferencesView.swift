@@ -18,6 +18,10 @@ struct PreferencesView: View {
 
             SyncTab()
                 .tabItem { Label("Sync", systemImage: "arrow.triangle.2.circlepath") }
+
+            TrashTab()
+                .tabItem { Label("Trash", systemImage: "trash") }
+                .environment(ds3DriveManager)
         }
         .frame(
             minWidth: 500,

@@ -5,6 +5,7 @@ import os.log
 enum CustomActionIdentifier {
     static let copyS3URL = "io.cubbit.DS3Drive.DS3DriveProvider.action.copyS3URL"
     static let evictItem = "io.cubbit.DS3Drive.DS3DriveProvider.action.evictItem"
+    static let restoreFromTrash = "io.cubbit.DS3Drive.DS3DriveProvider.action.restoreFromTrash"
 }
 
 private extension NSFileProviderItemIdentifier {
@@ -52,12 +53,67 @@ extension FileProviderExtension {
                 completionHandler: completionHandler
             )
 
+        case CustomActionIdentifier.restoreFromTrash:
+            performRestoreFromTrash(
+                itemIdentifiers: itemIdentifiers,
+                drive: drive,
+                progress: progress,
+                completionHandler: completionHandler
+            )
+
         default:
             self.logger.warning("Unknown custom action: \(actionIdentifier.rawValue, privacy: .public)")
             completionHandler(NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError))
         }
 
         return progress
+    }
+
+    private func performRestoreFromTrash(
+        itemIdentifiers: [NSFileProviderItemIdentifier],
+        drive: DS3Drive,
+        progress: Progress,
+        completionHandler: @escaping (Error?) -> Void
+    ) {
+        guard let s3Lib = self.s3Lib, let nm = self.notificationManager else {
+            completionHandler(NSFileProviderError(.cannotSynchronize) as NSError)
+            return
+        }
+
+        let boxedCb = UncheckedBox(value: completionHandler)
+        Task {
+            var firstError: Error?
+            for identifier in itemIdentifiers {
+                if identifier.isSystemContainer { continue }
+
+                let trashKey = identifier.rawValue
+                guard S3Lib.isTrashedKey(trashKey, drive: drive) else {
+                    self.logger.warning("Restore skipped: item not in trash \(trashKey, privacy: .public)")
+                    progress.completedUnitCount += 1
+                    continue
+                }
+
+                do {
+                    await nm.sendDriveChangedNotification(status: .sync)
+                    let s3Item = S3Item(
+                        identifier: identifier,
+                        drive: drive,
+                        objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
+                    )
+                    try await s3Lib.restoreS3Item(s3Item, drive: drive, withProgress: progress)
+                    let originalKey = S3Lib.originalKey(fromTrashKey: trashKey, drive: drive)
+                    self.logger.info("Restored \(trashKey, privacy: .public) to \(originalKey, privacy: .public)")
+                } catch {
+                    self.logger.error("Failed to restore \(trashKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    if firstError == nil { firstError = error }
+                }
+                progress.completedUnitCount += 1
+            }
+            await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+            self.signalChanges()
+            self.signalTrashChanges()
+            boxedCb.value(firstError)
+        }
     }
 
     private func performEvictAction(

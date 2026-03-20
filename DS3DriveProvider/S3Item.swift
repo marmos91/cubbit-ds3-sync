@@ -23,6 +23,9 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     static let decorationConflict = NSFileProviderItemDecorationIdentifier(
         rawValue: "\(decorationPrefix).conflict"
     )
+    static let decorationTrashed = NSFileProviderItemDecorationIdentifier(
+        rawValue: "\(decorationPrefix).trashed"
+    )
     
     let identifier: NSFileProviderItemIdentifier
 
@@ -70,19 +73,37 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
         identifier
     }
     
+    /// Whether this item lives inside the `.trash/` prefix.
+    var isInTrash: Bool {
+        S3Lib.isTrashedKey(identifier.rawValue, drive: drive)
+    }
+
     var parentItemIdentifier: NSFileProviderItemIdentifier {
+        if isInTrash {
+            let trashPrefix = S3Lib.fullTrashPrefix(forDrive: drive)
+            let relativePath = String(identifier.rawValue.dropFirst(trashPrefix.count))
+            let segments = relativePath.split(separator: separator)
+            if segments.count <= 1 {
+                return .trashContainer
+            }
+            var pathSegments = identifier.rawValue.split(separator: separator)
+            _ = pathSegments.popLast()
+            let parentIdentifier = pathSegments.joined(separator: String(separator))
+            return NSFileProviderItemIdentifier(parentIdentifier + String(separator))
+        }
+
         var pathSegments = self.identifier.rawValue.split(separator: self.separator)
-        
+
         let prefixSegmentsCount = (self.drive.syncAnchor.prefix?.split(separator: self.separator) ?? []).count
 
         if pathSegments.count == prefixSegmentsCount + 1 {
             // NOTE: e.g. parent of prefix/folder/ is prefix/ (remember prefix == .rootContainer)
             return .rootContainer
         }
-        
+
         _ = pathSegments.popLast()
         let parentIdentifier = pathSegments.joined(separator: String(self.separator))
-        
+
         return NSFileProviderItemIdentifier(parentIdentifier + String(self.separator))
     }
 
@@ -149,6 +170,10 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     #endif
     
     var capabilities: NSFileProviderItemCapabilities {
+        if isInTrash {
+            return [.allowsDeleting, .allowsReading, .allowsContentEnumerating]
+        }
+
         var caps: NSFileProviderItemCapabilities = [
             .allowsAddingSubItems,
             .allowsContentEnumerating,
@@ -156,6 +181,7 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
             .allowsReading,
             .allowsRenaming,
             .allowsReparenting,
+            .allowsTrashing,
             .allowsWriting
         ]
         #if os(macOS)
@@ -174,6 +200,9 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
         // iOS already shows its own download-cloud indicator natively.
         return nil
         #else
+        if isInTrash {
+            return [Self.decorationTrashed]
+        }
         switch metadata.syncStatus {
         case "synced":
             return [Self.decorationSynced]

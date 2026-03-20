@@ -34,9 +34,15 @@ final class S3LibListingAdapter: S3ListingProvider, Sendable {
             withContinuationToken: continuationToken
         )
 
+        let trashPrefix = S3Lib.fullTrashPrefix(forDrive: drive)
+
         var pageItems: [String: S3ObjectInfo] = [:]
         for item in items {
             let key = item.itemIdentifier.rawValue
+
+            // Exclude trash items from sync reconciliation
+            if key.hasPrefix(trashPrefix) { continue }
+
             pageItems[key] = S3ObjectInfo(
                 etag: item.metadata.etag,
                 lastModified: item.metadata.lastModified,

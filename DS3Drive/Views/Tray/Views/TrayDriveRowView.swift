@@ -231,6 +231,19 @@ struct TrayDriveRowView: View {
             )
         }
 
+        // Empty Trash
+        Button(role: .destructive) {
+            let driveId = driveViewModel.drive.id
+            do {
+                try SharedData.default().setEmptyTrashRequest(forDrive: driveId, requested: true)
+                logger.info("Empty trash requested for drive \(driveId)")
+            } catch {
+                logger.error("Error requesting empty trash: \(error.localizedDescription)")
+            }
+        } label: {
+            Label(NSLocalizedString("Empty Trash", comment: "Drive menu empty trash"), systemImage: "trash.slash")
+        }
+
         Divider()
 
         // Pause / Resume
