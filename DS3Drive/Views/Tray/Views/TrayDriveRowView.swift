@@ -80,6 +80,7 @@ struct TrayDriveRowView: View {
             Image(.statusErrorBadge).resizable().scaledToFit()
         case .paused:
             Image(.statusPauseBadge).resizable().scaledToFit()
+                .foregroundStyle(DS3Colors.statusPaused)
         }
     }
 
@@ -226,6 +227,7 @@ struct TrayDriveRowView: View {
             do {
                 try SharedData.default().setDrivePaused(driveId, paused: !isPaused)
                 driveViewModel.driveStatus = isPaused ? .idle : .paused
+                ds3DriveManager.notifyDrivePausedFromUI(driveId: driveId, paused: !isPaused)
             } catch {
                 logger.error("Error toggling pause state: \(error.localizedDescription)")
             }

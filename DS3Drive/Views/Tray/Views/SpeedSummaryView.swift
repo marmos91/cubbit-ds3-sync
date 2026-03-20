@@ -54,6 +54,7 @@ struct SpeedSummaryView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 12, height: 12)
+                    .foregroundStyle(DS3Colors.statusPaused)
 
                 Text(NSLocalizedString("All drives paused", comment: "Speed summary all paused"))
                     .font(DS3Typography.caption)
