@@ -1,6 +1,7 @@
-import SwiftUI
-import os.log
 import DS3Lib
+import FileProvider
+import os.log
+import SwiftUI
 
 struct TrayDriveRowView: View {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
@@ -86,7 +87,6 @@ struct TrayDriveRowView: View {
 
     // MARK: - Metrics Row
 
-    @ViewBuilder
     private var metricsRow: some View {
         HStack(spacing: DS3Spacing.md) {
             // Current speed or status text
@@ -137,7 +137,6 @@ struct TrayDriveRowView: View {
 
     // MARK: - Gear Menu
 
-    @ViewBuilder
     private var gearMenu: some View {
         Menu {
             driveContextMenuItems
@@ -215,7 +214,10 @@ struct TrayDriveRowView: View {
                 }
             }
         } label: {
-            Label(NSLocalizedString("Reset Sync", comment: "Drive menu reset sync"), systemImage: "arrow.counterclockwise")
+            Label(
+                NSLocalizedString("Reset Sync", comment: "Drive menu reset sync"),
+                systemImage: "arrow.counterclockwise"
+            )
         }
 
         Divider()
@@ -226,8 +228,23 @@ struct TrayDriveRowView: View {
             let isPaused = driveViewModel.driveStatus == .paused
             do {
                 try SharedData.default().setDrivePaused(driveId, paused: !isPaused)
-                driveViewModel.driveStatus = isPaused ? .idle : .paused
-                ds3DriveManager.notifyDrivePausedFromUI(driveId: driveId, paused: !isPaused)
+
+                if isPaused {
+                    // Resume: go to syncing so extension re-checks for pending work
+                    driveViewModel.driveStatus = .sync
+                    ds3DriveManager.notifyDriveResumedFromUI(driveId: driveId)
+
+                    // Signal the enumerator to trigger a fresh scan
+                    Task {
+                        try? await NSFileProviderManager(
+                            for: driveViewModel.fileProviderDomain()
+                        )?.signalEnumerator(for: .rootContainer)
+                    }
+                } else {
+                    // Pause: stop immediately
+                    driveViewModel.driveStatus = .paused
+                    ds3DriveManager.notifyDrivePausedFromUI(driveId: driveId, paused: true)
+                }
             } catch {
                 logger.error("Error toggling pause state: \(error.localizedDescription)")
             }
