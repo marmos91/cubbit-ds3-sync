@@ -19,6 +19,7 @@ struct DS3DriveApp: App {
     @State var ds3DriveManager: DS3DriveManager = .init(appStatusManager: AppStatusManager.default())
     private let conflictNotificationHandler = ConflictNotificationHandler()
     private var authFailureObserver: NSObjectProtocol?
+    private let recoveryTracker = AuthRecoveryTracker()
     @State private var refreshTask: Task<Void, Never>?
 
     @State var trayMenuVisible: Bool = true
@@ -163,7 +164,7 @@ struct DS3DriveApp: App {
             forName: NSNotification.Name(DefaultSettings.Notifications.authFailure),
             object: nil,
             queue: .main
-        ) { [weak ds3Authentication, ds3DriveManager, logger] notification in
+        ) { [weak ds3Authentication, ds3DriveManager, logger, recoveryTracker] notification in
             let domainId = notification.object as? String
             let reason = (notification.userInfo as? [String: String])?["reason"]
 
@@ -182,6 +183,15 @@ struct DS3DriveApp: App {
                     Self.showSessionExpiredNotification(logger: logger)
                     return
                 }
+
+                // Skip if recovery is already in progress for this domain
+                guard !recoveryTracker.activeRecoveries.contains(domainId) else {
+                    logger.info("Auth recovery already in progress for domain \(domainId, privacy: .public), skipping")
+                    return
+                }
+
+                recoveryTracker.activeRecoveries.insert(domainId)
+                defer { recoveryTracker.activeRecoveries.remove(domainId) }
 
                 do {
                     guard let drive = ds3DriveManager.drives.first(where: { $0.id.uuidString == domainId }) else {
@@ -238,4 +248,11 @@ struct DS3DriveApp: App {
             }
         }
     }
+}
+
+/// Tracks in-flight auth recovery operations per File Provider domain.
+/// Only accessed from @MainActor context (notification observer + Task).
+@MainActor
+private final class AuthRecoveryTracker: @unchecked Sendable {
+    var activeRecoveries: Set<String> = []
 }

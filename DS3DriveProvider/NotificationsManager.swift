@@ -13,6 +13,7 @@ actor NotificationManager {
     private var lastTransferSpeedTime: ContinuousClock.Instant = .now - .seconds(999)
     private var pendingTransferStats: DriveTransferStats?
     private var transferThrottleTask: Task<Void, Never>?
+    private var lastAuthFailureTime: ContinuousClock.Instant = .now - .seconds(999)
 
     /// Tracks the number of in-flight file operations (fetch, create, modify, delete).
     /// Each immediate `.sync` increments; each debounced `.idle`/`.error` decrements.
@@ -144,6 +145,17 @@ actor NotificationManager {
     ///   - domainId: The File Provider domain identifier
     ///   - reason: A machine-readable reason string (e.g. "tokenRefreshFailed", "apiKeySelfHealingFailed")
     func sendAuthFailureNotification(domainId: String, reason: String) {
+        let now = ContinuousClock.now
+        let elapsed = now - lastAuthFailureTime
+        let elapsedSeconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
+
+        if elapsedSeconds < DefaultSettings.Extension.authFailureCooldownSeconds {
+            logger.info("Auth failure notification suppressed (cooldown): domain=\(domainId, privacy: .public), reason=\(reason, privacy: .public)")
+            return
+        }
+
+        lastAuthFailureTime = now
+
         Task { [ipcService] in
             await ipcService.postAuthFailure(domainId: domainId, reason: reason)
         }

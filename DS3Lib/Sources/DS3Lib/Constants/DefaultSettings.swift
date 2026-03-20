@@ -109,6 +109,10 @@ public enum DefaultSettings {
         /// Limits how often the tray UI refreshes during streaming downloads/uploads.
         public static let transferSpeedThrottleInterval = 0.5
 
+        /// Minimum interval between auth failure notifications from the same drive (seconds).
+        /// Prevents repeated S3 auth failures within one extension from flooding the main app.
+        public static let authFailureCooldownSeconds = 30.0
+
         /// Interval in seconds between periodic remote change polling signals.
         public static let pollingIntervalSeconds: Int = 30
     }
