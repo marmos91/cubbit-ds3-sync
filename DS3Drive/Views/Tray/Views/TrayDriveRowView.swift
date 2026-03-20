@@ -1,6 +1,7 @@
-import SwiftUI
-import os.log
 import DS3Lib
+import FileProvider
+import os.log
+import SwiftUI
 
 struct TrayDriveRowView: View {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
@@ -80,12 +81,12 @@ struct TrayDriveRowView: View {
             Image(.statusErrorBadge).resizable().scaledToFit()
         case .paused:
             Image(.statusPauseBadge).resizable().scaledToFit()
+                .foregroundStyle(DS3Colors.statusPaused)
         }
     }
 
     // MARK: - Metrics Row
 
-    @ViewBuilder
     private var metricsRow: some View {
         HStack(spacing: DS3Spacing.md) {
             // Current speed or status text
@@ -97,14 +98,25 @@ struct TrayDriveRowView: View {
                 }
                 .font(DS3Typography.footnote)
                 .foregroundStyle(DS3Colors.statusPaused)
-            } else if let speed = driveViewModel.driveStats.currentSpeedBs {
-                Label {
-                    Text(formatSpeed(speed))
-                } icon: {
-                    Image(systemName: "arrow.up.arrow.down")
+            } else if driveViewModel.driveStats.isTransferring {
+                if let uploadSpeed = driveViewModel.driveStats.uploadSpeedBs {
+                    Label {
+                        Text(formatSpeed(uploadSpeed))
+                    } icon: {
+                        Image(systemName: "arrow.up")
+                    }
+                    .font(DS3Typography.footnote)
+                    .foregroundStyle(.secondary)
                 }
-                .font(DS3Typography.footnote)
-                .foregroundStyle(.secondary)
+                if let downloadSpeed = driveViewModel.driveStats.downloadSpeedBs {
+                    Label {
+                        Text(formatSpeed(downloadSpeed))
+                    } icon: {
+                        Image(systemName: "arrow.down")
+                    }
+                    .font(DS3Typography.footnote)
+                    .foregroundStyle(.secondary)
+                }
             } else if driveViewModel.driveStatus == .indexing {
                 Label {
                     Text(NSLocalizedString("Indexing…", comment: "Drive row indexing status"))
@@ -136,7 +148,6 @@ struct TrayDriveRowView: View {
 
     // MARK: - Gear Menu
 
-    @ViewBuilder
     private var gearMenu: some View {
         Menu {
             driveContextMenuItems
@@ -214,7 +225,10 @@ struct TrayDriveRowView: View {
                 }
             }
         } label: {
-            Label(NSLocalizedString("Reset Sync", comment: "Drive menu reset sync"), systemImage: "arrow.counterclockwise")
+            Label(
+                NSLocalizedString("Reset Sync", comment: "Drive menu reset sync"),
+                systemImage: "arrow.counterclockwise"
+            )
         }
 
         Divider()
@@ -225,7 +239,23 @@ struct TrayDriveRowView: View {
             let isPaused = driveViewModel.driveStatus == .paused
             do {
                 try SharedData.default().setDrivePaused(driveId, paused: !isPaused)
-                driveViewModel.driveStatus = isPaused ? .idle : .paused
+
+                if isPaused {
+                    // Resume: go to syncing so extension re-checks for pending work
+                    driveViewModel.driveStatus = .sync
+                    ds3DriveManager.notifyDriveResumedFromUI(driveId: driveId)
+
+                    // Signal the enumerator to trigger a fresh scan
+                    let domain = driveViewModel.fileProviderDomain()
+                    let manager = NSFileProviderManager(for: domain)
+                    Task {
+                        try? await manager?.signalEnumerator(for: .rootContainer)
+                    }
+                } else {
+                    // Pause: stop immediately
+                    driveViewModel.driveStatus = .paused
+                    ds3DriveManager.notifyDrivePausedFromUI(driveId: driveId)
+                }
             } catch {
                 logger.error("Error toggling pause state: \(error.localizedDescription)")
             }

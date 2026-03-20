@@ -1,95 +1,86 @@
+import DS3Lib
 import Foundation
 import os.log
-import DS3Lib
 
-final class NotificationManager: Sendable {
-    private let logger: Logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.extension.rawValue)
+actor NotificationManager {
+    private let logger: Logger = .init(subsystem: LogSubsystem.provider, category: LogCategory.extension.rawValue)
 
     private let drive: DS3Drive
     private let ipcService: any IPCService
-    private let queue = DispatchQueue(label: "io.cubbit.DS3Drive.NotificationManager")
 
-    // Manually synchronized via `queue`
-    nonisolated(unsafe) private var _driveStatus: DS3DriveStatus
-    nonisolated(unsafe) private var _debounceWorkItem: DispatchWorkItem?
-    nonisolated(unsafe) private var _lastTransferSpeedTime: DispatchTime = .init(uptimeNanoseconds: 0)
-    nonisolated(unsafe) private var _pendingTransferStats: DriveTransferStats?
-    nonisolated(unsafe) private var _transferThrottleWorkItem: DispatchWorkItem?
+    private var driveStatus: DS3DriveStatus
+    private var debounceTask: Task<Void, Never>?
+    private var lastTransferSpeedTime: ContinuousClock.Instant = .now - .seconds(999)
+    private var pendingTransferStats: DriveTransferStats?
+    private var transferThrottleTask: Task<Void, Never>?
 
     /// Tracks the number of in-flight file operations (fetch, create, modify, delete).
     /// Each immediate `.sync` increments; each debounced `.idle`/`.error` decrements.
-    /// Idle transitions are suppressed while > 0, preventing rapid sync↔idle flashing.
-    nonisolated(unsafe) private var _activeOperations: Int = 0
+    /// Idle transitions are suppressed while > 0, preventing rapid sync-idle flashing.
+    private var activeOperations: Int = 0
 
     init(drive: DS3Drive, ipcService: (any IPCService)? = nil) {
         self.drive = drive
-        self._driveStatus = .idle
+        self.driveStatus = .idle
         self.ipcService = ipcService ?? makeDefaultIPCService()
     }
 
-    /// Sends a notification to the app with the current status of the drive debounced. If you want to send the notification immediately, use `sendDriveChangedNotification(status: DS3DriveStatus)`
+    /// Sends a notification to the app with the current status of the drive debounced. If you want to send the
+    /// notification immediately, use `sendDriveChangedNotification(status: DS3DriveStatus)`
     /// - Parameters:
     ///   - status: status to send
     ///   - isFileOperation: whether this call is the completion of a file operation (fetch/create/modify/delete)
     ///     that was previously tracked with an immediate `.sync`. Only file-operation completions should
     ///     decrement the active operations counter. Enumerator status updates should pass `false`.
     func sendDriveChangedNotificationWithDebounce(status: DS3DriveStatus, isFileOperation: Bool = true) {
-        queue.async {
-            if isFileOperation && self._activeOperations > 0 && (status == .idle || status == .error) {
-                self._activeOperations -= 1
-            }
+        if isFileOperation, activeOperations > 0, status == .idle || status == .error {
+            activeOperations -= 1
+        }
 
-            // While file operations are still active, suppress idle/error debounce
-            // so the status stays on .sync until all operations finish.
-            if isFileOperation && self._activeOperations > 0 {
-                self._debounceWorkItem?.cancel()
-                self._debounceWorkItem = nil
-                return
-            }
+        // While file operations are still active, suppress idle/error from ANY source
+        // (including enumerator) so the status stays on .sync until all operations finish.
+        if activeOperations > 0, status == .idle || status == .error {
+            debounceTask?.cancel()
+            debounceTask = nil
+            return
+        }
 
-            self._debounceWorkItem?.cancel()
+        debounceTask?.cancel()
 
-            let workItem = DispatchWorkItem { [weak self] in
-                self?._sendStatusNotification(status: status)
-            }
-
-            self._debounceWorkItem = workItem
-
-            self.queue.asyncAfter(
-                deadline: .now() + DefaultSettings.Extension.statusChangeDebounceInterval,
-                execute: workItem
-            )
+        debounceTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(DefaultSettings.Extension.statusChangeDebounceInterval))
+            guard !Task.isCancelled else { return }
+            await self?.postStatusNotification(status: status)
         }
     }
 
-    /// Sends a notification to the app with the current status of the drive. If you want to debounce the notification, use `sendDriveChangedNotificationWithDebounce(status: DS3DriveStatus)`
+    /// Sends a notification to the app with the current status of the drive. If you want to debounce the notification,
+    /// use `sendDriveChangedNotificationWithDebounce(status: DS3DriveStatus)`
     /// - Parameter status: the status to send
     func sendDriveChangedNotification(status: DS3DriveStatus) {
-        queue.async {
-            self._debounceWorkItem?.cancel()
-            self._debounceWorkItem = nil
+        debounceTask?.cancel()
+        debounceTask = nil
 
-            if status == .sync {
-                self._activeOperations += 1
-            }
-
-            if status == .idle && self._activeOperations > 0 {
-                return
-            }
-
-            self._sendStatusNotification(status: status)
+        if status == .sync {
+            activeOperations += 1
         }
+
+        if status == .idle, activeOperations > 0 {
+            return
+        }
+
+        postStatusNotification(status: status)
     }
 
     /// Posts the status change notification if the status actually changed.
-    private func _sendStatusNotification(status: DS3DriveStatus) {
-        guard status != self._driveStatus else { return }
+    private func postStatusNotification(status: DS3DriveStatus) {
+        guard status != driveStatus else { return }
 
-        self._driveStatus = status
+        driveStatus = status
 
         let driveStatusChange = DS3DriveStatusChange(
-            driveId: self.drive.id,
-            status: self._driveStatus
+            driveId: drive.id,
+            status: status
         )
 
         Task { [ipcService] in
@@ -98,41 +89,50 @@ final class NotificationManager: Sendable {
     }
 
     func sendTransferSpeedNotification(_ transferSpeed: DriveTransferStats) {
-        queue.async {
-            let throttle = DefaultSettings.Extension.transferSpeedThrottleInterval
-            let now = DispatchTime.now()
+        let throttle = DefaultSettings.Extension.transferSpeedThrottleInterval
+        let now = ContinuousClock.now
 
-            self._pendingTransferStats = transferSpeed
+        pendingTransferStats = transferSpeed
 
-            let elapsedNanos = now.uptimeNanoseconds - self._lastTransferSpeedTime.uptimeNanoseconds
-            let elapsed = Double(elapsedNanos) / 1_000_000_000
+        let elapsed = now - lastTransferSpeedTime
+        let elapsedSeconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
 
-            if elapsed >= throttle {
-                self._postTransferStats(transferSpeed)
-                self._lastTransferSpeedTime = now
-                self._transferThrottleWorkItem?.cancel()
-                self._transferThrottleWorkItem = nil
-                return
-            }
+        if elapsedSeconds >= throttle {
+            postTransferStats(transferSpeed)
+            lastTransferSpeedTime = now
+            transferThrottleTask?.cancel()
+            transferThrottleTask = nil
+            return
+        }
 
-            if self._transferThrottleWorkItem != nil {
-                return
-            }
+        if transferThrottleTask != nil {
+            return
+        }
 
-            let remaining = throttle - elapsed
-            let workItem = DispatchWorkItem { [weak self] in
-                guard let self, let pending = self._pendingTransferStats else { return }
-                self._postTransferStats(pending)
-                self._lastTransferSpeedTime = .now()
-                self._pendingTransferStats = nil
-                self._transferThrottleWorkItem = nil
-            }
-            self._transferThrottleWorkItem = workItem
-            self.queue.asyncAfter(deadline: .now() + remaining, execute: workItem)
+        let remaining = throttle - elapsedSeconds
+        transferThrottleTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(remaining))
+            guard !Task.isCancelled else { return }
+            guard let self else { return }
+            guard let pending = await self.getPendingTransferStats() else { return }
+            await self.flushTransferStats(pending)
         }
     }
 
-    private func _postTransferStats(_ stats: DriveTransferStats) {
+    /// Helper to read pending stats from within the throttle task.
+    private func getPendingTransferStats() -> DriveTransferStats? {
+        pendingTransferStats
+    }
+
+    /// Helper to flush pending stats and reset throttle state.
+    private func flushTransferStats(_ stats: DriveTransferStats) {
+        postTransferStats(stats)
+        lastTransferSpeedTime = .now
+        pendingTransferStats = nil
+        transferThrottleTask = nil
+    }
+
+    private func postTransferStats(_ stats: DriveTransferStats) {
         Task { [ipcService] in
             await ipcService.postTransferStats(stats)
         }
@@ -144,27 +144,23 @@ final class NotificationManager: Sendable {
     ///   - domainId: The File Provider domain identifier
     ///   - reason: A machine-readable reason string (e.g. "tokenRefreshFailed", "apiKeySelfHealingFailed")
     func sendAuthFailureNotification(domainId: String, reason: String) {
-        queue.async {
-            Task { [ipcService = self.ipcService] in
-                await ipcService.postAuthFailure(domainId: domainId, reason: reason)
-            }
-            self.logger.warning("Auth failure notification sent: \(reason, privacy: .public)")
+        Task { [ipcService] in
+            await ipcService.postAuthFailure(domainId: domainId, reason: reason)
         }
+        logger.warning("Auth failure notification sent: \(reason, privacy: .public)")
     }
 
     func sendConflictNotification(filename: String, conflictKey: String) {
-        queue.async {
-            let info = ConflictInfo(
-                driveId: self.drive.id,
-                originalFilename: filename,
-                conflictKey: conflictKey
-            )
+        let info = ConflictInfo(
+            driveId: drive.id,
+            originalFilename: filename,
+            conflictKey: conflictKey
+        )
 
-            Task { [ipcService = self.ipcService] in
-                await ipcService.postConflict(info)
-            }
-
-            self.logger.info("Conflict notification sent for \(filename, privacy: .public)")
+        Task { [ipcService] in
+            await ipcService.postConflict(info)
         }
+
+        logger.info("Conflict notification sent for \(filename, privacy: .public)")
     }
 }

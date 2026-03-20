@@ -1,16 +1,20 @@
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 /// Displays aggregate upload/download speed across all drives at the top of the tray menu.
 struct SpeedSummaryView: View {
     let driveViewModels: [DS3DriveViewModel]
 
-    private var totalSpeed: Double {
-        driveViewModels.compactMap(\.driveStats.currentSpeedBs).reduce(0, +)
+    private var totalUploadSpeed: Double {
+        driveViewModels.compactMap(\.driveStats.uploadSpeedBs).reduce(0, +)
+    }
+
+    private var totalDownloadSpeed: Double {
+        driveViewModels.compactMap(\.driveStats.downloadSpeedBs).reduce(0, +)
     }
 
     private var isTransferring: Bool {
-        totalSpeed > 0
+        totalUploadSpeed > 0 || totalDownloadSpeed > 0
     }
 
     private var isSyncing: Bool {
@@ -28,13 +32,7 @@ struct SpeedSummaryView: View {
     var body: some View {
         HStack(spacing: DS3Spacing.sm) {
             if isTransferring {
-                Image(systemName: "arrow.up.arrow.down")
-                    .font(DS3Typography.caption)
-                    .foregroundStyle(DS3Colors.accent)
-
-                Text(formatSpeed(totalSpeed))
-                    .font(DS3Typography.caption)
-                    .foregroundStyle(DS3Colors.secondaryText)
+                speedIndicators
             } else if isSyncing {
                 ProgressView()
                     .controlSize(.mini)
@@ -54,6 +52,7 @@ struct SpeedSummaryView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 12, height: 12)
+                    .foregroundStyle(DS3Colors.statusPaused)
 
                 Text(NSLocalizedString("All drives paused", comment: "Speed summary all paused"))
                     .font(DS3Typography.caption)
@@ -73,6 +72,29 @@ struct SpeedSummaryView: View {
         }
         .padding(.horizontal, DS3Spacing.lg)
         .padding(.vertical, DS3Spacing.sm)
+    }
+
+    @ViewBuilder
+    private var speedIndicators: some View {
+        if totalUploadSpeed > 0 {
+            Image(systemName: "arrow.up")
+                .font(DS3Typography.caption)
+                .foregroundStyle(DS3Colors.accent)
+
+            Text(formatSpeed(totalUploadSpeed))
+                .font(DS3Typography.caption)
+                .foregroundStyle(DS3Colors.secondaryText)
+        }
+
+        if totalDownloadSpeed > 0 {
+            Image(systemName: "arrow.down")
+                .font(DS3Typography.caption)
+                .foregroundStyle(DS3Colors.accent)
+
+            Text(formatSpeed(totalDownloadSpeed))
+                .font(DS3Typography.caption)
+                .foregroundStyle(DS3Colors.secondaryText)
+        }
     }
 
     private func formatSpeed(_ bytesPerSecond: Double) -> String {

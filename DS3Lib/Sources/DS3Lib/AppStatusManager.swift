@@ -16,7 +16,7 @@ import os.log
     /// Minimum time (seconds) the status must stay in syncing/indexing before
     /// it can transition to idle. Prevents rapid icon flashing.
     @ObservationIgnored
-    private let minActiveDuration: TimeInterval = 3.0
+    private let minActiveDuration: TimeInterval = 1.0
 
     /// When the status last entered an active state (syncing/indexing).
     @ObservationIgnored
@@ -34,7 +34,7 @@ import os.log
     /// The default singleton instance of the AppStatusManager.
     /// - Returns: the default instance of the AppStatusManager.
     public static func `default`() -> AppStatusManager {
-        return instance
+        instance
     }
 
     /// Updates the global app status.

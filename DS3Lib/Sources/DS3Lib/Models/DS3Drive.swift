@@ -24,42 +24,21 @@ public struct DS3DriveStats: Codable, Sendable {
     /// When the drive was last updated
     public var lastUpdate: Date
 
-    /// The current speed (in bytes per seconds) of the transfers performed by the drive. This is an average speed calculated over a period of time.
-    public var currentSpeedBs: Double? // Bytes per second
+    /// Current upload speed in bytes per second (nil when no uploads active)
+    public var uploadSpeedBs: Double?
 
-    public init(lastUpdate: Date, currentSpeedBs: Double? = nil) {
-        self.lastUpdate = lastUpdate
-        self.currentSpeedBs = currentSpeedBs
+    /// Current download speed in bytes per second (nil when no downloads active)
+    public var downloadSpeedBs: Double?
+
+    /// Whether any transfer is active
+    public var isTransferring: Bool {
+        (uploadSpeedBs ?? 0) > 0 || (downloadSpeedBs ?? 0) > 0
     }
 
-    /// Converts the stats into a human readable string. If the drive is currently performing transfers, it will display the current speed. Otherwise, it will display the time since the last update.
-    public func toString() -> String {
-        if let currentSpeedBs = self.currentSpeedBs {
-            let kilobyte = 1024.0
-            let megabyte = kilobyte * kilobyte
-
-            if currentSpeedBs >= megabyte {
-                // Format speed in MB/s
-                return String(format: "%.2f MB/s", currentSpeedBs / megabyte)
-            } else {
-                // Format speed in KB/s
-                return String(format: "%.2f KB/s", currentSpeedBs / kilobyte)
-            }
-        } else {
-            // Calculate time difference
-            let timeDifference = Calendar.current.dateComponents([.minute, .hour], from: self.lastUpdate, to: Date())
-
-            if let minutes = timeDifference.minute, minutes > 0 {
-                // Display time in minutes ago
-                return "Updated \(minutes) minute\(minutes == 1 ? "" : "s") ago"
-            } else if let hours = timeDifference.hour, hours > 0 {
-                // Display time in hours ago
-                return "Updated \(hours) hour\(hours == 1 ? "" : "s") ago"
-            } else {
-                // If less than a minute, consider it as "just updated"
-                return "Just Updated"
-            }
-        }
+    public init(lastUpdate: Date, uploadSpeedBs: Double? = nil, downloadSpeedBs: Double? = nil) {
+        self.lastUpdate = lastUpdate
+        self.uploadSpeedBs = uploadSpeedBs
+        self.downloadSpeedBs = downloadSpeedBs
     }
 }
 
@@ -71,7 +50,8 @@ public struct DS3DriveStats: Codable, Sendable {
     /// The `SyncAnchor` of the drive.
     public let syncAnchor: SyncAnchor
 
-    /// The name of the drive. This name is displayed in the finder's sidebar (**only if more than one drive is created**).
+    /// The name of the drive. This name is displayed in the finder's sidebar (**only if more than one drive is
+    /// created**).
     /// Drives' names should be unique.
     public var name: String
 
@@ -84,14 +64,14 @@ public struct DS3DriveStats: Codable, Sendable {
         self.name = name
         self.syncAnchor = syncAnchor
     }
-    
+
     private enum CodingKeys: String, CodingKey {
         case id
         case name
         case syncAnchor
         case status
     }
-    
+
     // MARK: - Equatable
 
     public static func == (lhs: DS3Drive, rhs: DS3Drive) -> Bool {
@@ -102,19 +82,19 @@ public struct DS3DriveStats: Codable, Sendable {
 
     public required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         self.id = try container.decode(UUID.self, forKey: .id)
         self.syncAnchor = try container.decode(SyncAnchor.self, forKey: .syncAnchor)
         self.name = try container.decode(String.self, forKey: .name)
     }
-    
+
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.id, forKey: .id)
         try container.encode(self.syncAnchor, forKey: .syncAnchor)
         try container.encode(self.name, forKey: .name)
     }
-    
+
     // MARK: - Hashable
 
     public func hash(into hasher: inout Hasher) {

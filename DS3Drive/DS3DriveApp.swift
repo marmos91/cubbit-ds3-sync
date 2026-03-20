@@ -1,13 +1,13 @@
-import SwiftUI
-import SwiftData
-import os.log
-import UserNotifications
-@preconcurrency import FileProvider
 import DS3Lib
+@preconcurrency import FileProvider
+import os.log
+import SwiftData
+import SwiftUI
+import UserNotifications
 
 @main
 struct DS3DriveApp: App {
-    private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
+    private let logger: Logger = .init(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
 
     private let metadataContainer: ModelContainer?
 
@@ -15,21 +15,17 @@ struct DS3DriveApp: App {
     @AppStorage(DefaultSettings.UserDefaultsKeys.loginItemSet) var loginItemSet: Bool = DefaultSettings.loginItemSet
 
     @State var ds3Authentication: DS3Authentication
-    @State var appStatusManager: AppStatusManager = AppStatusManager.default()
-    @State var ds3DriveManager: DS3DriveManager = DS3DriveManager(appStatusManager: AppStatusManager.default())
+    @State var appStatusManager: AppStatusManager = .default()
+    @State var ds3DriveManager: DS3DriveManager = .init(appStatusManager: AppStatusManager.default())
     private let conflictNotificationHandler = ConflictNotificationHandler()
     private var authFailureObserver: NSObjectProtocol?
     @State private var refreshTask: Task<Void, Never>?
 
     @State var trayMenuVisible: Bool = true
 
-    /// Animation state for syncing tray icon (alternates between frames)
-    @State private var syncAnimationFrame: Int = 0
-    @State private var syncAnimationTimer: Timer?
-
     var body: some Scene {
         // MARK: - Main view
-        
+
         WindowGroup(id: "io.cubbit.DS3Drive.main") {
             Group {
                 if ds3Authentication.isLogged {
@@ -56,9 +52,9 @@ struct DS3DriveApp: App {
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
         .defaultPosition(.center)
-        
+
         // MARK: - Manage drive
-        
+
         WindowGroup(id: "io.cubbit.DS3Drive.drive.manage", for: UUID.self) { $ds3DriveId in
             if let driveId = ds3DriveId, let drive = ds3DriveManager.driveWithID(driveId) {
                 ManageDS3DriveView(ds3Drive: drive)
@@ -68,9 +64,9 @@ struct DS3DriveApp: App {
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
         .defaultPosition(.center)
-        
+
         // MARK: - Preferences
-        
+
         Window("Preferences", id: "io.cubbit.DS3Drive.preferences") {
             if let account = ds3Authentication.account {
                 PreferencesView(
@@ -92,9 +88,9 @@ struct DS3DriveApp: App {
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
         .defaultPosition(.center)
-        
+
         // MARK: - Add new drive
-        
+
         Window("Add new Drive", id: "io.cubbit.DS3Drive.drive.new") {
             SetupSyncView()
                 .environment(ds3Authentication)
@@ -103,53 +99,43 @@ struct DS3DriveApp: App {
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
         .defaultPosition(.center)
-        
-#if os(macOS)
-        // MARK: - Tray Menu
-        
-        MenuBarExtra(isInserted: $trayMenuVisible) {
-            TrayMenuView()
-                .environment(ds3Authentication)
-                .environment(ds3DriveManager)
-                .environment(appStatusManager)
-        } label: {
-            Group {
-                switch appStatusManager.status {
-                case .idle:
-                    Image(.trayIcon)
-                case .syncing, .indexing:
-                    // Animate: alternate between sync icon and base icon
-                    if syncAnimationFrame % 2 == 0 {
-                        Image(.trayIconSync)
-                    } else {
+
+        #if os(macOS)
+
+            // MARK: - Tray Menu
+
+            MenuBarExtra(isInserted: $trayMenuVisible) {
+                TrayMenuView()
+                    .environment(ds3Authentication)
+                    .environment(ds3DriveManager)
+                    .environment(appStatusManager)
+            } label: {
+                Group {
+                    switch appStatusManager.status {
+                    case .idle:
                         Image(.trayIcon)
+                    case .syncing, .indexing:
+                        Image(.trayIconSync)
+                    case .error:
+                        Image(.trayIconError)
+                    case .info:
+                        Image(.trayIconInfo)
+                    case .offline:
+                        Image(.trayIconOffline)
+                    case .paused:
+                        Image(.trayIconPause)
                     }
-                case .error:
-                    Image(.trayIconError)
-                case .info:
-                    Image(.trayIconInfo)
-                case .offline:
-                    Image(.trayIconOffline)
-                case .paused:
-                    Image(.trayIconPause)
                 }
             }
-            .onChange(of: appStatusManager.status) { _, newStatus in
-                if (newStatus == .syncing || newStatus == .indexing) && ds3Authentication.isLogged {
-                    startSyncAnimation()
-                } else {
-                    stopSyncAnimation()
-                }
-            }
-        }
-        .menuBarExtraStyle(.window)
-        .commandsRemoved()
-#endif
+            .menuBarExtraStyle(.window)
+            .commandsRemoved()
+        #endif
     }
-    
+
     init() {
         // Load saved coordinator URL and construct auth with it
-        let coordinatorURL = (try? SharedData.default().loadCoordinatorURLFromPersistence()) ?? CubbitAPIURLs.defaultCoordinatorURL
+        let coordinatorURL = (try? SharedData.default().loadCoordinatorURLFromPersistence()) ?? CubbitAPIURLs
+            .defaultCoordinatorURL
         let urls = CubbitAPIURLs(coordinatorURL: coordinatorURL)
         _ds3Authentication = State(initialValue: DS3Authentication.loadFromPersistenceOrCreateNew(urls: urls))
 
@@ -181,7 +167,10 @@ struct DS3DriveApp: App {
             let domainId = notification.object as? String
             let reason = (notification.userInfo as? [String: String])?["reason"]
 
-            logger.warning("Auth failure from extension: reason=\(reason ?? "unknown", privacy: .public), domain=\(domainId ?? "nil", privacy: .public)")
+            logger
+                .warning(
+                    "Auth failure from extension: reason=\(reason ?? "unknown", privacy: .public), domain=\(domainId ?? "nil", privacy: .public)"
+                )
 
             Task { @MainActor in
                 guard let auth = ds3Authentication, auth.isLogged else {
@@ -226,33 +215,15 @@ struct DS3DriveApp: App {
         }
     }
 
-    // MARK: - Sync Animation
-
-    private func startSyncAnimation() {
-        guard syncAnimationTimer == nil else { return }
-        syncAnimationFrame = 0
-        // Use .common mode so the timer fires even when the menu is open
-        let timer = Timer(timeInterval: 0.5, repeats: true) { _ in
-            DispatchQueue.main.async {
-                self.syncAnimationFrame += 1
-            }
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        syncAnimationTimer = timer
-    }
-
-    private func stopSyncAnimation() {
-        syncAnimationTimer?.invalidate()
-        syncAnimationTimer = nil
-        syncAnimationFrame = 0
-    }
-
     // MARK: - Auth Failure Notification
 
     private static func showSessionExpiredNotification(logger: Logger) {
         let content = UNMutableNotificationContent()
         content.title = NSLocalizedString("Cubbit DS3 Drive", comment: "Auth failure notification title")
-        content.body = NSLocalizedString("Session expired -- sign in to resume syncing", comment: "Auth failure notification body")
+        content.body = NSLocalizedString(
+            "Session expired -- sign in to resume syncing",
+            comment: "Auth failure notification body"
+        )
         content.sound = .default
 
         let request = UNNotificationRequest(
