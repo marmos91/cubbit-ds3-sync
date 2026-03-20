@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import FileProvider
+import FileProvider
 import os.log
 import DS3Lib
 

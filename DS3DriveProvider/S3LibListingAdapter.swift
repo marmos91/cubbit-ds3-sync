@@ -3,7 +3,7 @@ import DS3Lib
 
 /// Adapts the existing S3Lib to conform to SyncEngine's S3ListingProvider protocol.
 /// Lives in the extension target because S3Lib is only available there.
-final class S3LibListingAdapter: S3ListingProvider, @unchecked Sendable {
+final class S3LibListingAdapter: S3ListingProvider, Sendable {
     private let s3Lib: S3Lib
     private let drive: DS3Drive
 

@@ -1,5 +1,5 @@
 import DS3Lib
-import FileProvider
+@preconcurrency import FileProvider
 import os.log
 
 enum CustomActionIdentifier {
@@ -13,17 +13,16 @@ private extension NSFileProviderItemIdentifier {
     }
 }
 
-extension FileProviderExtension: NSFileProviderCustomAction {
+extension FileProviderExtension {
     func performAction(
         identifier actionIdentifier: NSFileProviderExtensionActionIdentifier,
         onItemsWithIdentifiers itemIdentifiers: [NSFileProviderItemIdentifier],
         completionHandler: @escaping (Error?) -> Void
     ) -> Progress {
         let progress = Progress(totalUnitCount: Int64(itemIdentifiers.count))
-        let cb = UnsafeCallback(completionHandler)
 
         guard let drive = self.drive else {
-            cb.handler(NSFileProviderError(.notAuthenticated) as NSError)
+            completionHandler(NSFileProviderError(.notAuthenticated) as NSError)
             return progress
         }
 
@@ -33,7 +32,7 @@ extension FileProviderExtension: NSFileProviderCustomAction {
             let validIdentifiers = itemIdentifiers.filter { !$0.isSystemContainer }
 
             if validIdentifiers.isEmpty {
-                cb.handler(NSFileProviderError(.noSuchItem) as NSError)
+                completionHandler(NSFileProviderError(.noSuchItem) as NSError)
                 return progress
             }
 
@@ -43,46 +42,65 @@ extension FileProviderExtension: NSFileProviderCustomAction {
             self.systemService.copyToClipboard(joined)
             self.logger.info("Copied \(urls.count) S3 URL(s) to clipboard")
             progress.completedUnitCount = Int64(itemIdentifiers.count)
-            cb.handler(nil)
+            completionHandler(nil)
 
         case CustomActionIdentifier.evictItem:
-            guard let manager = NSFileProviderManager(for: self.domain) else {
-                cb.handler(NSFileProviderError(.cannotSynchronize) as NSError)
-                return progress
-            }
-
-            Task {
-                var firstError: Error?
-                for identifier in itemIdentifiers {
-                    if identifier.isSystemContainer {
-                        progress.completedUnitCount += 1
-                        continue
-                    }
-
-                    do {
-                        try await manager.evictItem(identifier: identifier)
-                        try? await self.metadataStore?.setMaterialized(
-                            s3Key: identifier.rawValue, driveId: drive.id, isMaterialized: false
-                        )
-                        self.logger.info("Evicted item \(identifier.rawValue, privacy: .public)")
-                    } catch let error as NSError where error.domain == NSFileProviderErrorDomain
-                        && error.code == NSFileProviderError.nonEvictableChildren.rawValue {
-                        let underlyingCount = (error.underlyingErrors as? [NSError])?.count ?? 0
-                        self.logger.info("Partially evicted folder \(identifier.rawValue, privacy: .public): \(underlyingCount) children still syncing")
-                    } catch {
-                        self.logger.error("Failed to evict item \(identifier.rawValue, privacy: .public): \(error)")
-                        if firstError == nil { firstError = error }
-                    }
-                    progress.completedUnitCount += 1
-                }
-                cb.handler(firstError)
-            }
+            performEvictAction(
+                itemIdentifiers: itemIdentifiers,
+                drive: drive,
+                progress: progress,
+                completionHandler: completionHandler
+            )
 
         default:
             self.logger.warning("Unknown custom action: \(actionIdentifier.rawValue, privacy: .public)")
-            cb.handler(NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError))
+            completionHandler(NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError))
         }
 
         return progress
+    }
+
+    private func performEvictAction(
+        itemIdentifiers: [NSFileProviderItemIdentifier],
+        drive: DS3Drive,
+        progress: Progress,
+        completionHandler: @escaping (Error?) -> Void
+    ) {
+        guard let manager = NSFileProviderManager(for: self.domain) else {
+            completionHandler(NSFileProviderError(.cannotSynchronize) as NSError)
+            return
+        }
+
+        let driveId = drive.id
+        let metadataStore = self.metadataStore
+        let logger = self.logger
+        let boxedManager = UncheckedBox(value: manager)
+        let boxedCb = UncheckedBox(value: completionHandler)
+        Task {
+            var firstError: Error?
+            for identifier in itemIdentifiers {
+                if identifier.isSystemContainer {
+                    progress.completedUnitCount += 1
+                    continue
+                }
+
+                do {
+                    try await boxedManager.value.evictItem(identifier: identifier)
+                    try? await metadataStore?.setMaterialized(
+                        s3Key: identifier.rawValue, driveId: driveId, isMaterialized: false
+                    )
+                    logger.info("Evicted item \(identifier.rawValue, privacy: .public)")
+                } catch let error as NSError where error.domain == NSFileProviderErrorDomain
+                    && error.code == NSFileProviderError.nonEvictableChildren.rawValue {
+                    let underlyingCount = error.underlyingErrors.count
+                    logger.info("Partially evicted folder \(identifier.rawValue, privacy: .public): \(underlyingCount) children still syncing")
+                } catch {
+                    logger.error("Failed to evict item \(identifier.rawValue, privacy: .public): \(error)")
+                    if firstError == nil { firstError = error }
+                }
+                progress.completedUnitCount += 1
+            }
+            boxedCb.value(firstError)
+        }
     }
 }

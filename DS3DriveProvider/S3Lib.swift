@@ -1,19 +1,18 @@
 // swiftlint:disable file_length
 import Foundation
 import SotoS3
-import Atomics
 import FileProvider
 import os.log
 import DS3Lib
 
-/// Class that contains the logic to interact with S3
-class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
+/// Actor that contains the logic to interact with S3
+actor S3Lib { // swiftlint:disable:this type_body_length
     typealias Logger = os.Logger
-    
+
     private let logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.transfer.rawValue)
     private let notificationManager: NotificationManager
     private let s3: S3
-    internal let isShutdown = ManagedAtomic(false) // <Bool>.makeAtomic(value: false)
+    private var _isShutdown = false
     let pendingUploadStore: PendingUploadStore
 
     init(withS3 s3: S3, withNotificationManager notificationManager: NotificationManager, pendingUploadStore: PendingUploadStore = PendingUploadStore()) {
@@ -38,19 +37,21 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     /// Returns the S3 key as-is. Item identifiers already contain decoded S3 keys
     /// (decoded during listS3Items). Applying decodeS3Key again would corrupt
     /// literal + characters in filenames (e.g., "Redditi + IRAP").
-    private func decodedKey(_ key: String) throws -> String {
-        return key
+    nonisolated private func decodedKey(_ key: String) -> String {
+        key
     }
-    
+
     func shutdown() throws {
-        if !self.isShutdown.load(ordering: .relaxed) {
+        if !_isShutdown {
             try self.s3.client.syncShutdown()
-            self.isShutdown.store(true, ordering: .relaxed)
+            _isShutdown = true
         }
     }
-    
+
+    var isShutdown: Bool { _isShutdown }
+
     // MARK: - List and metadata
-    
+
     /// List S3 items for a given drive with a given prefix
     /// - Parameters:
     ///   - drive: the DS3 Drive to list items for
@@ -59,7 +60,6 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     ///   - continuationToken: the continuation token to use for the listing
     ///   - date: the optional date to filter items by
     /// - Returns: a tuple containing the list of items and the optional continuation token
-    @Sendable
     func listS3Items(
      forDrive drive: DS3Drive,
      withPrefix prefix: String? = nil,
@@ -68,7 +68,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
      fromDate date: Date? = nil
     ) async throws -> ([S3Item], String?) {
         self.logger.debug("Listing bucket \(drive.syncAnchor.bucket.name) for prefix \(prefix ?? "no-prefix") recursively=\(recursively)")
-        
+
         let request = S3.ListObjectsV2Request(
             bucket: drive.syncAnchor.bucket.name,
             continuationToken: continuationToken,
@@ -77,17 +77,17 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             maxKeys: DefaultSettings.S3.listBatchSize,
             prefix: prefix
         )
-        
+
         let response = try await self.s3.listObjectsV2(request)
         var items: [S3Item] = []
-        
+
         if let commonPrefixes = response.commonPrefixes {
             for commonPrefix in commonPrefixes {
                 guard let rawPrefix = commonPrefix.prefix,
                       let commonPrefix = try? Self.decodeS3Key(rawPrefix) else {
                     continue
                 }
-                
+
                 items.append(
                      S3Item(
                          identifier: NSFileProviderItemIdentifier(commonPrefix),
@@ -99,7 +99,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 )
             }
         }
-        
+
         if let contents = response.contents {
             for object in contents {
                 guard let rawKey = object.key,
@@ -130,9 +130,9 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 items.append(s3Item)
             }
         }
-        
+
         self.logger.debug("Listed \(items.count) items")
-        
+
         guard let isTruncated = response.isTruncated else {
             throw EnumeratorError.missingParameters
         }
@@ -150,7 +150,6 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     ///   - identifier: the identifier of the S3Item to retrieve metadata for
     ///   - drive: the DS3Drive the S3Item belongs to
     /// - Returns: the S3Item populated with metadata
-    @Sendable
     func remoteS3Item(
         for identifier: NSFileProviderItemIdentifier,
         drive: DS3Drive
@@ -164,16 +163,16 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 )
             )
         }
-        
-        let key = try decodedKey(identifier.rawValue)
+
+        let key = decodedKey(identifier.rawValue)
 
         let request = S3.HeadObjectRequest(
             bucket: drive.syncAnchor.bucket.name,
             key: key
         )
-        
+
         let response = try await self.s3.headObject(request)
-        
+
         let fileSize = response.contentLength ?? 0
 
         return S3Item(
@@ -188,13 +187,12 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             )
         )
     }
-    
+
     /// Deletes a remote S3Item. If a folder item is passed, it will be deleted recursively. If the force parameter is set to true, the folder s3 key will be deleted directly without recursively deleting all the items inside it.
     /// - Parameters:
     ///   - s3Item: the S3Item to delete
     ///   - progress: the optional progress object to update
     ///   - force: wheter to force the delete of the single item without recursively deleting all the items inside it
-    @Sendable
     func deleteS3Item(
         _ s3Item: S3Item,
         withProgress progress: Progress? = nil,
@@ -206,8 +204,8 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 withProgress: progress
             )
         }
-        
-        let decodedItemKey = try decodedKey(s3Item.identifier.rawValue)
+
+        let decodedItemKey = decodedKey(s3Item.identifier.rawValue)
         self.logger.debug("Deleting object \(decodedItemKey, privacy: .public)")
 
         let deleteProgress = Progress(totalUnitCount: 1)
@@ -217,9 +215,9 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             bucket: s3Item.drive.syncAnchor.bucket.name,
             key: decodedItemKey
         )
-        
+
         _ = try await self.s3.deleteObject(request)
-        
+
         deleteProgress.completedUnitCount += 1
     }
 
@@ -227,13 +225,12 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     /// - Parameters:
     ///   - s3Item: the folder item to delete
     ///   - progress: the optional progress object to update
-    @Sendable
     private func deleteFolder(
         _ s3Item: S3Item,
         withProgress progress: Progress? = nil
     ) async throws {
         var continuationToken: String?
-        let folderPrefix = try decodedKey(s3Item.itemIdentifier.rawValue)
+        let folderPrefix = decodedKey(s3Item.itemIdentifier.rawValue)
         var totalFailures = 0
 
         repeat {
@@ -294,13 +291,12 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     ///   - newName: the new name for the S3Item
     ///   - progress: the optional progress object to update. It is used when the object renamed is a folder as we need to recursively rename all the items inside it.
     /// - Returns: the renamed S3Item
-    @Sendable
     func renameS3Item(
         _ s3Item: S3Item,
         newName: String,
         withProgress progress: Progress? = nil
     ) async throws -> S3Item {
-        let decodedIdentifier = try decodedKey(s3Item.identifier.rawValue)
+        let decodedIdentifier = decodedKey(s3Item.identifier.rawValue)
         let isFolder = decodedIdentifier.hasSuffix(String(DefaultSettings.S3.delimiter))
         let trimmedIdentifier = isFolder ? String(decodedIdentifier.dropLast()) : decodedIdentifier
         let components = trimmedIdentifier.split(separator: DefaultSettings.S3.delimiter)
@@ -316,13 +312,12 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
 
         return try await self.moveS3Item(s3Item, toKey: newKey, withProgress: progress)
     }
-    
+
     /// Moves a remote S3Item to a new location. If a folder is passed, it will be moved recursively.
     /// - Parameters:
     ///   - s3Item: the S3Item to move
     ///   - key: the new key for the S3Item
     ///   - progress: the optional progress object to update. It is used when the object moved is a folder as we need to recursively move all the items inside it.
-    @Sendable
     func moveS3Item(
         _ s3Item: S3Item,
         toKey key: String,
@@ -355,14 +350,13 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             objectMetadata: s3Item.metadata
         )
     }
-    
+
     /// Copies a remote S3Item to a new location. If a folder is passed, it will be copied recursively.
     /// - Parameters:
     ///   - s3Item: the S3Item to copy
     ///   - key: the new key for the S3Item
     ///   - progress: the optional progress object to update. It is used when the object copied is a folder as we need to recursively copy all the items inside it.
     ///   - force: whether to force the copy of the single item without recursively copying all the items inside it
-    @Sendable
     func copyS3Item(
         _ s3Item: S3Item,
         toKey key: String,
@@ -371,42 +365,41 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     ) async throws {
         if !force && s3Item.isFolder {
             self.logger.debug("Copying folder \(s3Item.itemIdentifier.rawValue, privacy: .public) to \(key, privacy: .public)")
-            
+
             return try await self.copyFolder(
                 s3Item,
                 toKey: key,
                 withProgress: progress
             )
         }
-        
-        let decodedCopyKey = try decodedKey(s3Item.itemIdentifier.rawValue)
+
+        let decodedCopyKey = decodedKey(s3Item.itemIdentifier.rawValue)
         guard let copySource = "\(s3Item.drive.syncAnchor.bucket.name)/\(decodedCopyKey)".addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
             logger.error("Failed to encode copy source for key: \(decodedCopyKey, privacy: .public)")
             throw FileProviderExtensionError.parseError
         }
-        
+
         self.logger.debug("Copying s3Item \(s3Item.itemIdentifier.rawValue, privacy: .public) to \(key, privacy: .public)")
-        
+
         let copyProgress = Progress(totalUnitCount: 1)
         progress?.addChild(copyProgress, withPendingUnitCount: 1)
-        
+
         let copyRequest = S3.CopyObjectRequest(
             bucket: s3Item.drive.syncAnchor.bucket.name,
             copySource: copySource,
             key: key
         )
-        
+
         _ = try await self.s3.copyObject(copyRequest)
-        
+
         copyProgress.completedUnitCount += 1
     }
-    
+
     /// Copies a remote folder to a new location recursively
     /// - Parameters:
     ///   - s3Item: the S3Item folder to copy
     ///   - key: the new key for the S3Item
     ///   - progress: the optional progress object to update
-    @Sendable
     private func copyFolder(
         _ s3Item: S3Item,
         toKey key: String,
@@ -414,8 +407,8 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     ) async throws {
         var continuationToken: String?
         var items = [S3Item]()
-        
-        let prefix = try decodedKey(s3Item.itemIdentifier.rawValue)
+
+        let prefix = decodedKey(s3Item.itemIdentifier.rawValue)
         let newPrefix = key
 
         repeat {
@@ -431,7 +424,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             }
 
             for item in items {
-                let decodedItemKey = try decodedKey(item.identifier.rawValue)
+                let decodedItemKey = decodedKey(item.identifier.rawValue)
                 let newKey = decodedItemKey.replacingOccurrences(of: prefix, with: newPrefix)
 
                 self.logger.debug("New key is \(newKey, privacy: .public)")
@@ -447,9 +440,9 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         // Copy folder itself when it's empty
         if items.isEmpty {
             self.logger.debug("Copying enclosing folder \(prefix, privacy: .public)")
-            let decodedFolderKey = try decodedKey(s3Item.identifier.rawValue)
+            let decodedFolderKey = decodedKey(s3Item.identifier.rawValue)
             let newKey = decodedFolderKey.replacingOccurrences(of: prefix, with: newPrefix)
-            
+
             try await self.copyS3Item(
                 s3Item,
                 toKey: newKey,
@@ -458,32 +451,31 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             )
         }
     }
-    
+
     // MARK: - Transfers
-    
+
     /// Downloads a given S3Item from S3 to a temporary file
     /// - Parameters:
     ///   - s3Item: the S3Item to download
     ///   - temporaryFolder: the temporary folder to use for the download
     ///   - progress: the optional progress to use for the download
     /// - Returns: the URL of the downloaded file
-    @Sendable
     func getS3Item(
         _ s3Item: S3Item,
         withTemporaryFolder temporaryFolder: URL,
         withProgress progress: Progress?
     ) async throws -> URL {
         let fileSize: Int64 = .init(truncating: s3Item.documentSize ?? 0)
-        
+
         let fileURL = try temporaryFileURL(withTemporaryFolder: temporaryFolder)
         let fileHandle = try FileHandle(forWritingTo: fileURL)
-        
+
         defer { fileHandle.closeFile() }
-        
+
         var bytesDownloaded: Int64 = 0
 
         // Send an initial notification so the file appears in the tray immediately
-        self.notificationManager.sendTransferSpeedNotification(
+        await notificationManager.sendTransferSpeedNotification(
             DriveTransferStats(
                 driveId: s3Item.drive.id,
                 size: 0,
@@ -496,12 +488,16 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
 
         let request = S3.GetObjectRequest(
             bucket: s3Item.drive.syncAnchor.bucket.name,
-            key: try decodedKey(s3Item.identifier.rawValue)
+            key: decodedKey(s3Item.identifier.rawValue)
         )
+
+        let nm = self.notificationManager
+        let driveId = s3Item.drive.id
+        let filename = s3Item.filename
 
         do {
             let downloadPartStartTime = Date()
-            
+
             _ = try await self.s3.getObjectStreaming(request) { byteBuffer, eventLoop in
                 let bufferSize = Int64(byteBuffer.readableBytes)
                 byteBuffer.withUnsafeReadableBytes { bufferPointer in
@@ -515,25 +511,24 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 }
 
                 let partDownloadDuration = Date().timeIntervalSince(downloadPartStartTime)
-                
+
                 bytesDownloaded += bufferSize
-                
+
                 if fileSize > 0 {
                     let percentage = (Double(bytesDownloaded) / Double(fileSize))
-                    
+
                     progress?.completedUnitCount = Int64(percentage * 100)
                 }
-                
-                self.notificationManager.sendTransferSpeedNotification(
-                    DriveTransferStats(
-                        driveId: s3Item.drive.id,
-                        size: bytesDownloaded,
-                        duration: partDownloadDuration,
-                        direction: .download,
-                        filename: s3Item.filename,
-                        totalSize: fileSize > 0 ? fileSize : nil
-                    )
+
+                let stats = DriveTransferStats(
+                    driveId: driveId,
+                    size: bytesDownloaded,
+                    duration: partDownloadDuration,
+                    direction: .download,
+                    filename: filename,
+                    totalSize: fileSize > 0 ? fileSize : nil
                 )
+                Task { await nm.sendTransferSpeedNotification(stats) }
 
                 return eventLoop.makeSucceededFuture(())
             }
@@ -553,14 +548,13 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     ///   - temporaryFolder: the temporary folder to use for the download
     ///   - progress: the optional progress object to update
     /// - Returns: a tuple of the downloaded file URL and a fully-populated S3Item
-    @Sendable
     func downloadS3Item(
         identifier: NSFileProviderItemIdentifier,
         drive: DS3Drive,
         temporaryFolder: URL,
         progress: Progress?
     ) async throws -> (URL, S3Item) {
-        let key = try decodedKey(identifier.rawValue)
+        let key = decodedKey(identifier.rawValue)
         let filename = key.components(separatedBy: "/").last
 
         let fileURL = try temporaryFileURL(withTemporaryFolder: temporaryFolder)
@@ -574,6 +568,9 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             bucket: drive.syncAnchor.bucket.name,
             key: key
         )
+
+        let nm = self.notificationManager
+        let driveId = drive.id
 
         do {
             let downloadStartTime = Date()
@@ -597,16 +594,15 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
 
                 let duration = Date().timeIntervalSince(downloadStartTime)
 
-                self.notificationManager.sendTransferSpeedNotification(
-                    DriveTransferStats(
-                        driveId: drive.id,
-                        size: bytesDownloaded,
-                        duration: duration,
-                        direction: .download,
-                        filename: filename,
-                        totalSize: nil
-                    )
+                let stats = DriveTransferStats(
+                    driveId: driveId,
+                    size: bytesDownloaded,
+                    duration: duration,
+                    direction: .download,
+                    filename: filename,
+                    totalSize: nil
                 )
+                Task { await nm.sendTransferSpeedNotification(stats) }
 
                 return eventLoop.makeSucceededFuture(())
             }
@@ -644,7 +640,6 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     ///   - temporaryFolder: the temporary folder to use for the download
     ///   - progress: the progress object to update
     /// - Returns: the URL of the downloaded partial file
-    @Sendable
     func getS3ItemRange(
         identifier: NSFileProviderItemIdentifier,
         drive: DS3Drive,
@@ -659,9 +654,13 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
 
         let request = S3.GetObjectRequest(
             bucket: drive.syncAnchor.bucket.name,
-            key: try decodedKey(identifier.rawValue),
+            key: decodedKey(identifier.rawValue),
             range: range
         )
+
+        let nm = self.notificationManager
+        let driveId = drive.id
+        let rawValue = identifier.rawValue
 
         do {
             let downloadStart = Date()
@@ -682,16 +681,15 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
 
                 let duration = Date().timeIntervalSince(downloadStart)
 
-                self.notificationManager.sendTransferSpeedNotification(
-                    DriveTransferStats(
-                        driveId: drive.id,
-                        size: bytesDownloaded,
-                        duration: duration,
-                        direction: .download,
-                        filename: identifier.rawValue.components(separatedBy: "/").last,
-                        totalSize: nil
-                    )
+                let stats = DriveTransferStats(
+                    driveId: driveId,
+                    size: bytesDownloaded,
+                    duration: duration,
+                    direction: .download,
+                    filename: rawValue.components(separatedBy: "/").last,
+                    totalSize: nil
                 )
+                Task { await nm.sendTransferSpeedNotification(stats) }
 
                 return eventLoop.makeSucceededFuture(())
             }
@@ -710,7 +708,6 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     ///   - s3Item: the S3Item to upload containing the metadata
     ///   - fileURL: the optional fileURL to use for the upload (folders don't require a fileURL)
     ///   - progress: the optional progress to use for the upload
-    @Sendable
     func putS3Item(
         _ s3Item: S3Item,
         fileURL: URL? = nil,
@@ -722,13 +719,12 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             return try await self.putS3ItemMultipart(s3Item, fileURL: fileURL, withProgress: progress)
         }
     }
-    
+
     /// Performs a standard PUT request for a given S3Item
     /// - Parameters:
     ///   - s3Item: the S3Item to upload
     ///   - fileURL: the optional fileURL to use for the upload (folders don't require a fileURL)
     ///   - progress: the optional progress to use for the upload
-    @Sendable
     private func putS3ItemStandard(
         _ s3Item: S3Item,
         fileURL: URL? = nil,
@@ -736,8 +732,8 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     ) async throws -> String? {
         var request: S3.PutObjectRequest
         var size: Int64 = 0
-        let key = try decodedKey(s3Item.itemIdentifier.rawValue)
-        
+        let key = decodedKey(s3Item.itemIdentifier.rawValue)
+
         if let fileURL {
             let uploadHandle: FileHandle
             do {
@@ -772,11 +768,11 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 key: key
             )
         }
-        
+
         self.logger.debug("Sending standard PUT request for \(key, privacy: .public)")
 
         // Send an initial notification so the file appears in the tray immediately
-        self.notificationManager.sendTransferSpeedNotification(
+        await notificationManager.sendTransferSpeedNotification(
             DriveTransferStats(
                 driveId: s3Item.drive.id,
                 size: 0,
@@ -790,8 +786,8 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         let uploadStart = Date()
         let putObjectResponse = try await self.s3.putObject(request)
         let transferTime = Date().timeIntervalSince(uploadStart)
-        
-        self.notificationManager.sendTransferSpeedNotification(
+
+        await notificationManager.sendTransferSpeedNotification(
             DriveTransferStats(
                 driveId: s3Item.drive.id,
                 size: size,
@@ -801,7 +797,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 totalSize: size
             )
         )
-        
+
         let eTag = putObjectResponse.eTag ?? ""
 
         self.logger.debug("Got ETag \(eTag, privacy: .public) for \(key, privacy: .public)")
@@ -811,13 +807,8 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         return putObjectResponse.eTag
     }
 
-    /// Performs a multipart upload for a given S3Item using parallel part uploads.
-    /// Validates ETag from CompleteMultipartUpload response and aborts orphaned parts on any failure.
-    /// - Parameters:
-    ///   - s3Item: the S3Item to upload
-    ///   - fileURL: the optional fileURL to use for the upload (folders don't require a fileURL)
-    ///   - progress: the optional progress to use for the upload
-    @Sendable
+    // Performs a multipart upload for a given S3Item using parallel part uploads.
+    // Validates ETag from CompleteMultipartUpload response and aborts orphaned parts on any failure.
     // swiftlint:disable:next function_body_length
     private func putS3ItemMultipart(
         _ s3Item: S3Item,
@@ -828,7 +819,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
             throw FileProviderExtensionError.fileNotFound
         }
 
-        let key = try decodedKey(s3Item.itemIdentifier.rawValue)
+        let key = decodedKey(s3Item.itemIdentifier.rawValue)
         let bucket = s3Item.drive.syncAnchor.bucket.name
         let driveId = s3Item.drive.id
 
@@ -867,7 +858,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         )
 
         // Send an initial notification so the file appears in the tray immediately
-        self.notificationManager.sendTransferSpeedNotification(
+        await notificationManager.sendTransferSpeedNotification(
             DriveTransferStats(
                 driveId: driveId,
                 size: 0,
@@ -905,7 +896,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
                 func enqueueNext() {
                     guard let part = partIterator.next() else { return }
                     group.addTask {
-                        let data = try self.readFilePart(at: fileURL, offset: part.offset, length: part.length)
+                        let data = try Self.readFilePart(at: fileURL, offset: part.offset, length: part.length)
                         return try await self.uploadPart(context: context, partNumber: part.partNumber, data: data)
                     }
                 }
@@ -965,7 +956,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     }
 
     /// Groups the constant parameters shared across all parts of a multipart upload.
-    private struct MultipartUploadContext {
+    private struct MultipartUploadContext: Sendable {
         let bucket: String
         let key: String
         let uploadId: String
@@ -975,13 +966,12 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     }
 
     /// Describes an upload part by its position within the file.
-    private struct PartDescriptor {
+    private struct PartDescriptor: Sendable {
         let partNumber: Int
         let offset: Int
         let length: Int
     }
 
-    @Sendable
     private func uploadPart(
         context: MultipartUploadContext,
         partNumber: Int,
@@ -999,7 +989,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         let uploadPartResponse = try await self.s3.uploadPart(uploadPartRequest)
         let transferTime = Date().timeIntervalSince(uploadStart)
 
-        self.notificationManager.sendTransferSpeedNotification(
+        await notificationManager.sendTransferSpeedNotification(
             DriveTransferStats(
                 driveId: context.driveId,
                 size: Int64(data.count),
@@ -1020,7 +1010,7 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
     }
 
     /// Reads a chunk of a file at the specified offset and length.
-    private func readFilePart(at fileURL: URL, offset: Int, length: Int) throws -> Data {
+    private static func readFilePart(at fileURL: URL, offset: Int, length: Int) throws -> Data {
         let handle = try FileHandle(forReadingFrom: fileURL)
         defer { try? handle.close() }
         handle.seek(toFileOffset: UInt64(offset))
@@ -1029,26 +1019,25 @@ class S3Lib: @unchecked Sendable { // swiftlint:disable:this type_body_length
         }
         return data
     }
-    
+
     /// Aborts a multipart upload for a given S3Item and uploadId
     /// - Parameters:
     ///   - s3Item: the S3Item to abort the upload for
     ///   - uploadId: the uploadId to use for the abort
-    @Sendable
     func abortS3MultipartUpload(
         for s3Item: S3Item,
         withUploadId uploadId: String
     ) async throws {
-        let key = try decodedKey(s3Item.itemIdentifier.rawValue)
+        let key = decodedKey(s3Item.itemIdentifier.rawValue)
 
         self.logger.warning("Aborting multipart upload for key \(key, privacy: .public) uploadId \(uploadId, privacy: .public)")
-        
+
         let abortRequest = S3.AbortMultipartUploadRequest(
             bucket: s3Item.drive.syncAnchor.bucket.name,
             key: key,
             uploadId: uploadId
         )
-        
+
         _ = try await self.s3.abortMultipartUpload(abortRequest)
     }
 }
