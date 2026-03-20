@@ -1,18 +1,18 @@
-import Foundation
-import FileProvider
-import SwiftUI
-import SwiftData
-import os.log
 import DS3Lib
+import FileProvider
+import Foundation
+import os.log
+import SwiftData
+import SwiftUI
 
 /// Manages a drive
 @Observable class DS3DriveViewModel {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
-    
+
     var drive: DS3Drive
     var driveStatus: DS3DriveStatus = .idle
-    var driveStats: DS3DriveStats = DS3DriveStats(lastUpdate: Date())
-    
+    var driveStats: DS3DriveStats = .init(lastUpdate: Date())
+
     var totalTransferredSize: Int64 = 0
     var totalTransferDuration: TimeInterval = 0
     var transferStatsResetTimer: Timer?
@@ -23,6 +23,11 @@ import DS3Lib
 
     /// Tracks the last reported cumulative size per filename to compute deltas
     private var lastReportedSize: [String: Int64] = [:]
+
+    /// Smoothed speed (EMA) to avoid wild fluctuations in the tray display.
+    /// Alpha of 0.2 means ~80% weight on previous average, ~20% on new sample.
+    private var smoothedSpeed: Double?
+    private let speedSmoothingAlpha: Double = 0.2
 
     /// Tracks recently transferred files for this drive
     var recentFilesTracker = RecentFilesTracker()
@@ -35,7 +40,7 @@ import DS3Lib
     func refreshRecentFiles() {
         recentFiles = recentFilesTracker.entries(forDrive: drive.id)
     }
-    
+
     init(drive: DS3Drive) {
         self.drive = drive
 
@@ -46,7 +51,7 @@ import DS3Lib
 
         self.setupObserver()
     }
-    
+
     deinit {
         transferStatsResetTimer?.invalidate()
         idleDebounceTimer?.invalidate()
@@ -54,7 +59,7 @@ import DS3Lib
             .default()
             .removeObserver(self)
     }
-    
+
     /// Sets up the observer for the drive to listen for notifications from the extension
     private func setupObserver() {
         DistributedNotificationCenter.default().addObserver(
@@ -64,7 +69,7 @@ import DS3Lib
             object: nil,
             suspensionBehavior: .deliverImmediately
         )
-        
+
         DistributedNotificationCenter.default().addObserver(
             self,
             selector: #selector(DS3DriveViewModel.transferSpeedReceived),
@@ -73,17 +78,20 @@ import DS3Lib
             suspensionBehavior: .deliverImmediately
         )
     }
-    
+
     /// Updates drive stats when it receives a notification from the extension
     /// - Parameter notification: the notification
     @objc @MainActor
     private func transferSpeedReceived(_ notification: Notification) {
         guard
             let stringDriveStats = notification.object as? String,
-            let driveTransferStats = try? JSONDecoder().decode(DriveTransferStats.self, from: Data(stringDriveStats.utf8)),
+            let driveTransferStats = try? JSONDecoder().decode(
+                DriveTransferStats.self,
+                from: Data(stringDriveStats.utf8)
+            ),
             driveTransferStats.driveId == self.drive.id // Only update if the notification is for this drive
         else { return }
-        
+
         self.transferStatsResetTimer?.invalidate()
 
         // Compute delta from cumulative size to avoid double-counting
@@ -95,11 +103,17 @@ import DS3Lib
         self.totalTransferredSize += delta
         self.totalTransferDuration += driveTransferStats.duration
 
-        // Speed: use delta / duration for instantaneous speed
-        let speed: Double? = driveTransferStats.duration > 0
-            ? Double(delta) / driveTransferStats.duration
-            : nil
-        self.driveStats.currentSpeedBs = speed
+        // Speed: compute instantaneous then apply EMA for smooth display
+        if driveTransferStats.duration > 0 {
+            let instantaneous = Double(delta) / driveTransferStats.duration
+            if let previous = self.smoothedSpeed {
+                self.smoothedSpeed = self
+                    .speedSmoothingAlpha * instantaneous + (1 - self.speedSmoothingAlpha) * previous
+            } else {
+                self.smoothedSpeed = instantaneous
+            }
+            self.driveStats.currentSpeedBs = self.smoothedSpeed
+        }
 
         // Track in recent files with speed and progress
         if let filename = driveTransferStats.filename, !filename.isEmpty {
@@ -111,17 +125,21 @@ import DS3Lib
                 timestamp: Date(),
                 transferredBytes: driveTransferStats.size,
                 totalBytes: driveTransferStats.totalSize,
-                speed: speed
+                speed: self.smoothedSpeed
             )
             self.recentFilesTracker.add(entry)
             self.refreshRecentFiles()
         }
 
-        self.transferStatsResetTimer = Timer.scheduledTimer(withTimeInterval: DefaultSettings.Tray.driveStatsReset, repeats: false) { [weak self] _ in
+        self.transferStatsResetTimer = Timer.scheduledTimer(
+            withTimeInterval: DefaultSettings.Tray.driveStatsReset,
+            repeats: false
+        ) { [weak self] _ in
             guard let self else { return }
             self.lastReportedSize.removeAll()
             self.totalTransferredSize = 0
             self.totalTransferDuration = 0
+            self.smoothedSpeed = nil
             self.driveStats.currentSpeedBs = nil
             self.driveStats.lastUpdate = Date()
 
@@ -134,7 +152,7 @@ import DS3Lib
             self.refreshRecentFiles()
         }
     }
-    
+
     /// Updates drive status when it receives a notification from the extension.
     /// Idle transitions are debounced by 2s to prevent the tray icon from
     /// flashing between sync and idle during parallel file operations.
@@ -143,7 +161,10 @@ import DS3Lib
     private func driveStatusChanged(_ notification: Notification) {
         guard
             let stringDrive = notification.object as? String,
-            let updateDriveStatusNotification = try? JSONDecoder().decode(DS3DriveStatusChange.self, from: Data(stringDrive.utf8)),
+            let updateDriveStatusNotification = try? JSONDecoder().decode(
+                DS3DriveStatusChange.self,
+                from: Data(stringDrive.utf8)
+            ),
             updateDriveStatusNotification.driveId == self.drive.id // Only update if the notification is for this drive
         else { return }
 
@@ -151,7 +172,7 @@ import DS3Lib
 
         // While paused, ignore extension status updates (they'd be stale .idle/.error
         // from failed operations). Only allow the .paused status itself through.
-        if self.driveStatus == .paused && newStatus != .paused {
+        if self.driveStatus == .paused, newStatus != .paused {
             return
         }
 
@@ -169,8 +190,13 @@ import DS3Lib
 
                 // When transitioning from sync to idle, mark all syncing entries as completed
                 if previousStatus == .sync {
-                    for entry in self.recentFilesTracker.entries(forDrive: self.drive.id) where entry.status == .syncing {
-                        self.recentFilesTracker.update(filename: entry.filename, driveId: self.drive.id, status: .completed)
+                    let entries = self.recentFilesTracker.entries(forDrive: self.drive.id)
+                    for entry in entries where entry.status == .syncing {
+                        self.recentFilesTracker.update(
+                            filename: entry.filename,
+                            driveId: self.drive.id,
+                            status: .completed
+                        )
                     }
                     self.refreshRecentFiles()
                 }
@@ -204,20 +230,21 @@ import DS3Lib
 
         return URL(string: url)
     }
-    
+
     /// Opens finder at the drive root
     func openFinder() async throws {
         let domain = self.fileProviderDomain()
-        
-        guard let url = try? await NSFileProviderManager(for: domain)?.getUserVisibleURL(for: .rootContainer) else { return }
-            
+
+        guard let url = try? await NSFileProviderManager(for: domain)?.getUserVisibleURL(for: .rootContainer)
+        else { return }
+
         self.logger.debug("Opening finder at url \(url.path())")
-        
+
         _ = url.startAccessingSecurityScopedResource()
         NSWorkspace.shared.activateFileViewerSelecting([url])
         url.stopAccessingSecurityScopedResource()
     }
-    
+
     /// Reenumerates the drive
     func reEnumerate() async throws {
         let domain = self.fileProviderDomain()
@@ -257,7 +284,7 @@ import DS3Lib
         self.driveStatus = .idle
         self.logger.info("Sync reset complete for domain \(domain.displayName)")
     }
-    
+
     /// Returns the drive's file provider domain
     /// - Returns: the drive's file provider domain
     func fileProviderDomain() -> NSFileProviderDomain {

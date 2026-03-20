@@ -1,9 +1,9 @@
+import DS3Lib
 import Foundation
 import os.log
-import DS3Lib
 
 actor NotificationManager {
-    private let logger: Logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.extension.rawValue)
+    private let logger: Logger = .init(subsystem: LogSubsystem.provider, category: LogCategory.extension.rawValue)
 
     private let drive: DS3Drive
     private let ipcService: any IPCService
@@ -25,20 +25,21 @@ actor NotificationManager {
         self.ipcService = ipcService ?? makeDefaultIPCService()
     }
 
-    /// Sends a notification to the app with the current status of the drive debounced. If you want to send the notification immediately, use `sendDriveChangedNotification(status: DS3DriveStatus)`
+    /// Sends a notification to the app with the current status of the drive debounced. If you want to send the
+    /// notification immediately, use `sendDriveChangedNotification(status: DS3DriveStatus)`
     /// - Parameters:
     ///   - status: status to send
     ///   - isFileOperation: whether this call is the completion of a file operation (fetch/create/modify/delete)
     ///     that was previously tracked with an immediate `.sync`. Only file-operation completions should
     ///     decrement the active operations counter. Enumerator status updates should pass `false`.
     func sendDriveChangedNotificationWithDebounce(status: DS3DriveStatus, isFileOperation: Bool = true) {
-        if isFileOperation && activeOperations > 0 && (status == .idle || status == .error) {
+        if isFileOperation, activeOperations > 0, status == .idle || status == .error {
             activeOperations -= 1
         }
 
-        // While file operations are still active, suppress idle/error debounce
-        // so the status stays on .sync until all operations finish.
-        if isFileOperation && activeOperations > 0 {
+        // While file operations are still active, suppress idle/error from ANY source
+        // (including enumerator) so the status stays on .sync until all operations finish.
+        if activeOperations > 0, status == .idle || status == .error {
             debounceTask?.cancel()
             debounceTask = nil
             return
@@ -53,7 +54,8 @@ actor NotificationManager {
         }
     }
 
-    /// Sends a notification to the app with the current status of the drive. If you want to debounce the notification, use `sendDriveChangedNotificationWithDebounce(status: DS3DriveStatus)`
+    /// Sends a notification to the app with the current status of the drive. If you want to debounce the notification,
+    /// use `sendDriveChangedNotificationWithDebounce(status: DS3DriveStatus)`
     /// - Parameter status: the status to send
     func sendDriveChangedNotification(status: DS3DriveStatus) {
         debounceTask?.cancel()
@@ -63,7 +65,7 @@ actor NotificationManager {
             activeOperations += 1
         }
 
-        if status == .idle && activeOperations > 0 {
+        if status == .idle, activeOperations > 0 {
             return
         }
 
