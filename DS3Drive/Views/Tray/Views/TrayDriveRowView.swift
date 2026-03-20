@@ -246,10 +246,10 @@ struct TrayDriveRowView: View {
                     ds3DriveManager.notifyDriveResumedFromUI(driveId: driveId)
 
                     // Signal the enumerator to trigger a fresh scan
+                    let domain = driveViewModel.fileProviderDomain()
+                    let manager = NSFileProviderManager(for: domain)
                     Task {
-                        try? await NSFileProviderManager(
-                            for: driveViewModel.fileProviderDomain()
-                        )?.signalEnumerator(for: .rootContainer)
+                        try? await manager?.signalEnumerator(for: .rootContainer)
                     }
                 } else {
                     // Pause: stop immediately
