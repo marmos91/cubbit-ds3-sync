@@ -24,10 +24,13 @@ import SwiftUI
     /// Tracks the last reported cumulative size per filename to compute deltas
     private var lastReportedSize: [String: Int64] = [:]
 
+    /// Tracks the last reported cumulative duration per filename to compute delta time
+    private var lastReportedDuration: [String: TimeInterval] = [:]
+
     /// Smoothed speed (EMA) to avoid wild fluctuations in the tray display.
-    /// Alpha of 0.2 means ~80% weight on previous average, ~20% on new sample.
+    /// Alpha of 0.3 means ~70% weight on previous average, ~30% on new sample.
     private var smoothedSpeed: Double?
-    private let speedSmoothingAlpha: Double = 0.2
+    private let speedSmoothingAlpha: Double = 0.3
 
     /// Tracks recently transferred files for this drive
     var recentFilesTracker = RecentFilesTracker()
@@ -94,18 +97,21 @@ import SwiftUI
 
         self.transferStatsResetTimer?.invalidate()
 
-        // Compute delta from cumulative size to avoid double-counting
+        // Compute deltas from cumulative size/duration to avoid double-counting
         let fileKey = driveTransferStats.filename ?? "_default_"
         let previousSize = self.lastReportedSize[fileKey] ?? 0
-        let delta = max(0, driveTransferStats.size - previousSize)
+        let previousDuration = self.lastReportedDuration[fileKey] ?? 0
+        let deltaBytes = max(0, driveTransferStats.size - previousSize)
+        let deltaDuration = driveTransferStats.duration - previousDuration
         self.lastReportedSize[fileKey] = driveTransferStats.size
+        self.lastReportedDuration[fileKey] = driveTransferStats.duration
 
-        self.totalTransferredSize += delta
-        self.totalTransferDuration += driveTransferStats.duration
+        self.totalTransferredSize += deltaBytes
+        self.totalTransferDuration += deltaDuration
 
         // Speed: compute instantaneous then apply EMA for smooth display
-        if driveTransferStats.duration > 0 {
-            let instantaneous = Double(delta) / driveTransferStats.duration
+        if deltaDuration > 0 {
+            let instantaneous = Double(deltaBytes) / deltaDuration
             if let previous = self.smoothedSpeed {
                 self.smoothedSpeed = self
                     .speedSmoothingAlpha * instantaneous + (1 - self.speedSmoothingAlpha) * previous
@@ -137,6 +143,7 @@ import SwiftUI
         ) { [weak self] _ in
             guard let self else { return }
             self.lastReportedSize.removeAll()
+            self.lastReportedDuration.removeAll()
             self.totalTransferredSize = 0
             self.totalTransferDuration = 0
             self.smoothedSpeed = nil
