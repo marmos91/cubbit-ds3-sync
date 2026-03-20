@@ -139,6 +139,12 @@ public enum DefaultSettings {
 
         /// The name of the file used to store per-drive pause state.
         public static let pauseStateFileName = "pauseState.json"
+
+        /// The name of the file used to store per-drive trash settings.
+        public static let trashSettingsFileName = "trashSettings.json"
+
+        /// The name of the file used to signal an empty-trash request from the app to the extension.
+        public static let emptyTrashFlagFileName = "emptyTrashFlag.json"
     }
 
     /// Group of settings related to the S3 client.
@@ -175,6 +181,18 @@ public enum DefaultSettings {
 
         /// Milliseconds to pause between BFS levels to avoid starving user operations.
         public static let bfsLevelDelayMs = 200
+
+        /// S3 key prefix used for the trash folder inside each drive's prefix.
+        public static let trashPrefix = ".trash/"
+    }
+
+    /// Settings related to the trash feature.
+    public enum Trash {
+        /// Default number of days to retain trashed items before auto-purge.
+        public static let defaultRetentionDays = 30
+
+        /// Interval in seconds between auto-purge cycles (1 hour).
+        public static let purgeIntervalSeconds = 3600
     }
 
     /// Settings related to the notifications sent between the main app and the file provider extension.

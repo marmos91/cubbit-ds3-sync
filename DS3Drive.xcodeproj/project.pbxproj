@@ -40,6 +40,7 @@
 		A10503052F6500000042AD93 /* GeneralTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10503042F6500000042AD93 /* GeneralTab.swift */; };
 		A10503072F6500000042AD93 /* AccountTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10503062F6500000042AD93 /* AccountTab.swift */; };
 		A10503092F6500000042AD93 /* SyncTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10503082F6500000042AD93 /* SyncTab.swift */; };
+		F31EE0FB20774EFF8B7BBF9C /* TrashTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C84698ABE8DE4D9EA3ABC216 /* TrashTab.swift */; };
 		A10504012F6500000042AD93 /* SpeedSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10504002F6500000042AD93 /* SpeedSummaryView.swift */; };
 		A10504032F6500000042AD93 /* RecentFilesPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10504022F6500000042AD93 /* RecentFilesPanel.swift */; };
 		A10504052F6500000042AD93 /* ConnectionInfoPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10504042F6500000042AD93 /* ConnectionInfoPanel.swift */; };
@@ -117,6 +118,7 @@
 		D5A222862B5721CC00F1413B /* FileProviderExtension+Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A2227C2B5721CC00F1413B /* FileProviderExtension+Errors.swift */; };
 		D5A222892B5721CC00F1413B /* S3Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222802B5721CC00F1413B /* S3Item.swift */; };
 		D5A2228A2B5721CC00F1413B /* S3Enumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222812B5721CC00F1413B /* S3Enumerator.swift */; };
+		350E26F94BBF4312AEEC0C92 /* TrashS3Enumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D57D1D07BC4B58B8C8408C /* TrashS3Enumerator.swift */; };
 		D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */; };
 		D5A2228C2B5721CC00F1413B /* DS3DriveProvider.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D5A222832B5721CC00F1413B /* DS3DriveProvider.xcassets */; };
 		D5A4E0AB2B630A9800D7560B /* NotificationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */; };
@@ -208,6 +210,7 @@
 		A10503042F6500000042AD93 /* GeneralTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralTab.swift; sourceTree = "<group>"; };
 		A10503062F6500000042AD93 /* AccountTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountTab.swift; sourceTree = "<group>"; };
 		A10503082F6500000042AD93 /* SyncTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncTab.swift; sourceTree = "<group>"; };
+		C84698ABE8DE4D9EA3ABC216 /* TrashTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrashTab.swift; sourceTree = "<group>"; };
 		A10504002F6500000042AD93 /* SpeedSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedSummaryView.swift; sourceTree = "<group>"; };
 		A10504022F6500000042AD93 /* RecentFilesPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFilesPanel.swift; sourceTree = "<group>"; };
 		A10504042F6500000042AD93 /* ConnectionInfoPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionInfoPanel.swift; sourceTree = "<group>"; };
@@ -294,6 +297,7 @@
 		D5A2227E2B5721CC00F1413B /* DS3DriveProvider.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = DS3DriveProvider.entitlements; sourceTree = "<group>"; };
 		D5A222802B5721CC00F1413B /* S3Item.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = S3Item.swift; sourceTree = "<group>"; };
 		D5A222812B5721CC00F1413B /* S3Enumerator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = S3Enumerator.swift; sourceTree = "<group>"; };
+		94D57D1D07BC4B58B8C8408C /* TrashS3Enumerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrashS3Enumerator.swift; sourceTree = "<group>"; };
 		D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "S3Item+Metadata.swift"; sourceTree = "<group>"; };
 		D5A222832B5721CC00F1413B /* DS3DriveProvider.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = DS3DriveProvider.xcassets; sourceTree = "<group>"; };
 		D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsManager.swift; sourceTree = "<group>"; };
@@ -539,6 +543,7 @@
 				A10503042F6500000042AD93 /* GeneralTab.swift */,
 				A10503062F6500000042AD93 /* AccountTab.swift */,
 				A10503082F6500000042AD93 /* SyncTab.swift */,
+					C84698ABE8DE4D9EA3ABC216 /* TrashTab.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -833,6 +838,7 @@
 				D5A222802B5721CC00F1413B /* S3Item.swift */,
 				D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */,
 				D5A222812B5721CC00F1413B /* S3Enumerator.swift */,
+				94D57D1D07BC4B58B8C8408C /* TrashS3Enumerator.swift */,
 				B1BF5A002F6800000042AD93 /* BreadthFirstIndexer.swift */,
 				D540029D2B5EAEB000B54E97 /* S3Lib.swift */,
 				A10203032F6300000042AD93 /* S3LibListingAdapter.swift */,
@@ -1109,6 +1115,7 @@
 				A10503052F6500000042AD93 /* GeneralTab.swift in Sources */,
 				A10503072F6500000042AD93 /* AccountTab.swift in Sources */,
 				A10503092F6500000042AD93 /* SyncTab.swift in Sources */,
+				F31EE0FB20774EFF8B7BBF9C /* TrashTab.swift in Sources */,
 				D5A222242B571FEE00F1413B /* ProjectSelectionViewModel.swift in Sources */,
 				D5A2221B2B571FEE00F1413B /* SyncViewModel.swift in Sources */,
 				D5A222072B571FEE00F1413B /* PreferencesView.swift in Sources */,
@@ -1168,6 +1175,7 @@
 				D5A222862B5721CC00F1413B /* FileProviderExtension+Errors.swift in Sources */,
 				D5A222892B5721CC00F1413B /* S3Item.swift in Sources */,
 				D5A2228A2B5721CC00F1413B /* S3Enumerator.swift in Sources */,
+				350E26F94BBF4312AEEC0C92 /* TrashS3Enumerator.swift in Sources */,
 				B1BF5A012F6800000042AD93 /* BreadthFirstIndexer.swift in Sources */,
 				D5A4E0AB2B630A9800D7560B /* NotificationsManager.swift in Sources */,
 				D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */,
