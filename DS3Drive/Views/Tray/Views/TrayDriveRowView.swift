@@ -98,14 +98,25 @@ struct TrayDriveRowView: View {
                 }
                 .font(DS3Typography.footnote)
                 .foregroundStyle(DS3Colors.statusPaused)
-            } else if let speed = driveViewModel.driveStats.currentSpeedBs {
-                Label {
-                    Text(formatSpeed(speed))
-                } icon: {
-                    Image(systemName: "arrow.up.arrow.down")
+            } else if driveViewModel.driveStats.isTransferring {
+                if let uploadSpeed = driveViewModel.driveStats.uploadSpeedBs {
+                    Label {
+                        Text(formatSpeed(uploadSpeed))
+                    } icon: {
+                        Image(systemName: "arrow.up")
+                    }
+                    .font(DS3Typography.footnote)
+                    .foregroundStyle(.secondary)
                 }
-                .font(DS3Typography.footnote)
-                .foregroundStyle(.secondary)
+                if let downloadSpeed = driveViewModel.driveStats.downloadSpeedBs {
+                    Label {
+                        Text(formatSpeed(downloadSpeed))
+                    } icon: {
+                        Image(systemName: "arrow.down")
+                    }
+                    .font(DS3Typography.footnote)
+                    .foregroundStyle(.secondary)
+                }
             } else if driveViewModel.driveStatus == .indexing {
                 Label {
                     Text(NSLocalizedString("Indexing…", comment: "Drive row indexing status"))

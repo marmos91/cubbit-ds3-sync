@@ -27,9 +27,9 @@ import SwiftUI
     /// Tracks the last reported cumulative duration per filename to compute delta time
     private var lastReportedDuration: [String: TimeInterval] = [:]
 
-    /// Smoothed speed (EMA) to avoid wild fluctuations in the tray display.
-    /// Alpha of 0.3 means ~70% weight on previous average, ~30% on new sample.
-    private var smoothedSpeed: Double?
+    /// Per-file instantaneous speed (EMA-smoothed) to compute aggregate bandwidth, keyed by direction.
+    private var perFileUploadSpeed: [String: Double] = [:]
+    private var perFileDownloadSpeed: [String: Double] = [:]
     private let speedSmoothingAlpha: Double = 0.3
 
     /// Tracks recently transferred files for this drive
@@ -96,8 +96,37 @@ import SwiftUI
         else { return }
 
         self.transferStatsResetTimer?.invalidate()
+        self.processTransferStats(driveTransferStats)
 
-        // Compute deltas from cumulative size/duration to avoid double-counting
+        self.transferStatsResetTimer = Timer.scheduledTimer(
+            withTimeInterval: DefaultSettings.Tray.driveStatsReset,
+            repeats: false
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.lastReportedSize.removeAll()
+            self.lastReportedDuration.removeAll()
+            self.perFileUploadSpeed.removeAll()
+            self.perFileDownloadSpeed.removeAll()
+            self.totalTransferredSize = 0
+            self.totalTransferDuration = 0
+            self.driveStats.uploadSpeedBs = nil
+            self.driveStats.downloadSpeedBs = nil
+            self.driveStats.lastUpdate = Date()
+
+            // Safety net: mark any remaining syncing entries as completed.
+            // The sync→idle transition may have fired while files were still
+            // transferring, leaving them stuck as .syncing in the tray.
+            for entry in self.recentFilesTracker.entries(forDrive: self.drive.id) where entry.status == .syncing {
+                self.recentFilesTracker.update(filename: entry.filename, driveId: self.drive.id, status: .completed)
+            }
+            self.refreshRecentFiles()
+        }
+    }
+
+    /// Processes a single transfer stats update: computes per-file EMA speed by direction
+    /// and updates aggregate stats.
+    @MainActor
+    private func processTransferStats(_ driveTransferStats: DriveTransferStats) {
         let fileKey = driveTransferStats.filename ?? "_default_"
         let previousSize = self.lastReportedSize[fileKey] ?? 0
         let previousDuration = self.lastReportedDuration[fileKey] ?? 0
@@ -109,19 +138,40 @@ import SwiftUI
         self.totalTransferredSize += deltaBytes
         self.totalTransferDuration += deltaDuration
 
-        // Speed: compute instantaneous then apply EMA for smooth display
+        let isUpload = driveTransferStats.direction == .upload
         if deltaDuration > 0 {
             let instantaneous = Double(deltaBytes) / deltaDuration
-            if let previous = self.smoothedSpeed {
-                self.smoothedSpeed = self
-                    .speedSmoothingAlpha * instantaneous + (1 - self.speedSmoothingAlpha) * previous
+            if isUpload {
+                let previous = self.perFileUploadSpeed[fileKey]
+                self.perFileUploadSpeed[fileKey] = previous.map {
+                    self.speedSmoothingAlpha * instantaneous + (1 - self.speedSmoothingAlpha) * $0
+                } ?? instantaneous
             } else {
-                self.smoothedSpeed = instantaneous
+                let previous = self.perFileDownloadSpeed[fileKey]
+                self.perFileDownloadSpeed[fileKey] = previous.map {
+                    self.speedSmoothingAlpha * instantaneous + (1 - self.speedSmoothingAlpha) * $0
+                } ?? instantaneous
             }
-            self.driveStats.currentSpeedBs = self.smoothedSpeed
         }
 
-        // Track in recent files with speed and progress
+        // Remove completed file so it doesn't inflate the total
+        if let totalSize = driveTransferStats.totalSize, driveTransferStats.size >= totalSize {
+            if isUpload {
+                self.perFileUploadSpeed.removeValue(forKey: fileKey)
+            } else {
+                self.perFileDownloadSpeed.removeValue(forKey: fileKey)
+            }
+            self.lastReportedSize.removeValue(forKey: fileKey)
+            self.lastReportedDuration.removeValue(forKey: fileKey)
+        }
+
+        self.driveStats.uploadSpeedBs = self.perFileUploadSpeed.isEmpty
+            ? nil : self.perFileUploadSpeed.values.reduce(0, +)
+        self.driveStats.downloadSpeedBs = self.perFileDownloadSpeed.isEmpty
+            ? nil : self.perFileDownloadSpeed.values.reduce(0, +)
+
+        // Track in recent files
+        let fileSpeed = isUpload ? self.perFileUploadSpeed[fileKey] : self.perFileDownloadSpeed[fileKey]
         if let filename = driveTransferStats.filename, !filename.isEmpty {
             let entry = RecentFileEntry(
                 driveId: driveTransferStats.driveId,
@@ -131,31 +181,9 @@ import SwiftUI
                 timestamp: Date(),
                 transferredBytes: driveTransferStats.size,
                 totalBytes: driveTransferStats.totalSize,
-                speed: self.smoothedSpeed
+                speed: fileSpeed
             )
             self.recentFilesTracker.add(entry)
-            self.refreshRecentFiles()
-        }
-
-        self.transferStatsResetTimer = Timer.scheduledTimer(
-            withTimeInterval: DefaultSettings.Tray.driveStatsReset,
-            repeats: false
-        ) { [weak self] _ in
-            guard let self else { return }
-            self.lastReportedSize.removeAll()
-            self.lastReportedDuration.removeAll()
-            self.totalTransferredSize = 0
-            self.totalTransferDuration = 0
-            self.smoothedSpeed = nil
-            self.driveStats.currentSpeedBs = nil
-            self.driveStats.lastUpdate = Date()
-
-            // Safety net: mark any remaining syncing entries as completed.
-            // The sync→idle transition may have fired while files were still
-            // transferring, leaving them stuck as .syncing in the tray.
-            for entry in self.recentFilesTracker.entries(forDrive: self.drive.id) where entry.status == .syncing {
-                self.recentFilesTracker.update(filename: entry.filename, driveId: self.drive.id, status: .completed)
-            }
             self.refreshRecentFiles()
         }
     }
