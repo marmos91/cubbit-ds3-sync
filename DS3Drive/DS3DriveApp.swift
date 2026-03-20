@@ -55,6 +55,7 @@ struct DS3DriveApp: App {
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
+        .defaultPosition(.center)
         
         // MARK: - Manage drive
         
@@ -66,6 +67,7 @@ struct DS3DriveApp: App {
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
+        .defaultPosition(.center)
         
         // MARK: - Preferences
         
@@ -89,6 +91,7 @@ struct DS3DriveApp: App {
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
+        .defaultPosition(.center)
         
         // MARK: - Add new drive
         
@@ -99,6 +102,7 @@ struct DS3DriveApp: App {
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
+        .defaultPosition(.center)
         
 #if os(macOS)
         // MARK: - Tray Menu

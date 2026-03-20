@@ -182,6 +182,13 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         super.init()
         self.startPolling()
         self.startBFSIndexer()
+
+        // If drive is paused, notify the main app so UI reflects the state
+        if let driveId = self.drive?.id,
+           (try? SharedData.default().isDrivePaused(driveId)) == true {
+            self.notificationManager?.sendDriveChangedNotification(status: .paused)
+        }
+
         logMemoryUsage(label: "init-complete", logger: logger)
     }
 
@@ -299,8 +306,12 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         s3Lib: S3Lib,
         metadataStore: MetadataStore?
     ) async throws -> S3Item {
+        let isFolder = identifier.rawValue.hasSuffix(String(DefaultSettings.S3.delimiter))
+
+        // Try MetadataStore first
         if let cached = try? await metadataStore?.fetchItemMetadata(byKey: identifier.rawValue, driveId: drive.id),
-           cached.etag != nil || cached.syncStatus == SyncStatus.error.rawValue {
+           cached.etag != nil || cached.syncStatus == SyncStatus.error.rawValue || isFolder {
+            self.logger.info("item(for:) cache hit for \(identifier.rawValue, privacy: .public) isFolder=\(isFolder)")
             return S3Item(
                 identifier: identifier,
                 drive: drive,
@@ -314,6 +325,19 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             )
         }
 
+        // Folders are virtual S3 entries — avoid the S3 HEAD request which
+        // can hang when the iOS networking grace period is exhausted, causing
+        // Files to show folder items without icons while waiting for a response.
+        if isFolder {
+            self.logger.info("item(for:) folder shortcut for \(identifier.rawValue, privacy: .public)")
+            return S3Item(
+                identifier: identifier,
+                drive: drive,
+                objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
+            )
+        }
+
+        self.logger.info("item(for:) S3 HEAD for \(identifier.rawValue, privacy: .public)")
         return try await s3Lib.remoteS3Item(for: identifier, drive: drive)
     }
 
@@ -339,15 +363,16 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             return Progress()
         }
 
-        if (try? SharedData.default().isDrivePaused(drive.id)) == true {
-            logger.info("Drive paused, deferring fetchContents operation")
-            cb.handler(nil, nil, NSFileProviderError(.serverUnreachable) as NSError)
-            return Progress()
-        }
-
         // Folders have no downloadable content — materialise with an empty file.
+        // Check BEFORE pause gate: folder materialization is local-only and triggers
+        // BFS prioritization, allowing folder navigation even when paused.
         if itemIdentifier.rawValue.hasSuffix(String(DefaultSettings.S3.delimiter)) {
             return materializeFolderItem(itemIdentifier, drive: drive, temporaryDirectory: temporaryDirectory, cb: cb)
+        }
+
+        if isDrivePaused(drive.id, operation: "fetchContents") {
+            cb.handler(nil, nil, NSFileProviderError(.serverUnreachable) as NSError)
+            return Progress()
         }
 
         let progress = Progress(totalUnitCount: 100)
@@ -437,8 +462,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             return Progress()
         }
 
-        if (try? SharedData.default().isDrivePaused(drive.id)) == true {
-            logger.info("Drive paused, deferring createItem operation")
+        if isDrivePaused(drive.id, operation: "createItem") {
             cb.handler(nil, [], false, NSFileProviderError(.serverUnreachable) as NSError)
             return Progress()
         }
@@ -673,8 +697,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             return Progress()
         }
 
-        if (try? SharedData.default().isDrivePaused(drive.id)) == true {
-            logger.info("Drive paused, deferring modifyItem operation")
+        if isDrivePaused(drive.id, operation: "modifyItem") {
             cb.handler(nil, [], false, NSFileProviderError(.serverUnreachable) as NSError)
             return Progress()
         }
@@ -994,6 +1017,11 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             return Progress()
         }
 
+        if isDrivePaused(drive.id, operation: "deleteItem") {
+            cb.handler(NSFileProviderError(.serverUnreachable) as NSError)
+            return Progress()
+        }
+
         switch identifier {
         case .trashContainer, .rootContainer:
             self.logger.debug("Skipping deletion of container \(identifier.rawValue, privacy: .public)")
@@ -1215,6 +1243,13 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         return progress
     }
 
+    /// Returns true when the drive is paused, logging the deferred operation name.
+    private func isDrivePaused(_ driveId: UUID, operation: String) -> Bool {
+        guard (try? SharedData.default().isDrivePaused(driveId)) == true else { return false }
+        logger.info("Drive paused, deferring \(operation, privacy: .public) operation")
+        return true
+    }
+
     /// Signals the system to re-enumerate changes after a local CRUD operation.
     private func signalChanges() {
         guard let manager = NSFileProviderManager(for: self.domain) else {
@@ -1232,6 +1267,13 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     // MARK: - BFS Indexer
 
     private func startBFSIndexer() {
+        #if os(iOS)
+        // BFS disabled on iOS. iOS kills the extension every few seconds,
+        // so BFS never completes a pass and each restart burns the limited
+        // networking grace period. Per-folder enumeration (cache-first with
+        // background S3 refresh) handles content discovery as the user navigates.
+        return
+        #else
         guard self.enabled,
               let drive = self.drive,
               let s3Lib = self.s3Lib else { return }
@@ -1244,6 +1286,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
         )
         indexer.start()
         self.breadthFirstIndexer = indexer
+        #endif
     }
 
     // MARK: - Periodic Polling
@@ -1254,9 +1297,19 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
     private func startPolling() {
         guard self.enabled else { return }
 
+        #if os(iOS)
+        // Polling disabled on iOS. enumerateChanges is skipped entirely on iOS
+        // (SyncEngine.reconcile does full recursive S3 listings that spike memory
+        // and burn the networking grace period), so signaling does nothing useful.
+        // Changes are discovered via per-folder enumerateItems when the user navigates.
+        return
+        #endif
+
+        let pollingInterval = DefaultSettings.Extension.pollingIntervalSeconds
+
         self.pollingTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(DefaultSettings.Extension.pollingIntervalSeconds))
+                try? await Task.sleep(for: .seconds(pollingInterval))
                 guard !Task.isCancelled, let self else { break }
 
                 // Skip polling when drive is paused
@@ -1269,7 +1322,7 @@ class FileProviderExtension: NSObject, @preconcurrency NSFileProviderReplicatedE
             }
         }
 
-        self.logger.debug("Periodic polling started with interval \(DefaultSettings.Extension.pollingIntervalSeconds)s")
+        self.logger.debug("Periodic polling started with interval \(pollingInterval)s")
     }
 
     // MARK: - Materialized Items Tracking
@@ -1473,6 +1526,15 @@ extension FileProviderExtension {
 
         self.logger.info("fetchThumbnails: starting for \(itemIdentifiers.count) items")
 
+        // When paused, skip all thumbnail downloads — they require S3 network access.
+        if isDrivePaused(drive.id, operation: "fetchThumbnails") {
+            for identifier in itemIdentifiers {
+                perCb.handler(identifier, nil, nil)
+            }
+            cb.handler(nil)
+            return progress
+        }
+
         let task = Task {
             var downloadedFiles: [URL] = []
             defer {
@@ -1483,6 +1545,13 @@ extension FileProviderExtension {
 
             for identifier in itemIdentifiers {
                 guard !Task.isCancelled, !progress.isCancelled else { break }
+
+                // Skip folders — they have no S3 object to HEAD and no thumbnail to generate
+                if identifier.rawValue.last == "/" || identifier == .rootContainer {
+                    perCb.handler(identifier, nil, nil)
+                    progress.completedUnitCount += 1
+                    continue
+                }
 
                 do {
                     let s3Item = try await self.withAPIKeyRecovery {

@@ -91,17 +91,31 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     }
     
     var contentModificationDate: Date? {
-        metadata.lastModified
+        metadata.lastModified ?? (isFolder ? Date() : nil)
     }
 
     var documentSize: NSNumber? {
-        metadata.size
+        // Folders have no document size — returning nil lets the system
+        // compute the total from children and avoids confusing a folder
+        // with a 0-byte file.
+        isFolder ? nil : metadata.size
     }
     
     var itemVersion: NSFileProviderItemVersion {
-        NSFileProviderItemVersion(
-            contentVersion: self.metadata.etag?.data(using: .utf8) ?? Data(),
-            metadataVersion: self.metadata.etag?.data(using: .utf8) ?? Data()
+        let versionData: Data
+        if let etag = self.metadata.etag, let data = etag.data(using: .utf8) {
+            versionData = data
+        } else if isFolder {
+            // Virtual folders have no ETag. Use a stable version derived from
+            // the identifier so the File Provider system doesn't treat them as
+            // versionless/invalid items.
+            versionData = identifier.rawValue.data(using: .utf8) ?? Data()
+        } else {
+            versionData = Data()
+        }
+        return NSFileProviderItemVersion(
+            contentVersion: versionData,
+            metadataVersion: versionData
         )
     }
     
@@ -110,7 +124,18 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
             return .folder
         }
 
-        return self.identifier.rawValue.last == self.separator ? .folder : .item
+        if self.identifier.rawValue.last == self.separator {
+            return .folder
+        }
+
+        // Infer UTType from file extension for proper thumbnails and icons
+        let name = filename
+        if let ext = name.split(separator: ".").last,
+           let utType = UTType(filenameExtension: String(ext)) {
+            return utType
+        }
+
+        return .item
     }
     
     var isFolder: Bool {
@@ -142,6 +167,13 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     // MARK: - Decorations
 
     var decorations: [NSFileProviderItemDecorationIdentifier]? {
+        #if os(iOS)
+        // On iOS, return nil to avoid badge decorations interfering with the
+        // default file/folder icon rendering in the Files app. The cloudOnly
+        // decoration (cloud.fill) on first-load items suppresses icons;
+        // iOS already shows its own download-cloud indicator natively.
+        return nil
+        #else
         switch metadata.syncStatus {
         case "synced":
             return [Self.decorationSynced]
@@ -154,6 +186,7 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
         default:
             return [Self.decorationCloudOnly]
         }
+        #endif
     }
 }
 
@@ -165,8 +198,8 @@ extension MetadataStore.ItemUpsertData {
         self.init(
             s3Key: item.itemIdentifier.rawValue,
             driveId: item.drive.id,
-            etag: item.metadata.etag,
-            lastModified: item.metadata.lastModified,
+            etag: ETagUtils.normalize(item.metadata.etag),
+            lastModified: item.contentModificationDate,
             syncStatus: .synced,
             parentKey: item.parentItemIdentifier == .rootContainer ? nil : item.parentItemIdentifier.rawValue,
             contentType: item.metadata.contentType,

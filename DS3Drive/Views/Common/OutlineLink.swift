@@ -22,15 +22,7 @@ struct OutlineLink: View {
             .onHover { hovering in
                 isHover = hovering
             }
-            .onChange(of: isHover) {
-                DispatchQueue.main.async {
-                    if isHover {
-                        NSCursor.pointingHand.push()
-                    } else {
-                        NSCursor.pop()
-                    }
-                }
-            }
+            .pointingHandCursor()
             .padding(.vertical)
     }
 }

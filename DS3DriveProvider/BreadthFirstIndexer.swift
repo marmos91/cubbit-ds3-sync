@@ -120,13 +120,29 @@ final class BreadthFirstIndexer: @unchecked Sendable {
                     await queueManager.enqueue(discoveredSubfolders)
                 }
 
-                try? await manager?.signalEnumerator(for: .workingSet)
+                // Signal the specific folder container so Finder picks up new items.
+                // On iOS, skip signaling entirely — it triggers re-enumeration that
+                // overwrites items and causes folder/file icons to disappear in Files.
+                // The MetadataStore cache is updated above; per-folder enumeration
+                // will serve it on next navigation.
+                #if os(macOS)
+                let container: NSFileProviderItemIdentifier = prefix.isEmpty
+                    ? .rootContainer
+                    : NSFileProviderItemIdentifier(rawValue: prefix)
+                try? await manager?.signalEnumerator(for: container)
+                #endif
             } catch {
                 logger.error("BFS listing failed for prefix \(prefix, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
 
             if !Task.isCancelled {
+                #if os(iOS)
+                // iOS has a limited networking grace period — use 2x delay to reduce
+                // network pressure and extend the budget for user-initiated S3 requests.
+                try? await Task.sleep(for: .milliseconds(DefaultSettings.S3.bfsLevelDelayMs * 2))
+                #else
                 try? await Task.sleep(for: .milliseconds(DefaultSettings.S3.bfsLevelDelayMs))
+                #endif
             }
         }
 

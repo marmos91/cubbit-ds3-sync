@@ -27,6 +27,10 @@ public enum DS3DriveManagerError: Error {
     /// The set of currently syncing drive IDs
     public var syncingDrives: Set<UUID> = []
 
+    /// Per-drive last-known status for aggregation
+    @ObservationIgnored
+    private var driveStatuses: [UUID: DS3DriveStatus] = [:]
+
     /// Per-drive timers to debounce idle transitions and prevent the menu bar icon from flashing.
     @ObservationIgnored
     private var idleDebounceTimers: [UUID: Timer] = [:]
@@ -70,20 +74,42 @@ public enum DS3DriveManagerError: Error {
         idleDebounceTimers[driveId]?.invalidate()
         idleDebounceTimers[driveId] = nil
 
-        if change.status == .sync || change.status == .indexing {
+        driveStatuses[driveId] = change.status
+
+        switch change.status {
+        case .sync, .indexing:
             syncingDrives.insert(driveId)
             AppStatusManager.default().setStatus(change.status == .sync ? .syncing : .indexing)
-            return
-        }
 
-        idleDebounceTimers[driveId] = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
-            guard let self else { return }
-            self.syncingDrives.remove(driveId)
-            self.idleDebounceTimers.removeValue(forKey: driveId)
-            if self.syncingDrives.isEmpty {
-                AppStatusManager.default().setStatus(.idle)
+        case .paused:
+            syncingDrives.remove(driveId)
+            recomputeAppStatus()
+
+        case .error:
+            syncingDrives.remove(driveId)
+            AppStatusManager.default().setStatus(.error)
+
+        case .idle:
+            idleDebounceTimers[driveId] = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.syncingDrives.remove(driveId)
+                    self.idleDebounceTimers.removeValue(forKey: driveId)
+                    self.recomputeAppStatus()
+                }
             }
         }
+    }
+
+    /// Recomputes the global app status from per-drive statuses.
+    /// If all drives are paused → .paused. If any syncing → .syncing. Otherwise → .idle.
+    @MainActor
+    private func recomputeAppStatus() {
+        guard syncingDrives.isEmpty else { return }
+
+        let allPaused = !drives.isEmpty && drives.allSatisfy { driveStatuses[$0.id] == .paused }
+
+        AppStatusManager.default().setStatus(allPaused ? .paused : .idle)
     }
     
     /// Returns a stored DS3Drive with the given id, if any
@@ -175,13 +201,13 @@ public enum DS3DriveManagerError: Error {
     /// - Parameter drive: the updated drive
     @MainActor
     public func update(drive: DS3Drive) async throws {
-        if let index = self.drives.firstIndex(where: { $0.id == drive.id }) {
-            self.drives[index] = drive
-            try self.persist()
-            try await self.syncFileProvider()
+        guard let index = self.drives.firstIndex(where: { $0.id == drive.id }) else {
+            throw DS3DriveManagerError.driveNotFound
         }
-         
-        throw DS3DriveManagerError.driveNotFound
+
+        self.drives[index] = drive
+        try self.persist()
+        try await self.syncFileProvider()
     }
     
     /// Persist the drives to disk

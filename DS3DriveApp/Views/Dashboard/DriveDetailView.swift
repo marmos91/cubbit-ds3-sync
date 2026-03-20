@@ -13,6 +13,7 @@ struct DriveDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showDisconnectAlert = false
+    @State private var isRefreshing = false
 
     private var currentStatus: DS3DriveStatus {
         driveViewModel.status(for: drive.id)
@@ -24,8 +25,18 @@ struct DriveDetailView: View {
 
     var body: some View {
         List {
-            statusSection
+            // Header card
+            Section {
+                driveHeader
+            }
+
+            // Info
+            infoSection
+
+            // Actions
             actionsSection
+
+            // Danger
             dangerSection
         }
         .listStyle(.insetGrouped)
@@ -41,44 +52,100 @@ struct DriveDetailView: View {
         }
     }
 
-    // MARK: - Status Section
+    // MARK: - Drive Header
 
-    private var statusSection: some View {
-        Section {
-            // Status row
-            HStack {
-                Text("Status")
-                    .font(IOSTypography.body)
-                Spacer()
-                HStack(spacing: IOSSpacing.sm) {
+    private var driveHeader: some View {
+        HStack(spacing: IOSSpacing.md) {
+            ZStack(alignment: .bottomLeading) {
+                Image(.rawDriveIcon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 48, height: 48)
+
+                statusBadgeImage
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 18, height: 18)
+                    .offset(x: -3, y: 3)
+            }
+
+            VStack(alignment: .leading, spacing: IOSSpacing.xs) {
+                Text(drive.name)
+                    .font(IOSTypography.headline)
+
+                HStack(spacing: IOSSpacing.xs) {
                     Circle()
                         .fill(IOSDriveViewModel.statusColor(for: currentStatus))
-                        .frame(width: 10, height: 10)
-                    Text(IOSDriveViewModel.statusLabel(for: currentStatus))
-                        .font(IOSTypography.body)
-                        .foregroundStyle(IOSColors.secondaryText)
+                        .frame(width: 7, height: 7)
+
+                    if currentStatus == .sync, let speed = currentSpeed, speed > 0 {
+                        Text("\(IOSDriveViewModel.statusLabel(for: currentStatus)) — \(IOSDriveViewModel.formatSpeed(speed))")
+                            .font(IOSTypography.caption)
+                            .foregroundStyle(IOSDriveViewModel.statusColor(for: currentStatus))
+                    } else {
+                        Text(IOSDriveViewModel.statusLabel(for: currentStatus))
+                            .font(IOSTypography.caption)
+                            .foregroundStyle(IOSDriveViewModel.statusColor(for: currentStatus))
+                    }
                 }
             }
 
-            // Transfer speed (visible when syncing)
-            if currentStatus == .sync, let speed = currentSpeed, speed > 0 {
-                detailRow("Transfer Speed", value: IOSDriveViewModel.formatSpeed(speed))
-            }
-
-            detailRow("Bucket", value: drive.syncAnchor.bucket.name)
-            detailRow("Path", value: drive.syncAnchor.prefix ?? "/")
-            detailRow("Project", value: drive.syncAnchor.project.name)
+            Spacer()
         }
     }
 
-    private func detailRow(_ label: String, value: String) -> some View {
-        HStack {
+    // MARK: - Info Section
+
+    private var infoSection: some View {
+        Section("Details") {
+            detailRow("Project", value: drive.syncAnchor.project.name) {
+                projectEmblem(drive.syncAnchor.project.short())
+            }
+            detailRow("Bucket", value: drive.syncAnchor.bucket.name) {
+                Image(.bucketIcon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
+            }
+            detailRow("Path", value: drive.syncAnchor.prefix ?? "/") {
+                Image(systemName: "folder")
+                    .font(.system(size: 13))
+                    .foregroundStyle(IOSColors.secondaryText)
+            }
+        }
+    }
+
+    private func detailRow<Icon: View>(_ label: String, value: String, @ViewBuilder icon: () -> Icon) -> some View {
+        HStack(spacing: IOSSpacing.sm) {
+            icon()
+                .frame(width: 20)
             Text(label)
                 .font(IOSTypography.body)
             Spacer()
             Text(value)
                 .font(IOSTypography.body)
                 .foregroundStyle(IOSColors.secondaryText)
+                .lineLimit(1)
+        }
+    }
+
+    private func projectEmblem(_ shortName: String) -> some View {
+        Text(shortName.uppercased())
+            .font(.system(size: 8, weight: .bold))
+            .foregroundStyle(.black)
+            .frame(width: 20, height: 20)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.orange)
+            )
+    }
+
+    private var statusBadgeImage: Image {
+        switch currentStatus {
+        case .idle: Image(.statusIdleBadge)
+        case .sync, .indexing: Image(.statusSyncBadge)
+        case .error: Image(.statusErrorBadge)
+        case .paused: Image(.statusPauseBadge)
         }
     }
 
@@ -91,8 +158,13 @@ struct DriveDetailView: View {
             }
 
             Button { refreshDrive() } label: {
-                Label("Refresh", systemImage: "arrow.clockwise")
+                if isRefreshing {
+                    Label("Refreshing…", systemImage: "arrow.clockwise")
+                } else {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
             }
+            .disabled(isRefreshing)
 
             Button { viewInConsole() } label: {
                 Label("View in Console", systemImage: "safari")
@@ -130,12 +202,20 @@ struct DriveDetailView: View {
     }
 
     private func refreshDrive() {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+
         Task {
             let domain = NSFileProviderDomain(
                 identifier: NSFileProviderDomainIdentifier(rawValue: drive.id.uuidString),
                 displayName: drive.name
             )
-            try? await NSFileProviderManager(for: domain)?.signalEnumerator(for: .workingSet)
+            try? await NSFileProviderManager(for: domain)?.reimportItems(below: .rootContainer)
+
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+
+            try? await Task.sleep(for: .milliseconds(600))
+            isRefreshing = false
         }
     }
 
@@ -148,12 +228,7 @@ struct DriveDetailView: View {
     }
 
     private func togglePauseResume() {
-        Task {
-            let command: IPCCommand = currentStatus == .paused
-                ? .resumeDrive(driveId: drive.id)
-                : .pauseDrive(driveId: drive.id)
-            await driveViewModel.postCommand(command)
-        }
+        driveViewModel.togglePause(for: drive.id)
     }
 
     private func disconnectDrive() {

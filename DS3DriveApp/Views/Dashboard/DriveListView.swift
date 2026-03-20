@@ -41,58 +41,56 @@ struct DriveListView: View {
 
     private var driveList: some View {
         List {
-            ForEach(ds3DriveManager.drives) { drive in
-                NavigationLink(value: drive) {
-                    DriveCardView(
-                        drive: drive,
-                        status: driveViewModel.status(for: drive.id),
-                        speed: driveViewModel.speed(for: drive.id),
-                        onDisconnect: {
-                            Task {
-                                try? await ds3DriveManager.disconnect(driveWithId: drive.id)
+            Section {
+                ForEach(ds3DriveManager.drives) { drive in
+                    NavigationLink(value: drive) {
+                        DriveCardView(
+                            drive: drive,
+                            status: driveViewModel.status(for: drive.id),
+                            speed: driveViewModel.speed(for: drive.id),
+                            onDisconnect: {
+                                Task {
+                                    try? await ds3DriveManager.disconnect(driveWithId: drive.id)
+                                }
+                            },
+                            onPauseResume: {
+                                driveViewModel.togglePause(for: drive.id)
                             }
-                        },
-                        onPauseResume: {
-                            Task {
-                                let command: IPCCommand = driveViewModel.status(for: drive.id) == .paused
-                                    ? .resumeDrive(driveId: drive.id)
-                                    : .pauseDrive(driveId: drive.id)
-                                await driveViewModel.postCommand(command)
-                            }
-                        }
-                    )
+                        )
+                    }
                 }
             }
 
-            addDriveRow
+            // Add Drive section
+            if ds3DriveManager.drives.count < DefaultSettings.maxDrives {
+                Section {
+                    Button {
+                        showWizard = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(IOSColors.accent)
+                            Text("Add Drive")
+                                .font(IOSTypography.body)
+                        }
+                    }
+                }
+            } else {
+                Section {
+                    HStack {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(IOSColors.secondaryText)
+                        Text("Maximum of \(DefaultSettings.maxDrives) drives reached")
+                            .font(IOSTypography.caption)
+                            .foregroundStyle(IOSColors.secondaryText)
+                    }
+                }
+            }
         }
+        .listStyle(.insetGrouped)
         .refreshable {
             await refreshDrives()
-        }
-    }
-
-    // MARK: - Add Drive Row
-
-    @ViewBuilder
-    private var addDriveRow: some View {
-        if ds3DriveManager.drives.count < DefaultSettings.maxDrives {
-            Button {
-                showWizard = true
-            } label: {
-                Label("Add Drive", systemImage: "plus")
-                    .font(IOSTypography.body)
-            }
-        } else {
-            HStack {
-                Label("Add Drive", systemImage: "plus")
-                    .font(IOSTypography.body)
-                    .foregroundStyle(IOSColors.secondaryText)
-                Spacer()
-                Text("Maximum 3 drives reached")
-                    .font(IOSTypography.caption)
-                    .foregroundStyle(IOSColors.secondaryText)
-            }
-            .accessibilityLabel("Add Drive, maximum 3 drives reached")
         }
     }
 
@@ -106,7 +104,7 @@ struct DriveListView: View {
                 identifier: NSFileProviderDomainIdentifier(rawValue: drive.id.uuidString),
                 displayName: drive.name
             )
-            try? await NSFileProviderManager(for: domain)?.signalEnumerator(for: .workingSet)
+            try? await NSFileProviderManager(for: domain)?.reimportItems(below: .rootContainer)
         }
     }
 }

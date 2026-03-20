@@ -21,6 +21,7 @@ struct NoBucketsView: View {
                         await viewModel.loadBuckets()
                     }
                 }
+                .pointingHandCursor()
             }
             .padding()
             .overlay {

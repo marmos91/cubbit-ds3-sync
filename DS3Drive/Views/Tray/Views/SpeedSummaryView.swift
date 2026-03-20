@@ -21,6 +21,10 @@ struct SpeedSummaryView: View {
         driveViewModels.contains { $0.driveStatus == .indexing }
     }
 
+    private var allPaused: Bool {
+        !driveViewModels.isEmpty && driveViewModels.allSatisfy { $0.driveStatus == .paused }
+    }
+
     var body: some View {
         HStack(spacing: DS3Spacing.sm) {
             if isTransferring {
@@ -45,10 +49,20 @@ struct SpeedSummaryView: View {
                 Text(NSLocalizedString("Indexing files…", comment: "Speed summary indexing"))
                     .font(DS3Typography.caption)
                     .foregroundStyle(DS3Colors.secondaryText)
-            } else {
-                Image(systemName: "checkmark.circle")
+            } else if allPaused {
+                Image(.statusPauseBadge)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 12, height: 12)
+
+                Text(NSLocalizedString("All drives paused", comment: "Speed summary all paused"))
                     .font(DS3Typography.caption)
-                    .foregroundStyle(DS3Colors.statusSynced)
+                    .foregroundStyle(DS3Colors.secondaryText)
+            } else {
+                Image(.statusIdleBadge)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 12, height: 12)
 
                 Text(NSLocalizedString("All drives up to date", comment: "Speed summary idle"))
                     .font(DS3Typography.caption)

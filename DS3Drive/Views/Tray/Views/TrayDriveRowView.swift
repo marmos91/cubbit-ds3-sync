@@ -19,15 +19,9 @@ struct TrayDriveRowView: View {
 
     var body: some View {
         HStack(spacing: DS3Spacing.sm) {
-            // Drive icon with status dot overlay
-            ZStack(alignment: .bottomLeading) {
-                Image(systemName: "externaldrive.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(.secondary)
-
-                statusDot
-                    .offset(x: -2, y: 2)
-            }
+            // Drive icon with status badge
+            driveStatusIcon
+                .frame(width: 28, height: 28)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(driveViewModel.drive.name)
@@ -61,21 +55,31 @@ struct TrayDriveRowView: View {
         }
     }
 
-    // MARK: - Status Dot
+    // MARK: - Drive Status Icon
 
-    @ViewBuilder
-    private var statusDot: some View {
-        Circle()
-            .fill(statusColor)
-            .frame(width: 10, height: 10)
+    private var driveStatusIcon: some View {
+        ZStack(alignment: .bottomLeading) {
+            Image(.rawDriveIcon)
+                .resizable()
+                .scaledToFit()
+
+            statusBadge
+                .frame(width: 12, height: 12)
+                .offset(x: -2, y: 2)
+        }
     }
 
-    private var statusColor: Color {
+    @ViewBuilder
+    private var statusBadge: some View {
         switch driveViewModel.driveStatus {
-        case .idle: DS3Colors.statusSynced
-        case .sync, .indexing: DS3Colors.statusSyncing
-        case .error: DS3Colors.statusError
-        case .paused: DS3Colors.statusPaused
+        case .idle:
+            Image(.statusIdleBadge).resizable().scaledToFit()
+        case .sync, .indexing:
+            Image(.statusSyncBadge).resizable().scaledToFit()
+        case .error:
+            Image(.statusErrorBadge).resizable().scaledToFit()
+        case .paused:
+            Image(.statusPauseBadge).resizable().scaledToFit()
         }
     }
 
@@ -85,7 +89,15 @@ struct TrayDriveRowView: View {
     private var metricsRow: some View {
         HStack(spacing: DS3Spacing.md) {
             // Current speed or status text
-            if let speed = driveViewModel.driveStats.currentSpeedBs {
+            if driveViewModel.driveStatus == .paused {
+                Label {
+                    Text(NSLocalizedString("Paused", comment: "Drive row paused status"))
+                } icon: {
+                    Image(systemName: "pause.circle")
+                }
+                .font(DS3Typography.footnote)
+                .foregroundStyle(DS3Colors.statusPaused)
+            } else if let speed = driveViewModel.driveStats.currentSpeedBs {
                 Label {
                     Text(formatSpeed(speed))
                 } icon: {
@@ -213,6 +225,7 @@ struct TrayDriveRowView: View {
             let isPaused = driveViewModel.driveStatus == .paused
             do {
                 try SharedData.default().setDrivePaused(driveId, paused: !isPaused)
+                driveViewModel.driveStatus = isPaused ? .idle : .paused
             } catch {
                 logger.error("Error toggling pause state: \(error.localizedDescription)")
             }

@@ -82,6 +82,21 @@ The main app and extension communicate via:
 /usr/bin/log show --last 5m --predicate "process == 'containermanagerd'" --style compact 2>&1
 ```
 
+### iOS Device Logs (connected via USB/cable)
+
+Requires `libimobiledevice`: `brew install libimobiledevice`
+
+```bash
+# Stream all DS3Drive logs from connected iOS device (real-time)
+idevicesyslog --match io.cubbit.DS3Drive
+
+# File Provider extension only
+idevicesyslog --match io.cubbit.DS3Drive.provider
+
+# List connected devices (useful to verify connection)
+xcrun devicectl list devices
+```
+
 ### App Group Shared Container
 ```
 ~/Library/Group Containers/group.X889956QSM.io.cubbit.DS3Drive/
