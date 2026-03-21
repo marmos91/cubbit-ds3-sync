@@ -46,6 +46,8 @@ struct GeneralTab: View {
                 Text("Notifications")
                     .font(DS3Typography.caption)
             }
+
+            UpdateSection()
         }
         .formStyle(.grouped)
         .padding(DS3Spacing.lg)
@@ -71,5 +73,6 @@ struct GeneralTab: View {
             )
         )
     )
+    .environment(UpdateManager())
     .frame(width: 800, height: 600)
 }

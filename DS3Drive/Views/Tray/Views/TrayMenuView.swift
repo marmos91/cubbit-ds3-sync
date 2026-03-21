@@ -9,6 +9,7 @@ struct TrayMenuView: View {
     @Environment(DS3Authentication.self) var ds3Authentication: DS3Authentication
     @Environment(DS3DriveManager.self) var ds3DriveManager: DS3DriveManager
     @Environment(AppStatusManager.self) var appStatusManager: AppStatusManager
+    @Environment(UpdateManager.self) var updateManager: UpdateManager
 
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
 
@@ -161,6 +162,19 @@ struct TrayMenuView: View {
         Divider()
 
         TrayMenuItem(
+            title: updateManager.updateMenuTitle,
+            accent: updateManager.updateAvailable
+        ) {
+            if updateManager.updateAvailable {
+                updateManager.installUpdate()
+            } else {
+                Task { await updateManager.checkForUpdates() }
+            }
+        }
+
+        Divider()
+
+        TrayMenuItem(
             title: NSLocalizedString("Open web console", comment: "Tray menu open console button")
         ) {
             if let url = URL(string: ConsoleURLs.baseURL) { openURL(url) }
@@ -194,7 +208,9 @@ struct TrayMenuView: View {
             TrayMenuFooterView(
                 status: status,
                 version: DefaultSettings.appVersion,
-                build: DefaultSettings.appBuild
+                build: DefaultSettings.appBuild,
+                updateAvailable: updateManager.updateAvailable,
+                latestVersion: updateManager.latestVersion
             )
         }
     }
@@ -300,4 +316,5 @@ struct TrayMenuView: View {
         .environment(DS3Authentication())
         .environment(AppStatusManager.default())
         .environment(DS3DriveManager(appStatusManager: AppStatusManager.default()))
+        .environment(UpdateManager())
 }
