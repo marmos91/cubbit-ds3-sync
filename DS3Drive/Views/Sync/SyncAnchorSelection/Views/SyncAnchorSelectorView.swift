@@ -2,50 +2,46 @@ import SwiftUI
 import DS3Lib
 
 struct SyncAnchorSelectorView: View {
-    @Environment(SyncAnchorSelectionViewModel.self) var syncAnchorSelectionModel: SyncAnchorSelectionViewModel
+    @Environment(SyncAnchorSelectionViewModel.self) var syncAnchorSelectionViewModel: SyncAnchorSelectionViewModel
     
     var body: some View {
         ZStack {
             Color(nsColor: .windowBackgroundColor)
                 .ignoresSafeArea()
             
-            if syncAnchorSelectionModel.loading {
+            if syncAnchorSelectionViewModel.loading {
                 LoadingView()
+            } else if hasError {
+                BucketErrorView()
+                    .environment(syncAnchorSelectionViewModel)
+                    .padding(100)
+            } else if syncAnchorSelectionViewModel.buckets.isEmpty {
+                NoBucketsView()
+                    .environment(syncAnchorSelectionViewModel)
+                    .padding(100)
             } else {
-                if self.shouldDisplayError() {
-                    BucketErrorView()
-                        .environment(syncAnchorSelectionModel)
-                        .padding(100)
-                } else {
-                    if syncAnchorSelectionModel.buckets.isEmpty {
-                        NoBucketsView()
-                            .environment(syncAnchorSelectionModel)
-                            .padding(100)
-                    } else {
-                        ScrollView(.horizontal, showsIndicators: true) {
-                            HStack {
-                                BucketSelectionColumn()
-                                    .environment(syncAnchorSelectionModel)
-                                
-                                if syncAnchorSelectionModel.shouldDisplayObjectNavigator() {
-                                    Divider()
-                                    
-                                    DS3ObjectNavigatorView()
-                                        .environment(syncAnchorSelectionModel)
-                                }
-                            }
+                ScrollView(.horizontal, showsIndicators: true) {
+                    HStack {
+                        BucketSelectionColumn()
+                            .environment(syncAnchorSelectionViewModel)
+
+                        if syncAnchorSelectionViewModel.shouldDisplayObjectNavigator {
+                            Divider()
+
+                            DS3ObjectNavigatorView()
+                                .environment(syncAnchorSelectionViewModel)
                         }
                     }
                 }
             }
         }
         .task {
-            await syncAnchorSelectionModel.loadBuckets()
+            await syncAnchorSelectionViewModel.loadBuckets()
         }
     }
-    
-    func shouldDisplayError() -> Bool {
-        return syncAnchorSelectionModel.error != nil || syncAnchorSelectionModel.authenticationError != nil
+
+    private var hasError: Bool {
+        syncAnchorSelectionViewModel.error != nil || syncAnchorSelectionViewModel.authenticationError != nil
     }
 }
 

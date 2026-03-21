@@ -190,7 +190,7 @@ struct BucketListView: View {
                 }
             }
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: IOSSpacing.xs) {
                 Image(systemName: "person")
                 Text(anchorVM?.selectedIAMUser?.username ?? "User")
                     .font(IOSTypography.caption)

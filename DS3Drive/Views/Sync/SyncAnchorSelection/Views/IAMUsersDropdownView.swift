@@ -38,7 +38,6 @@ struct IAMUsersDropdownView: View {
                 .stroke(lineWidth: 1)
                 .fill(Color(nsColor: .separatorColor))
                 .frame(maxWidth: .infinity, maxHeight: 32)
-
         )
     }
 }

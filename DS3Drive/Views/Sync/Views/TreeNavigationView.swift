@@ -109,20 +109,15 @@ import DS3Lib
     // MARK: - Expansion state preservation
 
     private func collectExpandedIDs() -> Set<String> {
-        var ids = Set<String>()
-        for node in projectNodes {
-            collectExpandedIDs(from: node, into: &ids)
-        }
-        return ids
-    }
-
-    private func collectExpandedIDs(from node: TreeNode, into ids: inout Set<String>) {
-        if node.isExpanded {
-            ids.insert(node.id)
-            for child in node.children {
-                collectExpandedIDs(from: child, into: &ids)
+        func gather(from nodes: [TreeNode]) -> Set<String> {
+            var ids = Set<String>()
+            for node in nodes where node.isExpanded {
+                ids.insert(node.id)
+                ids.formUnion(gather(from: node.children))
             }
+            return ids
         }
+        return gather(from: projectNodes)
     }
 
     private func restoreExpansion(expandedIDs: Set<String>, selectedID: String?) async {
@@ -150,22 +145,14 @@ import DS3Lib
     }
 
     private func findNode(withID id: String) -> TreeNode? {
-        for project in projectNodes {
-            if let found = findNode(withID: id, in: project) {
-                return found
+        func search(in nodes: [TreeNode]) -> TreeNode? {
+            for node in nodes {
+                if node.id == id { return node }
+                if let found = search(in: node.children) { return found }
             }
+            return nil
         }
-        return nil
-    }
-
-    private func findNode(withID id: String, in node: TreeNode) -> TreeNode? {
-        if node.id == id { return node }
-        for child in node.children {
-            if let found = findNode(withID: id, in: child) {
-                return found
-            }
-        }
-        return nil
+        return search(in: projectNodes)
     }
 
     // MARK: - Expand project -> load buckets
@@ -366,7 +353,7 @@ import DS3Lib
 
     var canContinue: Bool {
         guard let node = selectedNode else { return false }
-        return node.type == .bucket || node.type == .folder
+        return node.type != .project
     }
 
     // MARK: - Helpers
@@ -408,15 +395,15 @@ import DS3Lib
         return s3Client
     }
 
+    /// Extracts a display name from a decoded prefix by stripping the parent path and trailing slash.
+    /// Both `fullPrefix` and `parentPrefix` are expected to be already percent-decoded.
     private func folderDisplayName(fullPrefix: String, parentPrefix: String?) -> String {
-        let decoded = fullPrefix.removingPercentEncoding ?? fullPrefix
-        var display = decoded
+        var display = fullPrefix
 
-        if let parent = parentPrefix?.removingPercentEncoding, decoded.hasPrefix(parent) {
-            display = String(decoded.dropFirst(parent.count))
+        if let parent = parentPrefix, display.hasPrefix(parent) {
+            display = String(display.dropFirst(parent.count))
         }
 
-        // Remove trailing slash for display
         if display.hasSuffix("/") {
             display = String(display.dropLast())
         }
