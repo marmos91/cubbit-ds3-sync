@@ -148,7 +148,13 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     }
     
     func initializeAWSIfNecessary() async throws {
-        guard let account = self.authentication.account else { return }
+        // Reuse existing client if already initialized
+        if self.s3Client != nil { return }
+
+        guard let account = self.authentication.account else {
+            self.logger.error("Cannot initialize S3 client: account is nil")
+            throw SyncAnchorSelectionError.DS3ClientError
+        }
 
         if let existingClient = self._awsClient {
             try existingClient.syncShutdown()

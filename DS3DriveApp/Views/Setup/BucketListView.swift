@@ -201,7 +201,7 @@ struct BucketListView: View {
     // MARK: - Actions
 
     private func selectBucketRoot() {
-        guard let bucket = anchorVM?.selectedBucket ?? filteredBuckets.first else { return }
+        guard let bucket = filteredBuckets.first else { return }
 
         anchorVM?.selectBucket(bucket)
 
