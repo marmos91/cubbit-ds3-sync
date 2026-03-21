@@ -8,6 +8,7 @@ import DS3Lib
 struct IOSSettingsView: View {
     @Environment(DS3Authentication.self) private var ds3Authentication
     @Environment(DS3DriveManager.self) private var ds3DriveManager
+    @Environment(UpdateChecker.self) private var updateChecker
 
     @State private var showLogoutAlert = false
     @State private var showClearCacheAlert = false
@@ -32,6 +33,7 @@ struct IOSSettingsView: View {
         List {
             accountSection
             generalSection
+            updatesSection
             aboutSection
         }
         .listStyle(.insetGrouped)
@@ -62,7 +64,6 @@ struct IOSSettingsView: View {
     private var accountSection: some View {
         Section {
             if let account {
-                // Name row
                 HStack {
                     Text("Name")
                         .font(IOSTypography.body)
@@ -72,7 +73,6 @@ struct IOSSettingsView: View {
                         .foregroundStyle(IOSColors.secondaryText)
                 }
 
-                // Email row
                 HStack {
                     Text("Email")
                         .font(IOSTypography.body)
@@ -82,7 +82,6 @@ struct IOSSettingsView: View {
                         .foregroundStyle(IOSColors.secondaryText)
                 }
 
-                // Tenant row
                 HStack {
                     Text("Tenant")
                         .font(IOSTypography.body)
@@ -92,7 +91,6 @@ struct IOSSettingsView: View {
                         .foregroundStyle(IOSColors.secondaryText)
                 }
 
-                // Connection info row (tap-to-copy)
                 Button {
                     copyToClipboard(coordinatorURL, fieldId: "connectionInfo")
                 } label: {
@@ -116,7 +114,6 @@ struct IOSSettingsView: View {
                     }
                 }
 
-                // Manage Account link
                 Link(destination: URL(string: ConsoleURLs.profileURL)!) {
                     HStack {
                         Text("Manage Account")
@@ -127,7 +124,6 @@ struct IOSSettingsView: View {
                     }
                 }
 
-                // Sign Out button
                 Button(role: .destructive) {
                     showLogoutAlert = true
                 } label: {
@@ -154,7 +150,6 @@ struct IOSSettingsView: View {
 
     private var generalSection: some View {
         Section {
-            // Active Drives row
             HStack {
                 Text("Active Drives")
                     .font(IOSTypography.body)
@@ -164,13 +159,11 @@ struct IOSSettingsView: View {
                     .foregroundStyle(IOSColors.secondaryText)
             }
 
-            // Sync Notifications toggle
             Toggle(isOn: $syncNotificationsEnabled) {
                 Text("Sync Notifications")
                     .font(IOSTypography.body)
             }
 
-            // Cache row
             HStack {
                 Text("Cache")
                     .font(IOSTypography.body)
@@ -194,11 +187,53 @@ struct IOSSettingsView: View {
         }
     }
 
+    // MARK: - Updates Section
+
+    private var updatesSection: some View {
+        Section {
+            Button {
+                if updateChecker.updateAvailable {
+                    openUpdateDestination()
+                } else {
+                    Task { await updateChecker.checkForUpdates() }
+                }
+            } label: {
+                HStack {
+                    if updateChecker.updateAvailable, let version = updateChecker.latestVersion {
+                        Text("Update Available: \(version)")
+                            .font(IOSTypography.body)
+                            .foregroundStyle(IOSColors.accent)
+                    } else {
+                        Text("Check for Updates")
+                            .font(IOSTypography.body)
+                            .foregroundStyle(IOSColors.primaryText)
+                    }
+                    Spacer()
+                    if updateChecker.isChecking {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
+            }
+            .disabled(updateChecker.isChecking)
+
+            HStack {
+                Text("Distribution")
+                    .font(IOSTypography.body)
+                Spacer()
+                Text(updateChecker.channel.displayName)
+                    .font(IOSTypography.body)
+                    .foregroundStyle(IOSColors.secondaryText)
+            }
+        } header: {
+            Label("Updates", systemImage: "arrow.down.circle")
+        }
+    }
+
     // MARK: - About Section
 
     private var aboutSection: some View {
         Section {
-            // Version row
             HStack {
                 Text("Version")
                     .font(IOSTypography.body)
@@ -208,7 +243,6 @@ struct IOSSettingsView: View {
                     .foregroundStyle(IOSColors.secondaryText)
             }
 
-            // Licenses row
             NavigationLink {
                 ScrollView {
                     Text("Open Source Licenses\n\nThis application uses the following open source libraries:\n\n- Soto for AWS (Apache 2.0)\n- Swift Atomics (Apache 2.0)\n- Swift NIO (Apache 2.0)")
@@ -221,7 +255,6 @@ struct IOSSettingsView: View {
                     .font(IOSTypography.body)
             }
 
-            // Support link
             Link(destination: URL(string: HelpURLs.baseURL)!) {
                 HStack {
                     Text("Support")
@@ -253,6 +286,15 @@ struct IOSSettingsView: View {
                     copiedFieldId = nil
                 }
             }
+        }
+    }
+
+    private func openUpdateDestination() {
+        switch updateChecker.channel {
+        case .testFlight:
+            UIApplication.shared.open(URL(string: "itms-beta://")!)
+        case .appStore:
+            UIApplication.shared.open(URL(string: "itms-apps://apps.apple.com")!)
         }
     }
 
