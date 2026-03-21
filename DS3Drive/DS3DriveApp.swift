@@ -7,7 +7,7 @@ import UserNotifications
 
 @main
 struct DS3DriveApp: App {
-    private let logger: Logger = .init(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
+    private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
 
     private let metadataContainer: ModelContainer?
 
@@ -16,11 +16,14 @@ struct DS3DriveApp: App {
 
     @State var ds3Authentication: DS3Authentication
     @State var appStatusManager: AppStatusManager = .default()
-    @State var ds3DriveManager: DS3DriveManager = .init(appStatusManager: AppStatusManager.default())
+    @State var ds3DriveManager = DS3DriveManager(appStatusManager: AppStatusManager.default())
     private let conflictNotificationHandler = ConflictNotificationHandler()
     private var authFailureObserver: NSObjectProtocol?
     private let recoveryTracker = AuthRecoveryTracker()
     @State private var refreshTask: Task<Void, Never>?
+
+    @State var updateManager = UpdateManager()
+    private var updateNotificationHandler: UpdateNotificationHandler?
 
     @State var trayMenuVisible: Bool = true
 
@@ -76,6 +79,7 @@ struct DS3DriveApp: App {
                     )
                 )
                 .environment(ds3DriveManager)
+                .environment(updateManager)
             } else {
                 VStack {
                     ProgressView()
@@ -110,11 +114,16 @@ struct DS3DriveApp: App {
                     .environment(ds3Authentication)
                     .environment(ds3DriveManager)
                     .environment(appStatusManager)
+                    .environment(updateManager)
             } label: {
                 Group {
                     switch appStatusManager.status {
                     case .idle:
-                        Image(.trayIcon)
+                        if updateManager.updateAvailable {
+                            Image(.trayIconInfo)
+                        } else {
+                            Image(.trayIcon)
+                        }
                     case .syncing, .indexing:
                         Image(.trayIconSync)
                     case .error:
@@ -158,6 +167,10 @@ struct DS3DriveApp: App {
 
         // Request notification permission for conflict alerts (best-effort)
         conflictNotificationHandler.requestPermission()
+
+        // Start update checking and notification handler
+        updateManager.startPeriodicChecks()
+        updateNotificationHandler = UpdateNotificationHandler(updateManager: updateManager)
 
         // Listen for auth failure notifications from the File Provider extension
         authFailureObserver = DistributedNotificationCenter.default().addObserver(
