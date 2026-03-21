@@ -320,6 +320,7 @@ import DS3Lib
     /// Switch the IAM user for a project, invalidating cached S3 clients and reloading buckets.
     func selectIAMUser(_ user: IAMUser, forProject project: Project) async {
         selectedIAMUsers[project.id] = user
+        selectedNode = nil
 
         // Invalidate cached S3 client for this project
         if let awsClient = awsClients[project.id] {
