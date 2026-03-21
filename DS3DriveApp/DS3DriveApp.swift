@@ -10,6 +10,7 @@ struct DS3DriveApp: App {
     @State private var ds3DriveManager: DS3DriveManager
     @State private var appStatusManager: AppStatusManager
     @State private var hasStartedRefreshTimer = false
+    @State private var updateChecker = UpdateChecker()
 
     var body: some Scene {
         WindowGroup {
@@ -17,10 +18,12 @@ struct DS3DriveApp: App {
                 .environment(ds3Authentication)
                 .environment(ds3DriveManager)
                 .environment(appStatusManager)
+                .environment(updateChecker)
                 .onChange(of: scenePhase) { _, newPhase in
                     guard ds3Authentication.isLogged else { return }
                     if newPhase == .active {
                         Task { await BackgroundRefreshManager.signalAllDrives() }
+                        Task { await updateChecker.checkForUpdates() }
                     } else if newPhase == .background {
                         BackgroundRefreshManager.scheduleNextRefresh()
                     }
