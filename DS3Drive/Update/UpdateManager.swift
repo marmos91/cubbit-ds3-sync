@@ -3,8 +3,9 @@ import AppKit
 import DS3Lib
 import os.log
 
-/// macOS-specific update manager that wraps `UpdateChecker` and adds Sparkle integration
-/// for the direct-download channel, plus channel-appropriate actions for other channels.
+/// macOS-specific update manager that wraps `UpdateChecker` and adds channel-appropriate
+/// update actions. For direct-download, opens the GitHub release page (Sparkle integration
+/// can be layered on later). For Homebrew, copies the upgrade command to clipboard.
 @Observable
 @MainActor
 final class UpdateManager {

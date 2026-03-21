@@ -2,10 +2,11 @@ import Foundation
 import os.log
 
 /// Cross-platform version checker that polls GitHub Releases for newer versions.
-/// Does NOT depend on Sparkle — pure version checking only. Sparkle integration
-/// is layered on top in the macOS-only `UpdateManager`.
+/// Does NOT depend on Sparkle — pure version checking only.
+/// The macOS `UpdateManager` wraps this and adds channel-specific update actions.
 @Observable
-public final class UpdateChecker: @unchecked Sendable {
+@MainActor
+public final class UpdateChecker {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
 
     /// Whether a newer version is available.
@@ -23,7 +24,8 @@ public final class UpdateChecker: @unchecked Sendable {
     /// Timestamp of the last successful check.
     public private(set) var lastCheckDate: Date?
 
-    private var periodicTask: Task<Void, Never>?
+    /// nonisolated(unsafe) because `deinit` is nonisolated in Swift 6 but Task.cancel() is thread-safe.
+    nonisolated(unsafe) private var periodicTask: Task<Void, Never>?
     private let userDefaults: UserDefaults?
 
     public init(channel: DistributionChannel = .detect()) {
@@ -55,7 +57,6 @@ public final class UpdateChecker: @unchecked Sendable {
     }
 
     /// Manually trigger an update check.
-    @MainActor
     public func checkForUpdates() async {
         guard !isChecking else { return }
         isChecking = true

@@ -176,13 +176,23 @@ jobs:
           echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
           echo "SHA256: $SHA"
 
+      - name: Download Sparkle tools
+        if: env.SPARKLE_EDDSA_PRIVATE_KEY != ''
+        env:
+          SPARKLE_EDDSA_PRIVATE_KEY: ${{ secrets.SPARKLE_EDDSA_PRIVATE_KEY }}
+        run: |
+          SPARKLE_VERSION="2.7.5"
+          curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" \
+            | tar xJ -C "$RUNNER_TEMP" bin/sign_update
+          chmod +x "$RUNNER_TEMP/bin/sign_update"
+
       - name: Sign DMG for Sparkle (EdDSA)
         if: env.SPARKLE_EDDSA_PRIVATE_KEY != ''
         id: sparkle_sign
         env:
           SPARKLE_EDDSA_PRIVATE_KEY: ${{ secrets.SPARKLE_EDDSA_PRIVATE_KEY }}
         run: |
-          SIGN_OUTPUT=$(echo "$SPARKLE_EDDSA_PRIVATE_KEY" | ./bin/sign_update "$RUNNER_TEMP/${{ steps.version.outputs.dmg_name }}")
+          SIGN_OUTPUT=$(echo "$SPARKLE_EDDSA_PRIVATE_KEY" | "$RUNNER_TEMP/bin/sign_update" "$RUNNER_TEMP/${{ steps.version.outputs.dmg_name }}")
           # sign_update outputs: sparkle:edSignature="<sig>" length="<len>"
           SIGNATURE=$(echo "$SIGN_OUTPUT" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
           echo "signature=$SIGNATURE" >> "$GITHUB_OUTPUT"

@@ -168,8 +168,12 @@ struct DS3DriveApp: App {
         // Request notification permission for conflict alerts (best-effort)
         conflictNotificationHandler.requestPermission()
 
-        // Start update checking and notification handler
-        updateManager.startPeriodicChecks()
+        // Start update checking (respecting user preference) and notification handler
+        let autoCheck = UserDefaults(suiteName: DefaultSettings.appGroup)?
+            .object(forKey: DefaultSettings.UserDefaultsKeys.autoCheckUpdates) as? Bool ?? true
+        if autoCheck {
+            updateManager.startPeriodicChecks()
+        }
         updateNotificationHandler = UpdateNotificationHandler(updateManager: updateManager)
 
         // Listen for auth failure notifications from the File Provider extension

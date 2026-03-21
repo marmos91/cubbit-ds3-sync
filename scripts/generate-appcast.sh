@@ -21,6 +21,11 @@ APPCAST_FILE="$5"
 LENGTH=$(stat -f%z "$DMG_PATH" 2>/dev/null || stat --printf="%s" "$DMG_PATH")
 PUB_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
 
+# XML-escape values that could contain special characters
+xml_escape() { printf '%s' "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g'; }
+VERSION=$(xml_escape "$VERSION")
+DMG_URL=$(xml_escape "$DMG_URL")
+
 ITEM=$(cat <<ITEM_EOF
             <item>
                 <title>Version ${VERSION}</title>
