@@ -176,6 +176,49 @@ jobs:
           echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
           echo "SHA256: $SHA"
 
+      - name: Sign DMG for Sparkle (EdDSA)
+        if: env.SPARKLE_EDDSA_PRIVATE_KEY != ''
+        id: sparkle_sign
+        env:
+          SPARKLE_EDDSA_PRIVATE_KEY: ${{ secrets.SPARKLE_EDDSA_PRIVATE_KEY }}
+        run: |
+          SIGN_OUTPUT=$(echo "$SPARKLE_EDDSA_PRIVATE_KEY" | ./bin/sign_update "$RUNNER_TEMP/${{ steps.version.outputs.dmg_name }}")
+          # sign_update outputs: sparkle:edSignature="<sig>" length="<len>"
+          SIGNATURE=$(echo "$SIGN_OUTPUT" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
+          echo "signature=$SIGNATURE" >> "$GITHUB_OUTPUT"
+          echo "Sparkle EdDSA signature generated"
+
+      - name: Update appcast.xml
+        if: steps.sparkle_sign.outcome == 'success'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.marketing }}"
+          DMG_NAME="${{ steps.version.outputs.dmg_name }}"
+          REPO="${{ github.repository }}"
+          DMG_URL="https://github.com/${REPO}/releases/download/v${VERSION}/${DMG_NAME}"
+
+          # Checkout appcast branch
+          git fetch origin appcast:appcast 2>/dev/null || true
+          git worktree add "$RUNNER_TEMP/appcast-worktree" appcast 2>/dev/null || {
+            git worktree add --orphan "$RUNNER_TEMP/appcast-worktree" appcast
+          }
+
+          chmod +x scripts/generate-appcast.sh
+          ./scripts/generate-appcast.sh \
+            "$VERSION" \
+            "$DMG_URL" \
+            "$RUNNER_TEMP/$DMG_NAME" \
+            "${{ steps.sparkle_sign.outputs.signature }}" \
+            "$RUNNER_TEMP/appcast-worktree/appcast.xml"
+
+          cd "$RUNNER_TEMP/appcast-worktree"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml
+          git diff --staged --quiet || git commit -m "Update appcast for v${VERSION}"
+          git push origin appcast
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
