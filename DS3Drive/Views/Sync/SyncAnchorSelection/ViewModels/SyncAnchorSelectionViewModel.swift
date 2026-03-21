@@ -183,14 +183,20 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
         self.s3Client = S3(client: awsClient, endpoint: account.endpointGateway)
     }
     
-    func selectIAMUser(withID id: String) async throws {
+    func selectIAMUser(withID id: String) async {
         guard !self.project.users.isEmpty else { return }
-
         guard let index = self.project.users.lastIndex(where: { $0.id == id }) else { return }
-        
+
         self.selectedIAMUser = self.project.users[index]
-        
-        try await self.initializeAWSIfNecessary()
+
+        // Reset bucket/folder state and reload with the new user's credentials
+        self.buckets = []
+        self.selectedBucket = nil
+        self.selectedPrefix = nil
+        self.folders = [:]
+        self.s3Client = nil
+
+        await self.loadBuckets()
     }
     
     func cleanFoldersIfNeeded() {

@@ -12,7 +12,7 @@ struct IAMUsersDropdownView: View {
                 Button {
                     let viewModel = syncAnchorSelectionViewModel
                     Task {
-                        try await viewModel.selectIAMUser(withID: option.id)
+                        await viewModel.selectIAMUser(withID: option.id)
                     }
                 } label: {
                     Text(option.username)
