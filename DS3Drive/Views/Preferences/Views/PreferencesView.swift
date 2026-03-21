@@ -31,29 +31,10 @@ struct PreferencesView: View {
 #Preview {
     PreferencesView(
         preferencesViewModel: PreferencesViewModel(
-            account: Account(
-                id: UUID().uuidString,
-                firstName: "Marco",
-                lastName: "Moschettini",
-                isInternal: false,
-                isBanned: false,
-                createdAt: "yesterday",
-                maxAllowedProjects: 1,
-                emails: [
-                    AccountEmail(
-                        id: UUID().uuidString,
-                        email: "connect@cubbit.io",
-                        isDefault: true,
-                        createdAt: "yesterday",
-                        isVerified: true,
-                        tenantId: "tenant"
-                    )
-                ],
-                isTwoFactorEnabled: true,
-                tenantId: "tenant",
-                endpointGateway: "https://s3.cubbit.eu",
-                authProvider: "cubbit"
-            )
+            account: PreviewData.account
         )
+    )
+    .environment(
+        DS3DriveManager(appStatusManager: AppStatusManager.default())
     )
 }

@@ -43,30 +43,8 @@ struct ProjectSelectorView: View {
             ProjectSelectionViewModel(
                authentication: DS3Authentication(),
                projects: [
-                    Project(
-                        id: UUID().uuidString,
-                        name: "Test project 1",
-                        description: "Test project 1 description",
-                        email: "test1@cubbit.io",
-                        createdAt: "now",
-                        bannedAt: nil,
-                        imageUrl: nil,
-                        tenantId: "Default tenant",
-                        rootAccountEmail: nil,
-                        users: []
-                    ),
-                    Project(
-                        id: UUID().uuidString,
-                        name: "Default project",
-                        description: "Default project description",
-                        email: "test-default@cubbit.io",
-                        createdAt: "now",
-                        bannedAt: nil,
-                        imageUrl: nil,
-                        tenantId: "Default tenant",
-                        rootAccountEmail: nil,
-                        users: []
-                    )
+                    PreviewData.project,
+                    PreviewData.secondProject
                ]
            )
        )

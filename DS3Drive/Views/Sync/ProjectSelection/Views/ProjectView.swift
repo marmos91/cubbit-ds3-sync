@@ -50,22 +50,7 @@ struct ProjectView: View {
 
 #Preview {
     ProjectView(
-        project: Project(
-            id: UUID().uuidString,
-            name: "Test",
-            description: "Test project",
-            email: "test@cubbit.io",
-            createdAt: "2023-10-23",
-            tenantId: UUID().uuidString,
-            rootAccountEmail: "root@cubbit.io",
-            users: [
-                IAMUser(
-                    id: UUID().uuidString,
-                    username: "root",
-                    isRoot: true
-                )
-            ]
-        ),
+        project: PreviewData.project,
         isSelected: false
     )
     .padding()
