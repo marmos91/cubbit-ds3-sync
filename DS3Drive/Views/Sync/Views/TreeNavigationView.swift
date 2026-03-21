@@ -47,6 +47,9 @@ import DS3Lib
 
     var selectedNode: TreeNode?
 
+    /// Selected IAM user per project (keyed by project ID). Defaults to first user.
+    var selectedIAMUsers: [String: IAMUser] = [:]
+
     private var ds3SDK: DS3SDK
     /// Active S3 client per project (keyed by project ID)
     private var s3Clients: [String: S3] = [:]
@@ -322,13 +325,36 @@ import DS3Lib
         selectedNode = node
     }
 
+    /// Returns the selected IAM user for a project, defaulting to the first user.
+    func selectedIAMUser(forProject project: Project) -> IAMUser? {
+        selectedIAMUsers[project.id] ?? project.users.first
+    }
+
+    /// Switch the IAM user for a project, invalidating cached S3 clients and reloading buckets.
+    func selectIAMUser(_ user: IAMUser, forProject project: Project) async {
+        selectedIAMUsers[project.id] = user
+
+        // Invalidate cached S3 client for this project
+        if let awsClient = awsClients[project.id] {
+            try? awsClient.syncShutdown()
+            awsClients.removeValue(forKey: project.id)
+        }
+        s3Clients.removeValue(forKey: project.id)
+
+        // Collapse and reload the project node's children
+        if let projectNode = projectNodes.first(where: { $0.id == project.id }) {
+            projectNode.children = []
+            projectNode.isLoaded = false
+            projectNode.isExpanded = false
+            await expandProject(projectNode)
+        }
+    }
+
     /// Builds a SyncAnchor from the currently selected node (must be a bucket or folder)
     func getSelectedSyncAnchor() -> SyncAnchor? {
         guard let node = selectedNode else { return nil }
         guard let project = node.project, let bucket = node.bucket else { return nil }
-
-        let iamUser = project.users.first
-        guard let user = iamUser else { return nil }
+        guard let user = selectedIAMUser(forProject: project) else { return nil }
 
         return SyncAnchor(
             project: project,
@@ -350,7 +376,7 @@ import DS3Lib
             return existing
         }
 
-        guard let iamUser = project.users.first else {
+        guard let iamUser = selectedIAMUser(forProject: project) else {
             throw SyncAnchorSelectionError.noIAMUserSelected
         }
 
@@ -549,6 +575,11 @@ struct TreeNavigationView: View {
                         .font(DS3Typography.body)
                         .foregroundStyle(DS3Colors.secondaryText)
                         .multilineTextAlignment(.center)
+
+                    // IAM user picker for projects with multiple users
+                    if let project = node.project, project.users.count > 1 {
+                        iamUserPicker(forProject: project)
+                    }
                 }
                 .padding(DS3Spacing.xl)
             } else {
@@ -598,6 +629,57 @@ struct TreeNavigationView: View {
             )
         }
         .background(DS3Colors.background)
+    }
+
+    // MARK: - IAM User Picker
+
+    @ViewBuilder
+    private func iamUserPicker(forProject project: Project) -> some View {
+        let currentUser = viewModel.selectedIAMUser(forProject: project)
+
+        VStack(alignment: .leading, spacing: DS3Spacing.xs) {
+            Text("IAM User")
+                .font(DS3Typography.caption)
+                .foregroundStyle(DS3Colors.secondaryText)
+
+            Menu {
+                ForEach(project.users, id: \.id) { user in
+                    Button {
+                        Task { await viewModel.selectIAMUser(user, forProject: project) }
+                    } label: {
+                        HStack {
+                            Text(user.username)
+                            if user.isRoot {
+                                Text("(root)")
+                                    .foregroundStyle(.secondary)
+                            }
+                            if user.id == currentUser?.id {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "person")
+                        .font(DS3Typography.caption)
+                    Text(currentUser?.username ?? "Select user")
+                        .font(DS3Typography.body)
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(DS3Colors.secondaryText)
+                }
+                .padding(.horizontal, DS3Spacing.sm)
+                .padding(.vertical, DS3Spacing.xs)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(DS3Colors.separator, lineWidth: 1)
+                )
+            }
+            .menuStyle(.borderlessButton)
+        }
+        .frame(maxWidth: 220)
     }
 
     // MARK: - Shimmer placeholder
