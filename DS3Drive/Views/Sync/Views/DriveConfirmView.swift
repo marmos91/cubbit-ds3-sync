@@ -216,23 +216,8 @@ struct DriveConfirmView: View {
 
 #Preview {
     DriveConfirmView(
-        syncAnchor: SyncAnchor(
-            project: Project(
-                id: "test-id",
-                name: "My Project",
-                description: "Test",
-                email: "test@cubbit.io",
-                createdAt: "2024-01-01",
-                tenantId: "tenant",
-                users: [
-                    IAMUser(id: "user-id", username: "ROOT", isRoot: true)
-                ]
-            ),
-            IAMUser: IAMUser(id: "user-id", username: "ROOT", isRoot: true),
-            bucket: Bucket(name: "my-bucket"),
-            prefix: "documents/"
-        ),
-        suggestedName: "my-bucket/documents"
+        syncAnchor: PreviewData.syncAnchor,
+        suggestedName: "my-bucket/Documents"
     )
     .frame(width: 800, height: 480)
 }
