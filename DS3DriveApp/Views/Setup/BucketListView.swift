@@ -38,6 +38,13 @@ struct BucketListView: View {
         }
         .navigationTitle(project.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if project.users.count > 1 {
+                ToolbarItem(placement: .primaryAction) {
+                    iamUserMenu
+                }
+            }
+        }
         .task {
             if anchorVM == nil {
                 let vm = SyncAnchorSelectionViewModel(
@@ -162,10 +169,39 @@ struct BucketListView: View {
         .listStyle(.insetGrouped)
     }
 
+    // MARK: - IAM User Menu
+
+    private var iamUserMenu: some View {
+        Menu {
+            ForEach(project.users, id: \.id) { user in
+                Button {
+                    let vm = anchorVM
+                    Task { await vm?.selectIAMUser(withID: user.id) }
+                } label: {
+                    HStack {
+                        Text(user.username)
+                        if user.isRoot {
+                            Text("(root)")
+                        }
+                        if user.id == anchorVM?.selectedIAMUser?.id {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: IOSSpacing.xs) {
+                Image(systemName: "person")
+                Text(anchorVM?.selectedIAMUser?.username ?? "User")
+                    .font(IOSTypography.caption)
+            }
+        }
+    }
+
     // MARK: - Actions
 
     private func selectBucketRoot() {
-        guard let bucket = anchorVM?.selectedBucket ?? filteredBuckets.first else { return }
+        guard let bucket = filteredBuckets.first else { return }
 
         anchorVM?.selectBucket(bucket)
 

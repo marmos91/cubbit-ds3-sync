@@ -72,7 +72,6 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
         try? _awsClient?.syncShutdown()
     }
     
-    @MainActor
     func loadBuckets() async {
         self.loading = true
         self.error = nil
@@ -90,7 +89,7 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
             guard let s3Buckets = bucketsResponse.buckets else { throw SyncAnchorSelectionError.missingBuckets }
             
             let buckets = s3Buckets.map { s3bucket in
-                return Bucket(name: s3bucket.name ?? "<No name>")
+                Bucket(name: s3bucket.name ?? "<No name>")
             }
             
             self.buckets = buckets
@@ -112,7 +111,6 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
         }
     }
     
-    @MainActor
     func listFoldersForCurrentBucket() async {
         self.loading = true
         self.error = nil
@@ -150,7 +148,13 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     }
     
     func initializeAWSIfNecessary() async throws {
-        guard let account = self.authentication.account else { return }
+        // Reuse existing client if already initialized
+        if self.s3Client != nil { return }
+
+        guard let account = self.authentication.account else {
+            self.logger.error("Cannot initialize S3 client: account is nil")
+            throw SyncAnchorSelectionError.DS3ClientError
+        }
 
         if let existingClient = self._awsClient {
             try existingClient.syncShutdown()
@@ -183,27 +187,28 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
         self.s3Client = S3(client: awsClient, endpoint: account.endpointGateway)
     }
     
-    func selectIAMUser(withID id: String) async throws {
-        guard !self.project.users.isEmpty else { return }
+    func selectIAMUser(withID id: String) async {
+        guard let user = self.project.users.first(where: { $0.id == id }) else { return }
 
-        guard let index = self.project.users.lastIndex(where: { $0.id == id }) else { return }
-        
-        self.selectedIAMUser = self.project.users[index]
-        
-        try await self.initializeAWSIfNecessary()
+        self.selectedIAMUser = user
+
+        // Reset bucket/folder state and reload with the new user's credentials
+        self.buckets = []
+        self.selectedBucket = nil
+        self.selectedPrefix = nil
+        self.folders = [:]
+        self.s3Client = nil
+
+        await self.loadBuckets()
     }
     
     func cleanFoldersIfNeeded() {
         let prefix = self.selectedPrefix ?? ""
 
-        self.folders.keys.forEach { key in
-            guard !key.isEmpty else { return }
-
-            if !prefix.hasPrefix(key) {
-                self.folders.removeValue(forKey: key)
-            }
+        self.folders = self.folders.filter { key, _ in
+            key.isEmpty || prefix.hasPrefix(key)
         }
-        
+
         if self.folders[prefix] == nil {
             self.folders[prefix] = []
         }
@@ -216,11 +221,9 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     }
     
     func selectBucket(withName name: String) async {
-        guard !self.buckets.isEmpty else { return }
+        guard let bucket = self.buckets.first(where: { $0.name == name }) else { return }
 
-        guard let index = self.buckets.lastIndex(where: { $0.name == name }) else { return }
-        
-        self.selectedBucket = self.buckets[index]
+        self.selectedBucket = bucket
         self.selectedPrefix = nil
         self.folders = [:]
         
@@ -233,8 +236,8 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
         self.folders = [:]
     }
     
-    func shouldDisplayObjectNavigator() -> Bool {
-        return !self.folders.isEmpty
+    var shouldDisplayObjectNavigator: Bool {
+        !self.folders.isEmpty
     }
 
     func getSelectedSyncAnchor() -> SyncAnchor? {

@@ -12,7 +12,7 @@ struct IAMUsersDropdownView: View {
                 Button {
                     let viewModel = syncAnchorSelectionViewModel
                     Task {
-                        try await viewModel.selectIAMUser(withID: option.id)
+                        await viewModel.selectIAMUser(withID: option.id)
                     }
                 } label: {
                     Text(option.username)
@@ -38,7 +38,6 @@ struct IAMUsersDropdownView: View {
                 .stroke(lineWidth: 1)
                 .fill(Color(nsColor: .separatorColor))
                 .frame(maxWidth: .infinity, maxHeight: 32)
-
         )
     }
 }

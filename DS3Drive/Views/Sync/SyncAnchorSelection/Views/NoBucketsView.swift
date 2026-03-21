@@ -2,7 +2,7 @@ import SwiftUI
 import DS3Lib
 
 struct NoBucketsView: View {
-    @Environment(SyncAnchorSelectionViewModel.self) var syncAnchorSelectionModel: SyncAnchorSelectionViewModel
+    @Environment(SyncAnchorSelectionViewModel.self) var syncAnchorSelectionViewModel: SyncAnchorSelectionViewModel
 
     var body: some View {
         HStack(spacing: 0) {
@@ -16,7 +16,7 @@ struct NoBucketsView: View {
                     .multilineTextAlignment(.center)
                 
                 Button("Refresh") {
-                    let viewModel = syncAnchorSelectionModel
+                    let viewModel = syncAnchorSelectionViewModel
                     Task {
                         await viewModel.loadBuckets()
                     }
