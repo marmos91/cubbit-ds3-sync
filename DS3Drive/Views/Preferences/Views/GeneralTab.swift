@@ -57,20 +57,7 @@ struct GeneralTab: View {
 #Preview {
     GeneralTab(
         preferencesViewModel: PreferencesViewModel(
-            account: Account(
-                id: UUID().uuidString,
-                firstName: "Marco",
-                lastName: "Moschettini",
-                isInternal: false,
-                isBanned: false,
-                createdAt: "yesterday",
-                maxAllowedProjects: 1,
-                emails: [],
-                isTwoFactorEnabled: false,
-                tenantId: "tenant",
-                endpointGateway: "https://s3.cubbit.eu",
-                authProvider: "cubbit"
-            )
+            account: PreviewData.account
         )
     )
     .environment(UpdateManager())

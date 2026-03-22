@@ -57,18 +57,6 @@ struct DS3DriveApp: App {
         .windowStyle(.hiddenTitleBar)
         .defaultPosition(.center)
 
-        // MARK: - Manage drive
-
-        WindowGroup(id: "io.cubbit.DS3Drive.drive.manage", for: UUID.self) { $ds3DriveId in
-            if let driveId = ds3DriveId, let drive = ds3DriveManager.driveWithID(driveId) {
-                ManageDS3DriveView(ds3Drive: drive)
-                    .environment(ds3DriveManager)
-            }
-        }
-        .windowResizability(.contentSize)
-        .windowStyle(.hiddenTitleBar)
-        .defaultPosition(.center)
-
         // MARK: - Preferences
 
         Window("Preferences", id: "io.cubbit.DS3Drive.preferences") {

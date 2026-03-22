@@ -225,22 +225,29 @@ private struct FolderLevelView: View {
 
         guard let drive = viewModel.selectedDrive else { return }
 
-        let vm = SyncAnchorSelectionViewModel(
-            project: drive.syncAnchor.project,
-            authentication: DS3Authentication.loadFromPersistenceOrCreateNew()
-        )
+        do {
+            let sharedData = SharedData.default()
+            let account = try sharedData.loadAccountFromPersistence()
+            let apiKey = try sharedData.loadDS3APIKeyFromPersistence(
+                forUser: drive.syncAnchor.IAMUser,
+                projectName: drive.syncAnchor.project.name
+            )
 
-        vm.selectBucket(Bucket(name: drive.syncAnchor.bucket.name))
+            guard let secretKey = apiKey.secretKey else { return }
 
-        let currentPrefix = prefix.isEmpty ? nil : prefix
-        vm.selectedPrefix = currentPrefix
+            let s3Client = DS3S3Client(
+                endpoint: account.endpointGateway,
+                accessKeyId: apiKey.apiKey,
+                secretAccessKey: secretKey
+            )
 
-        await vm.listFoldersForCurrentBucket()
-
-        if let vmError = vm.error {
-            self.error = vmError
-        } else {
-            subfolders = vm.folders[currentPrefix ?? ""] ?? []
+            let currentPrefix = prefix.isEmpty ? nil : prefix
+            subfolders = try await s3Client.listFolders(
+                bucket: drive.syncAnchor.bucket.name,
+                prefix: currentPrefix
+            )
+        } catch {
+            self.error = error
         }
     }
 }

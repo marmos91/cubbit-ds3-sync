@@ -317,37 +317,7 @@ struct TrayDriveRowView: View {
     VStack(spacing: 0) {
         TrayDriveRowView(
             driveViewModel: DS3DriveViewModel(
-                drive: DS3Drive(
-                    id: UUID(),
-                    name: "My drive",
-                    syncAnchor: SyncAnchor(
-                        project: Project(
-                            id: UUID().uuidString,
-                            name: "My Project",
-                            description: "My project description",
-                            email: "test@cubbit.io",
-                            createdAt: "Now",
-                            bannedAt: nil,
-                            imageUrl: nil,
-                            tenantId: UUID().uuidString,
-                            rootAccountEmail: nil,
-                            users: [
-                                IAMUser(
-                                    id: "root",
-                                    username: "Root",
-                                    isRoot: true
-                                )
-                            ]
-                        ),
-                        IAMUser: IAMUser(
-                            id: "root",
-                            username: "Root",
-                            isRoot: true
-                        ),
-                        bucket: Bucket(name: "Personal"),
-                        prefix: "folder1"
-                    )
-                )
+                drive: PreviewData.drive
             )
         )
         .environment(
