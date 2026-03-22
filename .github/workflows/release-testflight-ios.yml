@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.4'
+          xcode-version: '16.2'
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -97,6 +97,11 @@ jobs:
             n; n; s/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "DS3DriveShareExtension iOS AppStore";/
           }' "$PROJECT"
 
+          # Verify all substitutions were applied
+          for PROFILE in "DS3DriveApp iOS AppStore" "DS3DriveProvider iOS AppStore" "DS3DriveShareExtension iOS AppStore"; do
+            grep -q "$PROFILE" "$PROJECT" || { echo "ERROR: profile '$PROFILE' not patched in project"; exit 1; }
+          done
+
       - name: Resolve Swift packages
         run: |
           xcodebuild -resolvePackageDependencies \
@@ -123,19 +128,24 @@ jobs:
           mkdir -p "$RUNNER_TEMP/private_keys"
           echo "$ASC_API_KEY_P8" | base64 --decode > "$RUNNER_TEMP/private_keys/AuthKey_${ASC_KEY_ID}.p8"
 
-      - name: Export & Upload to TestFlight
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      - name: Export archive
         run: |
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/DS3DriveApp.xcarchive" \
             -exportOptionsPlist ExportOptions-appstore-ios.plist \
-            -exportPath "$RUNNER_TEMP/export" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+            -exportPath "$RUNNER_TEMP/export"
+
+      - name: Upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcrun altool --upload-app \
+            -f "$RUNNER_TEMP/export/"*.ipa \
+            -t ios \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID" \
+            --verbose
 
       - name: Cleanup
         if: always()
