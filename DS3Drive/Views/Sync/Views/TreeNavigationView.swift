@@ -383,11 +383,7 @@ import DS3Lib
             display = String(display.dropFirst(parent.count))
         }
 
-        if display.hasSuffix("/") {
-            display = String(display.dropLast())
-        }
-
-        return display
+        return display.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
 }
 

@@ -212,8 +212,9 @@ private struct FolderLevelView: View {
     // MARK: - Helpers
 
     private func folderDisplayName(_ prefix: String) -> String {
-        let trimmed = prefix.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return trimmed.components(separatedBy: "/").last ?? prefix
+        prefix.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .components(separatedBy: "/")
+            .last ?? prefix
     }
 
     // MARK: - Data Loading
@@ -240,6 +241,7 @@ private struct FolderLevelView: View {
                 secretAccessKey: secretKey,
                 endpoint: account.endpointGateway
             )
+            defer { try? s3Client.shutdown() }
 
             let currentPrefix = prefix.isEmpty ? nil : prefix
             let result = try await s3Client.listObjects(

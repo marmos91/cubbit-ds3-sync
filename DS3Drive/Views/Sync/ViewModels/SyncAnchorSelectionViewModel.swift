@@ -34,8 +34,7 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     var project: Project
     var authentication: DS3Authentication
     var ds3Sdk: DS3SDK
-    var s3Client: DS3S3Client?
-    nonisolated(unsafe) private var shutdownClient: DS3S3Client?
+    nonisolated(unsafe) var s3Client: DS3S3Client?
 
     var buckets: [Bucket] = []
     var loading: Bool = true
@@ -67,7 +66,7 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     }
 
     deinit {
-        try? shutdownClient?.shutdown()
+        try? s3Client?.shutdown()
     }
 
     func loadBuckets() async {
@@ -77,7 +76,7 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
         defer { self.loading = false }
 
         do {
-            try await self.initializeClientIfNecessary()
+            try await self.initializeClient()
 
             self.logger.debug("Loading buckets for project \(self.project.name)")
 
@@ -114,7 +113,7 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
 
             self.logger.debug("Listing objects for bucket \(selectedBucket.name) and prefix \(self.selectedPrefix?.removingPercentEncoding ?? "no-prefix")")
 
-            try await self.initializeClientIfNecessary()
+            try await self.initializeClient()
 
             guard let client = self.s3Client else { throw SyncAnchorSelectionError.DS3ClientError }
 
@@ -135,12 +134,10 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
         }
     }
 
-    func initializeClientIfNecessary() async throws {
+    func initializeClient() async throws {
         guard let account = self.authentication.account else { return }
 
-        if let existingClient = self.shutdownClient {
-            try existingClient.shutdown()
-        }
+        try s3Client?.shutdown()
 
         guard let selectedIAMUser = self.selectedIAMUser else {
             throw SyncAnchorSelectionError.noIAMUserSelected
@@ -157,14 +154,11 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
             throw SyncAnchorSelectionError.DS3ClientError
         }
 
-        let client = DS3S3Client(
+        self.s3Client = DS3S3Client(
             accessKeyId: apiKeys.apiKey,
             secretAccessKey: secretKey,
             endpoint: account.endpointGateway
         )
-
-        self.shutdownClient = client
-        self.s3Client = client
     }
 
     func selectIAMUser(withID id: String) async {
@@ -185,12 +179,8 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     func cleanFoldersIfNeeded() {
         let prefix = self.selectedPrefix ?? ""
 
-        self.folders.keys.forEach { key in
-            guard !key.isEmpty else { return }
-
-            if !prefix.hasPrefix(key) {
-                self.folders.removeValue(forKey: key)
-            }
+        for key in self.folders.keys where !key.isEmpty && !prefix.hasPrefix(key) {
+            self.folders.removeValue(forKey: key)
         }
 
         if self.folders[prefix] == nil {
@@ -205,11 +195,9 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     }
 
     func selectBucket(withName name: String) async {
-        guard !self.buckets.isEmpty else { return }
+        guard let bucket = self.buckets.first(where: { $0.name == name }) else { return }
 
-        guard let index = self.buckets.lastIndex(where: { $0.name == name }) else { return }
-
-        self.selectedBucket = self.buckets[index]
+        self.selectedBucket = bucket
         self.selectedPrefix = nil
         self.folders = [:]
 
@@ -223,20 +211,17 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     }
 
     func shouldDisplayObjectNavigator() -> Bool {
-        return !self.folders.isEmpty
+        !self.folders.isEmpty
     }
 
     func getSelectedSyncAnchor() -> SyncAnchor? {
-        guard
-            let selectedBucket = self.selectedBucket,
-            let selectedIAMUser = self.selectedIAMUser
-        else { return nil }
+        guard let bucket = selectedBucket, let user = selectedIAMUser else { return nil }
 
         return SyncAnchor(
-            project: self.project,
-            IAMUser: selectedIAMUser,
-            bucket: selectedBucket,
-            prefix: self.selectedPrefix
+            project: project,
+            IAMUser: user,
+            bucket: bucket,
+            prefix: selectedPrefix
         )
     }
 }

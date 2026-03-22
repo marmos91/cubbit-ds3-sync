@@ -4,7 +4,12 @@ import FileProvider
 import os.log
 import DS3Lib
 
-/// Actor that contains the logic to interact with S3
+/// Actor that contains the logic to interact with S3.
+///
+/// Item identifiers already contain decoded S3 keys (decoded during `listS3Items`
+/// via `DS3S3Client.listObjects`). Raw `identifier.rawValue` is used directly
+/// throughout -- applying `decodeS3Key` again would corrupt literal `+` characters
+/// in filenames (e.g., "Redditi + IRAP").
 actor S3Lib { // swiftlint:disable:this type_body_length
     typealias Logger = os.Logger
 
@@ -22,13 +27,6 @@ actor S3Lib { // swiftlint:disable:this type_body_length
         self.client = client
         self.notificationManager = notificationManager
         self.pendingUploadStore = pendingUploadStore
-    }
-
-    /// Returns the S3 key as-is. Item identifiers already contain decoded S3 keys
-    /// (decoded during listS3Items). Applying decodeS3Key again would corrupt
-    /// literal + characters in filenames (e.g., "Redditi + IRAP").
-    nonisolated private func decodedKey(_ key: String) -> String {
-        key
     }
 
     func shutdown() throws {
@@ -61,30 +59,22 @@ actor S3Lib { // swiftlint:disable:this type_body_length
             encodingType: .url
         )
 
-        var items: [S3Item] = []
-
-        for commonPrefix in result.commonPrefixes {
-            items.append(
-                S3Item(
-                    identifier: NSFileProviderItemIdentifier(commonPrefix),
-                    drive: drive,
-                    objectMetadata: S3Item.Metadata(size: 0)
-                )
+        let prefixItems: [S3Item] = result.commonPrefixes.map { commonPrefix in
+            S3Item(
+                identifier: NSFileProviderItemIdentifier(commonPrefix),
+                drive: drive,
+                objectMetadata: S3Item.Metadata(size: 0)
             )
         }
 
-        for object in result.objects {
-            if object.key == prefix {
-                continue
-            }
+        let objectItems: [S3Item] = result.objects.compactMap { object in
+            if object.key == prefix { return nil }
 
             if let filterDate = date {
-                guard let lastModified = object.lastModified, lastModified > filterDate else {
-                    continue
-                }
+                guard let lastModified = object.lastModified, lastModified > filterDate else { return nil }
             }
 
-            let s3Item = S3Item(
+            return S3Item(
                 identifier: NSFileProviderItemIdentifier(object.key),
                 drive: drive,
                 objectMetadata: S3Item.Metadata(
@@ -93,9 +83,9 @@ actor S3Lib { // swiftlint:disable:this type_body_length
                     size: object.size as NSNumber
                 )
             )
-
-            items.append(s3Item)
         }
+
+        let items = prefixItems + objectItems
 
         self.logger.debug("Listed \(items.count) items")
 
@@ -115,11 +105,11 @@ actor S3Lib { // swiftlint:disable:this type_body_length
             return S3Item(
                 identifier: identifier,
                 drive: drive,
-                objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
+                objectMetadata: S3Item.Metadata(size: 0)
             )
         }
 
-        let key = decodedKey(identifier.rawValue)
+        let key = identifier.rawValue
         let metadata = try await client.headObject(bucket: drive.syncAnchor.bucket.name, key: key)
 
         return S3Item(
@@ -145,13 +135,13 @@ actor S3Lib { // swiftlint:disable:this type_body_length
             return try await self.deleteFolder(s3Item, withProgress: progress)
         }
 
-        let decodedItemKey = decodedKey(s3Item.identifier.rawValue)
-        self.logger.debug("Deleting object \(decodedItemKey, privacy: .public)")
+        let itemKey = s3Item.identifier.rawValue
+        self.logger.debug("Deleting object \(itemKey, privacy: .public)")
 
         let deleteProgress = Progress(totalUnitCount: 1)
         progress?.addChild(deleteProgress, withPendingUnitCount: 1)
 
-        try await client.deleteObject(bucket: s3Item.drive.syncAnchor.bucket.name, key: decodedItemKey)
+        try await client.deleteObject(bucket: s3Item.drive.syncAnchor.bucket.name, key: itemKey)
 
         deleteProgress.completedUnitCount += 1
     }
@@ -162,7 +152,7 @@ actor S3Lib { // swiftlint:disable:this type_body_length
         withProgress progress: Progress? = nil
     ) async throws {
         var continuationToken: String?
-        let folderPrefix = decodedKey(s3Item.itemIdentifier.rawValue)
+        let folderPrefix = s3Item.itemIdentifier.rawValue
         var totalFailures = 0
 
         repeat {
@@ -203,7 +193,6 @@ actor S3Lib { // swiftlint:disable:this type_body_length
             self.logger.error("Batch delete completed with \(totalFailures) total failures under \(folderPrefix, privacy: .public)")
         }
 
-        // Delete the folder key itself
         self.logger.debug("Deleting enclosing folder \(folderPrefix, privacy: .public)")
         try await self.deleteS3Item(s3Item, withProgress: progress, force: true)
     }
@@ -214,9 +203,9 @@ actor S3Lib { // swiftlint:disable:this type_body_length
         newName: String,
         withProgress progress: Progress? = nil
     ) async throws -> S3Item {
-        let decodedIdentifier = decodedKey(s3Item.identifier.rawValue)
-        let isFolder = decodedIdentifier.hasSuffix(String(DefaultSettings.S3.delimiter))
-        let trimmedIdentifier = isFolder ? String(decodedIdentifier.dropLast()) : decodedIdentifier
+        let identifierKey = s3Item.identifier.rawValue
+        let isFolder = identifierKey.hasSuffix(String(DefaultSettings.S3.delimiter))
+        let trimmedIdentifier = isFolder ? String(identifierKey.dropLast()) : identifierKey
         let components = trimmedIdentifier.split(separator: DefaultSettings.S3.delimiter)
         let parentPath = components.dropLast().joined(separator: String(DefaultSettings.S3.delimiter))
         let newKey: String
@@ -226,7 +215,7 @@ actor S3Lib { // swiftlint:disable:this type_body_length
             newKey = parentPath + String(DefaultSettings.S3.delimiter) + newName + (isFolder ? String(DefaultSettings.S3.delimiter) : "")
         }
 
-        self.logger.debug("Renaming s3Item \(decodedIdentifier, privacy: .public) to \(newKey, privacy: .public)")
+        self.logger.debug("Renaming s3Item \(identifierKey, privacy: .public) to \(newKey, privacy: .public)")
 
         return try await self.moveS3Item(s3Item, toKey: newKey, withProgress: progress)
     }
@@ -276,15 +265,15 @@ actor S3Lib { // swiftlint:disable:this type_body_length
             return try await self.copyFolder(s3Item, toKey: key, withProgress: progress)
         }
 
-        let decodedCopyKey = decodedKey(s3Item.itemIdentifier.rawValue)
-        self.logger.debug("Copying s3Item \(s3Item.itemIdentifier.rawValue, privacy: .public) to \(key, privacy: .public)")
+        let sourceKey = s3Item.itemIdentifier.rawValue
+        self.logger.debug("Copying s3Item \(sourceKey, privacy: .public) to \(key, privacy: .public)")
 
         let copyProgress = Progress(totalUnitCount: 1)
         progress?.addChild(copyProgress, withPendingUnitCount: 1)
 
         try await client.copyObject(
             bucket: s3Item.drive.syncAnchor.bucket.name,
-            sourceKey: decodedCopyKey,
+            sourceKey: sourceKey,
             destinationKey: key
         )
 
@@ -294,19 +283,17 @@ actor S3Lib { // swiftlint:disable:this type_body_length
     /// Copies a remote folder to a new location recursively
     private func copyFolder(
         _ s3Item: S3Item,
-        toKey key: String,
+        toKey destinationPrefix: String,
         withProgress progress: Progress? = nil
     ) async throws {
         var continuationToken: String?
         var items = [S3Item]()
-
-        let prefix = decodedKey(s3Item.itemIdentifier.rawValue)
-        let newPrefix = key
+        let sourcePrefix = s3Item.itemIdentifier.rawValue
 
         repeat {
             (items, continuationToken) = try await self.listS3Items(
                 forDrive: s3Item.drive,
-                withPrefix: prefix,
+                withPrefix: sourcePrefix,
                 recursively: true,
                 withContinuationToken: continuationToken
             )
@@ -314,18 +301,15 @@ actor S3Lib { // swiftlint:disable:this type_body_length
             if items.isEmpty { break }
 
             for item in items {
-                let decodedItemKey = decodedKey(item.identifier.rawValue)
-                let newKey = decodedItemKey.replacingOccurrences(of: prefix, with: newPrefix)
-                self.logger.debug("New key is \(newKey, privacy: .public)")
+                let newKey = item.identifier.rawValue.replacingOccurrences(of: sourcePrefix, with: destinationPrefix)
+                self.logger.debug("Copying to \(newKey, privacy: .public)")
                 try await self.copyS3Item(item, toKey: newKey, withProgress: progress)
             }
         } while continuationToken != nil
 
-        // Copy folder itself when it's empty
         if items.isEmpty {
-            self.logger.debug("Copying enclosing folder \(prefix, privacy: .public)")
-            let decodedFolderKey = decodedKey(s3Item.identifier.rawValue)
-            let newKey = decodedFolderKey.replacingOccurrences(of: prefix, with: newPrefix)
+            self.logger.debug("Copying enclosing folder \(sourcePrefix, privacy: .public)")
+            let newKey = s3Item.identifier.rawValue.replacingOccurrences(of: sourcePrefix, with: destinationPrefix)
             try await self.copyS3Item(s3Item, toKey: newKey, withProgress: progress, force: true)
         }
     }
@@ -356,7 +340,7 @@ actor S3Lib { // swiftlint:disable:this type_body_length
         do {
             _ = try await client.getObject(
                 bucket: s3Item.drive.syncAnchor.bucket.name,
-                key: decodedKey(s3Item.identifier.rawValue),
+                key: s3Item.identifier.rawValue,
                 toFile: fileURL
             ) { transferProgress in
                 if fileSize > 0 {
@@ -389,7 +373,7 @@ actor S3Lib { // swiftlint:disable:this type_body_length
         temporaryFolder: URL,
         progress: Progress?
     ) async throws -> (URL, S3Item) {
-        let key = decodedKey(identifier.rawValue)
+        let key = identifier.rawValue
         let filename = key.components(separatedBy: "/").last
         let fileURL = try temporaryFileURL(withTemporaryFolder: temporaryFolder)
 
@@ -447,12 +431,13 @@ actor S3Lib { // swiftlint:disable:this type_body_length
 
         let nm = self.notificationManager
         let driveId = drive.id
-        let rawValue = identifier.rawValue
+        let key = identifier.rawValue
+        let filename = key.components(separatedBy: "/").last
 
         do {
             try await client.getObjectRange(
                 bucket: drive.syncAnchor.bucket.name,
-                key: decodedKey(identifier.rawValue),
+                key: key,
                 range: range,
                 toFile: fileURL
             ) { transferProgress in
@@ -461,7 +446,7 @@ actor S3Lib { // swiftlint:disable:this type_body_length
                     size: transferProgress.bytesTransferred,
                     duration: transferProgress.duration,
                     direction: .download,
-                    filename: rawValue.components(separatedBy: "/").last,
+                    filename: filename,
                     totalSize: nil
                 )
                 Task { await nm.sendTransferSpeedNotification(stats) }
@@ -497,7 +482,7 @@ actor S3Lib { // swiftlint:disable:this type_body_length
         fileURL: URL? = nil,
         withProgress progress: Progress? = nil
     ) async throws -> String? {
-        let key = decodedKey(s3Item.itemIdentifier.rawValue)
+        let key = s3Item.itemIdentifier.rawValue
         let size: Int64
 
         if let fileURL {
@@ -552,7 +537,7 @@ actor S3Lib { // swiftlint:disable:this type_body_length
             throw FileProviderExtensionError.fileNotFound
         }
 
-        let key = decodedKey(s3Item.itemIdentifier.rawValue)
+        let key = s3Item.itemIdentifier.rawValue
         let documentTotalSize = Int64(truncating: s3Item.documentSize ?? 0)
         let driveId = s3Item.drive.id
 
@@ -603,7 +588,7 @@ actor S3Lib { // swiftlint:disable:this type_body_length
         for s3Item: S3Item,
         withUploadId uploadId: String
     ) async throws {
-        let key = decodedKey(s3Item.itemIdentifier.rawValue)
+        let key = s3Item.itemIdentifier.rawValue
 
         self.logger.warning("Aborting multipart upload for key \(key, privacy: .public) uploadId \(uploadId, privacy: .public)")
 

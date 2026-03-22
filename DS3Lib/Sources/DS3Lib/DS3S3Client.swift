@@ -228,15 +228,12 @@ public final class DS3S3Client: Sendable { // swiftlint:disable:this type_body_l
 
         let response = try await s3.listObjectsV2(request)
 
+        let decode: (String) -> String? = encodingType == .url
+            ? { try? Self.decodeS3Key($0) }
+            : { $0 }
+
         let objects = (response.contents ?? []).compactMap { object -> S3ObjectSummary? in
-            guard let rawKey = object.key else { return nil }
-            let key: String
-            if encodingType == .url {
-                guard let decoded = try? Self.decodeS3Key(rawKey) else { return nil }
-                key = decoded
-            } else {
-                key = rawKey
-            }
+            guard let rawKey = object.key, let key = decode(rawKey) else { return nil }
             return S3ObjectSummary(
                 key: key,
                 etag: ETagUtils.normalize(object.eTag),
@@ -247,19 +244,15 @@ public final class DS3S3Client: Sendable { // swiftlint:disable:this type_body_l
 
         let prefixes: [String] = (response.commonPrefixes ?? []).compactMap { commonPrefix in
             guard let rawPrefix = commonPrefix.prefix else { return nil }
-            if encodingType == .url {
-                return try? Self.decodeS3Key(rawPrefix)
-            }
-            return rawPrefix
+            return decode(rawPrefix)
         }
 
         let isTruncated = response.isTruncated ?? false
-        let nextToken: String? = isTruncated ? response.nextContinuationToken : nil
 
         return S3ListingResult(
             objects: objects,
             commonPrefixes: prefixes,
-            nextContinuationToken: nextToken?.isEmpty == true ? nil : nextToken,
+            nextContinuationToken: isTruncated ? response.nextContinuationToken : nil,
             isTruncated: isTruncated
         )
     }
@@ -293,47 +286,14 @@ public final class DS3S3Client: Sendable { // swiftlint:disable:this type_body_l
         toFile fileURL: URL,
         onProgress: TransferProgressHandler? = nil
     ) async throws -> S3DownloadResult {
-        let fileHandle = try FileHandle(forWritingTo: fileURL)
-        defer { fileHandle.closeFile() }
-
-        var bytesDownloaded: Int64 = 0
-        let downloadStart = Date()
-        let filename = key.components(separatedBy: "/").last
-
         let request = S3.GetObjectRequest(bucket: bucket, key: key)
-
-        let response = try await s3.getObjectStreaming(request) { byteBuffer, eventLoop in
-            let bufferSize = Int64(byteBuffer.readableBytes)
-            byteBuffer.withUnsafeReadableBytes { bufferPointer in
-                guard let baseAddress = bufferPointer.baseAddress else { return }
-                let data = Data(
-                    bytesNoCopy: UnsafeMutableRawPointer(mutating: baseAddress),
-                    count: bufferPointer.count,
-                    deallocator: .none
-                )
-                fileHandle.write(data)
-            }
-            bytesDownloaded += bufferSize
-
-            let duration = Date().timeIntervalSince(downloadStart)
-            onProgress?(TransferProgress(
-                bytesTransferred: bytesDownloaded,
-                totalBytes: nil,
-                duration: duration,
-                direction: .download,
-                filename: filename
-            ))
-
-            return eventLoop.makeSucceededFuture(())
-        }
-
-        let contentLength = response.contentLength ?? bytesDownloaded
+        let response = try await streamToFile(request: request, fileURL: fileURL, key: key, onProgress: onProgress)
 
         return S3DownloadResult(
             etag: ETagUtils.normalize(response.eTag),
             contentType: response.contentType,
             lastModified: response.lastModified,
-            contentLength: contentLength
+            contentLength: response.contentLength ?? 0
         )
     }
 
@@ -345,6 +305,17 @@ public final class DS3S3Client: Sendable { // swiftlint:disable:this type_body_l
         toFile fileURL: URL,
         onProgress: TransferProgressHandler? = nil
     ) async throws {
+        let request = S3.GetObjectRequest(bucket: bucket, key: key, range: range)
+        _ = try await streamToFile(request: request, fileURL: fileURL, key: key, onProgress: onProgress)
+    }
+
+    /// Streams an S3 GetObject response to a local file, reporting progress along the way.
+    private func streamToFile(
+        request: S3.GetObjectRequest,
+        fileURL: URL,
+        key: String,
+        onProgress: TransferProgressHandler?
+    ) async throws -> S3.GetObjectOutput {
         let fileHandle = try FileHandle(forWritingTo: fileURL)
         defer { fileHandle.closeFile() }
 
@@ -352,9 +323,7 @@ public final class DS3S3Client: Sendable { // swiftlint:disable:this type_body_l
         let downloadStart = Date()
         let filename = key.components(separatedBy: "/").last
 
-        let request = S3.GetObjectRequest(bucket: bucket, key: key, range: range)
-
-        _ = try await s3.getObjectStreaming(request) { byteBuffer, eventLoop in
+        return try await s3.getObjectStreaming(request) { byteBuffer, eventLoop in
             let bufferSize = Int64(byteBuffer.readableBytes)
             byteBuffer.withUnsafeReadableBytes { bufferPointer in
                 guard let baseAddress = bufferPointer.baseAddress else { return }
@@ -731,13 +700,5 @@ public final class DS3S3Client: Sendable { // swiftlint:disable:this type_body_l
         return S3ErrorRecovery.isRecoverableAuthError(code)
     }
 
-    /// Maps an S3 error to an NSFileProviderError code.
-    /// Returns nil if the error is not an S3ErrorType.
-    public static func fileProviderErrorCode(from error: Error) -> Int? {
-        guard let s3Error = error as? S3ErrorType else { return nil }
-        // We can't reference NSFileProviderError here (FileProvider framework),
-        // so we return the raw error code string for the caller to map.
-        return nil
-    }
 }
 // swiftlint:enable file_length
