@@ -31,6 +31,9 @@
 		9783D898595F0FCD77B116E6 /* IOSDriveViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AFAE49D6C5787515C65EE4 /* IOSDriveViewModel.swift */; };
 		A10203042F6300000042AD93 /* S3LibListingAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10203032F6300000042AD93 /* S3LibListingAdapter.swift */; };
 		A10305062F6400000042AD93 /* ConflictNotificationHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10305052F6400000042AD93 /* ConflictNotificationHandler.swift */; };
+		F1A2B3C400040000000A0001 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C400010000000A0001 /* UpdateManager.swift */; };
+		F1A2B3C400050000000A0001 /* UpdateNotificationHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C400020000000A0001 /* UpdateNotificationHandler.swift */; };
+		F1A2B3C400060000000A0001 /* UpdateSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C400030000000A0001 /* UpdateSection.swift */; };
 		A10501012F6500000042AD93 /* DS3Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10501002F6500000042AD93 /* DS3Colors.swift */; };
 		A10501032F6500000042AD93 /* DS3Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10501022F6500000042AD93 /* DS3Typography.swift */; };
 		A10501052F6500000042AD93 /* DS3Spacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10501042F6500000042AD93 /* DS3Spacing.swift */; };
@@ -199,6 +202,9 @@
 		92782ABCB6F9964E5FC56C71 /* DriveListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DriveListView.swift; sourceTree = "<group>"; };
 		A10203032F6300000042AD93 /* S3LibListingAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3LibListingAdapter.swift; sourceTree = "<group>"; };
 		A10305052F6400000042AD93 /* ConflictNotificationHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictNotificationHandler.swift; sourceTree = "<group>"; };
+		F1A2B3C400010000000A0001 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
+		F1A2B3C400020000000A0001 /* UpdateNotificationHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateNotificationHandler.swift; sourceTree = "<group>"; };
+		F1A2B3C400030000000A0001 /* UpdateSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateSection.swift; sourceTree = "<group>"; };
 		A10501002F6500000042AD93 /* DS3Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3Colors.swift; sourceTree = "<group>"; };
 		A10501022F6500000042AD93 /* DS3Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3Typography.swift; sourceTree = "<group>"; };
 		A10501042F6500000042AD93 /* DS3Spacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3Spacing.swift; sourceTree = "<group>"; };
@@ -485,6 +491,7 @@
 				D5A221AA2B571FED00F1413B /* Preview Content */,
 				D5A221FE2B571FEE00F1413B /* Assets */,
 				D5A221AE2B571FED00F1413B /* Views */,
+				F1A2B3C400070000000A0001 /* Update */,
 				D54775C62B57181D00DABCD4 /* DS3DriveApp.swift */,
 				A10305052F6400000042AD93 /* ConflictNotificationHandler.swift */,
 				D54775CC2B57181E00DABCD4 /* DS3Drive.entitlements */,
@@ -539,8 +546,18 @@
 				A10503042F6500000042AD93 /* GeneralTab.swift */,
 				A10503062F6500000042AD93 /* AccountTab.swift */,
 				A10503082F6500000042AD93 /* SyncTab.swift */,
+				F1A2B3C400030000000A0001 /* UpdateSection.swift */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		F1A2B3C400070000000A0001 /* Update */ = {
+			isa = PBXGroup;
+			children = (
+				F1A2B3C400010000000A0001 /* UpdateManager.swift */,
+				F1A2B3C400020000000A0001 /* UpdateNotificationHandler.swift */,
+			);
+			path = Update;
 			sourceTree = "<group>";
 		};
 		D5A221B42B571FED00F1413B /* Tutorial */ = {
@@ -1100,6 +1117,9 @@
 				D5A2222B2B571FEE00F1413B /* ProjectView.swift in Sources */,
 				D54775C72B57181D00DABCD4 /* DS3DriveApp.swift in Sources */,
 				A10305062F6400000042AD93 /* ConflictNotificationHandler.swift in Sources */,
+				F1A2B3C400040000000A0001 /* UpdateManager.swift in Sources */,
+				F1A2B3C400050000000A0001 /* UpdateNotificationHandler.swift in Sources */,
+				F1A2B3C400060000000A0001 /* UpdateSection.swift in Sources */,
 				D5A222162B571FEE00F1413B /* ButtonStyles.swift in Sources */,
 				D5A2221A2B571FEE00F1413B /* ManageDS3DriveView.swift in Sources */,
 				D5A2222F2B571FEE00F1413B /* SyncRecapFooterView.swift in Sources */,

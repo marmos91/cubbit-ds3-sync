@@ -56,6 +56,8 @@ public enum DefaultSettings {
         public static let loginItemSet = "io.cubbit.DS3Drive.userDefaults.loginItemSet"
         public static let lastTenant = "io.cubbit.DS3Drive.userDefaults.lastTenant"
         public static let lastCoordinatorURL = "io.cubbit.DS3Drive.userDefaults.lastCoordinatorURL"
+        public static let autoCheckUpdates = "io.cubbit.DS3Drive.userDefaults.autoCheckUpdates"
+        public static let lastUpdateCheck = "io.cubbit.DS3Drive.userDefaults.lastUpdateCheck"
     }
 
     /// A unique identifier for the app. It is used to identify the specific app instance when creating API keys.
@@ -175,6 +177,15 @@ public enum DefaultSettings {
 
         /// Milliseconds to pause between BFS levels to avoid starving user operations.
         public static let bfsLevelDelayMs = 200
+    }
+
+    /// Settings related to update checking.
+    public enum Update {
+        /// Interval between automatic update checks (4 hours).
+        public static let checkIntervalSeconds: TimeInterval = 4 * 60 * 60
+
+        /// GitHub Releases API endpoint for the latest release.
+        public static let gitHubReleasesURL = "https://api.github.com/repos/cubbit/cubbit-ds3-drive/releases/latest"
     }
 
     /// Settings related to the notifications sent between the main app and the file provider extension.
