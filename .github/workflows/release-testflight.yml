@@ -3,12 +3,11 @@ name: Release — TestFlight (macOS)
 on:
   push:
     tags:
-      - 'v*-alpha.*'
-      - 'v*-beta.*'
+      - 'v*'
 
 jobs:
   testflight:
-    name: Archive & Upload to TestFlight
+    name: Archive & Upload to TestFlight (macOS)
     runs-on: macos-15
     timeout-minutes: 30
 
@@ -131,8 +130,8 @@ jobs:
           ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
         run: |
-          mkdir -p ~/private_keys
-          echo "$ASC_API_KEY_P8" | base64 --decode > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          mkdir -p "$RUNNER_TEMP/private_keys"
+          echo "$ASC_API_KEY_P8" | base64 --decode > "$RUNNER_TEMP/private_keys/AuthKey_${ASC_KEY_ID}.p8"
 
       - name: Create installer package
         env:
@@ -182,5 +181,5 @@ jobs:
         if: always()
         run: |
           security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
-          rm -rf ~/private_keys
+          rm -rf "$RUNNER_TEMP/private_keys"
           rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/"*.provisionprofile

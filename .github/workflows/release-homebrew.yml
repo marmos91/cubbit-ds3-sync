@@ -12,8 +12,6 @@ jobs:
   homebrew:
     name: Archive, Notarize & Publish
     runs-on: macos-15
-    if: "!contains(github.ref_name, '-')"
-
     steps:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
