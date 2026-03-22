@@ -236,16 +236,18 @@ private struct FolderLevelView: View {
             guard let secretKey = apiKey.secretKey else { return }
 
             let s3Client = DS3S3Client(
-                endpoint: account.endpointGateway,
                 accessKeyId: apiKey.apiKey,
-                secretAccessKey: secretKey
+                secretAccessKey: secretKey,
+                endpoint: account.endpointGateway
             )
 
             let currentPrefix = prefix.isEmpty ? nil : prefix
-            subfolders = try await s3Client.listFolders(
+            let result = try await s3Client.listObjects(
                 bucket: drive.syncAnchor.bucket.name,
-                prefix: currentPrefix
+                prefix: currentPrefix,
+                delimiter: String(DefaultSettings.S3.delimiter)
             )
+            subfolders = result.commonPrefixes
         } catch {
             self.error = error
         }

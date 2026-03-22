@@ -1,5 +1,4 @@
 import SwiftUI
-import SotoS3
 import DS3Lib
 
 enum SyncSetupStep {
