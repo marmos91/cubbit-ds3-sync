@@ -51,7 +51,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
     let domain: NSFileProviderDomain
     private var enabled: Bool
 
-    private var s3: S3?
+    private var s3Client: DS3S3Client?
     private var s3Lib: S3Lib?
 
     private var apiKeys: DS3ApiKey?
@@ -110,28 +110,21 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                 return
             }
 
-            let client = AWSClient(
-                credentialProvider: .static(
-                    accessKeyId: apiKeys.apiKey,
-                    secretAccessKey: secretKey
-                ),
-                httpClientProvider: .createNew
+            let client = DS3S3Client(
+                accessKeyId: apiKeys.apiKey,
+                secretAccessKey: secretKey,
+                endpoint: endpoint
             )
+            self.s3Client = client
 
-            self.s3 = S3(
-                client: client,
-                endpoint: endpoint,
-                timeout: .seconds(DefaultSettings.S3.timeoutInSeconds)
-            )
-
-            guard let s3 = self.s3, let notificationManager = self.notificationManager else {
+            guard let notificationManager = self.notificationManager else {
                 logger.error("Failed to create S3 client for domain \(domain.identifier.rawValue, privacy: .public)")
                 super.init()
                 self.notifyInitFailure(reason: "S3 client creation failed")
                 return
             }
 
-            self.s3Lib = S3Lib(withS3: s3, withNotificationManager: notificationManager)
+            self.s3Lib = S3Lib(withClient: client, withNotificationManager: notificationManager)
 
             // Initialize MetadataStore, NetworkMonitor, and SyncEngine
             do {
@@ -1395,16 +1388,16 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
             Task { try? await s3Lib.shutdown() }
         }
 
-        let client = AWSClient(
-            credentialProvider: .static(accessKeyId: freshKey.apiKey, secretAccessKey: secretKey),
-            httpClientProvider: .createNew
+        let client = DS3S3Client(
+            accessKeyId: freshKey.apiKey,
+            secretAccessKey: secretKey,
+            endpoint: self.endpoint
         )
-        let s3 = S3(client: client, endpoint: self.endpoint, timeout: .seconds(DefaultSettings.S3.timeoutInSeconds))
 
-        self.s3 = s3
+        self.s3Client = client
         self.apiKeys = freshKey
         if let nm = self.notificationManager {
-            self.s3Lib = S3Lib(withS3: s3, withNotificationManager: nm)
+            self.s3Lib = S3Lib(withClient: client, withNotificationManager: nm)
         }
 
         self.logger.info("S3 credentials reloaded from SharedData")
