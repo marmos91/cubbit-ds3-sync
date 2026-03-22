@@ -110,8 +110,21 @@ final class BreadthFirstIndexer: @unchecked Sendable {
 
                 } while continuationToken != nil
 
-                if let metadataStore, !upsertBatch.isEmpty {
-                    try await metadataStore.batchUpsertItems(upsertBatch)
+                if let metadataStore {
+                    if !upsertBatch.isEmpty {
+                        try await metadataStore.batchUpsertItems(upsertBatch)
+                    }
+
+                    // Prune cached items no longer in S3 for this folder.
+                    // Runs even when upsertBatch is empty (folder fully emptied on S3).
+                    let keepKeys = Set(upsertBatch.map(\.s3Key))
+                    let drivePrefix = drive.syncAnchor.prefix ?? ""
+                    let parentKey: String? = (prefix == drivePrefix) ? nil : prefix
+                    try await metadataStore.pruneChildren(
+                        parentKey: parentKey,
+                        driveId: drive.id,
+                        keepKeys: keepKeys
+                    )
                 }
 
                 logger.debug("BFS indexed \(upsertBatch.count) items at prefix \(prefix.isEmpty ? "<root>" : prefix, privacy: .public)")

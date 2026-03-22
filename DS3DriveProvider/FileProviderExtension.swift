@@ -159,7 +159,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
 
         super.init()
         self.startPolling()
-        self.startBFSIndexer()
+        self.warmCacheThenStartBFS()
 
         // If drive is paused, notify the main app so UI reflects the state
         if let driveId = self.drive?.id,
@@ -1175,6 +1175,79 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
         }
     }
 
+    // MARK: - Cache Warm-up
+
+    /// Performs a single recursive S3 listing on startup to populate MetadataStore
+    /// before BFS starts. This turns all subsequent enumerateItems calls into
+    /// instant cache hits, avoiding the enumeration waterfall when the user
+    /// downloads a large folder tree.
+    private func warmCacheThenStartBFS() {
+        #if os(iOS)
+        // On iOS, skip warm-up — recursive listings spike memory and burn
+        // the networking grace period. Per-folder enumeration handles discovery.
+        return
+        #else
+        guard self.enabled,
+              let drive = self.drive,
+              let s3Lib = self.s3Lib,
+              let metadataStore = self.metadataStore else {
+            self.startBFSIndexer()
+            return
+        }
+
+        // Skip warm-up when drive is paused
+        if (try? SharedData.default().isDrivePaused(drive.id)) == true {
+            self.startBFSIndexer()
+            return
+        }
+
+        Task.detached(priority: .utility) { [weak self] in
+            let prefix = drive.syncAnchor.prefix
+            self?.logger.info("Cache warm-up: starting recursive listing for prefix \(prefix ?? "<root>", privacy: .public)")
+
+            do {
+                var continuationToken: String?
+                var allItems: [S3Item] = []
+
+                repeat {
+                    let (items, nextToken) = try await s3Lib.listS3Items(
+                        forDrive: drive,
+                        withPrefix: prefix,
+                        recursively: true,
+                        withContinuationToken: continuationToken
+                    )
+                    continuationToken = nextToken
+                    allItems.append(contentsOf: items)
+
+                    // Upsert each page incrementally so enumerateItems can
+                    // start serving partial results while we're still listing.
+                    let upsertData = items.map { MetadataStore.ItemUpsertData(from: $0) }
+                    try await metadataStore.batchUpsertItems(upsertData)
+                } while continuationToken != nil
+
+                // Synthesize virtual folders (recursive listing omits directory-only prefixes)
+                let virtualFolders = S3Enumerator.synthesizeVirtualFolders(
+                    from: allItems, drive: drive, prefix: prefix
+                )
+                if !virtualFolders.isEmpty {
+                    let folderData = virtualFolders.map { MetadataStore.ItemUpsertData(from: $0) }
+                    try await metadataStore.batchUpsertItems(folderData)
+                }
+
+                self?.logger.info("Cache warm-up complete: \(allItems.count) items + \(virtualFolders.count) virtual folders")
+
+                // Signal working set so fileproviderd picks up the warm cache
+                self?.signalChanges()
+            } catch {
+                self?.logger.error("Cache warm-up failed: \(error.localizedDescription, privacy: .public). Falling back to BFS.")
+            }
+
+            // Start BFS for ongoing cache maintenance after warm-up completes (or fails)
+            self?.startBFSIndexer()
+        }
+        #endif
+    }
+
     // MARK: - BFS Indexer
 
     private func startBFSIndexer() {
@@ -1217,6 +1290,10 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
         #endif
 
         let pollingInterval = DefaultSettings.Extension.pollingIntervalSeconds
+
+        // Signal immediately on startup so enumerateChanges/reconciliation
+        // runs right away — don't wait for the first polling interval.
+        self.signalChanges()
 
         self.pollingTask = Task { [weak self] in
             while !Task.isCancelled {

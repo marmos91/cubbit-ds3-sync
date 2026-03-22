@@ -353,6 +353,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
 
             do {
                 var continuationToken: String?
+                var allKeys = Set<String>()
                 repeat {
                     let (items, nextToken) = try await s3Lib.listS3Items(
                         forDrive: drive,
@@ -363,8 +364,20 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                     continuationToken = nextToken
 
                     let upsertData = items.map { MetadataStore.ItemUpsertData(from: $0) }
+                    allKeys.formUnion(upsertData.lazy.map(\.s3Key))
                     try await metadataStore.batchUpsertItems(upsertData)
                 } while continuationToken != nil
+
+                // Remove cached items that are no longer in S3 (only synced items,
+                // preserving pending uploads and items in error/conflict state).
+                if !recursively {
+                    let parentKey: String? = parent == .rootContainer ? nil : parent.rawValue
+                    try await metadataStore.pruneChildren(
+                        parentKey: parentKey,
+                        driveId: drive.id,
+                        keepKeys: allKeys
+                    )
+                }
 
                 // On macOS, signal the specific folder container so Finder picks up
                 // the refreshed cache immediately. On iOS, skip the signal — it would
