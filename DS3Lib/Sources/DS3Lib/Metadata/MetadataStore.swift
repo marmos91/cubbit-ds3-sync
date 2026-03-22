@@ -185,6 +185,34 @@ public actor MetadataStore {
         try context.save()
     }
 
+    /// Remove cached children of a folder that are no longer present in S3.
+    /// Only prunes items with `.synced` status — items being uploaded or in error are preserved.
+    public func pruneChildren(parentKey: String?, driveId: UUID, keepKeys: Set<String>) throws {
+        let context = modelExecutor.modelContext
+        let syncedStatus = SyncStatus.synced.rawValue
+        let items: [SyncedItem]
+
+        if let parentKey {
+            let predicate = #Predicate<SyncedItem> {
+                $0.driveId == driveId && $0.parentKey == parentKey && $0.syncStatus == syncedStatus
+            }
+            items = try context.fetch(FetchDescriptor<SyncedItem>(predicate: predicate))
+        } else {
+            let predicate = #Predicate<SyncedItem> {
+                $0.driveId == driveId && $0.parentKey == nil && $0.syncStatus == syncedStatus
+            }
+            items = try context.fetch(FetchDescriptor<SyncedItem>(predicate: predicate))
+        }
+
+        let staleItems = items.filter { !keepKeys.contains($0.s3Key) }
+        for item in staleItems {
+            context.delete(item)
+        }
+        if !staleItems.isEmpty {
+            try context.save()
+        }
+    }
+
     /// Delete a single SyncedItem by S3 key within a specific drive.
     public func deleteItem(byKey s3Key: String, driveId: UUID) throws {
         if let item = try findItem(byKey: s3Key, driveId: driveId) {
