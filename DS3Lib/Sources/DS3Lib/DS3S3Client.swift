@@ -366,6 +366,7 @@ public final class DS3S3Client: Sendable { // swiftlint:disable:this type_body_l
     ) async throws -> String? {
         var request: S3.PutObjectRequest
         var size: Int64 = 0
+        var openHandle: FileHandle?
 
         if let fileURL {
             let uploadHandle: FileHandle
@@ -374,6 +375,7 @@ public final class DS3S3Client: Sendable { // swiftlint:disable:this type_body_l
             } catch {
                 throw DS3ClientError.unableToOpenFile
             }
+            openHandle = uploadHandle
 
             let fileAttributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
             size = (fileAttributes[.size] as? Int64) ?? 0
@@ -396,7 +398,13 @@ public final class DS3S3Client: Sendable { // swiftlint:disable:this type_body_l
         let uploadStart = Date()
         let filename = key.components(separatedBy: "/").last
 
-        let response = try await s3.putObject(request)
+        let response: S3.PutObjectOutput
+        do {
+            response = try await s3.putObject(request)
+        } catch {
+            try? openHandle?.close()
+            throw error
+        }
 
         let duration = Date().timeIntervalSince(uploadStart)
         onProgress?(TransferProgress(

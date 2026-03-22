@@ -134,10 +134,11 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
         }
     }
 
-    func initializeClient() async throws {
+    func initializeClient(force: Bool = false) async throws {
+        guard force || s3Client == nil else { return }
         guard let account = self.authentication.account else { return }
 
-        try s3Client?.shutdown()
+        try? s3Client?.shutdown()
 
         guard let selectedIAMUser = self.selectedIAMUser else {
             throw SyncAnchorSelectionError.noIAMUserSelected

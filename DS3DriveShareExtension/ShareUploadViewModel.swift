@@ -299,26 +299,31 @@ final class ShareUploadViewModel {
 
         let uploadId = try await client.createMultipartUpload(bucket: bucket, key: key)
 
-        let partSize = DefaultSettings.S3.multipartUploadPartSize
-        let totalParts = Int(ceil(Double(fileSize) / Double(partSize)))
-        var completedParts: [(partNumber: Int, etag: String)] = []
+        do {
+            let partSize = DefaultSettings.S3.multipartUploadPartSize
+            let totalParts = Int(ceil(Double(fileSize) / Double(partSize)))
+            var completedParts: [(partNumber: Int, etag: String)] = []
 
-        for partNumber in 1...totalParts {
-            let offset = (partNumber - 1) * partSize
-            let length = min(partSize, Int(fileSize) - offset)
-            let partData = Data(data[offset..<(offset + length)])
+            for partNumber in 1...totalParts {
+                let offset = (partNumber - 1) * partSize
+                let length = min(partSize, Int(fileSize) - offset)
+                let partData = Data(data[offset..<(offset + length)])
 
-            let result = try await client.uploadPart(
-                bucket: bucket, key: key, uploadId: uploadId,
-                partNumber: partNumber, data: partData
+                let result = try await client.uploadPart(
+                    bucket: bucket, key: key, uploadId: uploadId,
+                    partNumber: partNumber, data: partData
+                )
+                completedParts.append((partNumber: result.partNumber, etag: result.etag))
+                files[fileIndex].status = .uploading(progress: Double(partNumber) / Double(totalParts))
+            }
+
+            _ = try await client.completeMultipartUpload(
+                bucket: bucket, key: key, uploadId: uploadId, parts: completedParts
             )
-            completedParts.append((partNumber: result.partNumber, etag: result.etag))
-            files[fileIndex].status = .uploading(progress: Double(partNumber) / Double(totalParts))
+        } catch {
+            try? await client.abortMultipartUpload(bucket: bucket, key: key, uploadId: uploadId)
+            throw error
         }
-
-        _ = try await client.completeMultipartUpload(
-            bucket: bucket, key: key, uploadId: uploadId, parts: completedParts
-        )
     }
 
     /// Sets the final state after all uploads have been attempted.
