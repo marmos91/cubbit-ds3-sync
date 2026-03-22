@@ -1,4 +1,3 @@
-#if DEBUG
 import Foundation
 
 /// Shared preview fixtures for SwiftUI previews across all targets.
@@ -89,4 +88,3 @@ public enum PreviewData {
         authProvider: "cubbit"
     )
 }
-#endif
