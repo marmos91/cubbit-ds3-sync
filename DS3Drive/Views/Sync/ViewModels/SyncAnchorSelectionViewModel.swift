@@ -34,7 +34,7 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     var project: Project
     var authentication: DS3Authentication
     var ds3Sdk: DS3SDK
-    nonisolated(unsafe) var s3Client: DS3S3Client?
+    var s3Client: DS3S3Client?
 
     var buckets: [Bucket] = []
     var loading: Bool = true
@@ -65,7 +65,7 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
         }
     }
 
-    deinit {
+    func shutdownClient() {
         try? s3Client?.shutdown()
     }
 

@@ -58,7 +58,7 @@ import DS3Lib
         self.ds3SDK = DS3SDK(withAuthentication: authentication)
     }
 
-    deinit {
+    func shutdownClients() {
         for (_, client) in s3Clients {
             try? client.shutdown()
         }
@@ -410,6 +410,9 @@ struct TreeNavigationView: View {
         }
         .task {
             await viewModel.loadProjects()
+        }
+        .onDisappear {
+            viewModel.shutdownClients()
         }
     }
 

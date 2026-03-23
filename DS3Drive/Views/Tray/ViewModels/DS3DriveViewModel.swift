@@ -6,7 +6,7 @@ import SwiftData
 import SwiftUI
 
 /// Manages a drive
-@Observable class DS3DriveViewModel {
+@MainActor @Observable class DS3DriveViewModel {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
 
     var drive: DS3Drive
@@ -59,7 +59,7 @@ import SwiftUI
         self.setupObserver()
     }
 
-    deinit {
+    func cleanup() {
         transferStatsResetTimer?.invalidate()
         idleDebounceTimer?.invalidate()
         DistributedNotificationCenter
