@@ -17,7 +17,17 @@ jobs:
           xcode-version: '16.2'
 
       - name: Install iOS platform
-        run: xcodebuild -downloadPlatform iOS
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          mkdir -p ~/private_keys
+          echo "$ASC_API_KEY_P8" | base64 --decode > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          xcodebuild -downloadPlatform iOS \
+            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 
       - name: Checkout
         uses: actions/checkout@v4
