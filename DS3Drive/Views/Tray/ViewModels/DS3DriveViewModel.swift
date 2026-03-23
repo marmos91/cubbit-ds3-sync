@@ -303,7 +303,7 @@ import SwiftUI
 
     /// Opens finder at the drive root
     func openFinder() async throws {
-        let domain = self.fileProviderDomain()
+        nonisolated(unsafe) let domain = self.fileProviderDomain()
 
         guard let url = try? await NSFileProviderManager(for: domain)?.getUserVisibleURL(for: .rootContainer)
         else { return }
@@ -317,7 +317,7 @@ import SwiftUI
 
     /// Reenumerates the drive
     func reEnumerate() async throws {
-        let domain = self.fileProviderDomain()
+        nonisolated(unsafe) let domain = self.fileProviderDomain()
 
         self.logger.info("Reenumerating domain \(domain.displayName)")
 
@@ -329,7 +329,7 @@ import SwiftUI
     /// Resets the sync state for this drive by removing the domain, clearing metadata, and re-adding.
     /// Forces a full re-enumeration from scratch with a clean database.
     func resetSync() async throws {
-        let domain = self.fileProviderDomain()
+        nonisolated(unsafe) let domain = self.fileProviderDomain()
 
         self.logger.info("Resetting sync for domain \(domain.displayName)")
 
