@@ -16,6 +16,9 @@ jobs:
         with:
           xcode-version: '16.2'
 
+      - name: Install iOS platform
+        run: xcodebuild -downloadPlatform iOS
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
