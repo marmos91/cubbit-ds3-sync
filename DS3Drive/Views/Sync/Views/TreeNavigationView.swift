@@ -306,11 +306,9 @@ import DS3Lib
         selectedNode = nil
 
         // Invalidate cached S3 client for this project
-        if let awsClient = awsClients[project.id] {
-            try? awsClient.syncShutdown()
-            awsClients.removeValue(forKey: project.id)
+        if let client = s3Clients.removeValue(forKey: project.id) {
+            try? client.shutdown()
         }
-        s3Clients.removeValue(forKey: project.id)
 
         // Collapse and reload the project node's children
         if let projectNode = projectNodes.first(where: { $0.id == project.id }) {
