@@ -39,10 +39,8 @@ struct BucketListView: View {
         .navigationTitle(project.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if project.users.count > 1 {
-                ToolbarItem(placement: .primaryAction) {
-                    iamUserMenu
-                }
+            ToolbarItem(placement: .primaryAction) {
+                iamUserMenu
             }
         }
         .task {

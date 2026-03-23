@@ -102,12 +102,13 @@ import SwiftUI
         self.transferStatsResetTimer?.invalidate()
         self.processTransferStats(driveTransferStats)
 
+        nonisolated(unsafe) weak var weakSelf = self
         self.transferStatsResetTimer = Timer.scheduledTimer(
             withTimeInterval: DefaultSettings.Tray.driveStatsReset,
             repeats: false
-        ) { [weak self] _ in
+        ) { _ in
             MainActor.assumeIsolated {
-                guard let self else { return }
+                guard let self = weakSelf else { return }
                 self.lastReportedSize.removeAll()
                 self.lastReportedDuration.removeAll()
                 self.lastFileUpdate.removeAll()
@@ -249,9 +250,10 @@ import SwiftUI
         if newStatus == .idle {
             // Debounce idle: wait 2s before applying so a new .sync arriving
             // in the window cancels this transition, preventing icon flashing.
-            self.idleDebounceTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+            nonisolated(unsafe) weak var weakSelf = self
+            self.idleDebounceTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
                 MainActor.assumeIsolated {
-                    guard let self else { return }
+                    guard let self = weakSelf else { return }
                     let previousStatus = self.driveStatus
                     self.driveStatus = .idle
 
