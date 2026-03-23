@@ -1,5 +1,5 @@
 import DS3Lib
-import FileProvider
+@preconcurrency import FileProvider
 import Foundation
 import os.log
 import SwiftData
@@ -303,10 +303,9 @@ import SwiftUI
 
     /// Opens finder at the drive root
     func openFinder() async throws {
-        nonisolated(unsafe) let domain = self.fileProviderDomain()
-        nonisolated(unsafe) let manager = NSFileProviderManager(for: domain)
+        let domain = self.fileProviderDomain()
 
-        guard let url = try? await manager?.getUserVisibleURL(for: .rootContainer)
+        guard let url = try? await NSFileProviderManager(for: domain)?.getUserVisibleURL(for: .rootContainer)
         else { return }
 
         self.logger.debug("Opening finder at url \(url.path())")
@@ -318,12 +317,11 @@ import SwiftUI
 
     /// Reenumerates the drive
     func reEnumerate() async throws {
-        nonisolated(unsafe) let domain = self.fileProviderDomain()
-        nonisolated(unsafe) let manager = NSFileProviderManager(for: domain)
+        let domain = self.fileProviderDomain()
 
         self.logger.info("Reenumerating domain \(domain.displayName)")
 
-        try await manager?.reimportItems(below: .rootContainer)
+        try await NSFileProviderManager(for: domain)?.reimportItems(below: .rootContainer)
 
         self.logger.info("Enumerator signaled for domain \(domain.displayName)")
     }
@@ -331,7 +329,7 @@ import SwiftUI
     /// Resets the sync state for this drive by removing the domain, clearing metadata, and re-adding.
     /// Forces a full re-enumeration from scratch with a clean database.
     func resetSync() async throws {
-        nonisolated(unsafe) let domain = self.fileProviderDomain()
+        let domain = self.fileProviderDomain()
 
         self.logger.info("Resetting sync for domain \(domain.displayName)")
 
@@ -351,8 +349,7 @@ import SwiftUI
 
         // 3. Re-add the domain (restarts extension with fresh state)
         try await NSFileProviderManager.add(domain)
-        nonisolated(unsafe) let manager = NSFileProviderManager(for: domain)
-        try await manager?.signalEnumerator(for: .rootContainer)
+        try await NSFileProviderManager(for: domain)?.signalEnumerator(for: .rootContainer)
 
         self.driveStatus = .idle
         self.logger.info("Sync reset complete for domain \(domain.displayName)")
