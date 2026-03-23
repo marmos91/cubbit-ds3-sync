@@ -53,7 +53,7 @@ import DS3Lib
     private var ds3SDK: DS3SDK
     /// Active S3 client per project (keyed by project ID)
     private var s3Clients: [String: S3] = [:]
-    nonisolated(unsafe) private var awsClients: [String: AWSClient] = [:]
+    @ObservationIgnored nonisolated(unsafe) private var awsClients: [String: AWSClient] = [:]
 
     init(authentication: DS3Authentication) {
         self.authentication = authentication
@@ -564,10 +564,6 @@ struct TreeNavigationView: View {
                         .foregroundStyle(DS3Colors.secondaryText)
                         .multilineTextAlignment(.center)
 
-                    // IAM user picker for projects with multiple users
-                    if let project = node.project, project.users.count > 1 {
-                        iamUserPicker(forProject: project)
-                    }
                 }
                 .padding(DS3Spacing.xl)
             } else {
@@ -593,6 +589,20 @@ struct TreeNavigationView: View {
                     .foregroundStyle(DS3Colors.statusError)
                     .padding(.horizontal, DS3Spacing.lg)
                     .padding(.bottom, DS3Spacing.sm)
+            }
+
+            // IAM user picker in footer area
+            if let node = viewModel.selectedNode, let project = node.project {
+                VStack(spacing: DS3Spacing.xs) {
+                    Text("Switch IAM user to browse buckets with different permissions")
+                        .font(DS3Typography.caption)
+                        .foregroundStyle(DS3Colors.secondaryText)
+                        .multilineTextAlignment(.center)
+
+                    iamUserPicker(forProject: project)
+                }
+                .padding(.horizontal, DS3Spacing.lg)
+                .padding(.bottom, DS3Spacing.sm)
             }
 
             // Footer with Continue button
@@ -625,49 +635,50 @@ struct TreeNavigationView: View {
     private func iamUserPicker(forProject project: Project) -> some View {
         let currentUser = viewModel.selectedIAMUser(forProject: project)
 
-        VStack(alignment: .leading, spacing: DS3Spacing.xs) {
-            Text("IAM User")
-                .font(DS3Typography.caption)
-                .foregroundStyle(DS3Colors.secondaryText)
-
-            Menu {
-                ForEach(project.users, id: \.id) { user in
-                    Button {
-                        Task { await viewModel.selectIAMUser(user, forProject: project) }
-                    } label: {
-                        HStack {
-                            Text(user.username)
-                            if user.isRoot {
-                                Text("(root)")
-                                    .foregroundStyle(.secondary)
-                            }
-                            if user.id == currentUser?.id {
-                                Image(systemName: "checkmark")
-                            }
+        Menu {
+            ForEach(project.users, id: \.id) { user in
+                Button {
+                    Task { await viewModel.selectIAMUser(user, forProject: project) }
+                } label: {
+                    HStack {
+                        Text(user.username)
+                        if user.isRoot {
+                            Text("(root)")
+                                .foregroundStyle(.secondary)
+                        }
+                        if user.id == currentUser?.id {
+                            Image(systemName: "checkmark")
                         }
                     }
                 }
-            } label: {
-                HStack {
-                    Image(systemName: "person")
-                        .font(DS3Typography.caption)
-                    Text(currentUser?.username ?? "Select user")
-                        .font(DS3Typography.body)
-                    Spacer()
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.caption2)
-                        .foregroundStyle(DS3Colors.secondaryText)
-                }
-                .padding(.horizontal, DS3Spacing.sm)
-                .padding(.vertical, DS3Spacing.xs)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(DS3Colors.separator, lineWidth: 1)
-                )
             }
-            .menuStyle(.borderlessButton)
+        } label: {
+            HStack(spacing: DS3Spacing.xs) {
+                Image(systemName: "person.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(DS3Colors.secondaryText)
+
+                Text(currentUser?.username ?? "Select user")
+                    .font(DS3Typography.caption)
+                    .foregroundStyle(DS3Colors.primaryText)
+
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 8))
+                    .foregroundStyle(DS3Colors.secondaryText)
+            }
+            .padding(.horizontal, DS3Spacing.sm)
+            .padding(.vertical, 5)
+            .background(
+                Capsule()
+                    .fill(DS3Colors.separator.opacity(0.3))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(DS3Colors.separator, lineWidth: 0.5)
+            )
         }
-        .frame(maxWidth: 220)
+        .menuStyle(.borderlessButton)
+        .padding(.top, DS3Spacing.xs)
     }
 
     // MARK: - Shimmer placeholder
