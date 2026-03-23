@@ -79,9 +79,9 @@ struct AccountTab: View {
         let prefVM = preferencesViewModel
         Task {
             do {
-                try await manager.cleanFileProvider()
+                try await manager.disconnectAll()
             } catch {
-                logger.error("Error cleaning file provider: \(error.localizedDescription)")
+                logger.error("Error disconnecting drives: \(error.localizedDescription)")
             }
 
             prefVM.disconnectAccount()

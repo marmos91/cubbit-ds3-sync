@@ -2,6 +2,7 @@
 import Foundation
 import Observation
 import os.log
+import SwiftData
 
 /// Errors that can occur during drive management operations
 public enum DS3DriveManagerError: Error {
@@ -171,6 +172,30 @@ public enum DS3DriveManagerError: Error {
             try await NSFileProviderManager.add(domain)
             try await NSFileProviderManager(for: domain)?.signalEnumerator(for: .rootContainer)
         }
+    }
+
+    /// Removes all drives, their File Provider domains, and cleans up metadata.
+    /// Must be called **before** deleting credentials so the extension can handle
+    /// cleanup requests while it still has valid API keys.
+    public func disconnectAll() async throws {
+        self.logger.info("Disconnecting all drives")
+
+        // Clean metadata for each drive before removing domains
+        let container = try MetadataStore.createContainer()
+        let metadataStore = MetadataStore(modelContainer: container)
+        for drive in self.drives {
+            try await metadataStore.deleteItemsForDrive(driveId: drive.id)
+            try await metadataStore.deleteSyncAnchor(driveId: drive.id)
+        }
+
+        // Remove all File Provider domains at once
+        try await NSFileProviderManager.removeAllDomains()
+
+        // Clear in-memory state and persist empty drives list
+        self.drives.removeAll()
+        try self.persist()
+
+        self.logger.info("All drives disconnected and metadata cleaned")
     }
 
     /// Removes a drive from the manager. It also removes the corresponding file provider domain.

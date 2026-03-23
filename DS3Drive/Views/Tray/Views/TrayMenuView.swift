@@ -290,22 +290,22 @@ struct TrayMenuView: View {
             $0.identifier?.rawValue.hasPrefix("io.cubbit.DS3Drive.main") == true && $0.isVisible
         }
 
-        ds3Authentication.logout()
-
-        if !mainWindowExists {
-            openWindow(id: "io.cubbit.DS3Drive.main")
-        }
-        NSApp.activate(ignoringOtherApps: true)
-
-        // Drive cleanup is async — fire and forget after isLogged is already false
-        let drives = ds3DriveManager.drives
+        // Disconnect drives FIRST (while credentials still exist) so the extension
+        // can handle cleanup gracefully, then delete credentials.
         Task {
-            for drive in drives {
-                do {
-                    try await ds3DriveManager.disconnect(driveWithId: drive.id)
-                } catch {
-                    logger.error("Failed to disconnect drive \(drive.name, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            do {
+                try await ds3DriveManager.disconnectAll()
+            } catch {
+                logger.error("Failed to disconnect drives during sign out: \(error.localizedDescription, privacy: .public)")
+            }
+
+            await MainActor.run {
+                ds3Authentication.logout()
+
+                if !mainWindowExists {
+                    openWindow(id: "io.cubbit.DS3Drive.main")
                 }
+                NSApp.activate(ignoringOtherApps: true)
             }
         }
     }
