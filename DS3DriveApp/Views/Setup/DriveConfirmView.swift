@@ -108,6 +108,10 @@ struct DriveConfirmView: View {
                 .onChange(of: driveName) {
                     checkForDuplicate()
                 }
+
+            Text("With a single drive, Files displays the app name. This name will be shown when multiple drives are configured. [Learn more](https://developer.apple.com/documentation/fileprovider/nsfileproviderdomain/displayname)")
+                .font(IOSTypography.footnote)
+                .foregroundStyle(IOSColors.secondaryText)
         }
     }
 

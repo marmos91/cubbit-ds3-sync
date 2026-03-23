@@ -125,7 +125,7 @@ struct DriveConfirmView: View {
                     .foregroundStyle(DS3Colors.statusError)
             }
 
-            Text("This name will appear in Finder's sidebar when multiple drives are configured.")
+            Text("With a single drive, Finder displays the app name in the sidebar. This name will be shown when multiple drives are configured. [Learn more](https://developer.apple.com/documentation/fileprovider/nsfileproviderdomain/displayname)")
                 .font(DS3Typography.footnote)
                 .foregroundStyle(DS3Colors.secondaryText)
         }
