@@ -1,6 +1,5 @@
 // swiftlint:disable file_length
 import SwiftUI
-import SotoS3
 import os.log
 import DS3Lib
 
@@ -51,18 +50,17 @@ import DS3Lib
     var selectedIAMUsers: [String: IAMUser] = [:]
 
     private var ds3SDK: DS3SDK
-    /// Active S3 client per project (keyed by project ID)
-    private var s3Clients: [String: S3] = [:]
-    @ObservationIgnored nonisolated(unsafe) private var awsClients: [String: AWSClient] = [:]
+    /// Active DS3S3Client per project (keyed by project ID)
+    @ObservationIgnored nonisolated(unsafe) private var s3Clients: [String: DS3S3Client] = [:]
 
     init(authentication: DS3Authentication) {
         self.authentication = authentication
         self.ds3SDK = DS3SDK(withAuthentication: authentication)
     }
 
-    deinit {
-        for (_, client) in awsClients {
-            try? client.syncShutdown()
+    func shutdownClients() {
+        for (_, client) in s3Clients {
+            try? client.shutdown()
         }
     }
 
@@ -98,9 +96,8 @@ import DS3Lib
         let selectedID = selectedNode?.id
 
         self.selectedNode = nil
+        for (_, client) in s3Clients { try? client.shutdown() }
         self.s3Clients.removeAll()
-        for (_, client) in awsClients { try? client.syncShutdown() }
-        self.awsClients.removeAll()
 
         await loadProjects()
         await restoreExpansion(expandedIDs: expandedIDs, selectedID: selectedID)
@@ -165,12 +162,11 @@ import DS3Lib
 
         do {
             let s3Client = try await getOrCreateS3Client(forProject: project)
-            let response = try await s3Client.listBuckets()
-            let buckets = response.buckets ?? []
+            let buckets = try await s3Client.listBuckets()
 
             node.children = buckets
-                .map { s3Bucket in
-                    let bucket = Bucket(name: s3Bucket.name ?? "<No name>")
+                .map { bucketInfo in
+                    let bucket = Bucket(name: bucketInfo.name)
                     return TreeNode(
                         id: "\(project.id)/\(bucket.name)",
                         name: bucket.name,
@@ -199,19 +195,12 @@ import DS3Lib
 
         do {
             let s3Client = try await getOrCreateS3Client(forProject: project)
-            let request = S3.ListObjectsV2Request(
+            let result = try await s3Client.listObjects(
                 bucket: bucket.name,
-                delimiter: String(DefaultSettings.S3.delimiter),
-                encodingType: .url
+                delimiter: String(DefaultSettings.S3.delimiter)
             )
 
-            let response = try await s3Client.listObjectsV2(request)
-            let prefixes = response.commonPrefixes ?? []
-
-            node.children = prefixes.compactMap { commonPrefix -> TreeNode? in
-                guard let fullPrefix = commonPrefix.prefix else { return nil }
-                // Decode URL-encoded prefix for display and storage
-                let decoded = fullPrefix.removingPercentEncoding ?? fullPrefix
+            node.children = result.commonPrefixes.compactMap { decoded -> TreeNode? in
                 let displayName = folderDisplayName(fullPrefix: decoded, parentPrefix: nil)
                 return TreeNode(
                     id: "\(project.id)/\(bucket.name)/\(decoded)",
@@ -250,19 +239,13 @@ import DS3Lib
         do {
             let s3Client = try await getOrCreateS3Client(forProject: project)
             // prefix is already decoded (stored decoded from expandBucket)
-            let request = S3.ListObjectsV2Request(
+            let result = try await s3Client.listObjects(
                 bucket: bucket.name,
-                delimiter: String(DefaultSettings.S3.delimiter),
-                encodingType: .url,
-                prefix: prefix
+                prefix: prefix,
+                delimiter: String(DefaultSettings.S3.delimiter)
             )
 
-            let response = try await s3Client.listObjectsV2(request)
-            let prefixes = response.commonPrefixes ?? []
-
-            node.children = prefixes.compactMap { commonPrefix -> TreeNode? in
-                guard let fullPrefix = commonPrefix.prefix else { return nil }
-                let decoded = fullPrefix.removingPercentEncoding ?? fullPrefix
+            node.children = result.commonPrefixes.map { decoded -> TreeNode in
                 let displayName = folderDisplayName(fullPrefix: decoded, parentPrefix: prefix)
                 return TreeNode(
                     id: "\(project.id)/\(bucket.name)/\(decoded)",
@@ -323,11 +306,9 @@ import DS3Lib
         selectedNode = nil
 
         // Invalidate cached S3 client for this project
-        if let awsClient = awsClients[project.id] {
-            try? awsClient.syncShutdown()
-            awsClients.removeValue(forKey: project.id)
+        if let client = s3Clients.removeValue(forKey: project.id) {
+            try? client.shutdown()
         }
-        s3Clients.removeValue(forKey: project.id)
 
         // Collapse and reload the project node's children
         if let projectNode = projectNodes.first(where: { $0.id == project.id }) {
@@ -359,7 +340,7 @@ import DS3Lib
 
     // MARK: - Helpers
 
-    private func getOrCreateS3Client(forProject project: Project) async throws -> S3 {
+    private func getOrCreateS3Client(forProject project: Project) async throws -> DS3S3Client {
         if let existing = s3Clients[project.id] {
             return existing
         }
@@ -381,19 +362,14 @@ import DS3Lib
             throw SyncAnchorSelectionError.DS3ClientError
         }
 
-        let awsClient = AWSClient(
-            credentialProvider: .static(
-                accessKeyId: apiKeys.apiKey,
-                secretAccessKey: secretKey
-            ),
-            httpClientProvider: .createNew
+        let client = DS3S3Client(
+            accessKeyId: apiKeys.apiKey,
+            secretAccessKey: secretKey,
+            endpoint: account.endpointGateway
         )
 
-        let s3Client = S3(client: awsClient, endpoint: account.endpointGateway)
-        awsClients[project.id] = awsClient
-        s3Clients[project.id] = s3Client
-
-        return s3Client
+        s3Clients[project.id] = client
+        return client
     }
 
     /// Extracts a display name from a decoded prefix by stripping the parent path and trailing slash.
@@ -405,11 +381,7 @@ import DS3Lib
             display = String(display.dropFirst(parent.count))
         }
 
-        if display.hasSuffix("/") {
-            display = String(display.dropLast())
-        }
-
-        return display
+        return display.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
 }
 
@@ -436,6 +408,9 @@ struct TreeNavigationView: View {
         }
         .task {
             await viewModel.loadProjects()
+        }
+        .onDisappear {
+            viewModel.shutdownClients()
         }
     }
 

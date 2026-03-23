@@ -212,8 +212,9 @@ private struct FolderLevelView: View {
     // MARK: - Helpers
 
     private func folderDisplayName(_ prefix: String) -> String {
-        let trimmed = prefix.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return trimmed.components(separatedBy: "/").last ?? prefix
+        prefix.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .components(separatedBy: "/")
+            .last ?? prefix
     }
 
     // MARK: - Data Loading
@@ -236,16 +237,19 @@ private struct FolderLevelView: View {
             guard let secretKey = apiKey.secretKey else { return }
 
             let s3Client = DS3S3Client(
-                endpoint: account.endpointGateway,
                 accessKeyId: apiKey.apiKey,
-                secretAccessKey: secretKey
+                secretAccessKey: secretKey,
+                endpoint: account.endpointGateway
             )
+            defer { try? s3Client.shutdown() }
 
             let currentPrefix = prefix.isEmpty ? nil : prefix
-            subfolders = try await s3Client.listFolders(
+            let result = try await s3Client.listObjects(
                 bucket: drive.syncAnchor.bucket.name,
-                prefix: currentPrefix
+                prefix: currentPrefix,
+                delimiter: String(DefaultSettings.S3.delimiter)
             )
+            subfolders = result.commonPrefixes
         } catch {
             self.error = error
         }

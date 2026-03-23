@@ -268,6 +268,7 @@ struct TrayMenuView: View {
         let newIds = Set(newDrives.map(\.id))
 
         if currentIds != newIds {
+            driveViewModels.forEach { $0.cleanup() }
             driveViewModels = newDrives.map { DS3DriveViewModel(drive: $0) }
         }
     }

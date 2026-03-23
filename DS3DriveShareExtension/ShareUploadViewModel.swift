@@ -1,8 +1,6 @@
 #if os(iOS)
 import SwiftUI
 import DS3Lib
-import SotoS3
-import NIOCore
 import UniformTypeIdentifiers
 import os
 
@@ -204,25 +202,25 @@ final class ShareUploadViewModel {
             return
         }
 
-        guard let s3Client = createS3Client(for: drive) else { return }
+        guard let client = createDS3S3Client(for: drive) else { return }
 
         let bucket = drive.syncAnchor.bucket.name
         let basePrefix = selectedFolderPrefix ?? drive.syncAnchor.prefix ?? ""
 
-        defer { try? s3Client.client.syncShutdown() }
+        defer { try? client.shutdown() }
 
         // Upload files sequentially to conserve memory in the extension
         for index in files.indices {
             guard case .pending = files[index].status else { continue }
-            await uploadSingleFile(at: index, s3: s3Client.s3, bucket: bucket, basePrefix: basePrefix)
+            await uploadSingleFile(at: index, client: client, bucket: bucket, basePrefix: basePrefix)
         }
 
         // Determine final state
         await finalizeUploadState()
     }
 
-    /// Creates an authenticated S3 client for the given drive, or marks all pending files as failed.
-    private func createS3Client(for drive: DS3Drive) -> (s3: S3, client: AWSClient)? {
+    /// Creates an authenticated DS3S3Client for the given drive, or marks all pending files as failed.
+    private func createDS3S3Client(for drive: DS3Drive) -> DS3S3Client? {
         let sharedData = SharedData.default()
 
         do {
@@ -238,21 +236,11 @@ final class ShareUploadViewModel {
                 return nil
             }
 
-            let client = AWSClient(
-                credentialProvider: .static(
-                    accessKeyId: apiKey.apiKey,
-                    secretAccessKey: secretKey
-                ),
-                httpClientProvider: .createNew
+            return DS3S3Client(
+                accessKeyId: apiKey.apiKey,
+                secretAccessKey: secretKey,
+                endpoint: account.endpointGateway
             )
-
-            let s3 = S3(
-                client: client,
-                endpoint: account.endpointGateway,
-                timeout: .seconds(DefaultSettings.S3.timeoutInSeconds)
-            )
-
-            return (s3, client)
         } catch {
             logger.error("Failed to load credentials: \(error.localizedDescription, privacy: .public)")
             markPendingFilesFailed(message: "Authentication error. Open DS3 Drive to re-authenticate.")
@@ -269,7 +257,7 @@ final class ShareUploadViewModel {
     }
 
     /// Uploads a single file at the given index using either putObject or multipart upload.
-    private func uploadSingleFile(at index: Int, s3: S3, bucket: String, basePrefix: String) async {
+    private func uploadSingleFile(at index: Int, client: DS3S3Client, bucket: String, basePrefix: String) async {
         let file = files[index]
         files[index].status = .uploading(progress: 0)
         let s3Key = basePrefix + file.filename
@@ -279,9 +267,12 @@ final class ShareUploadViewModel {
             let fileSize = Int64(fileData.count)
 
             if fileSize < DefaultSettings.S3.multipartThreshold {
-                try await uploadSmallFile(fileData, bucket: bucket, key: s3Key, s3: s3)
+                try await uploadSmallFile(fileData, bucket: bucket, key: s3Key, client: client)
             } else {
-                try await uploadLargeFile(fileData, fileSize: fileSize, bucket: bucket, key: s3Key, s3: s3, fileIndex: index)
+                try await uploadLargeFile(
+                    fileData, fileSize: fileSize, bucket: bucket, key: s3Key,
+                    client: client, fileIndex: index
+                )
             }
 
             files[index].status = .completed
@@ -294,46 +285,45 @@ final class ShareUploadViewModel {
     }
 
     /// Uploads a small file (< 5MB) via a single PUT request.
-    private func uploadSmallFile(_ data: Data, bucket: String, key: String, s3: S3) async throws {
+    private func uploadSmallFile(_ data: Data, bucket: String, key: String, client: DS3S3Client) async throws {
         logger.info("Uploading via putObject (\(data.count) bytes)")
-        let request = S3.PutObjectRequest(body: .byteBuffer(ByteBuffer(data: data)), bucket: bucket, key: key)
-        _ = try await s3.putObject(request)
+        _ = try await client.putObjectData(bucket: bucket, key: key, data: data)
     }
 
     /// Uploads a large file (>= 5MB) via multipart upload with per-part progress updates.
     private func uploadLargeFile(
-        _ data: Data, fileSize: Int64, bucket: String, key: String, s3: S3, fileIndex: Int
+        _ data: Data, fileSize: Int64, bucket: String, key: String,
+        client: DS3S3Client, fileIndex: Int
     ) async throws {
         logger.info("Uploading via multipart (\(fileSize) bytes)")
 
-        let createResponse = try await s3.createMultipartUpload(S3.CreateMultipartUploadRequest(bucket: bucket, key: key))
-        guard let uploadId = createResponse.uploadId else {
-            throw NSError(domain: "ShareExtension", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to create multipart upload"])
-        }
+        let uploadId = try await client.createMultipartUpload(bucket: bucket, key: key)
 
-        let partSize = DefaultSettings.S3.multipartUploadPartSize
-        let totalParts = Int(ceil(Double(fileSize) / Double(partSize)))
-        var completedParts: [S3.CompletedPart] = []
+        do {
+            let partSize = DefaultSettings.S3.multipartUploadPartSize
+            let totalParts = Int(ceil(Double(fileSize) / Double(partSize)))
+            var completedParts: [(partNumber: Int, etag: String)] = []
 
-        for partNumber in 1...totalParts {
-            let offset = (partNumber - 1) * partSize
-            let length = min(partSize, Int(fileSize) - offset)
-            let partData = data[offset..<(offset + length)]
+            for partNumber in 1...totalParts {
+                let offset = (partNumber - 1) * partSize
+                let length = min(partSize, Int(fileSize) - offset)
+                let partData = Data(data[offset..<(offset + length)])
 
-            let request = S3.UploadPartRequest(
-                body: .byteBuffer(ByteBuffer(data: partData)), bucket: bucket, key: key,
-                partNumber: partNumber, uploadId: uploadId
+                let result = try await client.uploadPart(
+                    bucket: bucket, key: key, uploadId: uploadId,
+                    partNumber: partNumber, data: partData
+                )
+                completedParts.append((partNumber: result.partNumber, etag: result.etag))
+                files[fileIndex].status = .uploading(progress: Double(partNumber) / Double(totalParts))
+            }
+
+            _ = try await client.completeMultipartUpload(
+                bucket: bucket, key: key, uploadId: uploadId, parts: completedParts
             )
-            let response = try await s3.uploadPart(request)
-            completedParts.append(S3.CompletedPart(eTag: response.eTag, partNumber: partNumber))
-            files[fileIndex].status = .uploading(progress: Double(partNumber) / Double(totalParts))
+        } catch {
+            try? await client.abortMultipartUpload(bucket: bucket, key: key, uploadId: uploadId)
+            throw error
         }
-
-        let completeRequest = S3.CompleteMultipartUploadRequest(
-            bucket: bucket, key: key,
-            multipartUpload: S3.CompletedMultipartUpload(parts: completedParts), uploadId: uploadId
-        )
-        _ = try await s3.completeMultipartUpload(completeRequest)
     }
 
     /// Sets the final state after all uploads have been attempted.
