@@ -13,9 +13,9 @@
 	<key>provisioningProfiles</key>
 	<dict>
 		<key>io.cubbit.DS3Drive</key>
-		<string>DS3DriveApp iOS AppStore</string>
+		<string>DS3Drive AppStore</string>
 		<key>io.cubbit.DS3Drive.provider</key>
-		<string>DS3DriveProvider iOS AppStore</string>
+		<string>DS3DriveProvider AppStore</string>
 		<key>io.cubbit.DS3Drive.share</key>
 		<string>DS3DriveShareExtension iOS AppStore</string>
 	</dict>

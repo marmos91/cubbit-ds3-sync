@@ -89,11 +89,11 @@ jobs:
 
           # Set provisioning profile specifiers per target
           sed -i '' '/PRODUCT_BUNDLE_IDENTIFIER = io\.cubbit\.DS3Drive;/{
-            n; n; s/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "DS3DriveApp iOS AppStore";/
+            n; n; s/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "DS3Drive AppStore";/
           }' "$PROJECT"
 
           sed -i '' '/PRODUCT_BUNDLE_IDENTIFIER = io\.cubbit\.DS3Drive\.provider;/{
-            n; n; s/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "DS3DriveProvider iOS AppStore";/
+            n; n; s/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "DS3DriveProvider AppStore";/
           }' "$PROJECT"
 
           sed -i '' '/PRODUCT_BUNDLE_IDENTIFIER = io\.cubbit\.DS3Drive\.share;/{
@@ -101,7 +101,7 @@ jobs:
           }' "$PROJECT"
 
           # Verify all substitutions were applied
-          for PROFILE in "DS3DriveApp iOS AppStore" "DS3DriveProvider iOS AppStore" "DS3DriveShareExtension iOS AppStore"; do
+          for PROFILE in "DS3Drive AppStore" "DS3DriveProvider AppStore" "DS3DriveShareExtension iOS AppStore"; do
             grep -q "$PROFILE" "$PROJECT" || { echo "ERROR: profile '$PROFILE' not patched in project"; exit 1; }
           done
 
