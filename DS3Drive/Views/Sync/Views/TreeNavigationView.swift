@@ -47,10 +47,13 @@ import DS3Lib
 
     var selectedNode: TreeNode?
 
+    /// Selected IAM user per project (keyed by project ID). Defaults to first user.
+    var selectedIAMUsers: [String: IAMUser] = [:]
+
     private var ds3SDK: DS3SDK
     /// Active S3 client per project (keyed by project ID)
     private var s3Clients: [String: S3] = [:]
-    nonisolated(unsafe) private var awsClients: [String: AWSClient] = [:]
+    @ObservationIgnored nonisolated(unsafe) private var awsClients: [String: AWSClient] = [:]
 
     init(authentication: DS3Authentication) {
         self.authentication = authentication
@@ -106,20 +109,15 @@ import DS3Lib
     // MARK: - Expansion state preservation
 
     private func collectExpandedIDs() -> Set<String> {
-        var ids = Set<String>()
-        for node in projectNodes {
-            collectExpandedIDs(from: node, into: &ids)
-        }
-        return ids
-    }
-
-    private func collectExpandedIDs(from node: TreeNode, into ids: inout Set<String>) {
-        if node.isExpanded {
-            ids.insert(node.id)
-            for child in node.children {
-                collectExpandedIDs(from: child, into: &ids)
+        func gather(from nodes: [TreeNode]) -> Set<String> {
+            var ids = Set<String>()
+            for node in nodes where node.isExpanded {
+                ids.insert(node.id)
+                ids.formUnion(gather(from: node.children))
             }
+            return ids
         }
+        return gather(from: projectNodes)
     }
 
     private func restoreExpansion(expandedIDs: Set<String>, selectedID: String?) async {
@@ -147,22 +145,14 @@ import DS3Lib
     }
 
     private func findNode(withID id: String) -> TreeNode? {
-        for project in projectNodes {
-            if let found = findNode(withID: id, in: project) {
-                return found
+        func search(in nodes: [TreeNode]) -> TreeNode? {
+            for node in nodes {
+                if node.id == id { return node }
+                if let found = search(in: node.children) { return found }
             }
+            return nil
         }
-        return nil
-    }
-
-    private func findNode(withID id: String, in node: TreeNode) -> TreeNode? {
-        if node.id == id { return node }
-        for child in node.children {
-            if let found = findNode(withID: id, in: child) {
-                return found
-            }
-        }
-        return nil
+        return search(in: projectNodes)
     }
 
     // MARK: - Expand project -> load buckets
@@ -322,13 +312,37 @@ import DS3Lib
         selectedNode = node
     }
 
+    /// Returns the selected IAM user for a project, defaulting to the first user.
+    func selectedIAMUser(forProject project: Project) -> IAMUser? {
+        selectedIAMUsers[project.id] ?? project.users.first
+    }
+
+    /// Switch the IAM user for a project, invalidating cached S3 clients and reloading buckets.
+    func selectIAMUser(_ user: IAMUser, forProject project: Project) async {
+        selectedIAMUsers[project.id] = user
+        selectedNode = nil
+
+        // Invalidate cached S3 client for this project
+        if let awsClient = awsClients[project.id] {
+            try? awsClient.syncShutdown()
+            awsClients.removeValue(forKey: project.id)
+        }
+        s3Clients.removeValue(forKey: project.id)
+
+        // Collapse and reload the project node's children
+        if let projectNode = projectNodes.first(where: { $0.id == project.id }) {
+            projectNode.children = []
+            projectNode.isLoaded = false
+            projectNode.isExpanded = false
+            await expandProject(projectNode)
+        }
+    }
+
     /// Builds a SyncAnchor from the currently selected node (must be a bucket or folder)
     func getSelectedSyncAnchor() -> SyncAnchor? {
         guard let node = selectedNode else { return nil }
         guard let project = node.project, let bucket = node.bucket else { return nil }
-
-        let iamUser = project.users.first
-        guard let user = iamUser else { return nil }
+        guard let user = selectedIAMUser(forProject: project) else { return nil }
 
         return SyncAnchor(
             project: project,
@@ -340,7 +354,7 @@ import DS3Lib
 
     var canContinue: Bool {
         guard let node = selectedNode else { return false }
-        return node.type == .bucket || node.type == .folder
+        return node.type != .project
     }
 
     // MARK: - Helpers
@@ -350,7 +364,7 @@ import DS3Lib
             return existing
         }
 
-        guard let iamUser = project.users.first else {
+        guard let iamUser = selectedIAMUser(forProject: project) else {
             throw SyncAnchorSelectionError.noIAMUserSelected
         }
 
@@ -382,15 +396,15 @@ import DS3Lib
         return s3Client
     }
 
+    /// Extracts a display name from a decoded prefix by stripping the parent path and trailing slash.
+    /// Both `fullPrefix` and `parentPrefix` are expected to be already percent-decoded.
     private func folderDisplayName(fullPrefix: String, parentPrefix: String?) -> String {
-        let decoded = fullPrefix.removingPercentEncoding ?? fullPrefix
-        var display = decoded
+        var display = fullPrefix
 
-        if let parent = parentPrefix?.removingPercentEncoding, decoded.hasPrefix(parent) {
-            display = String(decoded.dropFirst(parent.count))
+        if let parent = parentPrefix, display.hasPrefix(parent) {
+            display = String(display.dropFirst(parent.count))
         }
 
-        // Remove trailing slash for display
         if display.hasSuffix("/") {
             display = String(display.dropLast())
         }
@@ -549,6 +563,7 @@ struct TreeNavigationView: View {
                         .font(DS3Typography.body)
                         .foregroundStyle(DS3Colors.secondaryText)
                         .multilineTextAlignment(.center)
+
                 }
                 .padding(DS3Spacing.xl)
             } else {
@@ -576,6 +591,20 @@ struct TreeNavigationView: View {
                     .padding(.bottom, DS3Spacing.sm)
             }
 
+            // IAM user picker in footer area
+            if let node = viewModel.selectedNode, let project = node.project {
+                VStack(spacing: DS3Spacing.xs) {
+                    Text("Switch IAM user to browse buckets with different permissions")
+                        .font(DS3Typography.caption)
+                        .foregroundStyle(DS3Colors.secondaryText)
+                        .multilineTextAlignment(.center)
+
+                    iamUserPicker(forProject: project)
+                }
+                .padding(.horizontal, DS3Spacing.lg)
+                .padding(.bottom, DS3Spacing.sm)
+            }
+
             // Footer with Continue button
             HStack {
                 Spacer()
@@ -598,6 +627,58 @@ struct TreeNavigationView: View {
             )
         }
         .background(DS3Colors.background)
+    }
+
+    // MARK: - IAM User Picker
+
+    @ViewBuilder
+    private func iamUserPicker(forProject project: Project) -> some View {
+        let currentUser = viewModel.selectedIAMUser(forProject: project)
+
+        Menu {
+            ForEach(project.users, id: \.id) { user in
+                Button {
+                    Task { await viewModel.selectIAMUser(user, forProject: project) }
+                } label: {
+                    HStack {
+                        Text(user.username)
+                        if user.isRoot {
+                            Text("(root)")
+                                .foregroundStyle(.secondary)
+                        }
+                        if user.id == currentUser?.id {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: DS3Spacing.xs) {
+                Image(systemName: "person.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(DS3Colors.secondaryText)
+
+                Text(currentUser?.username ?? "Select user")
+                    .font(DS3Typography.caption)
+                    .foregroundStyle(DS3Colors.primaryText)
+
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 8))
+                    .foregroundStyle(DS3Colors.secondaryText)
+            }
+            .padding(.horizontal, DS3Spacing.sm)
+            .padding(.vertical, 5)
+            .background(
+                Capsule()
+                    .fill(DS3Colors.separator.opacity(0.3))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(DS3Colors.separator, lineWidth: 0.5)
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .padding(.top, DS3Spacing.xs)
     }
 
     // MARK: - Shimmer placeholder

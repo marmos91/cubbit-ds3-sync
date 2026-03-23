@@ -65,7 +65,6 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
         }
     }
 
-    @MainActor
     func loadBuckets() async {
         self.loading = true
         self.error = nil
@@ -96,7 +95,6 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
         }
     }
 
-    @MainActor
     func listFoldersForCurrentBucket() async {
         self.loading = true
         self.error = nil
@@ -153,11 +151,19 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
         )
     }
 
-    func selectIAMUser(withID id: String) async throws {
-        guard !self.project.users.isEmpty else { return }
-        guard let index = self.project.users.lastIndex(where: { $0.id == id }) else { return }
-        self.selectedIAMUser = self.project.users[index]
-        try await self.initializeS3ClientIfNecessary()
+    func selectIAMUser(withID id: String) async {
+        guard let user = self.project.users.first(where: { $0.id == id }) else { return }
+
+        self.selectedIAMUser = user
+
+        // Reset bucket/folder state and reload with the new user's credentials
+        self.buckets = []
+        self.selectedBucket = nil
+        self.selectedPrefix = nil
+        self.folders = [:]
+        self.s3Client = nil
+
+        await self.loadBuckets()
     }
 
     func cleanFoldersIfNeeded() {

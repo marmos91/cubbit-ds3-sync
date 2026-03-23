@@ -102,29 +102,32 @@ import SwiftUI
         self.transferStatsResetTimer?.invalidate()
         self.processTransferStats(driveTransferStats)
 
+        nonisolated(unsafe) weak var weakSelf = self
         self.transferStatsResetTimer = Timer.scheduledTimer(
             withTimeInterval: DefaultSettings.Tray.driveStatsReset,
             repeats: false
-        ) { [weak self] _ in
-            guard let self else { return }
-            self.lastReportedSize.removeAll()
-            self.lastReportedDuration.removeAll()
-            self.lastFileUpdate.removeAll()
-            self.perFileUploadSpeed.removeAll()
-            self.perFileDownloadSpeed.removeAll()
-            self.totalTransferredSize = 0
-            self.totalTransferDuration = 0
-            self.driveStats.uploadSpeedBs = nil
-            self.driveStats.downloadSpeedBs = nil
-            self.driveStats.lastUpdate = Date()
+        ) { _ in
+            MainActor.assumeIsolated {
+                guard let self = weakSelf else { return }
+                self.lastReportedSize.removeAll()
+                self.lastReportedDuration.removeAll()
+                self.lastFileUpdate.removeAll()
+                self.perFileUploadSpeed.removeAll()
+                self.perFileDownloadSpeed.removeAll()
+                self.totalTransferredSize = 0
+                self.totalTransferDuration = 0
+                self.driveStats.uploadSpeedBs = nil
+                self.driveStats.downloadSpeedBs = nil
+                self.driveStats.lastUpdate = Date()
 
-            // Safety net: mark any remaining syncing entries as completed.
-            // The sync→idle transition may have fired while files were still
-            // transferring, leaving them stuck as .syncing in the tray.
-            for entry in self.recentFilesTracker.entries(forDrive: self.drive.id) where entry.status == .syncing {
-                self.recentFilesTracker.update(filename: entry.filename, driveId: self.drive.id, status: .completed)
+                // Safety net: mark any remaining syncing entries as completed.
+                // The sync→idle transition may have fired while files were still
+                // transferring, leaving them stuck as .syncing in the tray.
+                for entry in self.recentFilesTracker.entries(forDrive: self.drive.id) where entry.status == .syncing {
+                    self.recentFilesTracker.update(filename: entry.filename, driveId: self.drive.id, status: .completed)
+                }
+                self.refreshRecentFiles()
             }
-            self.refreshRecentFiles()
         }
     }
 
@@ -247,22 +250,25 @@ import SwiftUI
         if newStatus == .idle {
             // Debounce idle: wait 2s before applying so a new .sync arriving
             // in the window cancels this transition, preventing icon flashing.
-            self.idleDebounceTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
-                guard let self else { return }
-                let previousStatus = self.driveStatus
-                self.driveStatus = .idle
+            nonisolated(unsafe) weak var weakSelf = self
+            self.idleDebounceTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
+                MainActor.assumeIsolated {
+                    guard let self = weakSelf else { return }
+                    let previousStatus = self.driveStatus
+                    self.driveStatus = .idle
 
-                // When transitioning from sync to idle, mark all syncing entries as completed
-                if previousStatus == .sync {
-                    let entries = self.recentFilesTracker.entries(forDrive: self.drive.id)
-                    for entry in entries where entry.status == .syncing {
-                        self.recentFilesTracker.update(
-                            filename: entry.filename,
-                            driveId: self.drive.id,
-                            status: .completed
-                        )
+                    // When transitioning from sync to idle, mark all syncing entries as completed
+                    if previousStatus == .sync {
+                        let entries = self.recentFilesTracker.entries(forDrive: self.drive.id)
+                        for entry in entries where entry.status == .syncing {
+                            self.recentFilesTracker.update(
+                                filename: entry.filename,
+                                driveId: self.drive.id,
+                                status: .completed
+                            )
+                        }
+                        self.refreshRecentFiles()
                     }
-                    self.refreshRecentFiles()
                 }
             }
         } else {
