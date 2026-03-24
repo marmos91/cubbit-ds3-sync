@@ -3,20 +3,6 @@ import XCTest
 
 /// Tests for DS3Authentication pure methods (no network calls).
 final class DS3AuthenticationTests: XCTestCase {
-    // MARK: - Helpers
-
-    private func makeToken(expiringAt date: Date) throws -> Token {
-        let exp = Int64(date.timeIntervalSince1970)
-        let expDateString = DateFormatter.iso8601.string(from: date)
-        let json: [String: Any] = [
-            "token": "test-jwt-token",
-            "exp": exp,
-            "exp_date": expDateString
-        ]
-        let data = try JSONSerialization.data(withJSONObject: json)
-        return try JSONDecoder().decode(Token.self, from: data)
-    }
-
     // MARK: - Sign Challenge
 
     func testSignChallengeProducesValidBase64() throws {
@@ -79,7 +65,7 @@ final class DS3AuthenticationTests: XCTestCase {
     }
 
     func testLogoutClearsState() throws {
-        let token = try makeToken(expiringAt: Date().addingTimeInterval(3600))
+        let token = try TestHelpers.makeToken(expiringAt: Date().addingTimeInterval(3600))
         let session = AccountSession(token: token, refreshToken: "refresh")
         let account = Account(
             id: "acc-1", firstName: "Test", lastName: "User",
@@ -112,22 +98,22 @@ final class DS3AuthenticationTests: XCTestCase {
     // MARK: - shouldRefreshToken
 
     func testTokenFarFromExpiryDoesNotNeedRefresh() throws {
-        let token = try makeToken(expiringAt: Date().addingTimeInterval(600))
+        let token = try TestHelpers.makeToken(expiringAt: Date().addingTimeInterval(600))
         XCTAssertFalse(DS3Authentication.shouldRefreshToken(token))
     }
 
     func testTokenNearExpiryNeedsRefresh() throws {
-        let token = try makeToken(expiringAt: Date().addingTimeInterval(240))
+        let token = try TestHelpers.makeToken(expiringAt: Date().addingTimeInterval(240))
         XCTAssertTrue(DS3Authentication.shouldRefreshToken(token))
     }
 
     func testExpiredTokenNeedsRefresh() throws {
-        let token = try makeToken(expiringAt: Date().addingTimeInterval(-60))
+        let token = try TestHelpers.makeToken(expiringAt: Date().addingTimeInterval(-60))
         XCTAssertTrue(DS3Authentication.shouldRefreshToken(token))
     }
 
     func testCustomThreshold() throws {
-        let token = try makeToken(expiringAt: Date().addingTimeInterval(50))
+        let token = try TestHelpers.makeToken(expiringAt: Date().addingTimeInterval(50))
         // Default threshold is 300s — should need refresh
         XCTAssertTrue(DS3Authentication.shouldRefreshToken(token, threshold: 300))
         // With 10s threshold — should not need refresh

@@ -13,10 +13,10 @@ final class ModelCodableTests: XCTestCase {
     }
 
     /// Helper: encode then decode a Codable value, asserting decoding succeeds (for non-Equatable types).
+    /// If encoding or decoding fails, the thrown error fails the test.
     private func assertDecodable<T: Codable>(_ value: T, file: StaticString = #file, line: UInt = #line) throws {
         let data = try JSONEncoder().encode(value)
-        let decoded = try JSONDecoder().decode(T.self, from: data)
-        XCTAssertNotNil(decoded, file: file, line: line)
+        _ = try JSONDecoder().decode(T.self, from: data)
     }
 
     // MARK: - Token

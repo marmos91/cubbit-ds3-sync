@@ -7,7 +7,8 @@ public enum S3PathUtils {
     /// - Parameter key: The S3 object key (e.g., "photos/vacation/beach.jpg")
     /// - Returns: The filename (e.g., "beach.jpg"), or empty string if the key is empty
     public static func filename(fromKey key: String) -> String {
-        String(key.split(separator: DefaultSettings.S3.delimiter).last ?? "")
+        guard !key.isEmpty, key != String(DefaultSettings.S3.delimiter) else { return "" }
+        return String(key.split(separator: DefaultSettings.S3.delimiter).last ?? "")
     }
 
     /// Determines if an S3 key represents a folder (ends with delimiter).

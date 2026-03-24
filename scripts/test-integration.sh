@@ -24,4 +24,4 @@ echo "  Email:  $DS3_TEST_EMAIL"
 echo "  Bucket: $DS3_TEST_BUCKET"
 echo ""
 
-swift test --package-path "$PROJECT_DIR/DS3Lib"
+swift test --package-path "$PROJECT_DIR/DS3Lib" --filter Integration

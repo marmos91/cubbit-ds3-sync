@@ -34,7 +34,6 @@ final class DS3SDKIntegrationTests: DS3IntegrationTestCase {
         let projects = try await sdk.getRemoteProjects()
         guard let user = projects.first?.users.first else {
             throw XCTSkip("No IAM user found in test account")
-            return
         }
 
         let token = try await authentication.forgeIAMToken(forIAMUser: user)
@@ -48,19 +47,16 @@ final class DS3SDKIntegrationTests: DS3IntegrationTestCase {
         let projects = try await sdk.getRemoteProjects()
         guard let user = projects.first?.users.first else {
             throw XCTSkip("No IAM user found in test account")
-            return
         }
 
-        let apiKeys = try await sdk.getRemoteApiKeys(forIAMUser: user)
-        // The test account may or may not have API keys — just verify it doesn't throw
-        XCTAssertNotNil(apiKeys)
+        // Verify the call succeeds (doesn't throw). Empty array is valid.
+        _ = try await sdk.getRemoteApiKeys(forIAMUser: user)
     }
 
     func testLoadOrCreateDS3APIKeys() async throws {
         let projects = try await sdk.getRemoteProjects()
         guard let project = projects.first, let user = project.users.first else {
             throw XCTSkip("No project/user found in test account")
-            return
         }
 
         let apiKey = try await sdk.loadOrCreateDS3APIKeys(
@@ -79,7 +75,6 @@ final class DS3SDKIntegrationTests: DS3IntegrationTestCase {
         let projects = try await sdk.getRemoteProjects()
         guard let project = projects.first, let user = project.users.first else {
             throw XCTSkip("No project/user found in test account")
-            return
         }
 
         let name1 = DS3SDK.apiKeyName(forUser: user, projectName: project.name)
