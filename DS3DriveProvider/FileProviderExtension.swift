@@ -201,6 +201,22 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
 
     // MARK: - Pure async business logic
 
+    /// Resolves the `.trash/` key for an item, checking MetadataStore first, then falling back
+    /// to the flat trash key (just the filename under `.trash/`).
+    private func resolveTrashKey(
+        forOriginalKey key: String,
+        drive: DS3Drive,
+        metadataStore: MetadataStore?
+    ) async -> String {
+        if let stored = try? await metadataStore?.fetchTrashKey(
+            forOriginalKey: key, driveId: drive.id
+        ) {
+            return stored
+        }
+        let filename = key.split(separator: "/").last.map(String.init) ?? key
+        return S3Lib.fullTrashPrefix(forDrive: drive) + filename
+    }
+
     /// Resolves item metadata: checks MetadataStore cache first, then falls back to S3 HEAD.
     private func resolveItem(
         for identifier: NSFileProviderItemIdentifier,
@@ -244,17 +260,9 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             return try await s3Lib.remoteS3Item(for: identifier, drive: drive)
         } catch {
             // If the original key 404s, check whether the item lives in .trash/.
-            // This handles the case where the system knows the item by its original
-            // identifier but the S3 object was moved to .trash/ on the server side.
-            let trashKey: String
-            if let stored = try? await metadataStore?.fetchTrashKey(
-                forOriginalKey: identifier.rawValue, driveId: drive.id
-            ) {
-                trashKey = stored
-            } else {
-                let filename = identifier.rawValue.split(separator: "/").last.map(String.init) ?? identifier.rawValue
-                trashKey = S3Lib.fullTrashPrefix(forDrive: drive) + filename
-            }
+            let trashKey = await resolveTrashKey(
+                forOriginalKey: identifier.rawValue, drive: drive, metadataStore: metadataStore
+            )
             let trashIdentifier = NSFileProviderItemIdentifier(trashKey)
             if let trashedItem = try? await s3Lib.remoteS3Item(for: trashIdentifier, drive: drive) {
                 self.logger.info("item(for:) found in trash: \(trashKey, privacy: .public)")
@@ -287,27 +295,14 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             return Progress()
         }
 
-        self.logger.error("DEBUG item(for: \(identifier.rawValue, privacy: .public))")
-
-        switch identifier {
-        case .trashContainer:
-            let trashItem = S3Item(
-                identifier: .trashContainer,
-                drive: drive,
-                objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
-            )
-            completionHandler(trashItem, nil)
-            return Progress()
-        case .rootContainer:
-            let rootItem = S3Item(
+        if identifier == .trashContainer || identifier == .rootContainer {
+            let item = S3Item(
                 identifier: identifier,
                 drive: drive,
                 objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
             )
-            completionHandler(rootItem, nil)
+            completionHandler(item, nil)
             return Progress()
-        default:
-            break
         }
 
         let metadataStore = self.metadataStore
@@ -419,16 +414,9 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
                 } catch {
                     // If original key fails, try .trash/ key (item may be trashed
                     // but the system still knows it by its original identifier).
-                    // Look up from MetadataStore first, fall back to flat trash key.
-                    let trashKey: String
-                    if let stored = try? await self.metadataStore?.fetchTrashKey(
-                        forOriginalKey: itemIdentifier.rawValue, driveId: drive.id
-                    ) {
-                        trashKey = stored
-                    } else {
-                        let filename = itemIdentifier.rawValue.split(separator: "/").last.map(String.init) ?? itemIdentifier.rawValue
-                        trashKey = S3Lib.fullTrashPrefix(forDrive: drive) + filename
-                    }
+                    let trashKey = await self.resolveTrashKey(
+                        forOriginalKey: itemIdentifier.rawValue, drive: drive, metadataStore: metadataStore
+                    )
                     let trashId = NSFileProviderItemIdentifier(trashKey)
                     (fileURL, s3Item) = try await self.withAPIKeyRecovery {
                         try await withExponentialBackoff(maxRetries: 3, baseDelay: 1.0) {
@@ -766,7 +754,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         request: NSFileProviderRequest,
         completionHandler: @escaping (NSFileProviderItem?, NSFileProviderItemFields, Bool, Error?) -> Void
     ) -> Progress {
-        self.logger.error("DEBUG modifyItem called for \(item.itemIdentifier.rawValue, privacy: .public) changedFields=\(changedFields.rawValue) parentId=\(item.parentItemIdentifier.rawValue, privacy: .public)")
         guard self.enabled else {
             completionHandler(nil, [], false, NSFileProviderError(.notAuthenticated) as NSError)
             return Progress()
@@ -956,7 +943,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             }
         } else if changedFields.contains(.parentItemIdentifier), s3Item.isInTrash {
             // Restore from trash: item has .trash/ key — move out of .trashContainer
-            self.logger.error("DEBUG Restore from trash (direct) for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
             Task {
                 let completionHandler = boxedCb.value
                 do {
@@ -1131,15 +1117,13 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
                     await nm.sendDriveChangedNotification(status: .sync)
 
                     // Check if the item is trashed (restore from trash).
-                    // Look up the actual .trash/ key from MetadataStore first,
-                    // then fall back to S3 HEAD with flat trash key.
+                    // MetadataStore is authoritative; fall back to S3 HEAD with flat key.
                     var resolvedTrashKey: String?
                     if let storedKey = try? await self.metadataStore?.fetchTrashKey(
                         forOriginalKey: moveOldKey, driveId: drive.id
                     ) {
                         resolvedTrashKey = storedKey
                     } else {
-                        // Try flat trash key (just filename)
                         let filename = moveOldKey.split(separator: "/").last.map(String.init) ?? moveOldKey
                         let flatKey = S3Lib.fullTrashPrefix(forDrive: drive) + filename
                         if (try? await s3Lib.remoteS3Item(for: NSFileProviderItemIdentifier(flatKey), drive: drive)) != nil {
@@ -1148,7 +1132,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
                     }
 
                     if let trashKey = resolvedTrashKey {
-                        self.logger.error("DEBUG Restore from trash (reparent) for \(moveOldKey, privacy: .public) trashKey=\(trashKey, privacy: .public)")
                         let trashS3Item = S3Item(
                             identifier: NSFileProviderItemIdentifier(trashKey),
                             drive: drive,
@@ -1237,7 +1220,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         request: NSFileProviderRequest,
         completionHandler: @escaping (Error?) -> Void
     ) -> Progress {
-        self.logger.error("DEBUG deleteItem called for \(identifier.rawValue, privacy: .public) options=\(options.rawValue)")
         guard self.enabled else {
             completionHandler(NSFileProviderError(.notAuthenticated) as NSError)
             return Progress()
@@ -1268,6 +1250,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
                     try await self.withAPIKeyRecovery {
                         try await s3Lib.emptyTrash(drive: drive, withProgress: progress)
                     }
+                    try? await self.metadataStore?.removeAllTrashRecords(driveId: drive.id)
                     self.logger.info("Trash emptied for drive \(drive.id, privacy: .public)")
                     progress.completedUnitCount = 1
                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
@@ -1307,20 +1290,19 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             )
         }
 
-        // Check if the item exists under the .trash/ prefix (original key used by system
-        // but the object was moved to .trash/ on S3). If so, hard-delete the trash copy.
         let trashKey = S3Lib.trashKey(forKey: identifier.rawValue, drive: drive)
-        let trashS3Item = S3Item(
-            identifier: NSFileProviderItemIdentifier(trashKey),
-            drive: drive,
-            objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
-        )
-        // Peek at the trash key — if it exists, this is a permanent delete of a trashed item
+        let trashIdentifier = NSFileProviderItemIdentifier(trashKey)
         let progress = Progress(totalUnitCount: 1)
         let boxedCb = UncheckedBox(value: completionHandler)
         Task {
-            if (try? await s3Lib.remoteS3Item(for: NSFileProviderItemIdentifier(trashKey), drive: drive)) != nil {
+            // Peek at the trash key — if it exists, this is a permanent delete of a trashed item
+            if (try? await s3Lib.remoteS3Item(for: trashIdentifier, drive: drive)) != nil {
                 self.logger.info("deleteItem: original key \(identifier.rawValue, privacy: .public) has .trash/ counterpart, hard-deleting")
+                let trashS3Item = S3Item(
+                    identifier: trashIdentifier,
+                    drive: drive,
+                    objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
+                )
                 let hardProgress = self.performHardDelete(
                     s3Item: trashS3Item, drive: drive, s3Lib: s3Lib, nm: nm, completionHandler: boxedCb.value
                 )
@@ -1328,23 +1310,19 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
                 return
             }
 
-            // Check if trash is enabled for this drive
             let trashEnabled = (try? SharedData.default().loadTrashSettings(forDrive: drive.id))?.enabled ?? true
-
+            let childProgress: Progress
             if trashEnabled {
-                // Soft-delete: move to .trash/
-                let softProgress = self.performSoftDelete(
+                childProgress = self.performSoftDelete(
                     s3Item: s3Item, drive: drive, s3Lib: s3Lib, nm: nm, completionHandler: boxedCb.value
                 )
-                progress.addChild(softProgress, withPendingUnitCount: 1)
             } else {
-                // Trash disabled: hard-delete with conflict check
-                let hardProgress = self.performHardDeleteWithConflictCheck(
+                childProgress = self.performHardDeleteWithConflictCheck(
                     identifier: identifier, s3Item: s3Item, drive: drive, s3Lib: s3Lib, nm: nm,
                     completionHandler: boxedCb.value
                 )
-                progress.addChild(hardProgress, withPendingUnitCount: 1)
             }
+            progress.addChild(childProgress, withPendingUnitCount: 1)
         }
         return progress
     }
@@ -1400,7 +1378,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
                     forcedTrashed: true
                 )
 
-                self.logger.error("DEBUG Trashed item: \(trashedKey, privacy: .public) systemId=\(trashedItem.itemIdentifier.rawValue, privacy: .public) parent=\(trashedItem.parentItemIdentifier.rawValue, privacy: .public) capabilities=\(trashedItem.capabilities.rawValue)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 // Complete FIRST so the system processes the reparenting,
                 // then signal for re-enumeration.
@@ -1438,12 +1415,18 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             let completionHandler = boxedCb.value
             do {
                 await nm.sendDriveChangedNotification(status: .sync)
-                _ = try await self.withAPIKeyRecovery {
+                let trashedKey = try await self.withAPIKeyRecovery {
                     try await s3Lib.trashS3Item(s3Item, drive: drive, withProgress: progress)
                 }
                 self.logger.info("Soft-deleted (trashed) item \(s3Item.itemIdentifier.rawValue, privacy: .public)")
 
                 try? await self.metadataStore?.deleteItem(byKey: s3Item.itemIdentifier.rawValue, driveId: drive.id)
+                try? await self.metadataStore?.recordTrash(
+                    trashKey: trashedKey,
+                    originalKey: s3Item.itemIdentifier.rawValue,
+                    driveId: drive.id,
+                    size: Int64(truncating: s3Item.documentSize ?? 0)
+                )
                 progress.completedUnitCount = 1
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 self.signalChanges()
@@ -1483,6 +1466,9 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
                 try await self.withAPIKeyRecovery {
                     try await s3Lib.deleteS3Item(s3Item, withProgress: progress)
                 }
+                try? await self.metadataStore?.removeTrashRecord(
+                    trashKey: s3Item.itemIdentifier.rawValue, driveId: drive.id
+                )
                 self.logger.info("Hard-deleted trashed item \(s3Item.itemIdentifier.rawValue, privacy: .public)")
                 progress.completedUnitCount = 1
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
@@ -1920,6 +1906,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
                     if (try? SharedData.default().hasEmptyTrashRequest(forDrive: driveId)) == true {
                         do {
                             try await s3Lib.emptyTrash(drive: drive, withProgress: Progress())
+                            try? await self.metadataStore?.removeAllTrashRecords(driveId: driveId)
                             try? SharedData.default().setEmptyTrashRequest(forDrive: driveId, requested: false)
                             self.signalTrashChanges()
                             self.logger
@@ -1947,6 +1934,9 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
                                 trashedAt < cutoff {
                                 do {
                                     try await s3Lib.deleteS3Item(item, withProgress: Progress())
+                                    try? await self.metadataStore?.removeTrashRecord(
+                                        trashKey: item.itemIdentifier.rawValue, driveId: driveId
+                                    )
                                     purged += 1
                                 } catch {
                                     self.logger

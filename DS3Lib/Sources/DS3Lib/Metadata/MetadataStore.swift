@@ -11,7 +11,7 @@ public actor MetadataStore { // swiftlint:disable:this type_body_length
     /// Creates a ModelContainer pointing to the App Group shared directory with V2 schema.
     /// Callers create the container once and pass it: `MetadataStore(modelContainer: container)`
     public static func createContainer() throws -> ModelContainer {
-        let schema = Schema(versionedSchema: SyncedItemSchemaV2.self)
+        let schema = Schema(versionedSchema: SyncedItemSchemaV3.self)
         let config = ModelConfiguration(
             "SyncedItems",
             schema: schema,

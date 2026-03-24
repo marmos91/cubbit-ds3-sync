@@ -669,7 +669,7 @@ public final class DS3S3Client: Sendable { // swiftlint:disable:this type_body_l
             copySource: copySource,
             key: destinationKey,
             metadata: metadata,
-            metadataDirective: metadata != nil ? .replace : nil
+            metadataDirective: (metadata?.isEmpty == false) ? .replace : nil
         )
         _ = try await s3.copyObject(request)
     }

@@ -5,8 +5,6 @@ import SotoS3
 import DS3Lib
 
 /// Enumerates items inside the `.trash/` prefix for a drive.
-/// Uses MetadataStore to resolve original keys (stored during performMoveToTrash)
-/// so the system sees consistent item identifiers across trash/restore.
 class TrashS3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
     typealias Logger = os.Logger
 
@@ -40,9 +38,6 @@ class TrashS3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable
 
                 let continuationToken = page.toContinuationToken()
 
-                // The system manages trash state from modifyItem responses.
-                // We only enumerate here to confirm what's in .trash/ on S3,
-                // returning items with their original identifiers from MetadataStore.
                 let (trashItems, nextToken) = try await self.s3Lib.listTrashedItems(
                     forDrive: self.drive,
                     withContinuationToken: continuationToken
@@ -51,10 +46,11 @@ class TrashS3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable
                 var items: [S3Item] = []
                 for trashItem in trashItems {
                     let trashKey = trashItem.itemIdentifier.rawValue
-
-                    if let originalKey = try? await self.metadataStore?.fetchOriginalKey(
+                    let originalKey = try? await self.metadataStore?.fetchOriginalKey(
                         forTrashKey: trashKey, driveId: self.drive.id
-                    ) {
+                    )
+
+                    if let originalKey {
                         items.append(S3Item(
                             identifier: NSFileProviderItemIdentifier(originalKey),
                             drive: self.drive,
@@ -65,7 +61,6 @@ class TrashS3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable
                             forcedTrashed: true
                         ))
                     } else {
-                        // No local mapping — return with .trash/ key as-is
                         items.append(trashItem)
                     }
                 }
@@ -92,8 +87,6 @@ class TrashS3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable
         for observer: NSFileProviderChangeObserver,
         from anchor: NSFileProviderSyncAnchor
     ) {
-        // The system manages trash state from modifyItem responses (trash/restore).
-        // No changes to report here — finish with current anchor.
         logger.info("TrashS3Enumerator: enumerateChanges finishing with current anchor")
         observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
     }
@@ -101,6 +94,8 @@ class TrashS3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable
     func currentSyncAnchor(
         completionHandler: @escaping (NSFileProviderSyncAnchor?) -> Void
     ) {
-        completionHandler(NSFileProviderSyncAnchor(Date()))
+        // Return a stable anchor so the system doesn't spin re-enumerating.
+        // Changes are discovered via signalEnumerator(.trashContainer).
+        completionHandler(NSFileProviderSyncAnchor(Data([0])))
     }
 }

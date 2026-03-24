@@ -63,27 +63,27 @@ public enum DefaultSettings {
     /// A unique identifier for the app. It is used to identify the specific app instance when creating API keys.
     /// A random UUID is created when the app starts for the first time and it is stored in the user defaults, to be retrieved at the next execution.
     public static let appUUID = {
-        if let userDefaults = UserDefaults(suiteName: DefaultSettings.appGroup) {
-            if let uuid = userDefaults.string(forKey: DefaultSettings.UserDefaultsKeys.appUUID) {
-                return uuid
-            } else {
-                let uuid = UUID().uuidString
-                userDefaults.set(uuid, forKey: DefaultSettings.UserDefaultsKeys.appUUID)
-                return uuid
-            }
-        } else {
+        guard let userDefaults = UserDefaults(suiteName: DefaultSettings.appGroup) else {
             return UUID().uuidString
         }
+
+        if let uuid = userDefaults.string(forKey: DefaultSettings.UserDefaultsKeys.appUUID) {
+            return uuid
+        }
+
+        let uuid = UUID().uuidString
+        userDefaults.set(uuid, forKey: DefaultSettings.UserDefaultsKeys.appUUID)
+        return uuid
     }()
 
     /// The application version number as string. It is retrieved from the app bundle.
     public static let appVersion: String = {
-        return Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
     }()
 
     /// The application build number as string. It is retrieved from the app bundle.
     public static let appBuild: String = {
-        return Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
     }()
 
     /// Whether the app is set to start at login or not.

@@ -60,11 +60,7 @@ extension SharedData {
 
         var flags = (try? loadEmptyTrashFlags(from: url)) ?? [:]
 
-        if requested {
-            flags[driveId.uuidString] = true
-        } else {
-            flags.removeValue(forKey: driveId.uuidString)
-        }
+        flags[driveId.uuidString] = requested ? true : nil
 
         let data = try JSONEncoder().encode(flags)
         try coordinatedWrite(data: data, to: url)

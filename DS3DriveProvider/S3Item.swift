@@ -178,17 +178,12 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     }
 
     var contentType: UTType {
-        if self.identifier == .rootContainer || self.identifier == .trashContainer {
+        if identifier == .rootContainer || identifier == .trashContainer
+            || identifier.rawValue.last == separator {
             return .folder
         }
 
-        if self.identifier.rawValue.last == self.separator {
-            return .folder
-        }
-
-        // Infer UTType from file extension for proper thumbnails and icons
-        let name = filename
-        if let ext = name.split(separator: ".").last,
+        if let ext = filename.split(separator: ".").last,
            let utType = UTType(filenameExtension: String(ext)) {
             return utType
         }

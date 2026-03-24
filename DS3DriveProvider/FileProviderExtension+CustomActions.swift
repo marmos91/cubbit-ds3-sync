@@ -87,21 +87,8 @@ extension FileProviderExtension {
             for identifier in itemIdentifiers {
                 if identifier.isSystemContainer { continue }
 
-                // The identifier may be the original key (forcedTrashed) or a .trash/ key.
-                // Look up the actual .trash/ S3 key from MetadataStore first,
-                // then fall back to S3Lib.trashKey derivation.
-                let actualTrashKey: String
-                if S3Lib.isTrashedKey(identifier.rawValue, drive: drive) {
-                    actualTrashKey = identifier.rawValue
-                } else if let stored = try? await self.metadataStore?.fetchTrashKey(
-                    forOriginalKey: identifier.rawValue, driveId: drive.id
-                ) {
-                    actualTrashKey = stored
-                } else {
-                    // No MetadataStore record — derive from filename (flat trash)
-                    let filename = identifier.rawValue.split(separator: "/").last.map(String.init) ?? identifier.rawValue
-                    actualTrashKey = S3Lib.fullTrashPrefix(forDrive: drive) + filename
-                }
+                let rawKey = identifier.rawValue
+                let actualTrashKey = try await self.resolveTrashKey(rawKey, drive: drive)
 
                 do {
                     await nm.sendDriveChangedNotification(status: .sync)
@@ -112,31 +99,39 @@ extension FileProviderExtension {
                     )
                     let restoredItem = try await s3Lib.restoreS3Item(s3Item, drive: drive, withProgress: progress)
                     try? await self.metadataStore?.removeTrashRecord(trashKey: actualTrashKey, driveId: drive.id)
-                    // Signal the parent container so the restored item appears
                     if let manager = NSFileProviderManager(for: self.domain) {
-                        let parent = restoredItem.parentItemIdentifier
-                        try? await manager.signalEnumerator(for: parent)
+                        try? await manager.signalEnumerator(for: restoredItem.parentItemIdentifier)
                     }
                     self.logger.info("Restored \(actualTrashKey, privacy: .public) to \(restoredItem.itemIdentifier.rawValue, privacy: .public)")
-                } catch let s3Error as S3ErrorType {
-                    self.logger.error("Failed to restore \(actualTrashKey, privacy: .public): \(s3Error.errorCode, privacy: .public)")
-                    if firstError == nil { firstError = s3Error.toFileProviderError() }
                 } catch {
                     self.logger.error("Failed to restore \(actualTrashKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                    if firstError == nil { firstError = NSFileProviderError(.cannotSynchronize) as NSError }
+                    if firstError == nil {
+                        firstError = (error as? S3ErrorType)?.toFileProviderError()
+                            ?? NSFileProviderError(.cannotSynchronize) as NSError
+                    }
                 }
                 progress.completedUnitCount += 1
             }
             await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
             boxedCb.value(firstError)
-            // Signal after completion so the system processes the action result first.
             self.signalChanges()
             self.signalTrashChanges()
-            // Force re-import so restored items appear and trash updates.
-            if let manager = NSFileProviderManager(for: self.domain) {
-                try? await manager.reimportItems(below: .rootContainer)
-            }
         }
+    }
+
+    private func resolveTrashKey(_ rawKey: String, drive: DS3Drive) async throws -> String {
+        if S3Lib.isTrashedKey(rawKey, drive: drive) {
+            return rawKey
+        }
+
+        if let stored = try? await self.metadataStore?.fetchTrashKey(
+            forOriginalKey: rawKey, driveId: drive.id
+        ) {
+            return stored
+        }
+
+        let filename = rawKey.split(separator: "/").last.map(String.init) ?? rawKey
+        return S3Lib.fullTrashPrefix(forDrive: drive) + filename
     }
 
     private func performEvictAction(

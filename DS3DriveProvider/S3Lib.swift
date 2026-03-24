@@ -613,30 +613,21 @@ actor S3Lib { // swiftlint:disable:this type_body_length
     static func appendTimestamp(toKey key: String) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withFullDate, .withFullTime, .withDashSeparatorInDate]
+        formatter.timeZone = TimeZone(identifier: "UTC")
         let stamp = formatter.string(from: Date())
             .replacingOccurrences(of: ":", with: "-")
 
         let delimiter = String(DefaultSettings.S3.delimiter)
 
         if key.hasSuffix(delimiter) {
-            // Folder: insert timestamp before trailing slash
             return String(key.dropLast()) + "_" + stamp + delimiter
         }
 
-        // Extract directory path and filename to avoid splitting on dots in the path
-        // (e.g., the `.trash/` prefix). Only the filename extension should be considered.
-        let lastSlashIndex = key.lastIndex(of: DefaultSettings.S3.delimiter)
-        let dirPrefix: String
-        let filename: String
-        if let slashIdx = lastSlashIndex {
-            dirPrefix = String(key[...slashIdx])
-            filename = String(key[key.index(after: slashIdx)...])
-        } else {
-            dirPrefix = ""
-            filename = key
-        }
+        // Split into directory and filename to avoid matching dots in the path (e.g. `.trash/`)
+        let slashIdx = key.lastIndex(of: DefaultSettings.S3.delimiter)
+        let dirPrefix = slashIdx.map { String(key[...$0]) } ?? ""
+        let filename = slashIdx.map { String(key[key.index(after: $0)...]) } ?? key
 
-        // Insert timestamp before the last extension (handles hidden files and multi-dot names)
         if let dotIndex = filename.lastIndex(of: "."), dotIndex > filename.startIndex {
             let name = filename[..<dotIndex]
             let ext = filename[dotIndex...]
@@ -677,32 +668,24 @@ actor S3Lib { // swiftlint:disable:this type_body_length
     ) async throws -> String {
         let trashPrefix = Self.fullTrashPrefix(forDrive: drive)
         let originalKey = s3Item.itemIdentifier.rawValue
+        let bucket = drive.syncAnchor.bucket.name
 
-        // Flatten: place item directly under .trash/ using just its filename
         let suffix = s3Item.isFolder ? String(DefaultSettings.S3.delimiter) : ""
         var destKey = trashPrefix + s3Item.filename + suffix
 
-        if try await objectExists(bucket: drive.syncAnchor.bucket.name, key: destKey) {
+        if try await objectExists(bucket: bucket, key: destKey) {
             destKey = Self.appendTimestamp(toKey: destKey)
         }
 
-        // Copy with trashed-at + original-key metadata
-        let formatter = ISO8601DateFormatter()
-        let trashedAt = formatter.string(from: Date())
-        let metadata = [
-            "trashed-at": trashedAt,
-            "original-key": originalKey
-        ]
+        let trashedAt = ISO8601DateFormatter().string(from: Date())
 
         if s3Item.isFolder {
-            // Two-pass approach: copy all children first, then delete.
-            // This prevents data loss if the operation fails mid-way — originals
-            // remain intact until all copies are confirmed in trash.
+            // Two-pass: copy all children first, then delete.
+            // Originals remain intact until all copies are confirmed in trash.
             var continuationToken: String?
-            let folderPrefix = s3Item.itemIdentifier.rawValue
+            let folderPrefix = originalKey
             var copiedItems: [S3Item] = []
 
-            // Pass 1: copy all children to trash
             repeat {
                 let (items, nextToken) = try await listS3Items(
                     forDrive: drive,
@@ -714,26 +697,34 @@ actor S3Lib { // swiftlint:disable:this type_body_length
 
                 for item in items {
                     let relativePath = String(item.itemIdentifier.rawValue.dropFirst(folderPrefix.count))
-                    let childDestKey = destKey + relativePath
-                    let childMetadata = [
-                        "trashed-at": trashedAt,
-                        "original-key": item.itemIdentifier.rawValue
-                    ]
                     try await copyS3ItemWithMetadata(
-                        item, toKey: childDestKey, metadata: childMetadata
+                        item,
+                        toKey: destKey + relativePath,
+                        metadata: [
+                            "trashed-at": trashedAt,
+                            "original-key": item.itemIdentifier.rawValue
+                        ]
                     )
                     copiedItems.append(item)
                 }
             } while continuationToken != nil
 
-            // Pass 2: delete originals (safe — trash copies are confirmed)
+            // Copy the folder marker itself so it appears in trash listing
+            try await copyS3ItemWithMetadata(
+                s3Item,
+                toKey: destKey,
+                metadata: ["trashed-at": trashedAt, "original-key": originalKey]
+            )
+
             for item in copiedItems {
                 try await deleteS3Item(item, withProgress: nil, force: true)
             }
             try await deleteS3Item(s3Item, withProgress: progress, force: true)
         } else {
             try await copyS3ItemWithMetadata(
-                s3Item, toKey: destKey, metadata: metadata
+                s3Item,
+                toKey: destKey,
+                metadata: ["trashed-at": trashedAt, "original-key": originalKey]
             )
             try await deleteS3Item(s3Item, withProgress: progress, force: true)
         }
@@ -751,28 +742,30 @@ actor S3Lib { // swiftlint:disable:this type_body_length
         drive: DS3Drive,
         withProgress progress: Progress? = nil
     ) async throws -> S3Item {
-        // Read original-key from metadata; fall back to path derivation
-        var destKey: String
-        let headMetadata = try await client.headObject(
-            bucket: drive.syncAnchor.bucket.name,
-            key: s3Item.itemIdentifier.rawValue
-        )
-        if let originalKey = Self.resolveMetadataValue(
-            from: headMetadata.metadata ?? [:], key: "original-key"
-        ), !originalKey.isEmpty {
-            destKey = originalKey
-        } else {
-            destKey = Self.originalKey(fromTrashKey: s3Item.itemIdentifier.rawValue, drive: drive)
+        let bucket = drive.syncAnchor.bucket.name
+        let trashKey = s3Item.itemIdentifier.rawValue
+
+        // Read original-key from metadata; guard HEAD failure for folders without markers
+        let resolvedOriginalKey: String?
+        do {
+            let headMetadata = try await client.headObject(bucket: bucket, key: trashKey)
+            resolvedOriginalKey = Self.resolveMetadataValue(
+                from: headMetadata.metadata ?? [:], key: "original-key"
+            )
+        } catch where DS3S3Client.isNotFoundError(error) {
+            resolvedOriginalKey = nil
         }
 
-        // Check if original location is occupied — avoid silent overwrite
-        if try await objectExists(bucket: drive.syncAnchor.bucket.name, key: destKey) {
+        var destKey = (resolvedOriginalKey.flatMap { $0.isEmpty ? nil : $0 })
+            ?? Self.originalKey(fromTrashKey: trashKey, drive: drive)
+
+        if try await objectExists(bucket: bucket, key: destKey) {
             destKey = Self.appendTimestamp(toKey: destKey)
             logger.info("Restore collision detected, using \(destKey, privacy: .public)")
         }
 
         let movedItem = try await moveS3Item(s3Item, toKey: destKey, withProgress: progress)
-        logger.info("Restored item from \(s3Item.itemIdentifier.rawValue, privacy: .public) → \(destKey, privacy: .public)")
+        logger.info("Restored item from \(trashKey, privacy: .public) → \(destKey, privacy: .public)")
         return movedItem
     }
 
@@ -782,6 +775,8 @@ actor S3Lib { // swiftlint:disable:this type_body_length
         withProgress progress: Progress? = nil
     ) async throws {
         let trashPrefix = Self.fullTrashPrefix(forDrive: drive)
+        let bucket = drive.syncAnchor.bucket.name
+        let batchSize = DefaultSettings.S3.deleteBatchSize
         var continuationToken: String?
 
         repeat {
@@ -794,15 +789,10 @@ actor S3Lib { // swiftlint:disable:this type_body_length
             continuationToken = nextToken
 
             let keys = items.map { $0.identifier.rawValue }
-            let batchSize = DefaultSettings.S3.deleteBatchSize
 
             for startIndex in stride(from: 0, to: keys.count, by: batchSize) {
-                let endIndex = min(startIndex + batchSize, keys.count)
-                let chunk = Array(keys[startIndex..<endIndex])
-                _ = try await client.deleteObjects(
-                    bucket: drive.syncAnchor.bucket.name,
-                    keys: chunk
-                )
+                let chunk = Array(keys[startIndex..<min(startIndex + batchSize, keys.count)])
+                _ = try await client.deleteObjects(bucket: bucket, keys: chunk)
                 progress?.completedUnitCount += Int64(chunk.count)
             }
         } while continuationToken != nil
@@ -824,55 +814,25 @@ actor S3Lib { // swiftlint:disable:this type_body_length
         )
     }
 
-    /// Copies an S3 item to a new key with custom metadata.
     func copyS3ItemWithMetadata(
         _ s3Item: S3Item,
         toKey key: String,
         metadata: [String: String]
     ) async throws {
-        let sourceKey = s3Item.itemIdentifier.rawValue
         try await client.copyObject(
             bucket: s3Item.drive.syncAnchor.bucket.name,
-            sourceKey: sourceKey,
+            sourceKey: s3Item.itemIdentifier.rawValue,
             destinationKey: key,
             metadata: metadata
         )
     }
 
-    /// Retrieves the `trashed-at` date for a trashed item via HEAD request.
     func getTrashedAtDate(forKey key: String, bucket: String) async throws -> Date? {
         let response = try await client.headObject(bucket: bucket, key: key)
-        let metadata = response.metadata ?? [:]
-        guard let trashedAtString = Self.resolveMetadataValue(from: metadata, key: "trashed-at") else { return nil }
-        let formatter = ISO8601DateFormatter()
-        return formatter.date(from: trashedAtString)
-    }
-
-    /// Retrieves trash metadata (original key and trashed-at date) for a trashed item via HEAD request.
-    func getTrashMetadata(forKey key: String, bucket: String) async throws -> (originalKey: String?, trashedAt: Date?) {
-        let headRequest = S3.HeadObjectRequest(bucket: bucket, key: key)
-        let response = try await s3.headObject(headRequest)
-
-        logger.error("DEBUG getTrashMetadata for \(key, privacy: .public) metadata keys: \(response.metadata?.keys.joined(separator: ", ") ?? "nil", privacy: .public)")
-
-        // SotoS3 normalizes metadata keys to lowercase and strips the x-amz-meta- prefix.
-        // Try both lowercase and original casing for compatibility.
-        let metadata = response.metadata ?? [:]
-        let originalKey = metadata["original-key"]
-            ?? metadata["Original-Key"]
-            ?? metadata["x-amz-meta-original-key"]
-            ?? metadata["X-Amz-Meta-Original-Key"]
-
-        let trashedAtString = metadata["trashed-at"]
-            ?? metadata["Trashed-At"]
-            ?? metadata["x-amz-meta-trashed-at"]
-            ?? metadata["X-Amz-Meta-Trashed-At"]
-
-        var trashedAt: Date?
-        if let trashedAtString {
-            trashedAt = ISO8601DateFormatter().date(from: trashedAtString)
-        }
-        return (originalKey, trashedAt)
+        guard let trashedAt = Self.resolveMetadataValue(
+            from: response.metadata ?? [:], key: "trashed-at"
+        ) else { return nil }
+        return ISO8601DateFormatter().date(from: trashedAt)
     }
 
     /// Aborts a multipart upload for a given S3Item and uploadId
