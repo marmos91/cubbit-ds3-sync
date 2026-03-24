@@ -34,7 +34,7 @@ class SyncAnchorSelectionViewModel {
 
     var project: Project
     var authentication: DS3Authentication
-    var ds3Sdk: DS3SDK
+    var ds3Client: DS3Client
     var s3Client: DS3S3Client?
 
     var buckets: [Bucket] = []
@@ -57,7 +57,7 @@ class SyncAnchorSelectionViewModel {
         self.project = project
         self.authentication = authentication
         self.selectedIAMUser = project.users.first
-        self.ds3Sdk = DS3SDK(withAuthentication: authentication)
+        self.ds3Client = DS3Client(authentication: authentication)
         self.buckets = buckets
         self.folders = folders
 
@@ -67,7 +67,7 @@ class SyncAnchorSelectionViewModel {
     }
 
     func shutdownClient() {
-        try? s3Client?.shutdown()
+        ds3Client.shutdown()
     }
 
     func loadBuckets() async {
@@ -140,7 +140,6 @@ class SyncAnchorSelectionViewModel {
 
     func initializeClient(force: Bool = false) async throws {
         guard force || s3Client == nil else { return }
-        guard let account = self.authentication.account else { return }
 
         try? s3Client?.shutdown()
 
@@ -150,20 +149,7 @@ class SyncAnchorSelectionViewModel {
 
         self.logger.debug("Initializing S3Client for project \(self.project.name) and user \(selectedIAMUser.username)")
 
-        let apiKeys = try await self.ds3Sdk.loadOrCreateDS3APIKeys(
-            forIAMUser: selectedIAMUser,
-            ds3ProjectName: self.project.name
-        )
-
-        guard let secretKey = apiKeys.secretKey else {
-            throw SyncAnchorSelectionError.DS3ClientError
-        }
-
-        self.s3Client = DS3S3Client(
-            accessKeyId: apiKeys.apiKey,
-            secretAccessKey: secretKey,
-            endpoint: account.endpointGateway
-        )
+        self.s3Client = try await ds3Client.s3Client(forProject: self.project, iamUser: selectedIAMUser)
     }
 
     func selectIAMUser(withID id: String) async {

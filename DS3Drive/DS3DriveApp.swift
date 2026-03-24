@@ -206,8 +206,8 @@ struct DS3DriveApp: App {
 
                     try await auth.refreshIfNeeded(force: true)
 
-                    let sdk = DS3SDK(withAuthentication: auth, urls: auth.urls)
-                    _ = try await sdk.loadOrCreateDS3APIKeys(
+                    let client = DS3Client(authentication: auth)
+                    _ = try await client.loadOrCreateDS3APIKeys(
                         forIAMUser: drive.syncAnchor.IAMUser,
                         ds3ProjectName: drive.syncAnchor.project.name
                     )

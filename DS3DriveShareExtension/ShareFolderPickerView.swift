@@ -226,20 +226,8 @@
             guard let drive = viewModel.selectedDrive else { return }
 
             do {
-                let sharedData = SharedData.default()
-                let account = try sharedData.loadAccountFromPersistence()
-                let apiKey = try sharedData.loadDS3APIKeyFromPersistence(
-                    forUser: drive.syncAnchor.IAMUser,
-                    projectName: drive.syncAnchor.project.name
-                )
-
-                guard let secretKey = apiKey.secretKey else { return }
-
-                let s3Client = DS3S3Client(
-                    accessKeyId: apiKey.apiKey,
-                    secretAccessKey: secretKey,
-                    endpoint: account.endpointGateway
-                )
+                let ds3Client = try DS3Client(drive: drive)
+                guard let s3Client = ds3Client.driveS3Client else { return }
                 defer { try? s3Client.shutdown() }
 
                 let currentPrefix = prefix.isEmpty ? nil : prefix

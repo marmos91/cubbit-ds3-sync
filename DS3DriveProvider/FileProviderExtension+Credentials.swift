@@ -10,16 +10,9 @@ extension FileProviderExtension {
     /// - Returns: `true` if credentials were reloaded, `false` if unchanged or unavailable.
     @discardableResult
     private func reloadS3CredentialsIfNeeded() -> Bool {
-        guard let drive = self.drive else { return false }
+        guard let drive = self.drive, let ds3Client = self.ds3Client else { return false }
 
-        guard let freshKey = try? SharedData.default().loadDS3APIKeyFromPersistence(
-            forUser: drive.syncAnchor.IAMUser,
-            projectName: drive.syncAnchor.project.name
-        )
-        else { return false }
-
-        // Only reload if the key actually changed
-        guard freshKey.apiKey != self.apiKeys?.apiKey, let secretKey = freshKey.secretKey else {
+        guard let changed = try? ds3Client.reloadDriveCredentials(drive: drive), changed else {
             return false
         }
 
@@ -27,15 +20,13 @@ extension FileProviderExtension {
             Task { try? await s3Lib.shutdown() }
         }
 
-        let client = DS3S3Client(
-            accessKeyId: freshKey.apiKey,
-            secretAccessKey: secretKey,
-            endpoint: self.endpoint
-        )
+        // Update local references
+        self.s3Client = ds3Client.driveS3Client
+        self.endpoint = ds3Client.endpoint
+        self.apiKeys = ds3Client.apiKeys
 
-        self.s3Client = client
-        self.apiKeys = freshKey
-        if let nm = self.notificationManager {
+        // Rebuild S3Lib with new client
+        if let client = ds3Client.driveS3Client, let nm = self.notificationManager {
             self.s3Lib = S3Lib(withClient: client, withNotificationManager: nm)
         }
 

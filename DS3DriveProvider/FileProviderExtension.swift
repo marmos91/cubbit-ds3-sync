@@ -48,6 +48,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
     let domain: NSFileProviderDomain
     var enabled: Bool
 
+    var ds3Client: DS3Client?
     var s3Client: DS3S3Client?
     var s3Lib: S3Lib?
 
@@ -92,31 +93,14 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             self.drive = drive
             self.notificationManager = NotificationManager(drive: drive, ipcService: self.ipcService)
 
-            let account = try sharedData.loadAccountFromPersistence()
-            self.endpoint = account.endpointGateway
-
-            let apiKeys = try sharedData.loadDS3APIKeyFromPersistence(
-                forUser: drive.syncAnchor.IAMUser,
-                projectName: drive.syncAnchor.project.name
-            )
-            self.apiKeys = apiKeys
-
-            guard let secretKey = apiKeys.secretKey else {
-                logger.error("API key has no secret key for domain \(domain.identifier.rawValue, privacy: .public)")
-                super.init()
-                self.notifyInitFailure(reason: "API key missing secret")
-                return
-            }
-
-            let client = DS3S3Client(
-                accessKeyId: apiKeys.apiKey,
-                secretAccessKey: secretKey,
-                endpoint: endpoint
-            )
-            self.s3Client = client
+            let ds3Client = try DS3Client(drive: drive)
+            self.ds3Client = ds3Client
+            self.s3Client = ds3Client.driveS3Client
+            self.endpoint = ds3Client.endpoint
+            self.apiKeys = ds3Client.apiKeys
 
             // swiftlint:disable:next force_unwrapping
-            self.s3Lib = S3Lib(withClient: client, withNotificationManager: self.notificationManager!)
+            self.s3Lib = S3Lib(withClient: self.s3Client!, withNotificationManager: self.notificationManager!)
 
             // Initialize MetadataStore, NetworkMonitor, and SyncEngine
             do {
