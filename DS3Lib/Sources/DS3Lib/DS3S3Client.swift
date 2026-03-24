@@ -47,13 +47,18 @@ public struct S3ObjectMetadata: Sendable {
     public let lastModified: Date?
     public let versionId: String?
     public let contentLength: Int64
+    public let metadata: [String: String]?
 
-    public init(etag: String?, contentType: String?, lastModified: Date?, versionId: String?, contentLength: Int64) {
+    public init(
+        etag: String?, contentType: String?, lastModified: Date?,
+        versionId: String?, contentLength: Int64, metadata: [String: String]? = nil
+    ) {
         self.etag = etag
         self.contentType = contentType
         self.lastModified = lastModified
         self.versionId = versionId
         self.contentLength = contentLength
+        self.metadata = metadata
     }
 }
 
@@ -267,7 +272,8 @@ public final class DS3S3Client: Sendable { // swiftlint:disable:this type_body_l
             contentType: response.contentType,
             lastModified: response.lastModified,
             versionId: response.versionId,
-            contentLength: response.contentLength ?? 0
+            contentLength: response.contentLength ?? 0,
+            metadata: response.metadata
         )
     }
 
@@ -647,6 +653,13 @@ public final class DS3S3Client: Sendable { // swiftlint:disable:this type_body_l
 
     /// Copies an S3 object to a new key within the same bucket.
     public func copyObject(bucket: String, sourceKey: String, destinationKey: String) async throws {
+        try await copyObject(bucket: bucket, sourceKey: sourceKey, destinationKey: destinationKey, metadata: nil)
+    }
+
+    /// Copies an S3 object to a new key with optional custom metadata.
+    public func copyObject(
+        bucket: String, sourceKey: String, destinationKey: String, metadata: [String: String]?
+    ) async throws {
         guard let copySource = "\(bucket)/\(sourceKey)".addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
             throw DS3ClientError.parseError
         }
@@ -654,7 +667,9 @@ public final class DS3S3Client: Sendable { // swiftlint:disable:this type_body_l
         let request = S3.CopyObjectRequest(
             bucket: bucket,
             copySource: copySource,
-            key: destinationKey
+            key: destinationKey,
+            metadata: metadata,
+            metadataDirective: metadata != nil ? .replace : nil
         )
         _ = try await s3.copyObject(request)
     }

@@ -276,6 +276,13 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                             self.logger.info("Synthesized \(virtualFolders.count) virtual folder(s) for working set")
                             allItems.append(contentsOf: virtualFolders)
                         }
+
+                        // Filter out .trash/ items from the working set — trashed items
+                        // are enumerated exclusively by TrashS3Enumerator to avoid
+                        // identity conflicts with the system's trash tracking.
+                        allItems = allItems.filter { item in
+                            !S3Lib.isTrashedKey(item.itemIdentifier.rawValue, drive: self.drive)
+                        }
                     }
 
                     // Signal observer FIRST so Finder shows items immediately
@@ -394,8 +401,6 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                 try? await NSFileProviderManager(for: domain)?
                     .signalEnumerator(for: container)
                 logger.debug("Background cache refresh + signal(\(container.rawValue, privacy: .public)) complete for prefix \(prefix ?? "nil", privacy: .public)")
-                #else
-                logger.debug("Background cache refresh complete (no signal) for prefix \(prefix ?? "nil", privacy: .public)")
                 #endif
             } catch {
                 logger.debug("Background cache refresh failed for prefix \(prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)")
@@ -424,9 +429,8 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
             // Changes are discovered via per-folder enumerateItems (cache-first with
             // background S3 refresh) when the user navigates.
             self.logger.info("enumerateChanges: skipping on iOS for prefix \(self.prefix ?? "nil", privacy: .public)")
-            return observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
-            #endif
-
+            observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
+            #else
             await self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .indexing, isFileOperation: false)
 
             do {
@@ -526,6 +530,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                 await self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error, isFileOperation: false)
                 return observer.finishEnumeratingWithError(NSFileProviderError(.cannotSynchronize) as NSError)
             }
+            #endif
         }
     }
 }

@@ -150,6 +150,93 @@ public enum SyncedItemSchemaV2: VersionedSchema {
     }
 }
 
+/// Schema version 3 for the SyncedItem metadata model.
+/// Adds originalKey field to SyncedItem for trash identity tracking.
+public enum SyncedItemSchemaV3: VersionedSchema {
+    nonisolated(unsafe) public static let versionIdentifier = Schema.Version(3, 0, 0)
+    public static var models: [any PersistentModel.Type] {
+        [SyncedItem.self, SyncAnchorRecord.self]
+    }
+
+    @Model
+    public final class SyncedItem {
+        /// The full S3 object key (unique per drive, not globally)
+        public var s3Key: String
+
+        /// The drive this item belongs to (explicit, not inferred from bucket/prefix)
+        public var driveId: UUID
+
+        /// Composite unique key: "driveId:s3Key". Ensures uniqueness per drive.
+        @Attribute(.unique) public var uniqueKey: String
+
+        /// S3 ETag for version tracking
+        public var etag: String?
+
+        /// S3 LastModified timestamp
+        public var lastModified: Date?
+
+        /// Local file content hash for change detection
+        public var localFileHash: String?
+
+        /// Current sync status stored as raw string for SwiftData compatibility.
+        /// Use `status` computed property for type-safe access.
+        public var syncStatus: String
+
+        /// Type-safe accessor for `syncStatus`.
+        @Transient
+        public var status: SyncStatus {
+            get { SyncStatus(rawValue: syncStatus) ?? .pending }
+            set { syncStatus = newValue.rawValue }
+        }
+
+        /// Parent S3 key (folder containing this item)
+        public var parentKey: String?
+
+        /// MIME content type
+        public var contentType: String?
+
+        /// File size in bytes
+        public var size: Int64
+
+        /// Whether this item has been downloaded locally (for display purposes only).
+        public var isMaterialized: Bool = false
+
+        /// The original S3 key before the item was trashed. Nil for non-trashed items.
+        /// Used by TrashS3Enumerator to return the correct identifier so the system
+        /// can match trashed items with their original location for "Recover".
+        /// Added in V3.
+        public var originalKey: String?
+
+        public init(
+            s3Key: String,
+            driveId: UUID,
+            size: Int64 = 0,
+            syncStatus: String = SyncStatus.pending.rawValue
+        ) {
+            self.s3Key = s3Key
+            self.driveId = driveId
+            self.uniqueKey = "\(driveId.uuidString):\(s3Key)"
+            self.size = size
+            self.syncStatus = syncStatus
+        }
+    }
+
+    /// Per-drive sync anchor tracking entity (unchanged from V2).
+    @Model
+    public final class SyncAnchorRecord {
+        @Attribute(.unique) public var driveId: UUID
+        public var lastSyncDate: Date
+        public var lastSuccessfulSync: Date?
+        public var consecutiveFailures: Int = 0
+        public var itemCount: Int = 0
+
+        public init(driveId: UUID, lastSyncDate: Date = Date()) {
+            self.driveId = driveId
+            self.lastSyncDate = lastSyncDate
+        }
+    }
+}
+
 /// Sync status values as a Swift enum with raw string values.
 public enum SyncStatus: String, Codable, Sendable {
     case pending
@@ -157,16 +244,17 @@ public enum SyncStatus: String, Codable, Sendable {
     case synced
     case error
     case conflict
+    case trashed
 }
 
 /// Migration plan for SyncedItem schema versions.
 public enum SyncedItemMigrationPlan: SchemaMigrationPlan {
     public static var schemas: [any VersionedSchema.Type] {
-        [SyncedItemSchemaV1.self, SyncedItemSchemaV2.self]
+        [SyncedItemSchemaV1.self, SyncedItemSchemaV2.self, SyncedItemSchemaV3.self]
     }
 
     public static var stages: [MigrationStage] {
-        [migrateV1toV2]
+        [migrateV1toV2, migrateV2toV3]
     }
 
     /// Lightweight migration from V1 to V2:
@@ -176,7 +264,14 @@ public enum SyncedItemMigrationPlan: SchemaMigrationPlan {
         fromVersion: SyncedItemSchemaV1.self,
         toVersion: SyncedItemSchemaV2.self
     )
+
+    /// Lightweight migration from V2 to V3:
+    /// - Adds originalKey (String?, default nil) to SyncedItem
+    nonisolated(unsafe) static let migrateV2toV3 = MigrationStage.lightweight(
+        fromVersion: SyncedItemSchemaV2.self,
+        toVersion: SyncedItemSchemaV3.self
+    )
 }
 
 /// Type alias for the current schema version's SyncedItem.
-public typealias SyncedItem = SyncedItemSchemaV2.SyncedItem
+public typealias SyncedItem = SyncedItemSchemaV3.SyncedItem
