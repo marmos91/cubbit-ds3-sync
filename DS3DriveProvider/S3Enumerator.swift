@@ -240,7 +240,8 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                 // into subfolders of an already-indexed parent.
                 if !self.recursively, page.toContinuationToken() == nil,
                    self.metadataStore != nil,
-                   try await self.serveCachedItems(to: observer) {
+                   try await self.serveCachedItems(to: observer)
+                { // swiftlint:disable:this opening_brace
                     observer.finishEnumerating(upTo: nil)
 
                     // TTL check: skip S3 refresh if recently enumerated
@@ -260,10 +261,15 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                     return
                 }
 
-                await self.notificationManager.sendDriveChangedNotificationWithDebounce(
-                    status: .indexing,
-                    isFileOperation: false
-                )
+                // Only show "Indexing" for per-folder enumeration. Working set (recursive)
+                // enumeration is system-initiated and paginated — sending .indexing/.idle
+                // per page causes the tray status to get stuck on "Indexing".
+                if !self.recursively {
+                    await self.notificationManager.sendDriveChangedNotificationWithDebounce(
+                        status: .indexing,
+                        isFileOperation: false
+                    )
+                }
 
                 // S3 fallback path (cache miss). If S3 fails (e.g. iOS networking
                 // grace period exhausted), retry MetadataStore as last resort — BFS
@@ -316,10 +322,12 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
 
                     let page = continuationToken.map { NSFileProviderPage($0) }
 
-                    await self.notificationManager.sendDriveChangedNotificationWithDebounce(
-                        status: .idle,
-                        isFileOperation: false
-                    )
+                    if !self.recursively {
+                        await self.notificationManager.sendDriveChangedNotificationWithDebounce(
+                            status: .idle,
+                            isFileOperation: false
+                        )
+                    }
                     observer.finishEnumerating(upTo: page)
 
                     // Batch upsert into MetadataStore in the background (doesn't block display)
