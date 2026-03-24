@@ -8,13 +8,13 @@ on:
 jobs:
   testflight:
     name: Archive & Upload to TestFlight (macOS)
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 30
 
     steps:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.2'
+          xcode-version: '26'
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -107,6 +107,11 @@ jobs:
             n; n; s/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "DS3DriveProvider Mac AppStore";/
           }' "$PROJECT"
 
+          # Verify all substitutions were applied
+          for PROFILE in "DS3Drive Mac AppStore" "DS3DriveProvider Mac AppStore"; do
+            grep -q "$PROFILE" "$PROJECT" || { echo "ERROR: profile '$PROFILE' not patched in project"; exit 1; }
+          done
+
       - name: Resolve Swift packages
         run: |
           xcodebuild -resolvePackageDependencies \
@@ -175,7 +180,8 @@ jobs:
             -t macos \
             --apiKey "$ASC_KEY_ID" \
             --apiIssuer "$ASC_ISSUER_ID" \
-            --verbose
+            --verbose 2>&1 | tee /tmp/altool.log
+          grep -qi "error\|failed\|fault" /tmp/altool.log && { echo "altool upload failed"; exit 1; } || true
 
       - name: Cleanup
         if: always()
