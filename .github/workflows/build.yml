@@ -31,6 +31,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+      - name: Cache SPM packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            DS3Lib/.build
+            ~/Library/Developer/Xcode/DerivedData/DS3Drive-*/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('DS3Lib/Package.resolved', 'DS3Drive.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
       - name: Resolve Swift packages
         run: |
           xcodebuild -resolvePackageDependencies -project DS3Drive.xcodeproj -scheme DS3Drive
@@ -55,6 +63,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+      - name: Cache SPM packages
+        uses: actions/cache@v4
+        with:
+          path: DS3Lib/.build
+          key: spm-ds3lib-${{ runner.os }}-${{ hashFiles('DS3Lib/Package.resolved') }}
+          restore-keys: spm-ds3lib-${{ runner.os }}-
       - name: Run unit tests
         run: swift test --package-path DS3Lib
 
@@ -78,6 +92,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+      - name: Cache SPM packages
+        uses: actions/cache@v4
+        with:
+          path: DS3Lib/.build
+          key: spm-ds3lib-${{ runner.os }}-${{ hashFiles('DS3Lib/Package.resolved') }}
+          restore-keys: spm-ds3lib-${{ runner.os }}-
       - name: Run integration tests
         run: swift test --package-path DS3Lib --filter Integration
 
@@ -96,6 +116,12 @@ jobs:
           lfs: true
       - name: Install iOS platform
         run: xcodebuild -downloadPlatform iOS
+      - name: Cache SPM packages
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/DS3Drive-*/SourcePackages
+          key: spm-ios-${{ runner.os }}-${{ hashFiles('DS3Drive.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: spm-ios-${{ runner.os }}-
       - name: Resolve Swift packages
         run: |
           xcodebuild -resolvePackageDependencies -project DS3Drive.xcodeproj -scheme DS3DriveApp
@@ -104,13 +130,6 @@ jobs:
           xcodebuild build \
             -project DS3Drive.xcodeproj \
             -scheme DS3DriveApp \
-            -destination 'platform=iOS Simulator,name=iPhone 17' \
-            CODE_SIGNING_ALLOWED=NO
-      - name: Test DS3Lib on iOS Simulator
-        run: |
-          xcodebuild test \
-            -project DS3Drive.xcodeproj \
-            -scheme DS3Lib \
             -destination 'platform=iOS Simulator,name=iPhone 17' \
             CODE_SIGNING_ALLOWED=NO
       - name: Test DS3DriveApp on iOS Simulator
