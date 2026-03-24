@@ -8,13 +8,13 @@ on:
 jobs:
   testflight-ios:
     name: Archive & Upload to TestFlight (iOS)
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 30
 
     steps:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.2'
+          xcode-version: '26'
 
       - name: Install iOS platform
         env:
@@ -133,14 +133,6 @@ jobs:
             MARKETING_VERSION="${{ steps.version.outputs.marketing }}" \
             CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build }}"
 
-      - name: Write App Store Connect API key
-        env:
-          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-        run: |
-          mkdir -p ~/private_keys
-          echo "$ASC_API_KEY_P8" | base64 --decode > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
-
       - name: Export archive
         run: |
           xcodebuild -exportArchive \
@@ -158,7 +150,8 @@ jobs:
             -t ios \
             --apiKey "$ASC_KEY_ID" \
             --apiIssuer "$ASC_ISSUER_ID" \
-            --verbose
+            --verbose 2>&1 | tee /tmp/altool.log
+          grep -qi "error\|failed\|fault" /tmp/altool.log && { echo "altool upload failed"; exit 1; } || true
 
       - name: Cleanup
         if: always()
