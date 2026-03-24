@@ -57,14 +57,23 @@ extension FileProviderExtension {
 
         do {
             return try await operation()
-        } catch let s3Error as S3ErrorType where S3ErrorRecovery.isRecoverableAuthError(s3Error.errorCode) {
+        } catch {
+            // Check all Soto error types (S3ErrorType, AWSClientError, AWSResponseError)
+            // for recoverable auth codes. S3ErrorType only covers 9 S3-specific codes;
+            // auth errors like InvalidAccessKeyId arrive as AWSResponseError.
+            guard let errorCode = DS3S3Client.s3ErrorCode(from: error),
+                  S3ErrorRecovery.isRecoverableAuthError(errorCode)
+            else {
+                throw error
+            }
+
             // Try reloading one more time in case main app just fixed them
             if reloadS3CredentialsIfNeeded() {
                 self.logger.info("Retrying after credential reload")
                 return try await operation()
             }
 
-            self.logger.error("S3 auth error: \(s3Error.errorCode, privacy: .public). Notifying main app.")
+            self.logger.error("S3 auth error: \(errorCode, privacy: .public). Notifying main app.")
             if let nm = self.notificationManager {
                 await nm.sendAuthFailureNotification(
                     domainId: self.domain.identifier.rawValue,

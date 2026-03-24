@@ -46,12 +46,13 @@ enum FileProviderExtensionError: Error {
     }
 }
 
-extension S3ErrorType {
+extension AWSErrorType {
     var isNotFound: Bool {
         errorCode == "NoSuchKey" || errorCode == "NotFound"
     }
 
-    /// Maps S3 error codes to NSFileProviderError codes for correct system retry behavior.
+    /// Maps S3/AWS error codes to NSFileProviderError codes for correct system retry behavior.
+    /// Handles all Soto error types (S3ErrorType, AWSClientError, AWSServerError, AWSResponseError).
     /// - .notAuthenticated: system throttles domain, shows re-auth UI, waits for signalErrorResolved()
     /// - .noSuchItem: system removes item from working set
     /// - .insufficientQuota: system shows quota UI

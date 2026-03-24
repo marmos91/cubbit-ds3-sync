@@ -48,7 +48,7 @@ extension FileProviderExtension {
                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                     self.signalTrashChanges()
                     boxedCb.value(nil)
-                } catch let s3Error as S3ErrorType {
+                } catch let s3Error as AWSErrorType {
                     self.logger.error("Failed to empty trash: \(s3Error.errorCode, privacy: .public)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     boxedCb.value(s3Error.toFileProviderError())
@@ -178,7 +178,7 @@ extension FileProviderExtension {
                 completionHandler(trashedItem, NSFileProviderItemFields(), false, nil)
                 self.signalChanges()
                 self.signalTrashChanges()
-            } catch let s3Error as S3ErrorType {
+            } catch let s3Error as AWSErrorType {
                 self.logger.error("Move to trash failed: \(s3Error.errorCode, privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
@@ -226,7 +226,7 @@ extension FileProviderExtension {
                 self.signalChanges()
                 self.signalTrashChanges()
                 completionHandler(nil)
-            } catch let s3Error as S3ErrorType {
+            } catch let s3Error as AWSErrorType {
                 self.logger.error("Soft-delete failed with S3 error \(s3Error.errorCode, privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(s3Error.toFileProviderError())
@@ -268,7 +268,7 @@ extension FileProviderExtension {
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 self.signalTrashChanges()
                 completionHandler(nil)
-            } catch let s3Error as S3ErrorType {
+            } catch let s3Error as AWSErrorType {
                 self.logger.error("Hard-delete failed with S3 error \(s3Error.errorCode, privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(s3Error.toFileProviderError())
@@ -328,7 +328,7 @@ extension FileProviderExtension {
                             completionHandler(NSFileProviderError(.cannotSynchronize) as NSError)
                             return
                         }
-                    } catch let s3Error as S3ErrorType
+                    } catch let s3Error as AWSErrorType
                         where s3Error.errorCode == "NoSuchKey" || s3Error.errorCode == "NotFound" {
                         self.logger.debug("File already deleted remotely: \(identifier.rawValue, privacy: .public)")
                         try? await self.metadataStore?.deleteItem(byKey: identifier.rawValue, driveId: drive.id)
@@ -360,7 +360,7 @@ extension FileProviderExtension {
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 self.signalChanges()
                 completionHandler(nil)
-            } catch let s3Error as S3ErrorType
+            } catch let s3Error as AWSErrorType
                 where s3Error.errorCode == "NoSuchKey" || s3Error.errorCode == "NotFound" {
                 self.logger.debug("File deleted remotely during our delete: \(identifier.rawValue, privacy: .public)")
                 try? await self.metadataStore?.deleteItem(byKey: identifier.rawValue, driveId: drive.id)
@@ -368,7 +368,7 @@ extension FileProviderExtension {
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 self.signalChanges()
                 completionHandler(nil)
-            } catch let s3Error as S3ErrorType {
+            } catch let s3Error as AWSErrorType {
                 self.logger
                     .error(
                         "An error occurred while deleting file \(identifier.rawValue, privacy: .public): \(s3Error.errorCode, privacy: .public)"

@@ -303,7 +303,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
                     for: identifier, drive: drive, s3Lib: s3Lib, metadataStore: metadataStore
                 )
                 completionHandler(item, nil)
-            } catch let s3Error as S3ErrorType {
+            } catch let s3Error as AWSErrorType {
                 if identifier.rawValue.hasSuffix(String(DefaultSettings.S3.delimiter)), s3Error.isNotFound {
                     let folderSyncStatus = try? await metadataStore?.fetchItemSyncStatus(
                         byKey: identifier.rawValue,
