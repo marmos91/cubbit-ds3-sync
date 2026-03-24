@@ -7,7 +7,6 @@
 /// on both macOS and iOS. They carry no payload -- just a name string -- making them
 /// ideal for "something changed, go read the file" patterns.
 public final class DarwinNotificationCenter: Sendable {
-
     /// Shared singleton instance.
     public static let shared = DarwinNotificationCenter()
 

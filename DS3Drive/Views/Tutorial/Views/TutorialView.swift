@@ -1,5 +1,5 @@
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 struct TutorialProgress: View {
     var totalSlides: Int
@@ -8,9 +8,10 @@ struct TutorialProgress: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            ForEach(0..<totalSlides, id: \.self) { index in
+            ForEach(0 ..< totalSlides, id: \.self) { index in
                 Circle()
-                    .fill(index == currentSlideIndex ? Color(nsColor: .separatorColor) : Color(nsColor: .controlBackgroundColor))
+                    .fill(index == currentSlideIndex ? Color(nsColor: .separatorColor) :
+                        Color(nsColor: .controlBackgroundColor))
                     .frame(width: 8, height: 8)
                     .onHover { hovering in
                         if hovering {

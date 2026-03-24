@@ -14,18 +14,18 @@ struct DS3DriveApp: App {
     @AppStorage(DefaultSettings.UserDefaultsKeys.tutorial) var tutorialShown: Bool = DefaultSettings.tutorialShown
     @AppStorage(DefaultSettings.UserDefaultsKeys.loginItemSet) var loginItemSet: Bool = DefaultSettings.loginItemSet
 
-    @State var ds3Authentication: DS3Authentication
-    @State var appStatusManager: AppStatusManager = .default()
-    @State var ds3DriveManager = DS3DriveManager(appStatusManager: AppStatusManager.default())
+    @State private var ds3Authentication: DS3Authentication
+    @State private var appStatusManager: AppStatusManager = .default()
+    @State private var ds3DriveManager = DS3DriveManager(appStatusManager: AppStatusManager.default())
     private let conflictNotificationHandler = ConflictNotificationHandler()
     private var authFailureObserver: NSObjectProtocol?
     private let recoveryTracker = AuthRecoveryTracker()
     @State private var refreshTask: Task<Void, Never>?
 
-    @State var updateManager = UpdateManager()
+    @State private var updateManager = UpdateManager()
     private var updateNotificationHandler: UpdateNotificationHandler?
 
-    @State var trayMenuVisible: Bool = true
+    @State private var trayMenuVisible: Bool = true
 
     var body: some Scene {
         // MARK: - Main view

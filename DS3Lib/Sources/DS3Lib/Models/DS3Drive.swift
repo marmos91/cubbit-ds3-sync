@@ -43,7 +43,8 @@ public struct DS3DriveStats: Codable, Sendable {
 }
 
 /// A class representing a DS3Drive in the app. It is used to keep track of the synchronization state of a drive.
-@Observable public final class DS3Drive: Codable, Identifiable, Hashable, @unchecked Sendable {
+@Observable
+public final class DS3Drive: Codable, Identifiable, Hashable, @unchecked Sendable {
     /// An unique identifier for the drive
     public let id: UUID
 

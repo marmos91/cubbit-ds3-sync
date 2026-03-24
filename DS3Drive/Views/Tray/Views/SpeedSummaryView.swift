@@ -74,8 +74,7 @@ struct SpeedSummaryView: View {
         .padding(.vertical, DS3Spacing.sm)
     }
 
-    @ViewBuilder
-    private var speedIndicators: some View {
+    @ViewBuilder private var speedIndicators: some View {
         if totalUploadSpeed > 0 {
             Image(systemName: "arrow.up")
                 .font(DS3Typography.caption)
@@ -103,8 +102,7 @@ struct SpeedSummaryView: View {
 
         if bytesPerSecond >= megabyte {
             return String(format: "%.1f MB/s", bytesPerSecond / megabyte)
-        } else {
-            return String(format: "%.1f KB/s", bytesPerSecond / kilobyte)
         }
+        return String(format: "%.1f KB/s", bytesPerSecond / kilobyte)
     }
 }

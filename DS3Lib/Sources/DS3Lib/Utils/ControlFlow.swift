@@ -55,7 +55,7 @@ public func withRetries<T>(
     }
 
     var lastError: Error = ControlFlowError.maxRetriesReached
-    for _ in 0..<retries {
+    for _ in 0 ..< retries {
         do {
             return try await block()
         } catch {
@@ -92,7 +92,7 @@ public func withExponentialBackoff<T>(
             attempt += 1
             if attempt >= maxRetries { throw error }
             let delay = min(baseDelay * pow(multiplier, Double(attempt - 1)), maxDelay)
-            let jitter = delay * Double.random(in: 0.75...1.25)
+            let jitter = delay * Double.random(in: 0.75 ... 1.25)
             logger?.debug("Retry \(attempt)/\(maxRetries) after \(String(format: "%.1f", jitter))s")
             try await Task.sleep(for: .seconds(jitter))
         }

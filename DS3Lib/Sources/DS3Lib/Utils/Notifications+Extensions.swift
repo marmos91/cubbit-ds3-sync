@@ -26,7 +26,14 @@ public struct DriveTransferStats: Codable, Sendable {
     /// The total file size in bytes (when known). Used for progress percentage calculation.
     public let totalSize: Int64?
 
-    public init(driveId: UUID, size: Int64, duration: TimeInterval, direction: TransferDirection, filename: String? = nil, totalSize: Int64? = nil) {
+    public init(
+        driveId: UUID,
+        size: Int64,
+        duration: TimeInterval,
+        direction: TransferDirection,
+        filename: String? = nil,
+        totalSize: Int64? = nil
+    ) {
         self.driveId = driveId
         self.size = size
         self.duration = duration
@@ -52,10 +59,10 @@ public struct DS3DriveStatusChange: Codable, Sendable {
 
 public extension Notification.Name {
     /// Notifications sent from the extension to the app when a drive status changes
-    static let driveStatusChanged  = NSNotification.Name(rawValue: DefaultSettings.Notifications.driveStatusChanged)
-    
+    static let driveStatusChanged = NSNotification.Name(rawValue: DefaultSettings.Notifications.driveStatusChanged)
+
     /// Notification sent from the extension to the app while performing transfers
-    static let driveTransferStats  = NSNotification.Name(rawValue: DefaultSettings.Notifications.driveTransferStats)
+    static let driveTransferStats = NSNotification.Name(rawValue: DefaultSettings.Notifications.driveTransferStats)
 
     /// Notification sent from the extension to the app when a conflict is detected
     static let conflictDetected = NSNotification.Name(rawValue: DefaultSettings.Notifications.conflictDetected)

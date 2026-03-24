@@ -1,6 +1,6 @@
-import SwiftUI
-import os.log
 import DS3Lib
+import os.log
+import SwiftUI
 
 struct AccountTab: View {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
@@ -52,9 +52,11 @@ struct AccountTab: View {
             }
 
             Section {
-                Link("Edit on web console", destination: URL(string: ConsoleURLs.profileURL)!)
-                    .font(DS3Typography.body)
-                    .foregroundStyle(Color.accentColor)
+                if let url = URL(string: ConsoleURLs.profileURL) {
+                    Link("Edit on web console", destination: url)
+                        .font(DS3Typography.body)
+                        .foregroundStyle(Color.accentColor)
+                }
             }
 
             Section {

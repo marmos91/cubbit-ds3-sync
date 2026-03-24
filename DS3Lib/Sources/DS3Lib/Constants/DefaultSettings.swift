@@ -1,6 +1,6 @@
 import Foundation
 #if os(macOS)
-import ServiceManagement
+    import ServiceManagement
 #endif
 
 /// Log subsystem identifiers for Console.app filtering
@@ -30,7 +30,8 @@ public enum LogCategory: String, Sendable {
 /// Enum used to store default settings for the application
 public enum DefaultSettings {
     /// The application group used to share data between the app and the file provider extension.
-    /// Important: it does need to match the application group set in the app and the file provider extension's entitlements.
+    /// Important: it does need to match the application group set in the app and the file provider extension's
+    /// entitlements.
     public static let appGroup = "group.X889956QSM.io.cubbit.DS3Drive"
 
     /// Api key name prefix used to identify the api key created by the app between the ones created by the user.
@@ -61,7 +62,8 @@ public enum DefaultSettings {
     }
 
     /// A unique identifier for the app. It is used to identify the specific app instance when creating API keys.
-    /// A random UUID is created when the app starts for the first time and it is stored in the user defaults, to be retrieved at the next execution.
+    /// A random UUID is created when the app starts for the first time and it is stored in the user defaults, to be
+    /// retrieved at the next execution.
     public static let appUUID = {
         guard let userDefaults = UserDefaults(suiteName: DefaultSettings.appGroup) else {
             return UUID().uuidString
@@ -77,21 +79,17 @@ public enum DefaultSettings {
     }()
 
     /// The application version number as string. It is retrieved from the app bundle.
-    public static let appVersion: String = {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
-    }()
+    public static let appVersion: String = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
 
     /// The application build number as string. It is retrieved from the app bundle.
-    public static let appBuild: String = {
-        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
-    }()
+    public static let appBuild: String = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
 
     /// Whether the app is set to start at login or not.
     public static let appIsLoginItem: Bool = {
         #if os(macOS)
-        return SMAppService().status == .enabled
+            return SMAppService().status == .enabled
         #else
-        return false
+            return false
         #endif
     }()
 

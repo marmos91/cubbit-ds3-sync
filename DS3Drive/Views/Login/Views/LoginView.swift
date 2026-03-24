@@ -1,5 +1,5 @@
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 struct LoginView: View {
     enum FocusedField {
@@ -7,17 +7,18 @@ struct LoginView: View {
     }
     @Environment(DS3Authentication.self) var ds3Authentication: DS3Authentication
 
-    @State var email: String = ""
-    @State var password: String = ""
-    @State var tenant: String = {
+    @State private var email: String = ""
+    @State private var password: String = ""
+    @State private var tenant: String = {
         let saved = UserDefaults.standard.string(forKey: DefaultSettings.UserDefaultsKeys.lastTenant) ?? ""
         return saved.isEmpty ? DefaultSettings.defaultTenantName : saved
     }()
-    @State var coordinatorURL: String = UserDefaults.standard.string(forKey: DefaultSettings.UserDefaultsKeys.lastCoordinatorURL) ?? CubbitAPIURLs.defaultCoordinatorURL
-    @State var showAdvanced: Bool = false
+    @State private var coordinatorURL: String = UserDefaults.standard
+        .string(forKey: DefaultSettings.UserDefaultsKeys.lastCoordinatorURL) ?? CubbitAPIURLs.defaultCoordinatorURL
+    @State private var showAdvanced: Bool = false
     @FocusState private var focusedField: FocusedField?
 
-    @State var loginViewModel: LoginViewModel = LoginViewModel()
+    @State private var loginViewModel = LoginViewModel()
 
     var body: some View {
         if loginViewModel.need2FA {
@@ -147,22 +148,26 @@ struct LoginView: View {
                     .frame(maxWidth: .infinity, maxHeight: 36)
 
                     // Error message
-                    if loginViewModel.loginError != nil {
-                        Text("An error occurred: \(loginViewModel.loginError!.localizedDescription)")
+                    if let error = loginViewModel.loginError {
+                        Text("An error occurred: \(error.localizedDescription)")
                             .font(DS3Typography.caption)
                             .foregroundStyle(DS3Colors.statusError)
                             .multilineTextAlignment(.center)
                     }
 
                     // Links
-                    Link("Forgot your password?", destination: URL(string: ConsoleURLs.recoveryURL)!)
-                        .font(DS3Typography.caption)
-                        .foregroundStyle(Color.accentColor)
+                    if let url = URL(string: ConsoleURLs.recoveryURL) {
+                        Link("Forgot your password?", destination: url)
+                            .font(DS3Typography.caption)
+                            .foregroundStyle(Color.accentColor)
+                    }
 
-                    Link("Sign up", destination: URL(string: ConsoleURLs.signupURL)!)
-                        .font(DS3Typography.caption)
-                        .foregroundStyle(Color.accentColor)
-                        .padding(.bottom, DS3Spacing.sm)
+                    if let url = URL(string: ConsoleURLs.signupURL) {
+                        Link("Sign up", destination: url)
+                            .font(DS3Typography.caption)
+                            .foregroundStyle(Color.accentColor)
+                            .padding(.bottom, DS3Spacing.sm)
+                    }
                 }
                 .padding(.horizontal, DS3Spacing.xxl)
                 .padding(.vertical, DS3Spacing.xl)
@@ -188,13 +193,17 @@ struct LoginView: View {
         let auth = ds3Authentication
         let tenantValue = (tenant.isEmpty || tenant == DefaultSettings.defaultTenantName) ? nil : tenant
         Task {
-            try await viewModel.login(
-                withAuthentication: auth,
-                email: email,
-                password: password,
-                tenant: tenantValue,
-                coordinatorURL: coordinatorURL
-            )
+            do {
+                try await viewModel.login(
+                    withAuthentication: auth,
+                    email: email,
+                    password: password,
+                    tenant: tenantValue,
+                    coordinatorURL: coordinatorURL
+                )
+            } catch {
+                // Error handled by LoginViewModel
+            }
         }
     }
 }

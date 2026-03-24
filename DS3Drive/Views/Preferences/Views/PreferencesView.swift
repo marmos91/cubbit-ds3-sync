@@ -1,6 +1,6 @@
-import SwiftUI
-import os.log
 import DS3Lib
+import os.log
+import SwiftUI
 
 struct PreferencesView: View {
     @Environment(DS3DriveManager.self) var ds3DriveManager: DS3DriveManager

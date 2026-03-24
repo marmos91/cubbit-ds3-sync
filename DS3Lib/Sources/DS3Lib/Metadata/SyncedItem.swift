@@ -4,8 +4,10 @@ import SwiftData
 /// Schema version 1 for the SyncedItem metadata model.
 /// Uses VersionedSchema from day one for explicit migration management.
 public enum SyncedItemSchemaV1: VersionedSchema {
-    nonisolated(unsafe) public static let versionIdentifier = Schema.Version(1, 0, 0)
-    public static var models: [any PersistentModel.Type] { [SyncedItem.self] }
+    public nonisolated(unsafe) static let versionIdentifier = Schema.Version(1, 0, 0)
+    public static var models: [any PersistentModel.Type] {
+        [SyncedItem.self]
+    }
 
     @Model
     public final class SyncedItem {
@@ -29,8 +31,7 @@ public enum SyncedItemSchemaV1: VersionedSchema {
         public var syncStatus: String
 
         /// Type-safe accessor for `syncStatus`.
-        @Transient
-        public var status: SyncStatus {
+        @Transient public var status: SyncStatus {
             get { SyncStatus(rawValue: syncStatus) ?? .pending }
             set { syncStatus = newValue.rawValue }
         }
@@ -61,7 +62,7 @@ public enum SyncedItemSchemaV1: VersionedSchema {
 /// Schema version 2 for the SyncedItem metadata model.
 /// Adds isMaterialized field to SyncedItem and introduces SyncAnchorRecord entity.
 public enum SyncedItemSchemaV2: VersionedSchema {
-    nonisolated(unsafe) public static let versionIdentifier = Schema.Version(2, 0, 0)
+    public nonisolated(unsafe) static let versionIdentifier = Schema.Version(2, 0, 0)
     public static var models: [any PersistentModel.Type] {
         [SyncedItem.self, SyncAnchorRecord.self]
     }
@@ -91,8 +92,7 @@ public enum SyncedItemSchemaV2: VersionedSchema {
         public var syncStatus: String
 
         /// Type-safe accessor for `syncStatus`.
-        @Transient
-        public var status: SyncStatus {
+        @Transient public var status: SyncStatus {
             get { SyncStatus(rawValue: syncStatus) ?? .pending }
             set { syncStatus = newValue.rawValue }
         }

@@ -1,5 +1,5 @@
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 struct TrashTab: View {
     @Environment(DS3DriveManager.self) var ds3DriveManager: DS3DriveManager
@@ -70,7 +70,9 @@ struct TrashTab: View {
                         emptyAllTrash()
                     }
                 } message: {
-                    Text("This will permanently delete all trashed items across all drives. This action cannot be undone.")
+                    Text(
+                        "This will permanently delete all trashed items across all drives. This action cannot be undone."
+                    )
                 }
             } header: {
                 Text("Actions")

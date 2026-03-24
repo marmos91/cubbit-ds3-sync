@@ -1,6 +1,6 @@
+import FileProvider
 import Foundation
 import SotoS3
-import FileProvider
 
 enum FileProviderExtensionError: Error {
     case disabled
@@ -17,23 +17,31 @@ enum FileProviderExtensionError: Error {
     func toPresentableError() -> NSError {
         switch self {
         case .disabled:
-            return NSFileProviderError(.serverUnreachable) as NSError
+            NSFileProviderError(.serverUnreachable) as NSError
         case .notImplemented:
-            return NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [NSLocalizedDescriptionKey: "This feature is not implemented"])
+            NSError(
+                domain: NSCocoaErrorDomain,
+                code: NSFeatureUnsupportedError,
+                userInfo: [NSLocalizedDescriptionKey: "This feature is not implemented"]
+            )
         case .skipped:
-            return NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError, userInfo: [NSLocalizedDescriptionKey: "This item was skipped"])
+            NSError(
+                domain: NSCocoaErrorDomain,
+                code: NSUserCancelledError,
+                userInfo: [NSLocalizedDescriptionKey: "This item was skipped"]
+            )
         case .unableToOpenFile:
-            return NSFileProviderError(.cannotSynchronize) as NSError
+            NSFileProviderError(.cannotSynchronize) as NSError
         case .s3ItemParseFailed:
-            return NSFileProviderError(.cannotSynchronize) as NSError
+            NSFileProviderError(.cannotSynchronize) as NSError
         case .fatal:
-            return NSFileProviderError(.cannotSynchronize) as NSError
+            NSFileProviderError(.cannotSynchronize) as NSError
         case .parseError:
-            return NSFileProviderError(.cannotSynchronize) as NSError
+            NSFileProviderError(.cannotSynchronize) as NSError
         case .fileNotFound:
-            return NSFileProviderError(.noSuchItem) as NSError
+            NSFileProviderError(.noSuchItem) as NSError
         case .uploadValidationFailed:
-            return NSFileProviderError(.cannotSynchronize) as NSError
+            NSFileProviderError(.cannotSynchronize) as NSError
         }
     }
 }
@@ -50,22 +58,21 @@ extension S3ErrorType {
     /// - .serverUnreachable: system retries with exponential backoff
     /// - .cannotSynchronize: generic retryable error
     func toFileProviderError() -> NSError {
-        let code: NSFileProviderError.Code
-        switch self.errorCode {
+        let code: NSFileProviderError.Code = switch self.errorCode {
         case "InvalidAccessKeyId", "SignatureDoesNotMatch", "ExpiredToken":
-            code = .notAuthenticated
+            .notAuthenticated
         case "AccessDenied":
             // Permission denial (not credential failure). Maps to cannotSynchronize rather than
             // notAuthenticated to avoid domain-wide throttling. System will retry with backoff.
-            code = .cannotSynchronize
+            .cannotSynchronize
         case "NoSuchKey", "NoSuchBucket", "NotFound", "404 Not Found":
-            code = .noSuchItem
+            .noSuchItem
         case "EntityTooLarge":
-            code = .insufficientQuota
+            .insufficientQuota
         case "SlowDown", "ServiceUnavailable", "InternalError", "RequestTimeout":
-            code = .serverUnreachable
+            .serverUnreachable
         default:
-            code = .cannotSynchronize
+            .cannotSynchronize
         }
         return NSFileProviderError(code) as NSError
     }

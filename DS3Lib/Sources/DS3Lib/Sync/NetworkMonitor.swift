@@ -9,7 +9,7 @@ public actor NetworkMonitor {
     private let queue: DispatchQueue
     private let logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.sync.rawValue)
 
-    private(set) public var isConnected: Bool = true
+    public private(set) var isConnected: Bool = true
     private var continuation: AsyncStream<Bool>.Continuation?
 
     public init() {

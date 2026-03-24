@@ -1,10 +1,33 @@
 # SwiftFormat configuration for DS3 Drive
 --swiftversion 6.0
 --indent 4
---wraparguments before-first
---wrapcollections before-first
 --maxwidth 120
 --semicolons never
+--wraparguments before-first
+--wrapcollections before-first
+--wrapparameters before-first
+--wrapreturntype preserve
+--wraptypealiases before-first
+--closingparen balanced
+--funcattributes prev-line
+--typeattributes prev-line
+--varattributes same-line
 --stripunusedargs closure-only
+--commas inline
+--trimwhitespace always
+--voidtype void
+--elseposition same-line
+--guardelse next-line
+--emptybraces no-space
+--patternlet hoist
+--self remove
+--importgrouping alpha
+
+# Excluded paths
+--exclude DS3Lib/Tests,**/.build
+
+# Disabled rules
 --disable redundantSelf
 --disable trailingCommas
+--disable blankLinesBetweenScopes
+--disable wrapMultilineStatementBraces

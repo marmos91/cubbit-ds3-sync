@@ -1,8 +1,8 @@
-import Foundation
+import DS3Lib
 @preconcurrency import FileProvider
+import Foundation
 import os.log
 import SotoS3
-import DS3Lib
 
 /// Enumerates items inside the `.trash/` prefix for a drive.
 class TrashS3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
@@ -20,7 +20,9 @@ class TrashS3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable
         super.init()
     }
 
-    func invalidate() {}
+    func invalidate() {
+        // No resources to release
+    }
 
     func enumerateItems(
         for observer: NSFileProviderEnumerationObserver,

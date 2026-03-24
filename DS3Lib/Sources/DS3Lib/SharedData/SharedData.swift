@@ -1,9 +1,9 @@
 import Foundation
 import os.log
 
-extension SharedData {
+public extension SharedData {
     /// Errors that can occur when accessing shared data in the App Group container
-    public enum SharedDataError: Error, LocalizedError {
+    enum SharedDataError: Error, LocalizedError {
         case cannotAccessAppGroup
         case apiKeyNotFound
         case ds3DriveNotFound
@@ -12,13 +12,13 @@ extension SharedData {
         public var errorDescription: String? {
             switch self {
             case .cannotAccessAppGroup:
-                return NSLocalizedString("Cannot access shared app group.", comment: "Cannot access shared app group.")
+                NSLocalizedString("Cannot access shared app group.", comment: "Cannot access shared app group.")
             case .apiKeyNotFound:
-                return NSLocalizedString("API key not found.", comment: "")
+                NSLocalizedString("API key not found.", comment: "")
             case .conversionError:
-                return NSLocalizedString("Conversion error.", comment: "")
+                NSLocalizedString("Conversion error.", comment: "")
             case .ds3DriveNotFound:
-                return NSLocalizedString("DS3 drive not found.", comment: "")
+                NSLocalizedString("DS3 drive not found.", comment: "")
             }
         }
     }
@@ -32,18 +32,22 @@ public class SharedData: @unchecked Sendable {
 
     let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.metadata.rawValue)
 
-    private init() {}
+    private init() {
+        // Singleton
+    }
 
     /// Get shared data singleton instance.
     /// - Returns: the singleton instance of SharedData.
     public static func `default`() -> SharedData {
-        return instance
+        instance
     }
 
     // MARK: - App Group Container
 
     func sharedContainerURL() throws -> URL {
-        guard let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup) else {
+        guard let url = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup)
+        else {
             throw SharedDataError.cannotAccessAppGroup
         }
         return url
@@ -93,7 +97,7 @@ public class SharedData: @unchecked Sendable {
         coordinator.coordinate(readingItemAt: fileURL, options: [], error: &coordinatorError) { url in
             do {
                 let data = try Data(contentsOf: url)
-                result = .success(try decode(data))
+                result = try .success(decode(data))
             } catch {
                 result = .failure(error)
             }
@@ -102,9 +106,9 @@ public class SharedData: @unchecked Sendable {
         if let coordinatorError { throw coordinatorError }
 
         switch result {
-        case .success(let value):
+        case let .success(value):
             return value
-        case .failure(let error):
+        case let .failure(error):
             throw error
         case .none:
             throw SharedDataError.cannotAccessAppGroup
@@ -135,7 +139,7 @@ public class SharedData: @unchecked Sendable {
 
         coordinator.coordinate(readingItemAt: fileURL, options: [], error: &coordinatorError) { url in
             do {
-                result = .success(try String(contentsOf: url, encoding: .utf8))
+                result = try .success(String(contentsOf: url, encoding: .utf8))
             } catch {
                 result = .failure(error)
             }
@@ -144,9 +148,9 @@ public class SharedData: @unchecked Sendable {
         if let coordinatorError { throw coordinatorError }
 
         switch result {
-        case .success(let value):
+        case let .success(value):
             return value
-        case .failure(let error):
+        case let .failure(error):
             throw error
         case .none:
             throw SharedDataError.cannotAccessAppGroup

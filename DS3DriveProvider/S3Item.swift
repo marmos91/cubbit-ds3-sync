@@ -91,7 +91,7 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     /// the data is under the `.trash/` prefix even though the identifier is the
     /// original key.
     var s3Key: String {
-        if forcedTrashed && !S3Lib.isTrashedKey(identifier.rawValue, drive: drive) {
+        if forcedTrashed, !S3Lib.isTrashedKey(identifier.rawValue, drive: drive) {
             return S3Lib.trashKey(forKey: identifier.rawValue, drive: drive)
         }
         return identifier.rawValue

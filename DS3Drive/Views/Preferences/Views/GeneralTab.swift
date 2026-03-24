@@ -1,9 +1,9 @@
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 struct GeneralTab: View {
     @AppStorage(DefaultSettings.UserDefaultsKeys.loginItemSet) var loginItemSet: Bool = DefaultSettings.loginItemSet
-    @State var startAtLogin: Bool = DefaultSettings.appIsLoginItem
+    @State private var startAtLogin: Bool = DefaultSettings.appIsLoginItem
 
     var preferencesViewModel: PreferencesViewModel
 

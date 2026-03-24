@@ -88,7 +88,9 @@ extension FileProviderExtension {
                 if identifier.isSystemContainer { continue }
 
                 let rawKey = identifier.rawValue
-                let actualTrashKey = try await self.resolveTrashKey(rawKey, drive: drive)
+                let actualTrashKey = await self.resolveTrashKey(
+                    forOriginalKey: rawKey, drive: drive, metadataStore: self.metadataStore
+                )
 
                 do {
                     await nm.sendDriveChangedNotification(status: .sync)
@@ -102,9 +104,15 @@ extension FileProviderExtension {
                     if let manager = NSFileProviderManager(for: self.domain) {
                         try? await manager.signalEnumerator(for: restoredItem.parentItemIdentifier)
                     }
-                    self.logger.info("Restored \(actualTrashKey, privacy: .public) to \(restoredItem.itemIdentifier.rawValue, privacy: .public)")
+                    self.logger
+                        .info(
+                            "Restored \(actualTrashKey, privacy: .public) to \(restoredItem.itemIdentifier.rawValue, privacy: .public)"
+                        )
                 } catch {
-                    self.logger.error("Failed to restore \(actualTrashKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    self.logger
+                        .error(
+                            "Failed to restore \(actualTrashKey, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                        )
                     if firstError == nil {
                         firstError = (error as? S3ErrorType)?.toFileProviderError()
                             ?? NSFileProviderError(.cannotSynchronize) as NSError
@@ -117,21 +125,6 @@ extension FileProviderExtension {
             self.signalChanges()
             self.signalTrashChanges()
         }
-    }
-
-    private func resolveTrashKey(_ rawKey: String, drive: DS3Drive) async throws -> String {
-        if S3Lib.isTrashedKey(rawKey, drive: drive) {
-            return rawKey
-        }
-
-        if let stored = try? await self.metadataStore?.fetchTrashKey(
-            forOriginalKey: rawKey, driveId: drive.id
-        ) {
-            return stored
-        }
-
-        let filename = rawKey.split(separator: "/").last.map(String.init) ?? rawKey
-        return S3Lib.fullTrashPrefix(forDrive: drive) + filename
     }
 
     private func performEvictAction(
@@ -167,7 +160,10 @@ extension FileProviderExtension {
                 } catch let error as NSError where error.domain == NSFileProviderErrorDomain
                     && error.code == NSFileProviderError.nonEvictableChildren.rawValue {
                     let underlyingCount = error.underlyingErrors.count
-                    logger.info("Partially evicted folder \(identifier.rawValue, privacy: .public): \(underlyingCount) children still syncing")
+                    logger
+                        .info(
+                            "Partially evicted folder \(identifier.rawValue, privacy: .public): \(underlyingCount) children still syncing"
+                        )
                 } catch {
                     logger.error("Failed to evict item \(identifier.rawValue, privacy: .public): \(error)")
                     if firstError == nil { firstError = error }

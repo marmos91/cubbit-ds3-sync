@@ -1,6 +1,6 @@
-import SwiftUI
-import os.log
 import DS3Lib
+import os.log
+import SwiftUI
 
 struct SetupSyncView: View {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
@@ -8,7 +8,7 @@ struct SetupSyncView: View {
     @Environment(DS3DriveManager.self) var ds3DriveManager: DS3DriveManager
     @Environment(\.dismiss) var dismiss
 
-    @State var syncSetupViewModel: SyncSetupViewModel = SyncSetupViewModel()
+    @State private var syncSetupViewModel = SyncSetupViewModel()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

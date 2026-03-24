@@ -1,5 +1,5 @@
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 /// Side panel showing recent files per drive, matching the Figma file status design.
 /// Reads `driveViewModel.recentFiles` directly so @Observable triggers live updates.
@@ -19,7 +19,6 @@ struct RecentFilesPanel: View {
 
     // MARK: - File List
 
-    @ViewBuilder
     private var fileList: some View {
         ForEach(driveViewModel.recentFiles.prefix(10)) { entry in
             RecentFileRow(entry: entry, driveViewModel: driveViewModel)
@@ -28,7 +27,6 @@ struct RecentFilesPanel: View {
 
     // MARK: - Empty State
 
-    @ViewBuilder
     private var emptyState: some View {
         VStack(spacing: DS3Spacing.sm) {
             Image(systemName: "doc")
@@ -101,7 +99,10 @@ private struct RecentFileRow: View {
                     let vm = driveViewModel
                     Task { try? await vm.reEnumerate() }
                 } label: {
-                    Label(NSLocalizedString("Retry", comment: "Recent file context menu"), systemImage: "arrow.clockwise")
+                    Label(
+                        NSLocalizedString("Retry", comment: "Recent file context menu"),
+                        systemImage: "arrow.clockwise"
+                    )
                 }
             }
 
@@ -121,7 +122,7 @@ private struct RecentFileRow: View {
             let parts = [
                 entry.displaySpeed,
                 entry.progressPercent.map { "\($0)%" }
-            ].compactMap { $0 }
+            ].compactMap(\.self)
 
             if !parts.isEmpty {
                 return parts.joined(separator: " · ")
@@ -132,17 +133,17 @@ private struct RecentFileRow: View {
 
     private var statusIcon: String {
         switch entry.status {
-        case .completed: return "checkmark.circle.fill"
-        case .syncing: return "arrow.triangle.2.circlepath.circle.fill"
-        case .error: return "xmark.circle.fill"
+        case .completed: "checkmark.circle.fill"
+        case .syncing: "arrow.triangle.2.circlepath.circle.fill"
+        case .error: "xmark.circle.fill"
         }
     }
 
     private var statusColor: Color {
         switch entry.status {
-        case .completed: return DS3Colors.statusSynced
-        case .syncing: return DS3Colors.statusSyncing
-        case .error: return DS3Colors.statusError
+        case .completed: DS3Colors.statusSynced
+        case .syncing: DS3Colors.statusSyncing
+        case .error: DS3Colors.statusError
         }
     }
 
@@ -150,11 +151,11 @@ private struct RecentFileRow: View {
         let seconds = Int(Date().timeIntervalSince(entry.timestamp))
         if seconds < 60 {
             return NSLocalizedString("Just now", comment: "Relative time")
-        } else if seconds < 3600 {
-            return String(format: NSLocalizedString("about %d min", comment: "Minutes ago"), seconds / 60)
-        } else {
-            return String(format: NSLocalizedString("%d hr ago", comment: "Hours ago"), seconds / 3600)
         }
+        if seconds < 3600 {
+            return String(format: NSLocalizedString("about %d min", comment: "Minutes ago"), seconds / 60)
+        }
+        return String(format: NSLocalizedString("%d hr ago", comment: "Hours ago"), seconds / 3600)
     }
 }
 

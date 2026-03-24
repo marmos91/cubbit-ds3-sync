@@ -12,7 +12,7 @@ public enum ETagUtils: Sendable {
     /// - Returns: The ETag without surrounding quotes, or `nil` if input was `nil`
     public static func normalize(_ etag: String?) -> String? {
         guard let etag else { return nil }
-        if etag.hasPrefix("\"") && etag.hasSuffix("\"") {
+        if etag.hasPrefix("\""), etag.hasSuffix("\"") {
             return String(etag.dropFirst().dropLast())
         }
         return etag

@@ -17,8 +17,8 @@ public protocol SystemService: Sendable {
 /// Returns the platform-appropriate ``SystemService`` implementation.
 public func makeDefaultSystemService() -> any SystemService {
     #if os(macOS)
-    return MacOSSystemService()
+        return MacOSSystemService()
     #elseif os(iOS)
-    return IOSSystemService()
+        return IOSSystemService()
     #endif
 }

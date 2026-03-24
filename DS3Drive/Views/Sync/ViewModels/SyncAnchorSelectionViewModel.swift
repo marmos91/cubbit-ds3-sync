@@ -1,7 +1,7 @@
-import Foundation
-import SwiftUI
-import os.log
 import DS3Lib
+import Foundation
+import os.log
+import SwiftUI
 
 enum SyncAnchorSelectionError: Error, LocalizedError {
     case missingBuckets
@@ -13,23 +13,24 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingBuckets:
-            return NSLocalizedString("No buckets found in server response", comment: "Missing buckets in response")
+            NSLocalizedString("No buckets found in server response", comment: "Missing buckets in response")
         case .noBucketSelected:
-            return NSLocalizedString("You need to select a bucket first", comment: "Bucket not selected")
+            NSLocalizedString("You need to select a bucket first", comment: "Bucket not selected")
         case .noIAMUserSelected:
-            return NSLocalizedString("You need to select an IAM user first", comment: "IAM not selected")
+            NSLocalizedString("You need to select an IAM user first", comment: "IAM not selected")
         case .DS3ClientError:
-            return NSLocalizedString("DS3 Client error. Please try refreshing credentials", comment: "DS3 client error")
+            NSLocalizedString("DS3 Client error. Please try refreshing credentials", comment: "DS3 client error")
         case .DS3ServerError:
-            return NSLocalizedString("DS3 Server error. Please retry later", comment: "DS3 server error")
+            NSLocalizedString("DS3 Server error. Please retry later", comment: "DS3 server error")
         }
     }
 }
 
-@MainActor @Observable class SyncAnchorSelectionViewModel {
+@MainActor @Observable
+class SyncAnchorSelectionViewModel {
     typealias Logger = os.Logger
 
-    private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
+    private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
 
     var project: Project
     var authentication: DS3Authentication
@@ -111,7 +112,10 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
         do {
             guard let selectedBucket = self.selectedBucket else { throw SyncAnchorSelectionError.noBucketSelected }
 
-            self.logger.debug("Listing objects for bucket \(selectedBucket.name) and prefix \(self.selectedPrefix?.removingPercentEncoding ?? "no-prefix")")
+            self.logger
+                .debug(
+                    "Listing objects for bucket \(selectedBucket.name) and prefix \(self.selectedPrefix?.removingPercentEncoding ?? "no-prefix")"
+                )
 
             try await self.initializeClient()
 

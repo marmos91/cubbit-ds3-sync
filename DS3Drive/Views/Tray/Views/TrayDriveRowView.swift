@@ -9,7 +9,12 @@ struct TrayDriveRowView: View {
     @Environment(\.openURL) var openURL
     @Environment(DS3DriveManager.self) var ds3DriveManager: DS3DriveManager
 
-    @State var driveViewModel: DS3DriveViewModel
+    @State private var driveViewModel: DS3DriveViewModel
+
+    init(driveViewModel: DS3DriveViewModel, onHoverDrive: ((UUID, Bool, NSRect) -> Void)? = nil) {
+        self._driveViewModel = State(initialValue: driveViewModel)
+        self.onHoverDrive = onHoverDrive
+    }
 
     @State private var isHover: Bool = false
     @State private var screenFrame: NSRect = .zero
@@ -70,8 +75,7 @@ struct TrayDriveRowView: View {
         }
     }
 
-    @ViewBuilder
-    private var statusBadge: some View {
+    @ViewBuilder private var statusBadge: some View {
         switch driveViewModel.driveStatus {
         case .idle:
             Image(.statusIdleBadge).resizable().scaledToFit()
@@ -163,8 +167,7 @@ struct TrayDriveRowView: View {
 
     // MARK: - Shared Context Menu Items
 
-    @ViewBuilder
-    private var driveContextMenuItems: some View {
+    @ViewBuilder private var driveContextMenuItems: some View {
         Button {
             let manager = ds3DriveManager
             let driveId = driveViewModel.drive.id
@@ -182,7 +185,11 @@ struct TrayDriveRowView: View {
         Button {
             let viewModel = driveViewModel
             Task {
-                try await viewModel.openFinder()
+                do {
+                    try await viewModel.openFinder()
+                } catch {
+                    // Finder open failure is non-critical
+                }
             }
         } label: {
             Label(NSLocalizedString("View in Finder", comment: "Drive menu view in Finder"), systemImage: "folder")
@@ -306,9 +313,8 @@ struct TrayDriveRowView: View {
 
         if bytesPerSecond >= megabyte {
             return String(format: "%.1f MB/s", bytesPerSecond / megabyte)
-        } else {
-            return String(format: "%.1f KB/s", bytesPerSecond / kilobyte)
         }
+        return String(format: "%.1f KB/s", bytesPerSecond / kilobyte)
     }
 
     private func formatRelativeTime(_ date: Date) -> String {
@@ -316,13 +322,13 @@ struct TrayDriveRowView: View {
 
         if seconds < 60 {
             return NSLocalizedString("Just now", comment: "Relative time just now")
-        } else if seconds < 3600 {
+        }
+        if seconds < 3600 {
             let minutes = seconds / 60
             return String(format: NSLocalizedString("%d min ago", comment: "Relative time minutes"), minutes)
-        } else {
-            let hours = seconds / 3600
-            return String(format: NSLocalizedString("%d hr ago", comment: "Relative time hours"), hours)
         }
+        let hours = seconds / 3600
+        return String(format: NSLocalizedString("%d hr ago", comment: "Relative time hours"), hours)
     }
 }
 

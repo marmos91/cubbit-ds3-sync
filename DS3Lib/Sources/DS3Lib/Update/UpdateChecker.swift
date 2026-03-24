@@ -25,7 +25,7 @@ public final class UpdateChecker {
     public private(set) var lastCheckDate: Date?
 
     /// nonisolated(unsafe) because `deinit` is nonisolated in Swift 6 but Task.cancel() is thread-safe.
-    nonisolated(unsafe) private var periodicTask: Task<Void, Never>?
+    private nonisolated(unsafe) var periodicTask: Task<Void, Never>?
     private let userDefaults: UserDefaults?
 
     public init(channel: DistributionChannel = .detect()) {
@@ -75,7 +75,10 @@ public final class UpdateChecker {
             releaseNotes = isNewer ? release.body : nil
 
             if isNewer {
-                logger.info("Update available: \(remoteVersion, privacy: .public) (current: \(currentVersion, privacy: .public))")
+                logger
+                    .info(
+                        "Update available: \(remoteVersion, privacy: .public) (current: \(currentVersion, privacy: .public))"
+                    )
             }
 
             lastCheckDate = Date()
@@ -111,7 +114,8 @@ public final class UpdateChecker {
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
+              (200 ... 299).contains(httpResponse.statusCode)
+        else {
             throw URLError(.badServerResponse)
         }
 
@@ -126,7 +130,7 @@ public final class UpdateChecker {
         let currentParts = current.split(separator: ".").compactMap { Int($0) }
 
         let maxLength = max(remoteParts.count, currentParts.count)
-        for index in 0..<maxLength {
+        for index in 0 ..< maxLength {
             let remoteComponent = index < remoteParts.count ? remoteParts[index] : 0
             let currentComponent = index < currentParts.count ? currentParts[index] : 0
             if remoteComponent > currentComponent { return true }

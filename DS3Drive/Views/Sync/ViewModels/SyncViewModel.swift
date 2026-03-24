@@ -1,12 +1,13 @@
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 enum SyncSetupStep {
     case treeNavigation
     case driveConfirm
 }
 
-@Observable class SyncSetupViewModel {
+@Observable
+class SyncSetupViewModel {
     var selectedProject: Project?
     var selectedSyncAnchor: SyncAnchor?
     var selectedBucket: Bucket?

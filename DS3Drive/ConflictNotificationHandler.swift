@@ -1,8 +1,8 @@
 import AppKit
-import FileProvider
-import UserNotifications
-import os.log
 import DS3Lib
+import FileProvider
+import os.log
+import UserNotifications
 
 /// Listens for conflict IPC notifications from the File Provider extension
 /// and presents macOS user notifications via UNUserNotificationCenter.
@@ -62,7 +62,8 @@ final class ConflictNotificationHandler: NSObject, UNUserNotificationCenterDeleg
         let userInfo = response.notification.request.content.userInfo
         guard let driveIdString = userInfo["driveId"] as? String,
               let driveId = UUID(uuidString: driveIdString),
-              let conflictKey = userInfo["conflictKey"] as? String else {
+              let conflictKey = userInfo["conflictKey"] as? String
+        else {
             completionHandler()
             return
         }
@@ -119,10 +120,12 @@ final class ConflictNotificationHandler: NSObject, UNUserNotificationCenterDeleg
         logger.debug("ConflictNotificationHandler listening for conflict notifications")
     }
 
-    @objc nonisolated private func handleConflictNotification(_ notification: Notification) {
+    @objc
+    private nonisolated func handleConflictNotification(_ notification: Notification) {
         guard let jsonString = notification.object as? String,
               let data = jsonString.data(using: .utf8),
-              let info = try? JSONDecoder().decode(ConflictInfo.self, from: data) else {
+              let info = try? JSONDecoder().decode(ConflictInfo.self, from: data)
+        else {
             Task { @MainActor in
                 self.logger.error("Failed to decode conflict notification")
             }

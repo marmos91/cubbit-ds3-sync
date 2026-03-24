@@ -4,19 +4,19 @@ import Foundation
 public enum AppStatus: String, Sendable {
     /// The app is idle. It is not performing any operation.
     case idle
-    
+
     /// The app is synchronizing (performing transfers)
     case syncing
 
     /// The app is indexing (scanning/listing remote files)
     case indexing
-    
+
     /// The app is in error state. The user should perform an action to fix the error.
     case error
-    
+
     /// The app is offline. It is not connected to the internet.
     case offline
-    
+
     /// The app is displaying some information to the user (like a CTA).
     case info
 
@@ -26,19 +26,19 @@ public enum AppStatus: String, Sendable {
     public func toString() -> String {
         switch self {
         case .syncing:
-            return NSLocalizedString("Synchronizing", comment: "Synchronizing status")
+            NSLocalizedString("Synchronizing", comment: "Synchronizing status")
         case .indexing:
-            return NSLocalizedString("Indexing", comment: "Indexing status")
+            NSLocalizedString("Indexing", comment: "Indexing status")
         case .idle:
-            return NSLocalizedString("Idle", comment: "Idle status")
+            NSLocalizedString("Idle", comment: "Idle status")
         case .error:
-            return NSLocalizedString("Error", comment: "Error status")
+            NSLocalizedString("Error", comment: "Error status")
         case .offline:
-            return NSLocalizedString("Offline", comment: "Offline status")
+            NSLocalizedString("Offline", comment: "Offline status")
         case .info:
-            return NSLocalizedString("Info", comment: "Info status")
+            NSLocalizedString("Info", comment: "Info status")
         case .paused:
-            return NSLocalizedString("Paused", comment: "Paused status")
+            NSLocalizedString("Paused", comment: "Paused status")
         }
     }
 }

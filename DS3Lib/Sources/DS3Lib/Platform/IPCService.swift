@@ -39,7 +39,6 @@ public struct IPCExtensionInitFailure: Codable, Sendable, Equatable {
 /// the same typed AsyncStream channels for status updates, transfer stats,
 /// commands, conflicts, and failure notifications.
 public protocol IPCService: Sendable {
-
     // MARK: - Typed channels (extension -> app)
 
     /// Stream of drive status changes from the File Provider extension.
@@ -92,4 +91,5 @@ public protocol IPCService: Sendable {
 }
 
 // MARK: - Factory
+
 // The `makeDefaultIPCService()` factory function is provided in IPCService+Factory.swift.

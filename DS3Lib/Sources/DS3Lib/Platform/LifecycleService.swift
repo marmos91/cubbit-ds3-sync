@@ -14,8 +14,8 @@ public protocol LifecycleService: Sendable {
 /// Returns the platform-appropriate ``LifecycleService`` implementation.
 public func makeDefaultLifecycleService() -> any LifecycleService {
     #if os(macOS)
-    return MacOSLifecycleService()
+        return MacOSLifecycleService()
     #elseif os(iOS)
-    return IOSLifecycleService()
+        return IOSLifecycleService()
     #endif
 }

@@ -1,5 +1,5 @@
-import Foundation
 import DS3Lib
+import Foundation
 
 /// Adapts the existing S3Lib to conform to SyncEngine's S3ListingProvider protocol.
 /// Lives in the extension target because S3Lib is only available there.
@@ -26,7 +26,10 @@ final class S3LibListingAdapter: S3ListingProvider, Sendable {
     }
 
     func listItemsPage(bucket: String, prefix: String?, continuationToken: String?) async throws -> S3ListingPage {
-        assert(bucket == drive.syncAnchor.bucket.name, "Bucket mismatch: expected \(drive.syncAnchor.bucket.name), got \(bucket)")
+        assert(
+            bucket == drive.syncAnchor.bucket.name,
+            "Bucket mismatch: expected \(drive.syncAnchor.bucket.name), got \(bucket)"
+        )
         let (items, nextToken) = try await s3Lib.listS3Items(
             forDrive: drive,
             withPrefix: prefix,

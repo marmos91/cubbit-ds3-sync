@@ -1,7 +1,8 @@
 import Foundation
 
 /// A project in the Cubbit's DS3 ecosystem
-@Observable public final class Project: Hashable, Codable, Identifiable, @unchecked Sendable {
+@Observable
+public final class Project: Hashable, Codable, Identifiable, @unchecked Sendable {
     /// The project unique ID
     public var id: String
 
@@ -11,7 +12,8 @@ import Foundation
     /// If set, the project description
     public var description: String
 
-    /// The email of the project. The project email is used to perform ACL-related operations. **It is not a real email address**.
+    /// The email of the project. The project email is used to perform ACL-related operations. **It is not a real email
+    /// address**.
     public var email: String
 
     /// When the project was created
@@ -23,7 +25,8 @@ import Foundation
     /// Optional, the project image URL
     public var imageUrl: String?
 
-    /// Optional, the project tenant ID. The tenant identifier it is used to identify the project in the Cubbit's DS3 ecosystem.
+    /// Optional, the project tenant ID. The tenant identifier it is used to identify the project in the Cubbit's DS3
+    /// ecosystem.
     /// Refer to https://docs.cubbit.io/composer/tenants/what-is-a-tenant to read more information about tenants.
     public var tenantId: String
 
@@ -56,7 +59,7 @@ import Foundation
         self.rootAccountEmail = rootAccountEmail
         self.users = users
     }
-    
+
     private enum CodingKeys: String, CodingKey {
         case id = "project_id"
         case name = "project_name"
@@ -69,23 +72,26 @@ import Foundation
         case rootAccountEmail = "root_account_email"
         case users
     }
-    
+
     /// Returns the first two characters of the project name.
     public func short() -> String {
-        return String(self.name.prefix(2))
+        String(self.name.prefix(2))
     }
 
     // MARK: - Equatable
+
     public static func == (lhs: Project, rhs: Project) -> Bool {
-        return lhs.id == rhs.id
+        lhs.id == rhs.id
     }
 
     // MARK: - Hashable
+
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
 
     // MARK: - Codable
+
     public required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)

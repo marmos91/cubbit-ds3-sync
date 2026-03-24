@@ -1,8 +1,9 @@
+import DS3Lib
 import Foundation
 import os.log
-import DS3Lib
 
-@Observable class LoginViewModel {
+@Observable
+class LoginViewModel {
     var logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.auth.rawValue)
 
     var loginError: Error?
@@ -17,7 +18,14 @@ import DS3Lib
     ///   - tfaCode: optional 2FA code
     ///   - tenant: optional tenant identifier for multi-tenant login
     ///   - coordinatorURL: optional coordinator URL override
-    func login(withAuthentication authentication: DS3Authentication, email: String, password: String, withTfaToken tfaCode: String? = nil, tenant: String? = nil, coordinatorURL: String? = nil) async throws {
+    func login(
+        withAuthentication authentication: DS3Authentication,
+        email: String,
+        password: String,
+        withTfaToken tfaCode: String? = nil,
+        tenant: String? = nil,
+        coordinatorURL: String? = nil
+    ) async throws {
         self.isLoading = true
         defer { isLoading = false }
 
@@ -34,7 +42,10 @@ import DS3Lib
             try? sharedData.persistTenantName(effectiveTenant)
             try? sharedData.persistCoordinatorURL(effectiveCoordinatorURL)
             UserDefaults.standard.set(effectiveTenant, forKey: DefaultSettings.UserDefaultsKeys.lastTenant)
-            UserDefaults.standard.set(effectiveCoordinatorURL, forKey: DefaultSettings.UserDefaultsKeys.lastCoordinatorURL)
+            UserDefaults.standard.set(
+                effectiveCoordinatorURL,
+                forKey: DefaultSettings.UserDefaultsKeys.lastCoordinatorURL
+            )
 
             self.logger.info("Login successful")
         } catch DS3AuthenticationError.missing2FA {

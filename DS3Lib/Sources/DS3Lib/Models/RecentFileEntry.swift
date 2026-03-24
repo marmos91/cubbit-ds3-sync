@@ -17,9 +17,9 @@ public enum TransferStatus: String, Codable, Sendable, Comparable {
     /// This ensures syncing items appear first in sorted lists.
     private var sortOrder: Int {
         switch self {
-        case .syncing: return 0
-        case .error: return 1
-        case .completed: return 2
+        case .syncing: 0
+        case .error: 1
+        case .completed: 2
         }
     }
 
@@ -104,8 +104,7 @@ public struct RecentFileEntry: Identifiable, Sendable {
 
         if value >= megabyte {
             return String(format: "%.1f MB", value / megabyte)
-        } else {
-            return String(format: "%.1f KB", value / kilobyte)
         }
+        return String(format: "%.1f KB", value / kilobyte)
     }
 }

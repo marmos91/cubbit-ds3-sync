@@ -6,8 +6,8 @@ import Foundation
 /// On iOS this returns an ``IOSIPCService`` backed by Darwin notifications + App Group files.
 public func makeDefaultIPCService() -> any IPCService {
     #if os(macOS)
-    return MacOSIPCService()
+        return MacOSIPCService()
     #elseif os(iOS)
-    return IOSIPCService()
+        return IOSIPCService()
     #endif
 }
