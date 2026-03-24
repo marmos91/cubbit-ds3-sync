@@ -77,6 +77,15 @@
 		C88C0F9CEEBBFAFEBBBCF326 /* S3Lib.swift in Sources */ = {isa = PBXBuildFile; fileRef = D540029D2B5EAEB000B54E97 /* S3Lib.swift */; };
 		CBC4B9775BD14315A22AA731 /* S3Lib+Trash.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD84A687F1EB4A8F9C45AEAA /* S3Lib+Trash.swift */; };
 		CE070E323BF098B9EFD808B7 /* FileProviderExtension+CustomActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4F9E4F14F282A0BEC87664A /* FileProviderExtension+CustomActions.swift */; };
+		EA386D36D3094AAD861680EF /* FileProviderExtension+Create.swift in Sources */ = {isa = PBXBuildFile; fileRef = F66BD30E628644A982F26AC3 /* FileProviderExtension+Create.swift */; };
+		AA5925C80F664603A033C348 /* FileProviderExtension+Credentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E21FF0F44044957917AEE00 /* FileProviderExtension+Credentials.swift */; };
+		A578B1B62D014D6E9BE6EA75 /* FileProviderExtension+Delete.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7153F422094AE4AEAD7923 /* FileProviderExtension+Delete.swift */; };
+		8C165828152B4160A3C9B16D /* FileProviderExtension+Lifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95B6FCED725945FD8D8A6CE2 /* FileProviderExtension+Lifecycle.swift */; };
+		9CEA174F0E2844919898555F /* FileProviderExtension+Modify.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93BEB14CBD064F639C861742 /* FileProviderExtension+Modify.swift */; };
+		F2F25C3273074BA8A7E3EA60 /* FileProviderExtension+Thumbnails.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C7CDA6BD01B4B7DA60F34FB /* FileProviderExtension+Thumbnails.swift */; };
+		A1B2C3D4E5F647A8B9C0D1E2 /* FileProviderExtension+ThumbnailGenerators.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3A4B5C647D8E9F0A1B2 /* FileProviderExtension+ThumbnailGenerators.swift */; };
+		016234D433404D56AD1E6417 /* S3Lib+Transfers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 593F2D8CD4BF43B084F95A95 /* S3Lib+Transfers.swift */; };
+		CBC4B9775BD14315A22AA731 /* S3Lib+Trash.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD84A687F1EB4A8F9C45AEAA /* S3Lib+Trash.swift */; };
 		D512EEBC2B59631400F550EC /* MFAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D512EEBB2B59631400F550EC /* MFAView.swift */; };
 		D54002A02B5EAEB000B54E97 /* S3Lib.swift in Sources */ = {isa = PBXBuildFile; fileRef = D540029D2B5EAEB000B54E97 /* S3Lib.swift */; };
 		D54775C72B57181D00DABCD4 /* DS3DriveApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54775C62B57181D00DABCD4 /* DS3DriveApp.swift */; };
@@ -262,6 +271,15 @@
 		B5113DDDA0BF251D4D70D3D0 /* DriveConfirmView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DriveConfirmView.swift; sourceTree = "<group>"; };
 		C26ED37797692E9DBD42FF25 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		C4F9E4F14F282A0BEC87664A /* FileProviderExtension+CustomActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+CustomActions.swift"; sourceTree = "<group>"; };
+		F66BD30E628644A982F26AC3 /* FileProviderExtension+Create.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+Create.swift"; sourceTree = "<group>"; };
+		3E21FF0F44044957917AEE00 /* FileProviderExtension+Credentials.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+Credentials.swift"; sourceTree = "<group>"; };
+		FD7153F422094AE4AEAD7923 /* FileProviderExtension+Delete.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+Delete.swift"; sourceTree = "<group>"; };
+		95B6FCED725945FD8D8A6CE2 /* FileProviderExtension+Lifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+Lifecycle.swift"; sourceTree = "<group>"; };
+		93BEB14CBD064F639C861742 /* FileProviderExtension+Modify.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+Modify.swift"; sourceTree = "<group>"; };
+		7C7CDA6BD01B4B7DA60F34FB /* FileProviderExtension+Thumbnails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+Thumbnails.swift"; sourceTree = "<group>"; };
+		D1E2F3A4B5C647D8E9F0A1B2 /* FileProviderExtension+ThumbnailGenerators.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+ThumbnailGenerators.swift"; sourceTree = "<group>"; };
+		593F2D8CD4BF43B084F95A95 /* S3Lib+Transfers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "S3Lib+Transfers.swift"; sourceTree = "<group>"; };
+		AD84A687F1EB4A8F9C45AEAA /* S3Lib+Trash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "S3Lib+Trash.swift"; sourceTree = "<group>"; };
 		C5B119CD500B58810896D4B2 /* DS3DriveApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DS3DriveApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C608BDFB9ECDC1DAADE777A4 /* IOSButtonStyles.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSButtonStyles.swift; sourceTree = "<group>"; };
 		C84698ABE8DE4D9EA3ABC216 /* TrashTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrashTab.swift; sourceTree = "<group>"; };
@@ -821,6 +839,7 @@
 				95B6FCED725945FD8D8A6CE2 /* FileProviderExtension+Lifecycle.swift */,
 				93BEB14CBD064F639C861742 /* FileProviderExtension+Modify.swift */,
 				7C7CDA6BD01B4B7DA60F34FB /* FileProviderExtension+Thumbnails.swift */,
+				D1E2F3A4B5C647D8E9F0A1B2 /* FileProviderExtension+ThumbnailGenerators.swift */,
 				593F2D8CD4BF43B084F95A95 /* S3Lib+Transfers.swift */,
 				AD84A687F1EB4A8F9C45AEAA /* S3Lib+Trash.swift */,
 				D5A2227C2B5721CC00F1413B /* FileProviderExtension+Errors.swift */,
@@ -1271,6 +1290,7 @@
 				8C165828152B4160A3C9B16D /* FileProviderExtension+Lifecycle.swift in Sources */,
 				9CEA174F0E2844919898555F /* FileProviderExtension+Modify.swift in Sources */,
 				F2F25C3273074BA8A7E3EA60 /* FileProviderExtension+Thumbnails.swift in Sources */,
+				A1B2C3D4E5F647A8B9C0D1E2 /* FileProviderExtension+ThumbnailGenerators.swift in Sources */,
 				016234D433404D56AD1E6417 /* S3Lib+Transfers.swift in Sources */,
 				CBC4B9775BD14315A22AA731 /* S3Lib+Trash.swift in Sources */,
 				D5A222862B5721CC00F1413B /* FileProviderExtension+Errors.swift in Sources */,
