@@ -128,14 +128,14 @@ extension FileProviderExtension {
                                     completionHandler(conflictS3Item, NSFileProviderItemFields(), false, nil)
                                     return
                                 }
-                            } catch let s3Error as S3ErrorType
+                            } catch let s3Error as AWSErrorType
                                 where s3Error.errorCode == "NoSuchKey" || s3Error.errorCode == "NotFound" {
                                 // Remote file was deleted -- proceed with normal upload (re-create)
                                 self.logger
                                     .debug(
                                         "Conflict check: remote file deleted, proceeding with upload for \(s3Item.itemIdentifier.rawValue, privacy: .public)"
                                     )
-                            } catch let s3Error as S3ErrorType {
+                            } catch let s3Error as AWSErrorType {
                                 // Any other S3 error — conflict check is best-effort, proceed with upload
                                 self.logger
                                     .warning(
@@ -169,7 +169,7 @@ extension FileProviderExtension {
                         await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                         self.signalChanges()
                         completionHandler(s3Item, remainingFields, false, nil)
-                    } catch let s3Error as S3ErrorType {
+                    } catch let s3Error as AWSErrorType {
                         self.logger.error("Upload failed with S3 error \(s3Error.errorCode, privacy: .public)")
                         await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
@@ -216,7 +216,7 @@ extension FileProviderExtension {
                     self.signalChanges()
                     self.signalTrashChanges()
                     completionHandler(restoredItem, NSFileProviderItemFields(), false, nil)
-                } catch let s3Error as S3ErrorType {
+                } catch let s3Error as AWSErrorType {
                     self.logger.error("Restore from trash failed: \(s3Error.errorCode, privacy: .public)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
@@ -276,7 +276,7 @@ extension FileProviderExtension {
                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                     self.signalChanges()
                     completionHandler(movedS3Item, NSFileProviderItemFields(), false, nil)
-                } catch let s3Error as S3ErrorType {
+                } catch let s3Error as AWSErrorType {
                     self.logger.error("Rename+move failed with S3 error \(s3Error.errorCode, privacy: .public)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
@@ -330,7 +330,7 @@ extension FileProviderExtension {
                         await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                         self.signalChanges()
                         completionHandler(newS3Item, NSFileProviderItemFields(), false, nil)
-                    } catch let s3Error as S3ErrorType {
+                    } catch let s3Error as AWSErrorType {
                         self.logger.error("Rename failed with S3 error \(s3Error.errorCode, privacy: .public)")
                         await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
@@ -433,7 +433,7 @@ extension FileProviderExtension {
                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                     self.signalChanges()
                     completionHandler(movedS3Item, NSFileProviderItemFields(), false, nil)
-                } catch let s3Error as S3ErrorType {
+                } catch let s3Error as AWSErrorType {
                     self.logger.error("Move failed with S3 error code \(s3Error.errorCode, privacy: .public)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())

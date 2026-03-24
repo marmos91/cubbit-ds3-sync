@@ -364,7 +364,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                     isFileOperation: false
                 )
                 return observer.finishEnumeratingWithError(error.toPresentableError())
-            } catch let error as S3ErrorType {
+            } catch let error as AWSErrorType {
                 self.logger
                     .error(
                         "enumerateItems S3 error for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error.errorCode, privacy: .public)"
@@ -586,7 +586,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                         isFileOperation: false
                     )
                     return observer.finishEnumeratingWithError(error.toPresentableError())
-                } catch let error as S3ErrorType {
+                } catch let error as AWSErrorType {
                     self.logger
                         .error(
                             "enumerateChanges S3 error for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error.errorCode, privacy: .public)"

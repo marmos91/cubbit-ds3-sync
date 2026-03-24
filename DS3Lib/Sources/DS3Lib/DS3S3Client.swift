@@ -2,9 +2,14 @@ import Foundation
 import os.log
 import SotoS3
 
-/// Re-export `S3ErrorType` so consumers can catch S3 errors via `import DS3Lib`
+/// Re-export Soto error types so consumers can catch S3 errors via `import DS3Lib`
 /// without importing SotoS3 directly.
+///
+/// `S3ErrorType` only covers 9 S3-specific codes (NoSuchKey, NoSuchBucket, etc.).
+/// Auth errors (InvalidAccessKeyId, SignatureDoesNotMatch, ExpiredToken) arrive as
+/// `AWSClientError` or `AWSResponseError`. Use `AWSErrorType` to catch all of them.
 public typealias S3ErrorType = SotoS3.S3ErrorType
+public typealias AWSErrorType = SotoCore.AWSErrorType
 
 // MARK: - Supporting Types
 
@@ -359,13 +364,10 @@ public final class DS3S3Client: Sendable {
 
     // MARK: - S3 Error Inspection
 
-    /// Checks if an error is an S3ErrorType and returns the error code if so.
-    /// This allows callers to handle S3 errors without importing SotoS3.
+    /// Extracts the error code from any Soto error type (S3ErrorType, AWSClientError,
+    /// AWSServerError, AWSResponseError). All conform to `AWSErrorType`.
     public static func s3ErrorCode(from error: Error) -> String? {
-        if let s3Error = error as? S3ErrorType {
-            return s3Error.errorCode
-        }
-        return nil
+        (error as? AWSErrorType)?.errorCode
     }
 
     /// Checks if an error is an S3 "not found" error (NoSuchKey, NotFound).

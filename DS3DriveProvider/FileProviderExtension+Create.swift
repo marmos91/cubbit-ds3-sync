@@ -101,7 +101,7 @@ extension FileProviderExtension {
 
                     progress.completedUnitCount = numParts
                     completionHandler(existingItem, NSFileProviderItemFields(), false, nil)
-                } catch let s3Error as S3ErrorType
+                } catch let s3Error as AWSErrorType
                     where s3Error.errorCode == "NotFound" || s3Error.errorCode == "NoSuchKey" {
                     // Item doesn't exist remotely — proceed with normal upload
                     self.logger.debug("Item not found remotely (.mayAlreadyExist), proceeding with upload")
@@ -126,7 +126,7 @@ extension FileProviderExtension {
                         await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                         self.signalChanges()
                         completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
-                    } catch let s3Error as S3ErrorType {
+                    } catch let s3Error as AWSErrorType {
                         await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
                     } catch {
@@ -138,7 +138,7 @@ extension FileProviderExtension {
                             NSFileProviderError(.cannotSynchronize) as NSError
                         )
                     }
-                } catch let s3Error as S3ErrorType {
+                } catch let s3Error as AWSErrorType {
                     self.logger.error("HEAD failed for .mayAlreadyExist check: \(s3Error.errorCode, privacy: .public)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
@@ -226,7 +226,7 @@ extension FileProviderExtension {
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 self.signalChanges()
                 completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
-            } catch let s3Error as S3ErrorType {
+            } catch let s3Error as AWSErrorType {
                 self.logger.error("Upload failed with S3 error \(s3Error.errorCode, privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())

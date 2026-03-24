@@ -74,7 +74,7 @@ class TrashS3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable
 
                 let nextPage = nextToken.map { NSFileProviderPage($0) }
                 observer.finishEnumerating(upTo: nextPage)
-            } catch let error as S3ErrorType {
+            } catch let error as AWSErrorType {
                 self.logger.error("TrashS3Enumerator: S3 error \(error.errorCode, privacy: .public)")
                 observer.finishEnumeratingWithError(error.toFileProviderError())
             } catch {

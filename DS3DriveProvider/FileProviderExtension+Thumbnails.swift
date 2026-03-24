@@ -109,7 +109,7 @@ extension FileProviderExtension {
 
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 complete(fileURL, s3Item, nil)
-            } catch let s3Error as S3ErrorType {
+            } catch let s3Error as AWSErrorType {
                 self.logger.error(
                     "Download failed for \(itemIdentifier.rawValue, privacy: .public) with S3 error \(s3Error.errorCode, privacy: .public)"
                 )
@@ -299,7 +299,7 @@ extension FileProviderExtension {
             perItemHandler(identifier, thumbnailData, nil)
             self.logger.debug("fetchThumbnails: generated thumbnail for \(identifier.rawValue, privacy: .public)")
             return fileURL
-        } catch let s3Error as S3ErrorType {
+        } catch let s3Error as AWSErrorType {
             self.logger
                 .error(
                     "fetchThumbnails: S3 error for \(identifier.rawValue, privacy: .public): \(s3Error.description, privacy: .public)"
@@ -455,7 +455,7 @@ extension FileProviderExtension {
 
                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                     complete(fileURL, s3Item, alignedRange, [], nil)
-                } catch let s3Error as S3ErrorType {
+                } catch let s3Error as AWSErrorType {
                     self.logger.error("Partial download failed with S3 error \(s3Error.errorCode, privacy: .public)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     complete(nil, nil, NSRange(location: 0, length: 0), [], s3Error.toFileProviderError())
