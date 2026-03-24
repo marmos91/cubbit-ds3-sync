@@ -1,5 +1,5 @@
-import Foundation
 import FileProvider
+import Foundation
 import os.log
 
 extension SharedData {
@@ -19,11 +19,10 @@ extension SharedData {
     public func loadSyncAnchorOrCreate() -> NSFileProviderSyncAnchor {
         if let savedSyncAnchorData = Self.syncAnchorDefaults.data(forKey: DefaultSettings.UserDefaultsKeys.syncAnchor) {
             return NSFileProviderSyncAnchor(savedSyncAnchorData)
-       } else {
-           let syncAnchor = NSFileProviderSyncAnchor(SyncAnchorPayload())
-           self.persistSyncAnchor(syncAnchor)
-           return syncAnchor
        }
+       let syncAnchor = NSFileProviderSyncAnchor(SyncAnchorPayload())
+       self.persistSyncAnchor(syncAnchor)
+       return syncAnchor
     }
 
     /// Persists the given `NSFileProviderSyncAnchor` to UserDefaults.

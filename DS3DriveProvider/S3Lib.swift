@@ -1,7 +1,7 @@
-import Foundation
-import FileProvider
-import os.log
 import DS3Lib
+import FileProvider
+import Foundation
+import os.log
 
 /// Actor that contains the logic to interact with S3.
 ///
@@ -127,7 +127,8 @@ actor S3Lib {
         force: Bool = false
     ) async throws {
         if !force && s3Item.isFolder {
-            return try await self.deleteFolder(s3Item, withProgress: progress)
+            try await self.deleteFolder(s3Item, withProgress: progress)
+            return
         }
 
         let itemKey = s3Item.identifier.rawValue
@@ -257,7 +258,8 @@ actor S3Lib {
     ) async throws {
         if !force && s3Item.isFolder {
             self.logger.debug("Copying folder \(s3Item.itemIdentifier.rawValue, privacy: .public) to \(key, privacy: .public)")
-            return try await self.copyFolder(s3Item, toKey: key, withProgress: progress)
+            try await self.copyFolder(s3Item, toKey: key, withProgress: progress)
+            return
         }
 
         let sourceKey = s3Item.itemIdentifier.rawValue

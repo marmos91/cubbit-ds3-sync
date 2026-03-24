@@ -1,7 +1,7 @@
+import DS3Lib
+import os.log
 // swiftlint:disable file_length
 import SwiftUI
-import os.log
-import DS3Lib
 
 /// A tree node representing an item in the project > bucket > prefix hierarchy
 @MainActor @Observable class TreeNode: Identifiable {
@@ -388,7 +388,7 @@ import DS3Lib
 // MARK: - TreeNavigationView
 
 struct TreeNavigationView: View {
-    @State var viewModel: TreeNavigationViewModel
+    @State private var viewModel: TreeNavigationViewModel
 
     var onSyncAnchorSelected: ((SyncAnchor) -> Void)?
 
@@ -538,7 +538,6 @@ struct TreeNavigationView: View {
                         .font(DS3Typography.body)
                         .foregroundStyle(DS3Colors.secondaryText)
                         .multilineTextAlignment(.center)
-
                 }
                 .padding(DS3Spacing.xl)
             } else {

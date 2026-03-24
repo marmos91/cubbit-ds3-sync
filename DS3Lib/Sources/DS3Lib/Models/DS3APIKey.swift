@@ -50,7 +50,7 @@ public struct DS3ApiKey: Codable, Equatable, Sendable {
         try container.encode(name, forKey: .name)
         try container.encode(apiKey, forKey: .apiKey)
 
-        if let secretKey = secretKey {
+        if let secretKey {
             try container.encode(secretKey, forKey: .secretKey)
         }
 

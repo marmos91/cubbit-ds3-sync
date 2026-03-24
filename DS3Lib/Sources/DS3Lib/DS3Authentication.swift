@@ -1,5 +1,5 @@
-import Foundation
 import CryptoKit
+import Foundation
 import os.log
 
 /// Errors that can occur during authentication with Cubbit IAM
@@ -92,7 +92,7 @@ struct DS3Missing2FAResponse: Codable {
 /// Class that manages the authentication with the DS3 APIs.
 /// Uses challenge-response (Curve25519) authentication with JWT tokens.
 @Observable public final class DS3Authentication: @unchecked Sendable {
-    private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.auth.rawValue)
+    private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.auth.rawValue)
 
     /// The URL configuration for all API calls
     public var urls: CubbitAPIURLs

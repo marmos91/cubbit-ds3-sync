@@ -1,7 +1,7 @@
-import Foundation
-import FileProvider
-import os.log
 import DS3Lib
+import FileProvider
+import Foundation
+import os.log
 
 extension S3Lib {
     // MARK: - Transfers
@@ -161,9 +161,8 @@ extension S3Lib {
 
         if size < DefaultSettings.S3.multipartThreshold || s3Item.contentType == .folder {
             return try await self.putS3ItemStandard(s3Item, fileURL: fileURL, withProgress: progress)
-        } else {
-            return try await self.putS3ItemMultipart(s3Item, fileURL: fileURL, withProgress: progress)
         }
+        return try await self.putS3ItemMultipart(s3Item, fileURL: fileURL, withProgress: progress)
     }
 
     /// Performs a standard PUT request for a given S3Item
@@ -242,7 +241,7 @@ extension S3Lib {
         )
 
         do {
-            let etag = try await client.putObjectMultipart(
+            return try await client.putObjectMultipart(
                 bucket: s3Item.drive.syncAnchor.bucket.name,
                 key: key,
                 fileURL: fileURL,
@@ -264,8 +263,6 @@ extension S3Lib {
                     Task { await nm.sendTransferSpeedNotification(stats) }
                 }
             )
-
-            return etag
         } catch let error as DS3ClientError where error == .missingETag {
             self.logger.error("Multipart upload returned no ETag for key \(key, privacy: .public)")
             throw FileProviderExtensionError.uploadValidationFailed

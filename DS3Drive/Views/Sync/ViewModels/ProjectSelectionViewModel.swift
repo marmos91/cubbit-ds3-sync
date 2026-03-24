@@ -1,10 +1,10 @@
-import Foundation
-import SwiftUI
-import os.log
 import DS3Lib
+import Foundation
+import os.log
+import SwiftUI
 
 @Observable class ProjectSelectionViewModel {
-    private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
+    private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
     
     var authentication: DS3Authentication
     var ds3SDK: DS3SDK

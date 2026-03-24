@@ -1,7 +1,7 @@
-import Foundation
-import FileProvider
-import os.log
 import DS3Lib
+import FileProvider
+import Foundation
+import os.log
 
 extension S3Lib {
     // MARK: - Trash Operations

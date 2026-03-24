@@ -1,6 +1,6 @@
-import SwiftUI
-import os.log
 import DS3Lib
+import os.log
+import SwiftUI
 
 struct AccountTab: View {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)

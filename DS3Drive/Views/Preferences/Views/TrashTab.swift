@@ -1,5 +1,5 @@
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 struct TrashTab: View {
     @Environment(DS3DriveManager.self) var ds3DriveManager: DS3DriveManager

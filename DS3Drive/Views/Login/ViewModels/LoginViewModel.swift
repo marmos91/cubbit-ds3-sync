@@ -1,6 +1,6 @@
+import DS3Lib
 import Foundation
 import os.log
-import DS3Lib
 
 @Observable class LoginViewModel {
     var logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.auth.rawValue)

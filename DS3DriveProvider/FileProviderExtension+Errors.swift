@@ -1,6 +1,6 @@
+import FileProvider
 import Foundation
 import SotoS3
-import FileProvider
 
 enum FileProviderExtensionError: Error {
     case disabled

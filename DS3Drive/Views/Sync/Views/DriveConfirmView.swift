@@ -1,9 +1,9 @@
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 struct DriveConfirmView: View {
     var syncAnchor: SyncAnchor
-    @State var driveName: String
+    @State private var driveName: String
 
     var onBack: (() -> Void)?
     var onComplete: ((DS3Drive) -> Void)?
@@ -119,7 +119,7 @@ struct DriveConfirmView: View {
                     validateName()
                 }
 
-            if let nameError = nameError {
+            if let nameError {
                 Text(nameError)
                     .font(DS3Typography.caption)
                     .foregroundStyle(DS3Colors.statusError)

@@ -1,5 +1,5 @@
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 struct MFAView: View {
     @Environment(DS3Authentication.self) var ds3Authentication: DS3Authentication
@@ -10,7 +10,7 @@ struct MFAView: View {
     var tenant: String
     var coordinatorURL: String
 
-    @State var tfaCode: String = ""
+    @State private var tfaCode: String = ""
     @FocusState var focused: Bool?
 
     var body: some View {
@@ -92,14 +92,18 @@ struct MFAView: View {
         let auth = ds3Authentication
         let tenantValue = (tenant.isEmpty || tenant == DefaultSettings.defaultTenantName) ? nil : tenant
         Task {
-            try await viewModel.login(
-                withAuthentication: auth,
-                email: email,
-                password: password,
-                withTfaToken: tfaCode,
-                tenant: tenantValue,
-                coordinatorURL: coordinatorURL
-            )
+            do {
+                try await viewModel.login(
+                    withAuthentication: auth,
+                    email: email,
+                    password: password,
+                    withTfaToken: tfaCode,
+                    tenant: tenantValue,
+                    coordinatorURL: coordinatorURL
+                )
+            } catch {
+                // Error handled by LoginViewModel
+            }
         }
     }
 }

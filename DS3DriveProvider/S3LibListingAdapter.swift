@@ -1,5 +1,5 @@
-import Foundation
 import DS3Lib
+import Foundation
 
 /// Adapts the existing S3Lib to conform to SyncEngine's S3ListingProvider protocol.
 /// Lives in the extension target because S3Lib is only available there.

@@ -1,7 +1,7 @@
-import Foundation
-import FileProvider
-import os.log
 import DS3Lib
+import FileProvider
+import Foundation
+import os.log
 
 /// Proactive breadth-first indexer that enumerates the S3 bucket level-by-level
 /// using delimited (non-recursive) listings. Shallow folders are discovered before
@@ -111,7 +111,6 @@ final class BreadthFirstIndexer: @unchecked Sendable {
                             discoveredSubfolders.append(key)
                         }
                     }
-
                 } while continuationToken != nil
 
                 if let metadataStore {

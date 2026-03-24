@@ -1,7 +1,7 @@
-import Foundation
-import SwiftUI
-import os.log
 import DS3Lib
+import Foundation
+import os.log
+import SwiftUI
 
 enum SyncAnchorSelectionError: Error, LocalizedError {
     case missingBuckets
@@ -29,7 +29,7 @@ enum SyncAnchorSelectionError: Error, LocalizedError {
 @MainActor @Observable class SyncAnchorSelectionViewModel {
     typealias Logger = os.Logger
 
-    private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
+    private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
 
     var project: Project
     var authentication: DS3Authentication

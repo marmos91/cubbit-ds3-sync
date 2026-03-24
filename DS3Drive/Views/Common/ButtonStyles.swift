@@ -57,7 +57,6 @@ struct OutlineButtonStyle: ButtonStyle {
                           Color(nsColor: .controlBackgroundColor)
                     )
                     .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
-
             )
             .onHover { hovering in
                 isHover = hovering

@@ -27,7 +27,7 @@ public enum DS3SDKError: Error, LocalizedError {
 @Observable public final class DS3SDK: @unchecked Sendable {
     private var authentication: DS3Authentication
     private let urls: CubbitAPIURLs
-    private let logger: Logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.auth.rawValue)
+    private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.auth.rawValue)
 
     public init(
         withAuthentication authentication: DS3Authentication,

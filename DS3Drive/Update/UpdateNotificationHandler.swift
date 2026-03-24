@@ -1,8 +1,8 @@
 #if os(macOS)
 import AppKit
 import DS3Lib
-@preconcurrency import UserNotifications
 import os.log
+@preconcurrency import UserNotifications
 
 /// Posts a macOS system notification when a background update check finds a new version.
 @MainActor

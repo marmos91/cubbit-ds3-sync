@@ -1,5 +1,5 @@
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 struct LoginView: View {
     enum FocusedField {
@@ -7,17 +7,17 @@ struct LoginView: View {
     }
     @Environment(DS3Authentication.self) var ds3Authentication: DS3Authentication
 
-    @State var email: String = ""
-    @State var password: String = ""
-    @State var tenant: String = {
+    @State private var email: String = ""
+    @State private var password: String = ""
+    @State private var tenant: String = {
         let saved = UserDefaults.standard.string(forKey: DefaultSettings.UserDefaultsKeys.lastTenant) ?? ""
         return saved.isEmpty ? DefaultSettings.defaultTenantName : saved
     }()
-    @State var coordinatorURL: String = UserDefaults.standard.string(forKey: DefaultSettings.UserDefaultsKeys.lastCoordinatorURL) ?? CubbitAPIURLs.defaultCoordinatorURL
-    @State var showAdvanced: Bool = false
+    @State private var coordinatorURL: String = UserDefaults.standard.string(forKey: DefaultSettings.UserDefaultsKeys.lastCoordinatorURL) ?? CubbitAPIURLs.defaultCoordinatorURL
+    @State private var showAdvanced: Bool = false
     @FocusState private var focusedField: FocusedField?
 
-    @State var loginViewModel: LoginViewModel = LoginViewModel()
+    @State private var loginViewModel = LoginViewModel()
 
     var body: some View {
         if loginViewModel.need2FA {
@@ -192,13 +192,17 @@ struct LoginView: View {
         let auth = ds3Authentication
         let tenantValue = (tenant.isEmpty || tenant == DefaultSettings.defaultTenantName) ? nil : tenant
         Task {
-            try await viewModel.login(
-                withAuthentication: auth,
-                email: email,
-                password: password,
-                tenant: tenantValue,
-                coordinatorURL: coordinatorURL
-            )
+            do {
+                try await viewModel.login(
+                    withAuthentication: auth,
+                    email: email,
+                    password: password,
+                    tenant: tenantValue,
+                    coordinatorURL: coordinatorURL
+                )
+            } catch {
+                // Error handled by LoginViewModel
+            }
         }
     }
 }

@@ -1,8 +1,8 @@
-import Foundation
+import DS3Lib
 @preconcurrency import FileProvider
+import Foundation
 import os.log
 import SotoS3
-import DS3Lib
 
 enum EnumeratorError: Error {
     case unsupported
@@ -74,7 +74,9 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
         super.init()
     }
 
-    func invalidate() {}
+    func invalidate() {
+        // No resources to release
+    }
 
     /// Fetches cached children from MetadataStore and sends them to the observer.
     /// Returns `true` if cached items were found and sent, `false` otherwise.
@@ -136,7 +138,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                 if dirKey == prefix { continue }
 
                 // Skip paths above the prefix
-                if let prefix = prefix, !dirKey.hasPrefix(prefix) { continue }
+                if let prefix, !dirKey.hasPrefix(prefix) { continue }
 
                 // Skip already-known folders
                 if existingKeys.contains(dirKey) || seenDirs.contains(dirKey) { continue }
@@ -527,7 +529,9 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
 /// An enumerator that immediately finishes with no items.
 /// Used for unsupported containers (e.g. trash) to avoid FP -1005 errors on startup.
 class EmptyEnumerator: NSObject, NSFileProviderEnumerator {
-    func invalidate() {}
+    func invalidate() {
+        // No resources to release
+    }
 
     func enumerateItems(
         for observer: NSFileProviderEnumerationObserver,

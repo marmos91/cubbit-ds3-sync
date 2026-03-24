@@ -1,6 +1,6 @@
 import Foundation
-import SotoS3
 import os.log
+import SotoS3
 
 // MARK: - Downloads & Uploads
 

@@ -1,8 +1,8 @@
 import AppKit
-import FileProvider
-import UserNotifications
-import os.log
 import DS3Lib
+import FileProvider
+import os.log
+import UserNotifications
 
 /// Listens for conflict IPC notifications from the File Provider extension
 /// and presents macOS user notifications via UNUserNotificationCenter.

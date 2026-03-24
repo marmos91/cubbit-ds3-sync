@@ -1,5 +1,5 @@
-import Foundation
 import FileProvider
+import Foundation
 
 /// Codable payload stored inside `NSFileProviderSyncAnchor.rawValue`.
 public struct SyncAnchorPayload: Codable, Sendable {
@@ -80,8 +80,7 @@ public extension NSFileProviderPage {
         // Convert Data to String
         if let retString = String(data: self.rawValue, encoding: .utf8), !retString.isEmpty {
             return retString
-        } else {
-            return nil
         }
+        return nil
     }
 }

@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 struct EdgeBorder: Shape {
     var width: CGFloat
@@ -60,6 +60,7 @@ struct WillDisappearHandler: NSViewControllerRepresentable {
     }
     
     func updateNSViewController(_ nsViewController: NSViewController, context: Context) {
+        // No updates needed
     }
     
     typealias NSViewControllerType = NSViewController

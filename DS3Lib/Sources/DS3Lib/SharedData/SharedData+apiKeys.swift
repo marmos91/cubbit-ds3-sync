@@ -11,9 +11,7 @@ extension SharedData {
         
         let apiKeysURL = sharedContainerURL.appendingPathComponent(DefaultSettings.FileNames.credentialsFileName)
         
-        let apiKeys = try JSONDecoder().decode([DS3ApiKey].self, from: Data(contentsOf: apiKeysURL))
-        
-        return apiKeys
+        return try JSONDecoder().decode([DS3ApiKey].self, from: Data(contentsOf: apiKeysURL))
     }
     
     /// Loads the `DS3ApiKey` for the given user and project name from shared container.

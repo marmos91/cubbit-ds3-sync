@@ -9,7 +9,9 @@ public final class RecentFilesTracker: @unchecked Sendable {
     private var entries: [RecentFileEntry] = []
     private let lock = NSLock()
 
-    public init() {}
+    public init() {
+        // Default initializer
+    }
 
     /// Add a new entry to the tracker.
     /// If an entry with the same filename+driveId already exists and is `.syncing`, it is updated in place

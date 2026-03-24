@@ -285,13 +285,12 @@ public actor MetadataStore {
             existing.lastSyncDate = Date()
             try context.save()
             return existing.consecutiveFailures
-        } else {
-            let anchor = SyncAnchorRecord(driveId: driveId, lastSyncDate: Date())
-            anchor.consecutiveFailures = 1
-            context.insert(anchor)
-            try context.save()
-            return 1
         }
+        let anchor = SyncAnchorRecord(driveId: driveId, lastSyncDate: Date())
+        anchor.consecutiveFailures = 1
+        context.insert(anchor)
+        try context.save()
+        return 1
     }
 
     /// Reset the consecutive failure count for a drive.

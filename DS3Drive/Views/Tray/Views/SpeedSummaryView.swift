@@ -103,8 +103,7 @@ struct SpeedSummaryView: View {
 
         if bytesPerSecond >= megabyte {
             return String(format: "%.1f MB/s", bytesPerSecond / megabyte)
-        } else {
-            return String(format: "%.1f KB/s", bytesPerSecond / kilobyte)
         }
+        return String(format: "%.1f KB/s", bytesPerSecond / kilobyte)
     }
 }

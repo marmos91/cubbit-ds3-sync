@@ -1,6 +1,6 @@
-import SwiftUI
-import os.log
 import DS3Lib
+import os.log
+import SwiftUI
 
 struct TrayMenuView: View {
     @Environment(\.openURL) var openURL

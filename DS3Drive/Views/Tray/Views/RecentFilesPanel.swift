@@ -1,5 +1,5 @@
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 /// Side panel showing recent files per drive, matching the Figma file status design.
 /// Reads `driveViewModel.recentFiles` directly so @Observable triggers live updates.
@@ -150,11 +150,11 @@ private struct RecentFileRow: View {
         let seconds = Int(Date().timeIntervalSince(entry.timestamp))
         if seconds < 60 {
             return NSLocalizedString("Just now", comment: "Relative time")
-        } else if seconds < 3600 {
-            return String(format: NSLocalizedString("about %d min", comment: "Minutes ago"), seconds / 60)
-        } else {
-            return String(format: NSLocalizedString("%d hr ago", comment: "Hours ago"), seconds / 3600)
         }
+        if seconds < 3600 {
+            return String(format: NSLocalizedString("about %d min", comment: "Minutes ago"), seconds / 60)
+        }
+        return String(format: NSLocalizedString("%d hr ago", comment: "Hours ago"), seconds / 3600)
     }
 }
 

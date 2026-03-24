@@ -29,7 +29,9 @@ import os.log
     /// The current app status (idle, syncing, error, offline, info)
     public private(set) var status: AppStatus = .idle
 
-    private init() {}
+    private init() {
+        // Singleton
+    }
 
     /// The default singleton instance of the AppStatusManager.
     /// - Returns: the default instance of the AppStatusManager.

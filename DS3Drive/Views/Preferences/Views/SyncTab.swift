@@ -1,5 +1,5 @@
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 struct SyncTab: View {
     @AppStorage("io.cubbit.DS3Drive.showSyncBadges") var showSyncBadges: Bool = true

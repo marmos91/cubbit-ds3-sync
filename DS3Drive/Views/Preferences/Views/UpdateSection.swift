@@ -1,6 +1,6 @@
 #if os(macOS)
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 /// Update preferences section shown in the General tab.
 struct UpdateSection: View {

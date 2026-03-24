@@ -1,5 +1,5 @@
-import Foundation
 import FileProvider
+import Foundation
 
 extension SharedData {
     /// Loads DS3 drives from shared container.
@@ -12,9 +12,7 @@ extension SharedData {
         
         let drivesURL = sharedContainerURL.appendingPathComponent(DefaultSettings.FileNames.drivesFileName)
         
-        let drives = try JSONDecoder().decode([DS3Drive].self, from: Data(contentsOf: drivesURL))
-        
-        return drives
+        return try JSONDecoder().decode([DS3Drive].self, from: Data(contentsOf: drivesURL))
     }
     
     /// Loads DS3 drive with given domain identifier from shared container.

@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 enum DS3Colors {
     // MARK: - Brand

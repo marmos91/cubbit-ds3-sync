@@ -1,6 +1,6 @@
 import Foundation
-import SotoS3
 import os.log
+import SotoS3
 
 // MARK: - Supporting Types
 
@@ -364,5 +364,4 @@ public final class DS3S3Client: Sendable {
         guard let code = s3ErrorCode(from: error) else { return false }
         return S3ErrorRecovery.isRecoverableAuthError(code)
     }
-
 }

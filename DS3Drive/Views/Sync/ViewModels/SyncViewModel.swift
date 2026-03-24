@@ -1,5 +1,5 @@
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 enum SyncSetupStep {
     case treeNavigation

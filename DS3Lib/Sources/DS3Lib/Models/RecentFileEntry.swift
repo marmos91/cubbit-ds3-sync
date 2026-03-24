@@ -104,8 +104,7 @@ public struct RecentFileEntry: Identifiable, Sendable {
 
         if value >= megabyte {
             return String(format: "%.1f MB", value / megabyte)
-        } else {
-            return String(format: "%.1f KB", value / kilobyte)
         }
+        return String(format: "%.1f KB", value / kilobyte)
     }
 }

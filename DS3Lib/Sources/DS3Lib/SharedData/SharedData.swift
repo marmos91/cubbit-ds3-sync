@@ -32,7 +32,9 @@ public class SharedData: @unchecked Sendable {
 
     let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.metadata.rawValue)
 
-    private init() {}
+    private init() {
+        // Singleton
+    }
 
     /// Get shared data singleton instance.
     /// - Returns: the singleton instance of SharedData.
