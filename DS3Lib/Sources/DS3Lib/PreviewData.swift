@@ -57,6 +57,7 @@ public enum PreviewData {
     // MARK: - Drives
 
     public static let drive = DS3Drive(
+        // swiftlint:disable:next force_unwrapping
         id: UUID(uuidString: "e1f2a3b4-c5d6-7890-abcd-ef1234567890")!,
         name: "Personal Drive",
         syncAnchor: syncAnchor

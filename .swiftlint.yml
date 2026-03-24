@@ -11,8 +11,6 @@ disabled_rules:
   - trailing_whitespace
   - line_length  # SwiftFormat handles this
   - todo  # We have legitimate TODOs
-  - force_cast  # Pre-existing patterns, address incrementally
-  - force_unwrapping  # Pre-existing patterns, address incrementally
   - nesting  # Nested types used for API namespace grouping
   - type_name  # Short/lowercase type names used for API namespaces (S3, auth, etc.)
   - implicit_getter  # Minor style preference
@@ -21,9 +19,17 @@ opt_in_rules:
   - empty_count
   - closure_spacing
   - implicitly_unwrapped_optional
+  - force_cast
+  - force_unwrapping
 
 implicitly_unwrapped_optional:
   severity: warning
+
+force_cast:
+  severity: error
+
+force_unwrapping:
+  severity: error
 
 identifier_name:
   min_length: 2

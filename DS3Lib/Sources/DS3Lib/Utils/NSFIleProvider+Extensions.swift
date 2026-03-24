@@ -7,6 +7,7 @@ public struct SyncAnchorPayload: Codable, Sendable {
     public let reconciliationId: UUID
     public let itemCount: Int
 
+    // swiftlint:disable:next force_unwrapping
     public static let nilReconciliationId = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
 
     public init(date: Date = Date(), reconciliationId: UUID = UUID(), itemCount: Int = 0) {
