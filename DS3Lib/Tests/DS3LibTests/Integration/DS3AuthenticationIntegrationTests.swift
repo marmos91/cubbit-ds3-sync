@@ -9,6 +9,11 @@ final class DS3AuthenticationIntegrationTests: XCTestCase {
     override func setUp() async throws {
         try IntegrationTestConfig.skipIfNotConfigured()
         urls = IntegrationTestConfig.makeURLs()
+
+        // Ensure App Group container exists for persist() calls
+        let groupDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Group Containers/\(DefaultSettings.appGroup)")
+        try? FileManager.default.createDirectory(at: groupDir, withIntermediateDirectories: true)
     }
 
     // MARK: - Login
