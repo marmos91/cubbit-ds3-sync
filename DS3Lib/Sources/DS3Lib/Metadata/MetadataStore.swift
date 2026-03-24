@@ -1,4 +1,5 @@
 import Foundation
+import os.log
 import SwiftData
 
 /// Access layer for the SyncedItem and SyncAnchorRecord metadata database.
@@ -7,8 +8,10 @@ import SwiftData
 /// MetadataStore instance pointing to the same SQLite file in the App Group container.
 @ModelActor
 public actor MetadataStore {
-    /// Creates a ModelContainer pointing to the App Group shared directory with V2 schema.
-    /// Callers create the container once and pass it: `MetadataStore(modelContainer: container)`
+    /// Creates a ModelContainer pointing to the App Group shared directory.
+    /// If the on-disk store has an incompatible schema version (e.g. from a
+    /// previous build that used a different versioned schema), the store is
+    /// deleted and recreated — metadata is ephemeral cache, not user data.
     public static func createContainer() throws -> ModelContainer {
         let schema = Schema(versionedSchema: SyncedItemSchemaV2.self)
         let config = ModelConfiguration(
@@ -16,11 +19,31 @@ public actor MetadataStore {
             schema: schema,
             groupContainer: .identifier(DefaultSettings.appGroup)
         )
-        return try ModelContainer(
-            for: schema,
-            migrationPlan: SyncedItemMigrationPlan.self,
-            configurations: [config]
-        )
+        do {
+            return try ModelContainer(
+                for: schema,
+                migrationPlan: SyncedItemMigrationPlan.self,
+                configurations: [config]
+            )
+        } catch {
+            // Migration failed (unknown schema version, corrupted store, etc.)
+            // Delete the store and recreate — metadata will be rebuilt from S3.
+            let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.metadata.rawValue)
+            logger.warning("MetadataStore migration failed, recreating store: \(error.localizedDescription)")
+            if let containerURL = FileManager.default
+                .containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup) {
+                let storeDir = containerURL.appendingPathComponent("Library/Application Support")
+                let storeFiles = ["SyncedItems.store", "SyncedItems.store-shm", "SyncedItems.store-wal"]
+                for file in storeFiles {
+                    try? FileManager.default.removeItem(at: storeDir.appendingPathComponent(file))
+                }
+            }
+            return try ModelContainer(
+                for: schema,
+                migrationPlan: SyncedItemMigrationPlan.self,
+                configurations: [config]
+            )
+        }
     }
 
     // MARK: - Fetch Helpers
