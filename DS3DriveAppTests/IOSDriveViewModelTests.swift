@@ -3,8 +3,43 @@
     @testable import DS3Lib
     import XCTest
 
+    // MARK: - Lightweight mock IPC service for tests (avoids App Group access)
+
+    private final class StubIPCService: IPCService, @unchecked Sendable {
+        let statusUpdates: AsyncStream<DS3DriveStatusChange>
+        let transferSpeeds: AsyncStream<DriveTransferStats>
+        let commands: AsyncStream<IPCCommand>
+        let conflicts: AsyncStream<ConflictInfo>
+        let authFailures: AsyncStream<IPCAuthFailure>
+        let extensionInitFailures: AsyncStream<IPCExtensionInitFailure>
+
+        init() {
+            (statusUpdates, _) = AsyncStream.makeStream(of: DS3DriveStatusChange.self)
+            (transferSpeeds, _) = AsyncStream.makeStream(of: DriveTransferStats.self)
+            (commands, _) = AsyncStream.makeStream(of: IPCCommand.self)
+            (conflicts, _) = AsyncStream.makeStream(of: ConflictInfo.self)
+            (authFailures, _) = AsyncStream.makeStream(of: IPCAuthFailure.self)
+            (extensionInitFailures, _) = AsyncStream.makeStream(of: IPCExtensionInitFailure.self)
+        }
+
+        func postStatusChange(_: DS3DriveStatusChange) async { /* stub */ }
+        func postTransferStats(_: DriveTransferStats) async { /* stub */ }
+        func postCommand(_: IPCCommand) async { /* stub */ }
+        func postConflict(_: ConflictInfo) async { /* stub */ }
+        func postAuthFailure(domainId _: String, reason _: String) async { /* stub */ }
+        func postExtensionInitFailure(domainId _: String, reason _: String) async { /* stub */ }
+        func startListening() async { /* stub */ }
+        func stopListening() async { /* stub */ }
+    }
+
+    // MARK: - IOSDriveViewModel Tests
+
     @MainActor
     final class IOSDriveViewModelTests: XCTestCase {
+        private func makeViewModel() -> IOSDriveViewModel {
+            IOSDriveViewModel(ipcService: StubIPCService())
+        }
+
         // MARK: - Format Speed
 
         func testFormatSpeedBytes() {
@@ -41,12 +76,10 @@
             let error = IOSDriveViewModel.statusColor(for: .error)
             let paused = IOSDriveViewModel.statusColor(for: .paused)
 
-            // Idle, error, and paused should have distinct colors
             XCTAssertNotEqual(idle, error)
             XCTAssertNotEqual(idle, paused)
             XCTAssertNotEqual(error, paused)
 
-            // Sync and indexing share the same color
             let sync = IOSDriveViewModel.statusColor(for: .sync)
             let indexing = IOSDriveViewModel.statusColor(for: .indexing)
             XCTAssertEqual(sync, indexing)
@@ -55,13 +88,12 @@
         // MARK: - Status Accessor
 
         func testStatusDefaultsToIdle() {
-            let vm = IOSDriveViewModel(ipcService: makeDefaultIPCService())
-            let unknownId = UUID()
-            XCTAssertEqual(vm.status(for: unknownId), .idle)
+            let vm = makeViewModel()
+            XCTAssertEqual(vm.status(for: UUID()), .idle)
         }
 
         func testStatusReturnsStoredValue() {
-            let vm = IOSDriveViewModel(ipcService: makeDefaultIPCService())
+            let vm = makeViewModel()
             let driveId = UUID()
             vm.driveStatuses[driveId] = .error
             XCTAssertEqual(vm.status(for: driveId), .error)
@@ -70,12 +102,12 @@
         // MARK: - Speed Accessor
 
         func testSpeedReturnsNilForUnknownDrive() {
-            let vm = IOSDriveViewModel(ipcService: makeDefaultIPCService())
+            let vm = makeViewModel()
             XCTAssertNil(vm.speed(for: UUID()))
         }
 
         func testSpeedReturnsStoredValue() {
-            let vm = IOSDriveViewModel(ipcService: makeDefaultIPCService())
+            let vm = makeViewModel()
             let driveId = UUID()
             vm.driveTransferSpeeds[driveId] = 1234.5
             XCTAssertEqual(vm.speed(for: driveId), 1234.5)
@@ -84,17 +116,14 @@
         // MARK: - Toggle Pause
 
         func testTogglePauseSetsAndUnsets() {
-            let vm = IOSDriveViewModel(ipcService: makeDefaultIPCService())
+            let vm = makeViewModel()
             let driveId = UUID()
 
-            // Initially idle
             XCTAssertEqual(vm.status(for: driveId), .idle)
 
-            // Toggle to paused
             vm.togglePause(for: driveId)
             XCTAssertEqual(vm.status(for: driveId), .paused)
 
-            // Toggle back to idle
             vm.togglePause(for: driveId)
             XCTAssertEqual(vm.status(for: driveId), .idle)
         }
@@ -105,7 +134,6 @@
     final class CacheManagerTests: XCTestCase {
         func testFormatSizeSmall() {
             let result = CacheManager.formatSize(500)
-            // ByteCountFormatter with .useKB minimum rounds up
             XCTAssertFalse(result.isEmpty)
         }
 

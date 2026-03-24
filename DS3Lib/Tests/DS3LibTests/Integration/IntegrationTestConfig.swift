@@ -87,7 +87,9 @@ class DS3S3IntegrationTestCase: DS3IntegrationTestCase {
         bucket = IntegrationTestConfig.bucket!
         testPrefix = IntegrationTestConfig.uniqueTestPrefix()
 
-        // Get API keys and create S3 client
+        // Get API keys and create S3 client.
+        // Bypasses SharedData persistence (not available in CI's SPM test runner)
+        // by using the SDK API directly instead of loadOrCreateDS3APIKeys().
         let sdk = DS3SDK(withAuthentication: authentication, urls: urls)
         let projects = try await sdk.getRemoteProjects()
         guard let project = projects.first else {
@@ -97,12 +99,23 @@ class DS3S3IntegrationTestCase: DS3IntegrationTestCase {
             throw XCTSkip("No IAM users found in project — create one in the Cubbit console first")
         }
 
-        let apiKey = try await sdk.loadOrCreateDS3APIKeys(
-            forIAMUser: user,
-            ds3ProjectName: project.name
-        )
+        // Try to find an existing API key, or generate a new one
+        let iamToken = try await authentication.forgeIAMToken(forIAMUser: user)
+        let remoteKeys = try await sdk.getRemoteApiKeys(forIAMUser: user)
+        let apiKeyName = DS3SDK.apiKeyName(forUser: user, projectName: project.name)
+
+        let apiKey: DS3ApiKey
+        if let existing = remoteKeys.first(where: { $0.name == apiKeyName }), existing.secretKey != nil {
+            apiKey = existing
+        } else {
+            // Generate a fresh key (secret is only available at creation time)
+            apiKey = try await sdk.generateDS3APIKey(
+                forIAMUser: user, iamToken: iamToken, apiKeyName: apiKeyName
+            )
+        }
+
         guard let secretKey = apiKey.secretKey else {
-            throw XCTSkip("API key has no secret key — delete and recreate it in the Cubbit console")
+            throw XCTSkip("API key has no secret key — delete '\(apiKeyName)' in the Cubbit console and re-run")
         }
 
         s3Client = DS3S3Client(
