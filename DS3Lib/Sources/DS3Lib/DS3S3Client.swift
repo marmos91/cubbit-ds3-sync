@@ -193,6 +193,10 @@ public final class DS3S3Client: Sendable {
         self.s3 = S3(client: client, endpoint: endpoint, timeout: .seconds(timeout))
     }
 
+    deinit {
+        try? awsClient.syncShutdown()
+    }
+
     /// Shuts down the underlying AWSClient. Must be called when the client is no longer needed.
     public func shutdown() throws {
         try awsClient.syncShutdown()

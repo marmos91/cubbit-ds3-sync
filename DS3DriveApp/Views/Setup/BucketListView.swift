@@ -151,18 +151,6 @@
                         }
                     }
                 }
-
-                Section {
-                    Button {
-                        selectBucketRoot()
-                    } label: {
-                        Text("Select This Location")
-                            .font(IOSTypography.headline)
-                            .foregroundStyle(IOSColors.accent)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .disabled(filteredBuckets.isEmpty)
-                }
             }
             .listStyle(.insetGrouped)
         }
@@ -194,18 +182,6 @@
                         .font(IOSTypography.caption)
                 }
             }
-        }
-
-        // MARK: - Actions
-
-        private func selectBucketRoot() {
-            guard let bucket = filteredBuckets.first else { return }
-
-            anchorVM?.selectBucket(bucket)
-
-            guard let anchor = anchorVM?.getSelectedSyncAnchor() else { return }
-            setupViewModel.selectSyncAnchor(anchor: anchor)
-            navigationPath.append(WizardConfirmStep())
         }
     }
 #endif
