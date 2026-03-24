@@ -49,8 +49,9 @@ final class DS3SDKIntegrationTests: DS3IntegrationTestCase {
             throw XCTSkip("No IAM user found in test account")
         }
 
-        // Verify the call succeeds (doesn't throw). Empty array is valid.
-        _ = try await sdk.getRemoteApiKeys(forIAMUser: user)
+        let apiKeys = try await sdk.getRemoteApiKeys(forIAMUser: user)
+        // Empty array is valid — just verify it doesn't throw
+        XCTAssertNotNil(apiKeys)
     }
 
     func testLoadOrCreateDS3APIKeys() async throws {
@@ -66,7 +67,6 @@ final class DS3SDKIntegrationTests: DS3IntegrationTestCase {
 
         XCTAssertFalse(apiKey.name.isEmpty)
         XCTAssertFalse(apiKey.apiKey.isEmpty)
-        // secretKey may be nil for previously created keys (only available on creation)
     }
 
     // MARK: - API Key Name

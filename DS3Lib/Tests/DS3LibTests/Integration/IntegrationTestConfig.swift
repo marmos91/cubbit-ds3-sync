@@ -57,6 +57,15 @@ class DS3IntegrationTestCase: XCTestCase {
     override func setUp() async throws {
         try IntegrationTestConfig.skipIfNotConfigured()
 
+        // Ensure the App Group container directory exists.
+        // On CI runners (SPM test environment), there are no entitlements so
+        // FileManager.containerURL(forSecurityApplicationGroupIdentifier:) returns nil
+        // on iOS but on macOS it resolves to ~/Library/Group Containers/<appGroup>.
+        // Create it preemptively so SharedData.persist() doesn't fail.
+        let groupDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Group Containers/\(DefaultSettings.appGroup)")
+        try? FileManager.default.createDirectory(at: groupDir, withIntermediateDirectories: true)
+
         urls = IntegrationTestConfig.makeURLs()
         authentication = DS3Authentication(urls: urls)
 
