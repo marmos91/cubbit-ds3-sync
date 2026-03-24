@@ -1,7 +1,6 @@
 import DS3Lib
 @preconcurrency import FileProvider
 import os.log
-import SotoS3
 
 extension FileProviderExtension {
     // NOTE: gets called when the extension wants to delete an item

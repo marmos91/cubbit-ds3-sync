@@ -1,7 +1,6 @@
 import DS3Lib
 @preconcurrency import FileProvider
 import os.log
-import SotoS3
 
 // MARK: - S3 Credential Reload
 

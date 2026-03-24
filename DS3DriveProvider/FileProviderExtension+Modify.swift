@@ -1,7 +1,6 @@
 import DS3Lib
 @preconcurrency import FileProvider
 import os.log
-import SotoS3
 
 extension FileProviderExtension {
     // swiftlint:disable:next function_body_length cyclomatic_complexity

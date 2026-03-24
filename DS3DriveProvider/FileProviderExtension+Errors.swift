@@ -1,6 +1,6 @@
+import DS3Lib
 import FileProvider
 import Foundation
-import SotoS3
 
 enum FileProviderExtensionError: Error {
     case disabled
