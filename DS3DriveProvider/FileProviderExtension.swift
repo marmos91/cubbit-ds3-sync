@@ -116,14 +116,8 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             )
             self.s3Client = client
 
-            guard let notificationManager = self.notificationManager else {
-                logger.error("Failed to create S3 client for domain \(domain.identifier.rawValue, privacy: .public)")
-                super.init()
-                self.notifyInitFailure(reason: "S3 client creation failed")
-                return
-            }
-
-            self.s3Lib = S3Lib(withClient: client, withNotificationManager: notificationManager)
+            // swiftlint:disable:next force_unwrapping
+            self.s3Lib = S3Lib(withClient: client, withNotificationManager: self.notificationManager!)
 
             // Initialize MetadataStore, NetworkMonitor, and SyncEngine
             do {

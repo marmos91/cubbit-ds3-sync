@@ -88,7 +88,9 @@ extension FileProviderExtension {
                 if identifier.isSystemContainer { continue }
 
                 let rawKey = identifier.rawValue
-                let actualTrashKey = try await self.resolveTrashKey(rawKey, drive: drive)
+                let actualTrashKey = await self.resolveTrashKey(
+                    forOriginalKey: rawKey, drive: drive, metadataStore: self.metadataStore
+                )
 
                 do {
                     await nm.sendDriveChangedNotification(status: .sync)
@@ -117,21 +119,6 @@ extension FileProviderExtension {
             self.signalChanges()
             self.signalTrashChanges()
         }
-    }
-
-    private func resolveTrashKey(_ rawKey: String, drive: DS3Drive) async throws -> String {
-        if S3Lib.isTrashedKey(rawKey, drive: drive) {
-            return rawKey
-        }
-
-        if let stored = try? await self.metadataStore?.fetchTrashKey(
-            forOriginalKey: rawKey, driveId: drive.id
-        ) {
-            return stored
-        }
-
-        let filename = rawKey.split(separator: "/").last.map(String.init) ?? rawKey
-        return S3Lib.fullTrashPrefix(forDrive: drive) + filename
     }
 
     private func performEvictAction(

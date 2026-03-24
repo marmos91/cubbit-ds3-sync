@@ -114,6 +114,7 @@ struct IOSSettingsView: View {
                     }
                 }
 
+                // swiftlint:disable:next force_unwrapping
                 Link(destination: URL(string: ConsoleURLs.profileURL) ?? URL(string: "https://console.cubbit.io")!) {
                     HStack {
                         Text("Manage Account")
@@ -255,6 +256,7 @@ struct IOSSettingsView: View {
                     .font(IOSTypography.body)
             }
 
+            // swiftlint:disable:next force_unwrapping
             Link(destination: URL(string: HelpURLs.baseURL) ?? URL(string: "https://cubbit.io")!) {
                 HStack {
                     Text("Support")

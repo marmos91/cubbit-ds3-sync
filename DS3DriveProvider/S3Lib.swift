@@ -88,11 +88,7 @@ actor S3Lib {
 
         self.logger.debug("Listed \(items.count) items")
 
-        if !result.isTruncated {
-            return (items, nil)
-        }
-
-        return (items, result.nextContinuationToken)
+        return (items, result.isTruncated ? result.nextContinuationToken : nil)
     }
 
     /// Retrieves metadata for a remote S3Item using a HEAD request

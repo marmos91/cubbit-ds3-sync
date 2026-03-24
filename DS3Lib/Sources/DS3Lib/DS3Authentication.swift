@@ -443,13 +443,14 @@ struct DS3Missing2FAResponse: Codable {
         
         try await self.refreshIfNeeded()
         
+        guard let session = self.accountSession else { throw DS3AuthenticationError.loggedOut }
         guard let url = URL(string: self.urls.accountsMeURL) else { throw DS3AuthenticationError.invalidURL(url: self.urls.accountsMeURL) }
-        
+
         var request = URLRequest(url: url)
-        
+
         request.allHTTPHeaderFields = [
           "Content-Type": "application/json",
-          "Authorization": "Bearer \(self.accountSession?.token.token ?? "")"
+          "Authorization": "Bearer \(session.token.token)"
         ]
         
         request.httpMethod = "GET"

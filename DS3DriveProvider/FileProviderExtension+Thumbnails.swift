@@ -249,7 +249,7 @@ extension FileProviderExtension {
         perItemHandler: @escaping (NSFileProviderItemIdentifier, Data?, Error?) -> Void
     ) async throws -> URL? {
         // Skip folders and system containers
-        if identifier.rawValue.last == "/" || identifier == .rootContainer {
+        if identifier.rawValue.hasSuffix("/") || identifier == .rootContainer {
             perItemHandler(identifier, nil, nil)
             return nil
         }

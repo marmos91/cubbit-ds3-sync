@@ -5,7 +5,6 @@ import SotoS3
 import UniformTypeIdentifiers
 
 extension FileProviderExtension {
-    // NOTE: gets called when the extension wants to create a new item
     // swiftlint:disable:next function_body_length cyclomatic_complexity
     func createItem(
         basedOn itemTemplate: NSFileProviderItem,
@@ -55,8 +54,7 @@ extension FileProviderExtension {
             key = prefix + key
         }
 
-        // documentSize is NSNumber?? (double optional from Obj-C protocol property)
-        var itemSize = (itemTemplate.documentSize ?? nil)?.intValue ?? 0
+        var itemSize = itemTemplate.documentSize??.intValue ?? 0
 
         if itemTemplate.contentType == .folder || itemTemplate.contentType == .directory {
             key += String(DefaultSettings.S3.delimiter)

@@ -102,22 +102,20 @@ extension S3Lib {
 
         if s3Item.isFolder {
             // Two-pass: copy all children first, then delete.
-            // Originals remain intact until all copies are confirmed in trash.
             var continuationToken: String?
-            let folderPrefix = originalKey
             var copiedItems: [S3Item] = []
 
             repeat {
                 let (items, nextToken) = try await listS3Items(
                     forDrive: drive,
-                    withPrefix: folderPrefix,
+                    withPrefix: originalKey,
                     recursively: true,
                     withContinuationToken: continuationToken
                 )
                 continuationToken = nextToken
 
                 for item in items {
-                    let relativePath = String(item.itemIdentifier.rawValue.dropFirst(folderPrefix.count))
+                    let relativePath = String(item.itemIdentifier.rawValue.dropFirst(originalKey.count))
                     try await copyS3ItemWithMetadata(
                         item,
                         toKey: destKey + relativePath,
@@ -177,8 +175,12 @@ extension S3Lib {
             resolvedOriginalKey = nil
         }
 
-        var destKey = (resolvedOriginalKey.flatMap { $0.isEmpty ? nil : $0 })
-            ?? Self.originalKey(fromTrashKey: trashKey, drive: drive)
+        var destKey: String
+        if let resolved = resolvedOriginalKey, !resolved.isEmpty {
+            destKey = resolved
+        } else {
+            destKey = Self.originalKey(fromTrashKey: trashKey, drive: drive)
+        }
 
         if try await objectExists(bucket: bucket, key: destKey) {
             destKey = Self.appendTimestamp(toKey: destKey)

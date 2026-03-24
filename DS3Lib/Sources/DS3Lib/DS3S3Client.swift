@@ -298,14 +298,9 @@ public final class DS3S3Client: Sendable {
 
     // MARK: - Copy
 
-    /// Copies an S3 object to a new key within the same bucket.
-    public func copyObject(bucket: String, sourceKey: String, destinationKey: String) async throws {
-        try await copyObject(bucket: bucket, sourceKey: sourceKey, destinationKey: destinationKey, metadata: nil)
-    }
-
-    /// Copies an S3 object to a new key with optional custom metadata.
+    /// Copies an S3 object to a new key within the same bucket, with optional custom metadata.
     public func copyObject(
-        bucket: String, sourceKey: String, destinationKey: String, metadata: [String: String]?
+        bucket: String, sourceKey: String, destinationKey: String, metadata: [String: String]? = nil
     ) async throws {
         guard let copySource = "\(bucket)/\(sourceKey)".addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
             throw DS3ClientError.parseError

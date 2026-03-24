@@ -4,7 +4,6 @@ import os.log
 import SotoS3
 
 extension FileProviderExtension {
-    // NOTE: gets called when the extension wants to modify an item
     // swiftlint:disable:next function_body_length cyclomatic_complexity
     func modifyItem(
         _ item: NSFileProviderItem,
@@ -42,11 +41,9 @@ extension FileProviderExtension {
 
         // When multiple fields change at once (e.g., content + rename), handle
         // content first and return remaining fields as still-pending.
-        var remainingFields = NSFileProviderItemFields()
-        if changedFields.contains(.contents) {
-            if changedFields.contains(.filename) { remainingFields.insert(.filename) }
-            if changedFields.contains(.parentItemIdentifier) { remainingFields.insert(.parentItemIdentifier) }
-        }
+        let remainingFields: NSFileProviderItemFields = changedFields.contains(.contents)
+            ? changedFields.intersection([.filename, .parentItemIdentifier])
+            : []
 
         if changedFields.contains(.contents) {
             // Modified

@@ -230,17 +230,16 @@ extension S3Lib {
         let key = s3Item.itemIdentifier.rawValue
         let documentTotalSize = Int64(truncating: s3Item.documentSize ?? 0)
         let driveId = s3Item.drive.id
-
-        // Send an initial notification so the file appears in the tray immediately
-        await notificationManager.sendTransferSpeedNotification(
-            DriveTransferStats(
-                driveId: driveId, size: 0, duration: 0, direction: .upload,
-                filename: s3Item.filename, totalSize: documentTotalSize
-            )
-        )
-
         let nm = self.notificationManager
         let filename = s3Item.filename
+
+        // Send an initial notification so the file appears in the tray immediately
+        await nm.sendTransferSpeedNotification(
+            DriveTransferStats(
+                driveId: driveId, size: 0, duration: 0, direction: .upload,
+                filename: filename, totalSize: documentTotalSize
+            )
+        )
 
         do {
             let etag = try await client.putObjectMultipart(

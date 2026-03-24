@@ -273,10 +273,7 @@ extension FileProviderExtension {
         var currentPage = NSFileProviderPage.initialPageSortedByName as NSFileProviderPage
 
         while true {
-            let (keys, nextPage): (
-                Set<String>,
-                NSFileProviderPage?
-            ) = try await withCheckedThrowingContinuation { continuation in
+            let (keys, nextPage) = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(Set<String>, NSFileProviderPage?), Error>) in
                 let observer = MaterializedItemObserver()
                 observer.onFinish = { keys, next in
                     continuation.resume(returning: (keys, next))

@@ -57,15 +57,16 @@ extension MetadataStore {
     public func fetchChildren(parentKey: String?, driveId: UUID) throws -> [CachedChildItem] {
         let items: [SyncedItem]
         let context = modelExecutor.modelContext
+        let trashedStatus = SyncStatus.trashed.rawValue
 
         if let parentKey {
             let predicate = #Predicate<SyncedItem> {
-                $0.driveId == driveId && $0.parentKey == parentKey
+                $0.driveId == driveId && $0.parentKey == parentKey && $0.syncStatus != trashedStatus
             }
             items = try context.fetch(FetchDescriptor<SyncedItem>(predicate: predicate))
         } else {
             let predicate = #Predicate<SyncedItem> {
-                $0.driveId == driveId && $0.parentKey == nil
+                $0.driveId == driveId && $0.parentKey == nil && $0.syncStatus != trashedStatus
             }
             items = try context.fetch(FetchDescriptor<SyncedItem>(predicate: predicate))
         }
