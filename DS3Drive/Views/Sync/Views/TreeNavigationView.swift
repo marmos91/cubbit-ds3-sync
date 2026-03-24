@@ -59,19 +59,15 @@ class TreeNavigationViewModel {
     /// Selected IAM user per project (keyed by project ID). Defaults to first user.
     var selectedIAMUsers: [String: IAMUser] = [:]
 
-    private var ds3SDK: DS3SDK
-    /// Active DS3S3Client per project (keyed by project ID)
-    @ObservationIgnored private nonisolated(unsafe) var s3Clients: [String: DS3S3Client] = [:]
+    @ObservationIgnored private nonisolated(unsafe) var ds3Client: DS3Client
 
     init(authentication: DS3Authentication) {
         self.authentication = authentication
-        self.ds3SDK = DS3SDK(withAuthentication: authentication)
+        self.ds3Client = DS3Client(authentication: authentication)
     }
 
     func shutdownClients() {
-        for (_, client) in s3Clients {
-            try? client.shutdown()
-        }
+        ds3Client.shutdown()
     }
 
     // MARK: - Load projects
@@ -80,7 +76,7 @@ class TreeNavigationViewModel {
         self.isLoadingProjects = true
         self.error = nil
 
-        async let fetch: [Project] = ds3SDK.getRemoteProjects()
+        async let fetch: [Project] = ds3Client.getRemoteProjects()
         async let minDelay: () = Task.sleep(for: .seconds(1))
 
         do {
@@ -106,10 +102,8 @@ class TreeNavigationViewModel {
         let selectedID = selectedNode?.id
 
         self.selectedNode = nil
-        for (_, client) in s3Clients {
-            try? client.shutdown()
-        }
-        self.s3Clients.removeAll()
+        ds3Client.shutdown()
+        self.ds3Client = DS3Client(authentication: authentication)
 
         await loadProjects()
         await restoreExpansion(expandedIDs: expandedIDs, selectedID: selectedID)
@@ -317,10 +311,9 @@ class TreeNavigationViewModel {
         selectedIAMUsers[project.id] = user
         selectedNode = nil
 
-        // Invalidate cached S3 client for this project
-        if let client = s3Clients.removeValue(forKey: project.id) {
-            try? client.shutdown()
-        }
+        // Invalidate cached S3 clients and recreate DS3Client
+        ds3Client.shutdown()
+        ds3Client = DS3Client(authentication: authentication)
 
         // Collapse and reload the project node's children
         if let projectNode = projectNodes.first(where: { $0.id == project.id }) {
@@ -353,35 +346,11 @@ class TreeNavigationViewModel {
     // MARK: - Helpers
 
     private func getOrCreateS3Client(forProject project: Project) async throws -> DS3S3Client {
-        if let existing = s3Clients[project.id] {
-            return existing
-        }
-
         guard let iamUser = selectedIAMUser(forProject: project) else {
             throw SyncAnchorSelectionError.noIAMUserSelected
         }
 
-        guard let account = authentication.account else {
-            throw SyncAnchorSelectionError.DS3ClientError
-        }
-
-        let apiKeys = try await ds3SDK.loadOrCreateDS3APIKeys(
-            forIAMUser: iamUser,
-            ds3ProjectName: project.name
-        )
-
-        guard let secretKey = apiKeys.secretKey else {
-            throw SyncAnchorSelectionError.DS3ClientError
-        }
-
-        let client = DS3S3Client(
-            accessKeyId: apiKeys.apiKey,
-            secretAccessKey: secretKey,
-            endpoint: account.endpointGateway
-        )
-
-        s3Clients[project.id] = client
-        return client
+        return try await ds3Client.s3Client(forProject: project, iamUser: iamUser)
     }
 
     /// Extracts a display name from a decoded prefix by stripping the parent path and trailing slash.

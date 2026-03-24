@@ -8,7 +8,7 @@ class ProjectSelectionViewModel {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
 
     var authentication: DS3Authentication
-    var ds3SDK: DS3SDK
+    var ds3Client: DS3Client
 
     var projects: [Project] = []
     var loading: Bool = true
@@ -18,7 +18,7 @@ class ProjectSelectionViewModel {
 
     init(authentication: DS3Authentication, projects: [Project] = []) {
         self.authentication = authentication
-        self.ds3SDK = DS3SDK(withAuthentication: authentication)
+        self.ds3Client = DS3Client(authentication: authentication)
         self.projects = projects
     }
 
@@ -32,7 +32,7 @@ class ProjectSelectionViewModel {
         do {
             // NOTE: Slow it down a little to improve UX
             try await Task.sleep(for: .seconds(0.5))
-            self.projects = try await self.ds3SDK.getRemoteProjects()
+            self.projects = try await self.ds3Client.getRemoteProjects()
         } catch let error as DS3AuthenticationError {
             self.logger.error("An authentication error occurred while loading projects: \(error)")
             self.authenticationError = error

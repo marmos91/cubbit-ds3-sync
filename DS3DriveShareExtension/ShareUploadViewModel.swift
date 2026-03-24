@@ -221,26 +221,16 @@
 
         /// Creates an authenticated DS3S3Client for the given drive, or marks all pending files as failed.
         private func createDS3S3Client(for drive: DS3Drive) -> DS3S3Client? {
-            let sharedData = SharedData.default()
-
             do {
-                let account = try sharedData.loadAccountFromPersistence()
-                let apiKey = try sharedData.loadDS3APIKeyFromPersistence(
-                    forUser: drive.syncAnchor.IAMUser,
-                    projectName: drive.syncAnchor.project.name
-                )
+                let ds3Client = try DS3Client(drive: drive)
 
-                guard let secretKey = apiKey.secretKey else {
+                guard let s3Client = ds3Client.driveS3Client else {
                     logger.error("API key has no secret key")
                     markPendingFilesFailed(message: "API key missing secret. Open DS3 Drive to fix.")
                     return nil
                 }
 
-                return DS3S3Client(
-                    accessKeyId: apiKey.apiKey,
-                    secretAccessKey: secretKey,
-                    endpoint: account.endpointGateway
-                )
+                return s3Client
             } catch {
                 logger.error("Failed to load credentials: \(error.localizedDescription, privacy: .public)")
                 markPendingFilesFailed(message: "Authentication error. Open DS3 Drive to re-authenticate.")
