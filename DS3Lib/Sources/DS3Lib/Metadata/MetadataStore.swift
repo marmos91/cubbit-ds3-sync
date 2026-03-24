@@ -7,7 +7,6 @@ import SwiftData
 /// MetadataStore instance pointing to the same SQLite file in the App Group container.
 @ModelActor
 public actor MetadataStore {
-
     /// Creates a ModelContainer pointing to the App Group shared directory with V2 schema.
     /// Callers create the container once and pass it: `MetadataStore(modelContainer: container)`
     public static func createContainer() throws -> ModelContainer {
@@ -26,18 +25,18 @@ public actor MetadataStore {
 
     // MARK: - Fetch Helpers
 
-    internal func findItem(byKey s3Key: String, driveId: UUID) throws -> SyncedItem? {
+    func findItem(byKey s3Key: String, driveId: UUID) throws -> SyncedItem? {
         let compositeKey = "\(driveId.uuidString):\(s3Key)"
         let predicate = #Predicate<SyncedItem> { $0.uniqueKey == compositeKey }
         return try modelExecutor.modelContext.fetch(FetchDescriptor<SyncedItem>(predicate: predicate)).first
     }
 
-    internal func findItems(byDrive driveId: UUID) throws -> [SyncedItem] {
+    func findItems(byDrive driveId: UUID) throws -> [SyncedItem] {
         let predicate = #Predicate<SyncedItem> { $0.driveId == driveId }
         return try modelExecutor.modelContext.fetch(FetchDescriptor<SyncedItem>(predicate: predicate))
     }
 
-    internal func findAnchor(byDrive driveId: UUID) throws -> SyncAnchorRecord? {
+    func findAnchor(byDrive driveId: UUID) throws -> SyncAnchorRecord? {
         let predicate = #Predicate<SyncAnchorRecord> { $0.driveId == driveId }
         return try modelExecutor.modelContext.fetch(FetchDescriptor<SyncAnchorRecord>(predicate: predicate)).first
     }

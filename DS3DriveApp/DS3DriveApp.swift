@@ -1,5 +1,5 @@
-import SwiftUI
 import DS3Lib
+import SwiftUI
 
 @main
 struct DS3DriveApp: App {
@@ -29,13 +29,13 @@ struct DS3DriveApp: App {
                     }
                 }
                 .onAppear {
-                    if !hasStartedRefreshTimer && ds3Authentication.isLogged {
+                    if !hasStartedRefreshTimer, ds3Authentication.isLogged {
                         _ = ds3Authentication.startProactiveRefreshTimer()
                         hasStartedRefreshTimer = true
                     }
                 }
                 .onChange(of: ds3Authentication.isLogged) { _, isLogged in
-                    if isLogged && !hasStartedRefreshTimer {
+                    if isLogged, !hasStartedRefreshTimer {
                         _ = ds3Authentication.startProactiveRefreshTimer()
                         hasStartedRefreshTimer = true
                     }
@@ -53,7 +53,8 @@ struct DS3DriveApp: App {
         let appStatusManager = AppStatusManager.default()
         _appStatusManager = State(initialValue: appStatusManager)
 
-        let coordinatorURL = (try? SharedData.default().loadCoordinatorURLFromPersistence()) ?? CubbitAPIURLs.defaultCoordinatorURL
+        let coordinatorURL = (try? SharedData.default().loadCoordinatorURLFromPersistence()) ?? CubbitAPIURLs
+            .defaultCoordinatorURL
         let urls = CubbitAPIURLs(coordinatorURL: coordinatorURL)
         _ds3Authentication = State(initialValue: DS3Authentication.loadFromPersistenceOrCreateNew(urls: urls))
         _ds3DriveManager = State(initialValue: DS3DriveManager(appStatusManager: appStatusManager))

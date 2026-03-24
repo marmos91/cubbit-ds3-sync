@@ -89,8 +89,11 @@ extension FileProviderExtension {
         let boxedCb = UncheckedBox(value: completionHandler)
         Task {
             // Peek at the trash key — if it exists, this is a permanent delete of a trashed item
-            if (try? await s3Lib.remoteS3Item(for: trashIdentifier, drive: drive)) != nil {
-                self.logger.info("deleteItem: original key \(identifier.rawValue, privacy: .public) has .trash/ counterpart, hard-deleting")
+            if await (try? s3Lib.remoteS3Item(for: trashIdentifier, drive: drive)) != nil {
+                self.logger
+                    .info(
+                        "deleteItem: original key \(identifier.rawValue, privacy: .public) has .trash/ counterpart, hard-deleting"
+                    )
                 let trashS3Item = S3Item(
                     identifier: trashIdentifier,
                     drive: drive,
@@ -104,13 +107,12 @@ extension FileProviderExtension {
             }
 
             let trashEnabled = (try? SharedData.default().loadTrashSettings(forDrive: drive.id))?.enabled ?? true
-            let childProgress: Progress
-            if trashEnabled {
-                childProgress = self.performSoftDelete(
+            let childProgress: Progress = if trashEnabled {
+                self.performSoftDelete(
                     s3Item: s3Item, drive: drive, s3Lib: s3Lib, nm: nm, completionHandler: boxedCb.value
                 )
             } else {
-                childProgress = self.performHardDeleteWithConflictCheck(
+                self.performHardDeleteWithConflictCheck(
                     identifier: identifier, s3Item: s3Item, drive: drive, s3Lib: s3Lib, nm: nm,
                     completionHandler: boxedCb.value
                 )

@@ -13,8 +13,8 @@ struct PrimaryButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(
                         isEnabled ?
-                        (configuration.isPressed || isHover) ? Color.accentColor.opacity(0.8) : Color.accentColor :
-                        Color(nsColor: .controlBackgroundColor)
+                            (configuration.isPressed || isHover) ? Color.accentColor.opacity(0.8) : Color.accentColor :
+                            Color(nsColor: .controlBackgroundColor)
                     )
             )
             .foregroundStyle(.white)
@@ -53,8 +53,8 @@ struct OutlineButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(
                         isEnabled ?
-                          (configuration.isPressed || isHover) ? Color(nsColor: .separatorColor) : Color(.clear) :
-                          Color(nsColor: .controlBackgroundColor)
+                            (configuration.isPressed || isHover) ? Color(nsColor: .separatorColor) : Color(.clear) :
+                            Color(nsColor: .controlBackgroundColor)
                     )
                     .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
             )

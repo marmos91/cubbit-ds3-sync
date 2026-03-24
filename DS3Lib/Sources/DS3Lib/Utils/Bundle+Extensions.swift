@@ -9,7 +9,7 @@ extension Bundle {
         if let name: String = Bundle.main.infoDictionary?["CFBundleName"] as? String {
             return name
         }
-        
+
         return "No Name Found"
     }
 }

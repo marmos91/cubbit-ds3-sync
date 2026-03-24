@@ -14,15 +14,16 @@ extension SharedData {
         return .standard
     }
 
-    /// Loads the saved `NSFileProviderSyncAnchor` from UserDefaults, or creates a new one if none is found. `NSFileProviderSyncAnchor` is used to track changes in the file system.
+    /// Loads the saved `NSFileProviderSyncAnchor` from UserDefaults, or creates a new one if none is found.
+    /// `NSFileProviderSyncAnchor` is used to track changes in the file system.
     /// - Returns: the loaded `NSFileProviderSyncAnchor`, or a new one if none is found.
     public func loadSyncAnchorOrCreate() -> NSFileProviderSyncAnchor {
         if let savedSyncAnchorData = Self.syncAnchorDefaults.data(forKey: DefaultSettings.UserDefaultsKeys.syncAnchor) {
             return NSFileProviderSyncAnchor(savedSyncAnchorData)
-       }
-       let syncAnchor = NSFileProviderSyncAnchor(SyncAnchorPayload())
-       self.persistSyncAnchor(syncAnchor)
-       return syncAnchor
+        }
+        let syncAnchor = NSFileProviderSyncAnchor(SyncAnchorPayload())
+        self.persistSyncAnchor(syncAnchor)
+        return syncAnchor
     }
 
     /// Persists the given `NSFileProviderSyncAnchor` to UserDefaults.

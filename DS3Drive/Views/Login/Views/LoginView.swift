@@ -13,7 +13,8 @@ struct LoginView: View {
         let saved = UserDefaults.standard.string(forKey: DefaultSettings.UserDefaultsKeys.lastTenant) ?? ""
         return saved.isEmpty ? DefaultSettings.defaultTenantName : saved
     }()
-    @State private var coordinatorURL: String = UserDefaults.standard.string(forKey: DefaultSettings.UserDefaultsKeys.lastCoordinatorURL) ?? CubbitAPIURLs.defaultCoordinatorURL
+    @State private var coordinatorURL: String = UserDefaults.standard
+        .string(forKey: DefaultSettings.UserDefaultsKeys.lastCoordinatorURL) ?? CubbitAPIURLs.defaultCoordinatorURL
     @State private var showAdvanced: Bool = false
     @FocusState private var focusedField: FocusedField?
 

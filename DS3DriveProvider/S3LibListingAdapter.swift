@@ -26,7 +26,10 @@ final class S3LibListingAdapter: S3ListingProvider, Sendable {
     }
 
     func listItemsPage(bucket: String, prefix: String?, continuationToken: String?) async throws -> S3ListingPage {
-        assert(bucket == drive.syncAnchor.bucket.name, "Bucket mismatch: expected \(drive.syncAnchor.bucket.name), got \(bucket)")
+        assert(
+            bucket == drive.syncAnchor.bucket.name,
+            "Bucket mismatch: expected \(drive.syncAnchor.bucket.name), got \(bucket)"
+        )
         let (items, nextToken) = try await s3Lib.listS3Items(
             forDrive: drive,
             withPrefix: prefix,

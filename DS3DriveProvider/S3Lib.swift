@@ -35,7 +35,9 @@ actor S3Lib {
         }
     }
 
-    var isShutdown: Bool { _isShutdown }
+    var isShutdown: Bool {
+        _isShutdown
+    }
 
     // MARK: - List and metadata
 
@@ -47,7 +49,10 @@ actor S3Lib {
         withContinuationToken continuationToken: String? = nil,
         fromDate date: Date? = nil
     ) async throws -> ([S3Item], String?) {
-        self.logger.debug("Listing bucket \(drive.syncAnchor.bucket.name) for prefix \(prefix ?? "no-prefix") recursively=\(recursively)")
+        self.logger
+            .debug(
+                "Listing bucket \(drive.syncAnchor.bucket.name) for prefix \(prefix ?? "no-prefix") recursively=\(recursively)"
+            )
 
         let result = try await client.listObjects(
             bucket: drive.syncAnchor.bucket.name,
@@ -126,7 +131,7 @@ actor S3Lib {
         withProgress progress: Progress? = nil,
         force: Bool = false
     ) async throws {
-        if !force && s3Item.isFolder {
+        if !force, s3Item.isFolder {
             try await self.deleteFolder(s3Item, withProgress: progress)
             return
         }
@@ -162,12 +167,12 @@ actor S3Lib {
 
             if items.isEmpty { break }
 
-            let keys = items.map { $0.identifier.rawValue }
+            let keys = items.map(\.identifier.rawValue)
             let batchSize = DefaultSettings.S3.deleteBatchSize
 
             for startIndex in stride(from: 0, to: keys.count, by: batchSize) {
                 let endIndex = min(startIndex + batchSize, keys.count)
-                let chunk = Array(keys[startIndex..<endIndex])
+                let chunk = Array(keys[startIndex ..< endIndex])
                 self.logger.debug("Batch deleting \(chunk.count) items under \(folderPrefix, privacy: .public)")
 
                 let errorCount = try await client.deleteObjects(
@@ -186,7 +191,10 @@ actor S3Lib {
         } while continuationToken != nil
 
         if totalFailures > 0 {
-            self.logger.error("Batch delete completed with \(totalFailures) total failures under \(folderPrefix, privacy: .public)")
+            self.logger
+                .error(
+                    "Batch delete completed with \(totalFailures) total failures under \(folderPrefix, privacy: .public)"
+                )
         }
 
         self.logger.debug("Deleting enclosing folder \(folderPrefix, privacy: .public)")
@@ -204,11 +212,11 @@ actor S3Lib {
         let trimmedIdentifier = isFolder ? String(identifierKey.dropLast()) : identifierKey
         let components = trimmedIdentifier.split(separator: DefaultSettings.S3.delimiter)
         let parentPath = components.dropLast().joined(separator: String(DefaultSettings.S3.delimiter))
-        let newKey: String
-        if parentPath.isEmpty {
-            newKey = newName + (isFolder ? String(DefaultSettings.S3.delimiter) : "")
+        let newKey: String = if parentPath.isEmpty {
+            newName + (isFolder ? String(DefaultSettings.S3.delimiter) : "")
         } else {
-            newKey = parentPath + String(DefaultSettings.S3.delimiter) + newName + (isFolder ? String(DefaultSettings.S3.delimiter) : "")
+            parentPath + String(DefaultSettings.S3.delimiter) + newName +
+                (isFolder ? String(DefaultSettings.S3.delimiter) : "")
         }
 
         self.logger.debug("Renaming s3Item \(identifierKey, privacy: .public) to \(newKey, privacy: .public)")
@@ -256,8 +264,9 @@ actor S3Lib {
         withProgress progress: Progress? = nil,
         force: Bool = false
     ) async throws {
-        if !force && s3Item.isFolder {
-            self.logger.debug("Copying folder \(s3Item.itemIdentifier.rawValue, privacy: .public) to \(key, privacy: .public)")
+        if !force, s3Item.isFolder {
+            self.logger
+                .debug("Copying folder \(s3Item.itemIdentifier.rawValue, privacy: .public) to \(key, privacy: .public)")
             try await self.copyFolder(s3Item, toKey: key, withProgress: progress)
             return
         }

@@ -58,13 +58,13 @@ struct WillDisappearHandler: NSViewControllerRepresentable {
     func makeNSViewController(context: Context) -> NSViewController {
         context.coordinator
     }
-    
+
     func updateNSViewController(_ nsViewController: NSViewController, context: Context) {
         // No updates needed
     }
-    
+
     typealias NSViewControllerType = NSViewController
-    
+
     func makeCoordinator() -> WillDisappearHandler.Coordinator {
         Coordinator(onWillDisappear: onWillDisappear)
     }
@@ -79,6 +79,7 @@ struct WillDisappearHandler: NSViewControllerRepresentable {
             super.init(nibName: nil, bundle: nil)
         }
 
+        @available(*, unavailable)
         required init?(coder: NSCoder) {
             fatalError("init(coder:) has not been implemented")
         }

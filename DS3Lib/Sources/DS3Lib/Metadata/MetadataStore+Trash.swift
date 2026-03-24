@@ -3,9 +3,8 @@ import SwiftData
 
 // MARK: - Trash Operations
 
-extension MetadataStore {
-
-    public func recordTrash(
+public extension MetadataStore {
+    func recordTrash(
         trashKey: String,
         originalKey: String,
         driveId: UUID,
@@ -31,25 +30,30 @@ extension MetadataStore {
         try modelExecutor.modelContext.save()
     }
 
-    public struct TrashedItemInfo: Sendable {
+    struct TrashedItemInfo: Sendable {
         public let trashKey: String
         public let originalKey: String
         public let size: Int64
         public let trashedAt: Date?
     }
 
-    public func fetchTrashedItems(driveId: UUID) throws -> [TrashedItemInfo] {
+    func fetchTrashedItems(driveId: UUID) throws -> [TrashedItemInfo] {
         try fetchItems(driveId: driveId, status: .trashed).compactMap {
             guard let originalKey = $0.originalKey else { return nil }
-            return TrashedItemInfo(trashKey: $0.s3Key, originalKey: originalKey, size: $0.size, trashedAt: $0.lastModified)
+            return TrashedItemInfo(
+                trashKey: $0.s3Key,
+                originalKey: originalKey,
+                size: $0.size,
+                trashedAt: $0.lastModified
+            )
         }
     }
 
-    public func fetchOriginalKey(forTrashKey trashKey: String, driveId: UUID) throws -> String? {
+    func fetchOriginalKey(forTrashKey trashKey: String, driveId: UUID) throws -> String? {
         try findItem(byKey: trashKey, driveId: driveId)?.originalKey
     }
 
-    public func fetchTrashKey(forOriginalKey originalKey: String, driveId: UUID) throws -> String? {
+    func fetchTrashKey(forOriginalKey originalKey: String, driveId: UUID) throws -> String? {
         let statusValue = SyncStatus.trashed.rawValue
         let predicate = #Predicate<SyncedItem> {
             $0.driveId == driveId && $0.syncStatus == statusValue && $0.originalKey == originalKey
@@ -57,11 +61,11 @@ extension MetadataStore {
         return try modelExecutor.modelContext.fetch(FetchDescriptor<SyncedItem>(predicate: predicate)).first?.s3Key
     }
 
-    public func removeTrashRecord(trashKey: String, driveId: UUID) throws {
+    func removeTrashRecord(trashKey: String, driveId: UUID) throws {
         try deleteItem(byKey: trashKey, driveId: driveId)
     }
 
-    public func removeAllTrashRecords(driveId: UUID) throws {
+    func removeAllTrashRecords(driveId: UUID) throws {
         let items = try fetchItems(driveId: driveId, status: .trashed)
         if items.isEmpty { return }
         for item in items {

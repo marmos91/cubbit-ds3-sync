@@ -4,8 +4,7 @@ import SotoS3
 
 // MARK: - Downloads & Uploads
 
-extension DS3S3Client {
-
+public extension DS3S3Client {
     // MARK: - Downloads
 
     /// Downloads an S3 object to a file via streaming.
@@ -15,7 +14,7 @@ extension DS3S3Client {
     ///   - toFile: The destination file URL (must already exist as an empty file)
     ///   - onProgress: Optional callback for download progress
     /// - Returns: Download result with metadata from the response
-    public func getObject(
+    func getObject(
         bucket: String,
         key: String,
         toFile fileURL: URL,
@@ -33,7 +32,7 @@ extension DS3S3Client {
     }
 
     /// Downloads a byte range of an S3 object to a file.
-    public func getObjectRange(
+    func getObjectRange(
         bucket: String,
         key: String,
         range: String,
@@ -93,7 +92,7 @@ extension DS3S3Client {
     ///   - fileURL: The local file URL to upload (nil for creating empty folder markers)
     ///   - onProgress: Optional callback for upload progress
     /// - Returns: The ETag of the uploaded object, or nil
-    public func putObject(
+    func putObject(
         bucket: String,
         key: String,
         fileURL: URL? = nil,
@@ -115,7 +114,7 @@ extension DS3S3Client {
             let fileAttributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
             size = (fileAttributes[.size] as? Int64) ?? 0
 
-            let chunkSize = 65_536
+            let chunkSize = 65536
             let payload = AWSPayload.stream(size: Int(size)) { eventLoop in
                 let chunk = uploadHandle.readData(ofLength: chunkSize)
                 if chunk.isEmpty {
@@ -155,7 +154,7 @@ extension DS3S3Client {
 
     /// Uploads a file to S3 using a standard PUT request with in-memory Data.
     /// Useful for small files in the share extension.
-    public func putObjectData(
+    func putObjectData(
         bucket: String,
         key: String,
         data: Data
@@ -172,7 +171,7 @@ extension DS3S3Client {
     // MARK: - Multipart Upload
 
     /// Creates a multipart upload and returns the upload ID.
-    public func createMultipartUpload(bucket: String, key: String) async throws -> String {
+    func createMultipartUpload(bucket: String, key: String) async throws -> String {
         let request = S3.CreateMultipartUploadRequest(bucket: bucket, key: key)
         let response = try await s3.createMultipartUpload(request)
         guard let uploadId = response.uploadId else {
@@ -183,7 +182,7 @@ extension DS3S3Client {
 
     /// Uploads a single part of a multipart upload.
     /// - Returns: A CompletedPartResult with the part number and ETag
-    public func uploadPart(
+    func uploadPart(
         bucket: String,
         key: String,
         uploadId: String,
@@ -209,7 +208,7 @@ extension DS3S3Client {
 
     /// Completes a multipart upload.
     /// - Returns: The final ETag of the completed object
-    public func completeMultipartUpload(
+    func completeMultipartUpload(
         bucket: String,
         key: String,
         uploadId: String,
@@ -236,13 +235,13 @@ extension DS3S3Client {
     }
 
     /// Aborts a multipart upload.
-    public func abortMultipartUpload(bucket: String, key: String, uploadId: String) async throws {
+    func abortMultipartUpload(bucket: String, key: String, uploadId: String) async throws {
         let request = S3.AbortMultipartUploadRequest(bucket: bucket, key: key, uploadId: uploadId)
         _ = try await s3.abortMultipartUpload(request)
     }
 
     /// Performs a full multipart upload with concurrent parts, resume via PendingUploadStore, and abort on failure.
-    public func putObjectMultipart(
+    func putObjectMultipart(
         bucket: String,
         key: String,
         fileURL: URL,
@@ -257,7 +256,10 @@ extension DS3S3Client {
         var alreadyCompletedParts: [(partNumber: Int, etag: String)] = []
 
         if let pending, pending.bucket == bucket {
-            logger.info("Resuming multipart upload \(pending.uploadId, privacy: .public) for key \(key, privacy: .public)")
+            logger
+                .info(
+                    "Resuming multipart upload \(pending.uploadId, privacy: .public) for key \(key, privacy: .public)"
+                )
             uploadId = pending.uploadId
             alreadyCompletedParts = pending.completedPartETags.map { ($0.key, $0.value) }
         } else {
@@ -281,14 +283,23 @@ extension DS3S3Client {
             )
 
             await pendingUploadStore.remove(forKey: key)
-            logger.info("Multipart upload complete for key \(key, privacy: .public) with ETag \(result.etag, privacy: .public)")
+            logger
+                .info(
+                    "Multipart upload complete for key \(key, privacy: .public) with ETag \(result.etag, privacy: .public)"
+                )
             return result.etag
         } catch {
-            logger.error("Multipart upload failed for key \(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            logger
+                .error(
+                    "Multipart upload failed for key \(key, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
             do {
                 try await abortMultipartUpload(bucket: bucket, key: key, uploadId: uploadId)
             } catch {
-                logger.warning("Failed to abort multipart upload \(uploadId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                logger
+                    .warning(
+                        "Failed to abort multipart upload \(uploadId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
             }
             await pendingUploadStore.remove(forKey: key)
             throw error
@@ -343,7 +354,9 @@ extension DS3S3Client {
                 }
             }
 
-            for _ in 0..<min(maxConcurrency, remainingParts.count) { enqueueNext() }
+            for _ in 0 ..< min(maxConcurrency, remainingParts.count) {
+                enqueueNext()
+            }
 
             for try await completedPart in group {
                 results.append(completedPart)

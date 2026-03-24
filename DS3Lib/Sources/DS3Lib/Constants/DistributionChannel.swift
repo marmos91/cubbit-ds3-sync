@@ -9,10 +9,10 @@ public enum DistributionChannel: String, Sendable {
     /// Installed from the App Store (valid receipt, not sandbox)
     case appStore
     #if os(macOS)
-    /// Installed via Homebrew Cask
-    case homebrew
-    /// Direct download (DMG from GitHub Releases) — the Sparkle update channel
-    case directDownload
+        /// Installed via Homebrew Cask
+        case homebrew
+        /// Direct download (DMG from GitHub Releases) — the Sparkle update channel
+        case directDownload
     #endif
 
     /// Cached value computed once at launch.
@@ -32,22 +32,22 @@ public enum DistributionChannel: String, Sendable {
         }
 
         #if os(macOS)
-        // 3. Homebrew: app bundle lives inside a Caskroom path, or cask directory exists
-        let bundlePath = Bundle.main.bundlePath
-        let caskroomPaths = [
-            "/opt/homebrew/Caskroom/cubbit-ds3-drive",
-            "/usr/local/Caskroom/cubbit-ds3-drive"
-        ]
-        if bundlePath.contains("/Caskroom/") ||
-            caskroomPaths.contains(where: { FileManager.default.fileExists(atPath: $0) }) {
-            return .homebrew
-        }
+            // 3. Homebrew: app bundle lives inside a Caskroom path, or cask directory exists
+            let bundlePath = Bundle.main.bundlePath
+            let caskroomPaths = [
+                "/opt/homebrew/Caskroom/cubbit-ds3-drive",
+                "/usr/local/Caskroom/cubbit-ds3-drive"
+            ]
+            if bundlePath.contains("/Caskroom/") ||
+                caskroomPaths.contains(where: { FileManager.default.fileExists(atPath: $0) }) {
+                return .homebrew
+            }
 
-        // 4. Fallback: direct download (Sparkle channel)
-        return .directDownload
+            // 4. Fallback: direct download (Sparkle channel)
+            return .directDownload
         #else
-        // iOS fallback: if no receipt at all, assume TestFlight (dev/beta builds)
-        return .testFlight
+            // iOS fallback: if no receipt at all, assume TestFlight (dev/beta builds)
+            return .testFlight
         #endif
     }()
 
@@ -62,8 +62,8 @@ public enum DistributionChannel: String, Sendable {
         case .testFlight: return "TestFlight"
         case .appStore: return "App Store"
         #if os(macOS)
-        case .homebrew: return "Homebrew"
-        case .directDownload: return "Direct Download"
+            case .homebrew: return "Homebrew"
+            case .directDownload: return "Direct Download"
         #endif
         }
     }
@@ -71,9 +71,9 @@ public enum DistributionChannel: String, Sendable {
     /// Whether this channel supports in-app automatic updates (Sparkle).
     public var supportsInAppUpdate: Bool {
         #if os(macOS)
-        return self == .directDownload
+            return self == .directDownload
         #else
-        return false
+            return false
         #endif
     }
 }

@@ -1,10 +1,12 @@
 import DS3Lib
 import os.log
+
 // swiftlint:disable file_length
 import SwiftUI
 
 /// A tree node representing an item in the project > bucket > prefix hierarchy
-@MainActor @Observable class TreeNode: Identifiable {
+@MainActor @Observable
+class TreeNode: Identifiable {
     let id: String
     let name: String
     let type: TreeNodeType
@@ -24,7 +26,14 @@ import SwiftUI
         case folder
     }
 
-    init(id: String, name: String, type: TreeNodeType, project: Project? = nil, bucket: Bucket? = nil, prefix: String? = nil) {
+    init(
+        id: String,
+        name: String,
+        type: TreeNodeType,
+        project: Project? = nil,
+        bucket: Bucket? = nil,
+        prefix: String? = nil
+    ) {
         self.id = id
         self.name = name
         self.type = type
@@ -35,7 +44,8 @@ import SwiftUI
 }
 
 /// ViewModel that manages the tree navigation hierarchy and S3 operations
-@MainActor @Observable class TreeNavigationViewModel {
+@MainActor @Observable
+class TreeNavigationViewModel {
     typealias Logger = os.Logger
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
 
@@ -51,7 +61,7 @@ import SwiftUI
 
     private var ds3SDK: DS3SDK
     /// Active DS3S3Client per project (keyed by project ID)
-    @ObservationIgnored nonisolated(unsafe) private var s3Clients: [String: DS3S3Client] = [:]
+    @ObservationIgnored private nonisolated(unsafe) var s3Clients: [String: DS3S3Client] = [:]
 
     init(authentication: DS3Authentication) {
         self.authentication = authentication
@@ -96,7 +106,9 @@ import SwiftUI
         let selectedID = selectedNode?.id
 
         self.selectedNode = nil
-        for (_, client) in s3Clients { try? client.shutdown() }
+        for (_, client) in s3Clients {
+            try? client.shutdown()
+        }
         self.s3Clients.removeAll()
 
         await loadProjects()
@@ -416,7 +428,6 @@ struct TreeNavigationView: View {
 
     // MARK: - Tree sidebar
 
-    @ViewBuilder
     private var treeSidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
@@ -521,7 +532,6 @@ struct TreeNavigationView: View {
 
     // MARK: - Detail panel
 
-    @ViewBuilder
     private var detailPanel: some View {
         VStack(spacing: 0) {
             Spacer()
@@ -657,10 +667,9 @@ struct TreeNavigationView: View {
 
     // MARK: - Shimmer placeholder
 
-    @ViewBuilder
     private var shimmerPlaceholder: some View {
         VStack(alignment: .leading, spacing: DS3Spacing.sm) {
-            ForEach(0..<4, id: \.self) { _ in
+            ForEach(0 ..< 4, id: \.self) { _ in
                 HStack(spacing: DS3Spacing.sm) {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(DS3Colors.separator)
@@ -681,9 +690,9 @@ struct TreeNavigationView: View {
     private func canExpand(_ node: TreeNode) -> Bool {
         switch node.type {
         case .project, .bucket:
-            return true
+            true
         case .folder:
-            return node.isLoaded ? !node.children.isEmpty : true
+            node.isLoaded ? !node.children.isEmpty : true
         }
     }
 
@@ -737,9 +746,9 @@ struct TreeNavigationView: View {
 
     private func detailDescription(for node: TreeNode) -> String {
         switch node.type {
-        case .project: return "Expand to browse buckets in this project"
-        case .bucket: return "Select this bucket to sync, or expand to choose a folder prefix"
-        case .folder: return "Sync files from this folder prefix"
+        case .project: "Expand to browse buckets in this project"
+        case .bucket: "Select this bucket to sync, or expand to choose a folder prefix"
+        case .folder: "Sync files from this folder prefix"
         }
     }
 

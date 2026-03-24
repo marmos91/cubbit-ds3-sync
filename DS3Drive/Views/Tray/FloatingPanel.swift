@@ -33,8 +33,12 @@ final class FloatingPanel: NSPanel {
         hidesOnDeactivate = false
     }
 
-    override var canBecomeKey: Bool { false }
-    override var canBecomeMain: Bool { false }
+    override var canBecomeKey: Bool {
+        false
+    }
+    override var canBecomeMain: Bool {
+        false
+    }
 
     /// Installs a tracking area on the content view to detect mouse enter/exit.
     func installTrackingArea() {
@@ -91,7 +95,7 @@ final class FloatingPanelManager {
     /// Shows a floating panel with the given SwiftUI content, positioned to the left of the tray window.
     /// - Parameter anchorScreenFrame: Optional screen-coordinate rect of the trigger element (e.g. drive row).
     ///   When provided, the panel's top edge aligns with the anchor's top edge and extends downward.
-    func show<Content: View>(_ sidePanel: SidePanel, anchorScreenFrame: NSRect? = nil, @ViewBuilder content: () -> Content) {
+    func show(_ sidePanel: SidePanel, anchorScreenFrame: NSRect? = nil, @ViewBuilder content: () -> some View) {
         cancelDismissTimer()
         dismiss()
 

@@ -11,68 +11,78 @@ extension FileProviderExtension {
     /// downloads a large folder tree.
     func warmCacheThenStartBFS() {
         #if os(iOS)
-        // On iOS, skip warm-up — recursive listings spike memory and burn
-        // the networking grace period. Per-folder enumeration handles discovery.
-        return
+            // On iOS, skip warm-up — recursive listings spike memory and burn
+            // the networking grace period. Per-folder enumeration handles discovery.
+            return
         #else
-        guard self.enabled,
-              let drive = self.drive,
-              let s3Lib = self.s3Lib,
-              let metadataStore = self.metadataStore else {
-            self.startBFSIndexer()
-            return
-        }
-
-        // Skip warm-up when drive is paused
-        if (try? SharedData.default().isDrivePaused(drive.id)) == true {
-            self.startBFSIndexer()
-            return
-        }
-
-        Task.detached(priority: .utility) { [weak self] in
-            let prefix = drive.syncAnchor.prefix
-            self?.logger.info("Cache warm-up: starting recursive listing for prefix \(prefix ?? "<root>", privacy: .public)")
-
-            do {
-                var continuationToken: String?
-                var allItems: [S3Item] = []
-
-                repeat {
-                    let (items, nextToken) = try await s3Lib.listS3Items(
-                        forDrive: drive,
-                        withPrefix: prefix,
-                        recursively: true,
-                        withContinuationToken: continuationToken
-                    )
-                    continuationToken = nextToken
-                    allItems.append(contentsOf: items)
-
-                    // Upsert each page incrementally so enumerateItems can
-                    // start serving partial results while we're still listing.
-                    let upsertData = items.map { MetadataStore.ItemUpsertData(from: $0) }
-                    try await metadataStore.batchUpsertItems(upsertData)
-                } while continuationToken != nil
-
-                // Synthesize virtual folders (recursive listing omits directory-only prefixes)
-                let virtualFolders = S3Enumerator.synthesizeVirtualFolders(
-                    from: allItems, drive: drive, prefix: prefix
-                )
-                if !virtualFolders.isEmpty {
-                    let folderData = virtualFolders.map { MetadataStore.ItemUpsertData(from: $0) }
-                    try await metadataStore.batchUpsertItems(folderData)
-                }
-
-                self?.logger.info("Cache warm-up complete: \(allItems.count) items + \(virtualFolders.count) virtual folders")
-
-                // Signal working set so fileproviderd picks up the warm cache
-                self?.signalChanges()
-            } catch {
-                self?.logger.error("Cache warm-up failed: \(error.localizedDescription, privacy: .public). Falling back to BFS.")
+            guard self.enabled,
+                  let drive = self.drive,
+                  let s3Lib = self.s3Lib,
+                  let metadataStore = self.metadataStore
+            else {
+                self.startBFSIndexer()
+                return
             }
 
-            // Start BFS for ongoing cache maintenance after warm-up completes (or fails)
-            self?.startBFSIndexer()
-        }
+            // Skip warm-up when drive is paused
+            if (try? SharedData.default().isDrivePaused(drive.id)) == true {
+                self.startBFSIndexer()
+                return
+            }
+
+            Task.detached(priority: .utility) { [weak self] in
+                let prefix = drive.syncAnchor.prefix
+                self?.logger
+                    .info(
+                        "Cache warm-up: starting recursive listing for prefix \(prefix ?? "<root>", privacy: .public)"
+                    )
+
+                do {
+                    var continuationToken: String?
+                    var allItems: [S3Item] = []
+
+                    repeat {
+                        let (items, nextToken) = try await s3Lib.listS3Items(
+                            forDrive: drive,
+                            withPrefix: prefix,
+                            recursively: true,
+                            withContinuationToken: continuationToken
+                        )
+                        continuationToken = nextToken
+                        allItems.append(contentsOf: items)
+
+                        // Upsert each page incrementally so enumerateItems can
+                        // start serving partial results while we're still listing.
+                        let upsertData = items.map { MetadataStore.ItemUpsertData(from: $0) }
+                        try await metadataStore.batchUpsertItems(upsertData)
+                    } while continuationToken != nil
+
+                    // Synthesize virtual folders (recursive listing omits directory-only prefixes)
+                    let virtualFolders = S3Enumerator.synthesizeVirtualFolders(
+                        from: allItems, drive: drive, prefix: prefix
+                    )
+                    if !virtualFolders.isEmpty {
+                        let folderData = virtualFolders.map { MetadataStore.ItemUpsertData(from: $0) }
+                        try await metadataStore.batchUpsertItems(folderData)
+                    }
+
+                    self?.logger
+                        .info(
+                            "Cache warm-up complete: \(allItems.count) items + \(virtualFolders.count) virtual folders"
+                        )
+
+                    // Signal working set so fileproviderd picks up the warm cache
+                    self?.signalChanges()
+                } catch {
+                    self?.logger
+                        .error(
+                            "Cache warm-up failed: \(error.localizedDescription, privacy: .public). Falling back to BFS."
+                        )
+                }
+
+                // Start BFS for ongoing cache maintenance after warm-up completes (or fails)
+                self?.startBFSIndexer()
+            }
         #endif
     }
 
@@ -99,7 +109,8 @@ extension FileProviderExtension {
         #else
             guard self.enabled,
                   let drive = self.drive,
-                  let s3Lib = self.s3Lib else { return }
+                  let s3Lib = self.s3Lib
+            else { return }
 
             let indexer = BreadthFirstIndexer(
                 s3Lib: s3Lib,
@@ -125,28 +136,28 @@ extension FileProviderExtension {
         // and burn the networking grace period), so signaling does nothing useful.
         // Changes are discovered via per-folder enumerateItems when the user navigates.
         #if os(macOS)
-        let pollingInterval = DefaultSettings.Extension.pollingIntervalSeconds
+            let pollingInterval = DefaultSettings.Extension.pollingIntervalSeconds
 
-        // Signal immediately on startup so enumerateChanges/reconciliation
-        // runs right away — don't wait for the first polling interval.
-        self.signalChanges()
+            // Signal immediately on startup so enumerateChanges/reconciliation
+            // runs right away — don't wait for the first polling interval.
+            self.signalChanges()
 
-        self.pollingTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(pollingInterval))
-                guard !Task.isCancelled, let self else { break }
+            self.pollingTask = Task { [weak self] in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(pollingInterval))
+                    guard !Task.isCancelled, let self else { break }
 
-                // Skip polling when drive is paused
-                if let driveId = self.drive?.id,
-                   (try? SharedData.default().isDrivePaused(driveId)) == true {
-                    continue
+                    // Skip polling when drive is paused
+                    if let driveId = self.drive?.id,
+                       (try? SharedData.default().isDrivePaused(driveId)) == true {
+                        continue
+                    }
+
+                    self.signalChanges()
                 }
-
-                self.signalChanges()
             }
-        }
 
-        self.logger.debug("Periodic polling started with interval \(pollingInterval)s")
+            self.logger.debug("Periodic polling started with interval \(pollingInterval)s")
         #endif
     }
 
@@ -273,7 +284,10 @@ extension FileProviderExtension {
         var currentPage = NSFileProviderPage.initialPageSortedByName as NSFileProviderPage
 
         while true {
-            let (keys, nextPage) = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(Set<String>, NSFileProviderPage?), Error>) in
+            let (keys, nextPage) = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<
+                (Set<String>, NSFileProviderPage?),
+                Error
+            >) in
                 let observer = MaterializedItemObserver()
                 observer.onFinish = { keys, next in
                     continuation.resume(returning: (keys, next))

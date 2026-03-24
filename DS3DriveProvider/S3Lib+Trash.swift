@@ -30,7 +30,8 @@ extension S3Lib {
         return (drive.syncAnchor.prefix ?? "") + relativePath
     }
 
-    /// Appends a timestamp to a key for collision avoidance (e.g., `prefix/.trash/file.txt` → `prefix/.trash/file_2026-03-20T15-30-00Z.txt`).
+    /// Appends a timestamp to a key for collision avoidance (e.g., `prefix/.trash/file.txt` →
+    /// `prefix/.trash/file_2026-03-20T15-30-00Z.txt`).
     static func appendTimestamp(toKey key: String) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withFullDate, .withFullTime, .withDashSeparatorInDate]
@@ -175,11 +176,10 @@ extension S3Lib {
             resolvedOriginalKey = nil
         }
 
-        var destKey: String
-        if let resolved = resolvedOriginalKey, !resolved.isEmpty {
-            destKey = resolved
+        var destKey: String = if let resolved = resolvedOriginalKey, !resolved.isEmpty {
+            resolved
         } else {
-            destKey = Self.originalKey(fromTrashKey: trashKey, drive: drive)
+            Self.originalKey(fromTrashKey: trashKey, drive: drive)
         }
 
         if try await objectExists(bucket: bucket, key: destKey) {
@@ -211,10 +211,10 @@ extension S3Lib {
             )
             continuationToken = nextToken
 
-            let keys = items.map { $0.identifier.rawValue }
+            let keys = items.map(\.identifier.rawValue)
 
             for startIndex in stride(from: 0, to: keys.count, by: batchSize) {
-                let chunk = Array(keys[startIndex..<min(startIndex + batchSize, keys.count)])
+                let chunk = Array(keys[startIndex ..< min(startIndex + batchSize, keys.count)])
                 _ = try await client.deleteObjects(bucket: bucket, keys: chunk)
                 progress?.completedUnitCount += Int64(chunk.count)
             }
@@ -254,7 +254,8 @@ extension S3Lib {
         let response = try await client.headObject(bucket: bucket, key: key)
         guard let trashedAt = Self.resolveMetadataValue(
             from: response.metadata ?? [:], key: "trashed-at"
-        ) else { return nil }
+        )
+        else { return nil }
         return ISO8601DateFormatter().date(from: trashedAt)
     }
 }

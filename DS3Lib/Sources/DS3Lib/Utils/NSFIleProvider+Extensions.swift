@@ -61,7 +61,7 @@ public extension NSFileProviderSyncAnchor {
     }
 }
 
-// Extend NSFileProviderPage to handle S3 continuation tokens
+/// Extend NSFileProviderPage to handle S3 continuation tokens
 public extension NSFileProviderPage {
     init(_ continuationToken: String) {
         if let data = continuationToken.data(using: .utf8) {

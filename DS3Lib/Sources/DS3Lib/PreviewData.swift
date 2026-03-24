@@ -3,7 +3,6 @@ import Foundation
 /// Shared preview fixtures for SwiftUI previews across all targets.
 /// Provides consistent, realistic test data without hardcoded inline values.
 public enum PreviewData {
-
     // MARK: - IAM Users
 
     public static let rootUser = IAMUser(

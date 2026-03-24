@@ -12,15 +12,13 @@ public enum DS3DriveManagerError: Error {
 
 /// Class that manages DS3Drives. It loads them from disk and keeps them in memory for the whole app lifecycle.
 /// Handles NSFileProviderDomain registrations and syncs drive state with the File Provider system.
-@Observable public final class DS3DriveManager: @unchecked Sendable {
-    @ObservationIgnored
-    private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
+@Observable
+public final class DS3DriveManager: @unchecked Sendable {
+    @ObservationIgnored private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
 
-    @ObservationIgnored
-    private let ipcService: any IPCService
+    @ObservationIgnored private let ipcService: any IPCService
 
-    @ObservationIgnored
-    private var statusListenerTask: Task<Void, Never>?
+    @ObservationIgnored private var statusListenerTask: Task<Void, Never>?
 
     /// The list of registered drives
     public var drives: [DS3Drive] = DS3DriveManager.loadFromDiskOrCreateNew()
@@ -29,8 +27,7 @@ public enum DS3DriveManagerError: Error {
     public var syncingDrives: Set<UUID> = []
 
     /// Per-drive last-known status for aggregation
-    @ObservationIgnored
-    private var driveStatuses: [UUID: DS3DriveStatus] = [:]
+    @ObservationIgnored private var driveStatuses: [UUID: DS3DriveStatus] = [:]
 
     public init(appStatusManager: AppStatusManager, ipcService: (any IPCService)? = nil) {
         self.ipcService = ipcService ?? makeDefaultIPCService()

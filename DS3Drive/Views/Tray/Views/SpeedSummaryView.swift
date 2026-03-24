@@ -74,8 +74,7 @@ struct SpeedSummaryView: View {
         .padding(.vertical, DS3Spacing.sm)
     }
 
-    @ViewBuilder
-    private var speedIndicators: some View {
+    @ViewBuilder private var speedIndicators: some View {
         if totalUploadSpeed > 0 {
             Image(systemName: "arrow.up")
                 .font(DS3Typography.caption)

@@ -150,7 +150,10 @@ actor NotificationManager {
         let elapsedSeconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
 
         if elapsedSeconds < DefaultSettings.Extension.authFailureCooldownSeconds {
-            logger.info("Auth failure notification suppressed (cooldown): domain=\(domainId, privacy: .public), reason=\(reason, privacy: .public)")
+            logger
+                .info(
+                    "Auth failure notification suppressed (cooldown): domain=\(domainId, privacy: .public), reason=\(reason, privacy: .public)"
+                )
             return
         }
 

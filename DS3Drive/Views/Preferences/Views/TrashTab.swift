@@ -70,7 +70,9 @@ struct TrashTab: View {
                         emptyAllTrash()
                     }
                 } message: {
-                    Text("This will permanently delete all trashed items across all drives. This action cannot be undone.")
+                    Text(
+                        "This will permanently delete all trashed items across all drives. This action cannot be undone."
+                    )
                 }
             } header: {
                 Text("Actions")

@@ -384,7 +384,8 @@ extension FileProviderExtension {
                     } else {
                         let filename = moveOldKey.split(separator: "/").last.map(String.init) ?? moveOldKey
                         let flatKey = S3Lib.fullTrashPrefix(forDrive: drive) + filename
-                        if (try? await s3Lib.remoteS3Item(for: NSFileProviderItemIdentifier(flatKey), drive: drive)) != nil {
+                        if await (try? s3Lib.remoteS3Item(for: NSFileProviderItemIdentifier(flatKey), drive: drive)) !=
+                            nil {
                             resolvedTrashKey = flatKey
                         }
                     }
@@ -399,7 +400,8 @@ extension FileProviderExtension {
                             try await s3Lib.restoreS3Item(trashS3Item, drive: drive, withProgress: progress)
                         }
                         try? await self.metadataStore?.removeTrashRecord(trashKey: trashKey, driveId: drive.id)
-                        self.logger.info("Restored item from trash: \(restoredItem.itemIdentifier.rawValue, privacy: .public)")
+                        self.logger
+                            .info("Restored item from trash: \(restoredItem.itemIdentifier.rawValue, privacy: .public)")
                         await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                         self.signalChanges()
                         self.signalTrashChanges()

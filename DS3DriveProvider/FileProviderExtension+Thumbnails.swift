@@ -47,7 +47,8 @@ extension FileProviderExtension {
         let completed = OSAllocatedUnfairLock(initialState: false)
         let boxedCb = UncheckedBox(value: completionHandler)
 
-        @Sendable func complete(_ url: URL?, _ item: NSFileProviderItem?, _ error: Error?) {
+        @Sendable
+        func complete(_ url: URL?, _ item: NSFileProviderItem?, _ error: Error?) {
             let shouldCall = completed.withLock { flag -> Bool in
                 guard !flag else { return false }
                 flag = true
@@ -155,86 +156,87 @@ extension FileProviderExtension {
         let progress = Progress(totalUnitCount: Int64(itemIdentifiers.count))
 
         #if os(iOS)
-        // On iOS, skip all thumbnail generation to stay within the 20MB memory limit.
-        // Each thumbnail requires S3 HEAD + download + image processing which quickly
-        // exhausts the extension's memory budget, causing jetsam kills.
-        for identifier in itemIdentifiers {
-            perThumbnailCompletionHandler(identifier, nil, nil)
-        }
-        completionHandler(nil)
-        progress.completedUnitCount = Int64(itemIdentifiers.count)
-        return progress
-        #else
-
-        let completed = OSAllocatedUnfairLock(initialState: false)
-        let boxedFinalCb = UncheckedBox(value: completionHandler)
-
-        @Sendable func completeFinal(_ error: Error?) {
-            let shouldCall = completed.withLock { flag -> Bool in
-                guard !flag else { return false }
-                flag = true
-                return true
-            }
-            guard shouldCall else { return }
-            boxedFinalCb.value(error)
-        }
-
-        guard self.enabled else {
-            completeFinal(NSFileProviderError(.notAuthenticated) as NSError)
-            return progress
-        }
-
-        guard let drive = self.drive,
-              let s3Lib = self.s3Lib,
-              let temporaryDirectory = self.temporaryDirectory
-        else {
-            completeFinal(NSFileProviderError(.cannotSynchronize) as NSError)
-            return progress
-        }
-
-        self.logger.info("fetchThumbnails: starting for \(itemIdentifiers.count) items")
-
-        // When paused, skip all thumbnail downloads — they require S3 network access.
-        if isDrivePaused(drive.id, operation: "fetchThumbnails") {
+            // On iOS, skip all thumbnail generation to stay within the 20MB memory limit.
+            // Each thumbnail requires S3 HEAD + download + image processing which quickly
+            // exhausts the extension's memory budget, causing jetsam kills.
             for identifier in itemIdentifiers {
                 perThumbnailCompletionHandler(identifier, nil, nil)
             }
-            completeFinal(nil)
+            completionHandler(nil)
+            progress.completedUnitCount = Int64(itemIdentifiers.count)
             return progress
-        }
+        #else
 
-        let boxedPerItemCb = UncheckedBox(value: perThumbnailCompletionHandler)
-        let task = Task {
-            let perThumbnailCompletionHandler = boxedPerItemCb.value
-            var downloadedFiles: [URL] = []
-            defer {
-                for file in downloadedFiles {
-                    try? FileManager.default.removeItem(at: file)
+            let completed = OSAllocatedUnfairLock(initialState: false)
+            let boxedFinalCb = UncheckedBox(value: completionHandler)
+
+            @Sendable
+            func completeFinal(_ error: Error?) {
+                let shouldCall = completed.withLock { flag -> Bool in
+                    guard !flag else { return false }
+                    flag = true
+                    return true
                 }
+                guard shouldCall else { return }
+                boxedFinalCb.value(error)
             }
 
-            for identifier in itemIdentifiers {
-                guard !Task.isCancelled, !progress.isCancelled else { break }
-
-                if let fileURL = try await self.downloadThumbnailImage(
-                    for: identifier, drive: drive, s3Lib: s3Lib,
-                    temporaryDirectory: temporaryDirectory, size: size,
-                    perItemHandler: perThumbnailCompletionHandler
-                ) {
-                    downloadedFiles.append(fileURL)
-                }
-                progress.completedUnitCount += 1
+            guard self.enabled else {
+                completeFinal(NSFileProviderError(.notAuthenticated) as NSError)
+                return progress
             }
 
-            completeFinal(nil)
-        }
+            guard let drive = self.drive,
+                  let s3Lib = self.s3Lib,
+                  let temporaryDirectory = self.temporaryDirectory
+            else {
+                completeFinal(NSFileProviderError(.cannotSynchronize) as NSError)
+                return progress
+            }
 
-        progress.cancellationHandler = {
-            task.cancel()
-            completeFinal(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
-        }
+            self.logger.info("fetchThumbnails: starting for \(itemIdentifiers.count) items")
 
-        return progress
+            // When paused, skip all thumbnail downloads — they require S3 network access.
+            if isDrivePaused(drive.id, operation: "fetchThumbnails") {
+                for identifier in itemIdentifiers {
+                    perThumbnailCompletionHandler(identifier, nil, nil)
+                }
+                completeFinal(nil)
+                return progress
+            }
+
+            let boxedPerItemCb = UncheckedBox(value: perThumbnailCompletionHandler)
+            let task = Task {
+                let perThumbnailCompletionHandler = boxedPerItemCb.value
+                var downloadedFiles: [URL] = []
+                defer {
+                    for file in downloadedFiles {
+                        try? FileManager.default.removeItem(at: file)
+                    }
+                }
+
+                for identifier in itemIdentifiers {
+                    guard !Task.isCancelled, !progress.isCancelled else { break }
+
+                    if let fileURL = try await self.downloadThumbnailImage(
+                        for: identifier, drive: drive, s3Lib: s3Lib,
+                        temporaryDirectory: temporaryDirectory, size: size,
+                        perItemHandler: perThumbnailCompletionHandler
+                    ) {
+                        downloadedFiles.append(fileURL)
+                    }
+                    progress.completedUnitCount += 1
+                }
+
+                completeFinal(nil)
+            }
+
+            progress.cancellationHandler = {
+                task.cancel()
+                completeFinal(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
+            }
+
+            return progress
         #endif // os(macOS)
     }
 
@@ -255,18 +257,18 @@ extension FileProviderExtension {
         }
 
         #if os(iOS)
-        // On iOS, skip thumbnails for trashed items entirely.
-        // Their identifiers are original keys (not .trash/ keys) so S3 HEAD
-        // fails, and fallback HEAD requests spike memory → jetsam.
-        let isTrashedByKey = S3Lib.isTrashedKey(identifier.rawValue, drive: drive)
-        let store = self.metadataStore
-        let hasTrashed = try? await store?.fetchTrashKey(
-            forOriginalKey: identifier.rawValue, driveId: drive.id
-        )
-        if isTrashedByKey || hasTrashed != nil {
-            perItemHandler(identifier, nil, nil)
-            return nil
-        }
+            // On iOS, skip thumbnails for trashed items entirely.
+            // Their identifiers are original keys (not .trash/ keys) so S3 HEAD
+            // fails, and fallback HEAD requests spike memory → jetsam.
+            let isTrashedByKey = S3Lib.isTrashedKey(identifier.rawValue, drive: drive)
+            let store = self.metadataStore
+            let hasTrashed = try? await store?.fetchTrashKey(
+                forOriginalKey: identifier.rawValue, driveId: drive.id
+            )
+            if isTrashedByKey || hasTrashed != nil {
+                perItemHandler(identifier, nil, nil)
+                return nil
+            }
         #endif
 
         do {
@@ -275,11 +277,11 @@ extension FileProviderExtension {
             }
 
             #if os(iOS)
-            // On iOS, skip thumbnails for files > 5MB to avoid jetsam (20MB limit)
-            if (s3Item.documentSize?.intValue ?? 0) > 5_000_000 {
-                perItemHandler(identifier, nil, nil)
-                return nil
-            }
+                // On iOS, skip thumbnails for files > 5MB to avoid jetsam (20MB limit)
+                if (s3Item.documentSize?.intValue ?? 0) > 5_000_000 {
+                    perItemHandler(identifier, nil, nil)
+                    return nil
+                }
             #endif
 
             let fileExtension = (s3Item.filename as NSString).pathExtension
@@ -334,7 +336,8 @@ extension FileProviderExtension {
             UTType.jpeg.identifier as CFString,
             1,
             nil
-        ) else { return nil }
+        )
+        else { return nil }
         CGImageDestinationAddImage(dest, cgImage, [kCGImageDestinationLossyCompressionQuality: 0.7] as CFDictionary)
         guard CGImageDestinationFinalize(dest) else { return nil }
         return data as Data
@@ -390,7 +393,8 @@ extension FileProviderExtension {
             let completed = OSAllocatedUnfairLock(initialState: false)
             let boxedCb = UncheckedBox(value: completionHandler)
 
-            @Sendable func complete(
+            @Sendable
+            func complete(
                 _ url: URL?,
                 _ item: NSFileProviderItem?,
                 _ range: NSRange,

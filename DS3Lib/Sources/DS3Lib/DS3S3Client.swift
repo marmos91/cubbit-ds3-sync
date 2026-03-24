@@ -84,7 +84,13 @@ public struct TransferProgress: Sendable {
     public let direction: TransferDirection
     public let filename: String?
 
-    public init(bytesTransferred: Int64, totalBytes: Int64?, duration: TimeInterval, direction: TransferDirection, filename: String?) {
+    public init(
+        bytesTransferred: Int64,
+        totalBytes: Int64?,
+        duration: TimeInterval,
+        direction: TransferDirection,
+        filename: String?
+    ) {
         self.bytesTransferred = bytesTransferred
         self.totalBytes = totalBytes
         self.duration = duration
@@ -158,8 +164,8 @@ public struct MultipartCompleteResult: Sendable {
 /// Centralized S3 client that wraps all SotoS3 operations.
 /// Other targets should use this instead of importing SotoS3 directly.
 public final class DS3S3Client: Sendable {
-    internal let s3: S3
-    internal let logger = os.Logger(subsystem: LogSubsystem.provider, category: LogCategory.transfer.rawValue)
+    let s3: S3
+    let logger = os.Logger(subsystem: LogSubsystem.provider, category: LogCategory.transfer.rawValue)
 
     /// The underlying AWSClient, exposed for lifecycle management (shutdown).
     public let awsClient: AWSClient
@@ -302,7 +308,8 @@ public final class DS3S3Client: Sendable {
     public func copyObject(
         bucket: String, sourceKey: String, destinationKey: String, metadata: [String: String]? = nil
     ) async throws {
-        guard let copySource = "\(bucket)/\(sourceKey)".addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+        guard let copySource = "\(bucket)/\(sourceKey)".addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)
+        else {
             throw DS3ClientError.parseError
         }
 

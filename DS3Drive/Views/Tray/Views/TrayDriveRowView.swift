@@ -75,8 +75,7 @@ struct TrayDriveRowView: View {
         }
     }
 
-    @ViewBuilder
-    private var statusBadge: some View {
+    @ViewBuilder private var statusBadge: some View {
         switch driveViewModel.driveStatus {
         case .idle:
             Image(.statusIdleBadge).resizable().scaledToFit()
@@ -168,8 +167,7 @@ struct TrayDriveRowView: View {
 
     // MARK: - Shared Context Menu Items
 
-    @ViewBuilder
-    private var driveContextMenuItems: some View {
+    @ViewBuilder private var driveContextMenuItems: some View {
         Button {
             let manager = ds3DriveManager
             let driveId = driveViewModel.drive.id

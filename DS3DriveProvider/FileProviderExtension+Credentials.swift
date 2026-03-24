@@ -16,7 +16,8 @@ extension FileProviderExtension {
         guard let freshKey = try? SharedData.default().loadDS3APIKeyFromPersistence(
             forUser: drive.syncAnchor.IAMUser,
             projectName: drive.syncAnchor.project.name
-        ) else { return false }
+        )
+        else { return false }
 
         // Only reload if the key actually changed
         guard freshKey.apiKey != self.apiKeys?.apiKey, let secretKey = freshKey.secretKey else {

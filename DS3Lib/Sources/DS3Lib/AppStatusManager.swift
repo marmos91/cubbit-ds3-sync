@@ -7,24 +7,21 @@ import os.log
 /// Enforces a minimum active duration: once the status becomes syncing/indexing,
 /// it must remain active for at least `minActiveDuration` seconds before
 /// transitioning to idle. This prevents the tray icon from flashing.
-@Observable public final class AppStatusManager: @unchecked Sendable {
+@Observable
+public final class AppStatusManager: @unchecked Sendable {
     private static let instance = AppStatusManager()
 
-    @ObservationIgnored
-    private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
+    @ObservationIgnored private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
 
     /// Minimum time (seconds) the status must stay in syncing/indexing before
     /// it can transition to idle. Prevents rapid icon flashing.
-    @ObservationIgnored
-    private let minActiveDuration: TimeInterval = 1.0
+    @ObservationIgnored private let minActiveDuration: TimeInterval = 1.0
 
     /// When the status last entered an active state (syncing/indexing).
-    @ObservationIgnored
-    private var lastActiveTime: Date?
+    @ObservationIgnored private var lastActiveTime: Date?
 
     /// Timer for deferred idle transitions.
-    @ObservationIgnored
-    private var pendingIdleTimer: Timer?
+    @ObservationIgnored private var pendingIdleTimer: Timer?
 
     /// The current app status (idle, syncing, error, offline, info)
     public private(set) var status: AppStatus = .idle

@@ -102,13 +102,15 @@ struct TrayMenuView: View {
 
     // MARK: - Logged In Sections
 
-    @ViewBuilder
-    private var signedInHeader: some View {
+    @ViewBuilder private var signedInHeader: some View {
         if let account = ds3Authentication.account {
             HStack {
                 Image(systemName: "person.circle")
-                Text(String(format: NSLocalizedString("Signed in as %@", comment: "Signed in label"), account.primaryEmail))
-                    .lineLimit(1)
+                Text(String(
+                    format: NSLocalizedString("Signed in as %@", comment: "Signed in label"),
+                    account.primaryEmail
+                ))
+                .lineLimit(1)
                 Spacer()
             }
             .font(DS3Typography.caption)
@@ -134,7 +136,10 @@ struct TrayMenuView: View {
     private var addDriveItem: some View {
         let title = canAddMoreDrives
             ? NSLocalizedString("Add a new Drive", comment: "Tray menu add new drive")
-            : NSLocalizedString("You have reached the maximum number of Drives", comment: "Tray menu add new drive disabled")
+            : NSLocalizedString(
+                "You have reached the maximum number of Drives",
+                comment: "Tray menu add new drive disabled"
+            )
 
         return TrayMenuItem(title: title, enabled: canAddMoreDrives) {
             openWindow(id: "io.cubbit.DS3Drive.drive.new")
@@ -142,8 +147,7 @@ struct TrayMenuView: View {
         }
     }
 
-    @ViewBuilder
-    private var quickActionsSection: some View {
+    @ViewBuilder private var quickActionsSection: some View {
         TrayMenuItem(
             title: NSLocalizedString("Help", comment: "Tray menu help")
         ) {
@@ -297,7 +301,10 @@ struct TrayMenuView: View {
             do {
                 try await ds3DriveManager.disconnectAll()
             } catch {
-                logger.error("Failed to disconnect drives during sign out: \(error.localizedDescription, privacy: .public)")
+                logger
+                    .error(
+                        "Failed to disconnect drives during sign out: \(error.localizedDescription, privacy: .public)"
+                    )
             }
 
             await MainActor.run {

@@ -55,7 +55,10 @@ public actor SyncEngine {
     ) async throws -> ReconciliationResult {
         // Step 1: Network check
         guard await networkMonitor.isConnected else {
-            logger.warning("Reconciliation skipped: network unavailable for drive \(driveId.uuidString, privacy: .public)")
+            logger
+                .warning(
+                    "Reconciliation skipped: network unavailable for drive \(driveId.uuidString, privacy: .public)"
+                )
             throw SyncEngineError.networkUnavailable
         }
 
@@ -135,7 +138,8 @@ public actor SyncEngine {
             )
 
             // Step 7: Check if recovering from previous failures
-            let previousFailures = try await metadataStore.fetchSyncAnchorSnapshot(driveId: driveId)?.consecutiveFailures ?? 0
+            let previousFailures = try await metadataStore.fetchSyncAnchorSnapshot(driveId: driveId)?
+                .consecutiveFailures ?? 0
 
             // Step 8: Advance sync anchor
             try await metadataStore.advanceSyncAnchor(driveId: driveId, itemCount: totalRemoteCount)
@@ -204,7 +208,7 @@ public actor SyncEngine {
             guard !key.hasSuffix(delimiter) else { return false }
 
             let remoteEtag = ETagUtils.normalize(remoteItems[key]?.etag)
-            let localEtag = ETagUtils.normalize(localEtags[key].flatMap { $0 })
+            let localEtag = ETagUtils.normalize(localEtags[key].flatMap(\.self))
             return remoteEtag != localEtag
         })
     }

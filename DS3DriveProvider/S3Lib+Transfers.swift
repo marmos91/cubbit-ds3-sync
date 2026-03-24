@@ -276,7 +276,10 @@ extension S3Lib {
     ) async throws {
         let key = s3Item.itemIdentifier.rawValue
 
-        self.logger.warning("Aborting multipart upload for key \(key, privacy: .public) uploadId \(uploadId, privacy: .public)")
+        self.logger
+            .warning(
+                "Aborting multipart upload for key \(key, privacy: .public) uploadId \(uploadId, privacy: .public)"
+            )
 
         try await client.abortMultipartUpload(
             bucket: s3Item.drive.syncAnchor.bucket.name,

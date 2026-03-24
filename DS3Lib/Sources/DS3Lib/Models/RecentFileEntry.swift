@@ -17,9 +17,9 @@ public enum TransferStatus: String, Codable, Sendable, Comparable {
     /// This ensures syncing items appear first in sorted lists.
     private var sortOrder: Int {
         switch self {
-        case .syncing: return 0
-        case .error: return 1
-        case .completed: return 2
+        case .syncing: 0
+        case .error: 1
+        case .completed: 2
         }
     }
 

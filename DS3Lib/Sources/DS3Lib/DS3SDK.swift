@@ -7,24 +7,25 @@ public enum DS3SDKError: Error, LocalizedError {
     case serverError
     case jsonConversion
     case encodingError
-    
+
     public var errorDescription: String? {
         switch self {
-        case .invalidURL(let url):
-            return NSLocalizedString("Invalid URL: \(url ?? "")", comment: "Invalid URL")
+        case let .invalidURL(url):
+            NSLocalizedString("Invalid URL: \(url ?? "")", comment: "Invalid URL")
         case .serverError:
-            return NSLocalizedString("Server error", comment: "Server error")
+            NSLocalizedString("Server error", comment: "Server error")
         case .jsonConversion:
-            return NSLocalizedString("JSON conversion error", comment: "JSON conversion error")
+            NSLocalizedString("JSON conversion error", comment: "JSON conversion error")
         case .encodingError:
-            return NSLocalizedString("Encoding error", comment: "Encoding error")
+            NSLocalizedString("Encoding error", comment: "Encoding error")
         }
     }
 }
 
 /// Class that manages the communication with the DS3 API.
 /// Provides methods for project listing, API key management, and key reconciliation.
-@Observable public final class DS3SDK: @unchecked Sendable {
+@Observable
+public final class DS3SDK: @unchecked Sendable {
     private var authentication: DS3Authentication
     private let urls: CubbitAPIURLs
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.auth.rawValue)
@@ -51,36 +52,43 @@ public enum DS3SDKError: Error, LocalizedError {
             throw error
         }
     }
-    
+
     // MARK: - Projects
-    
+
     /// Retrieves all the projects for the current user.
     /// - Returns: the list of projects for the current user.
     public func getRemoteProjects() async throws -> [Project] {
         try await self.authentication.refreshIfNeeded()
-        
-        guard let url = URL(string: self.urls.projectsURL) else { throw DS3AuthenticationError.invalidURL(url: self.urls.projectsURL) }
+
+        guard let url = URL(string: self.urls.projectsURL)
+        else { throw DS3AuthenticationError.invalidURL(url: self.urls.projectsURL) }
         guard let session = self.authentication.accountSession else { throw DS3AuthenticationError.loggedOut }
-        
+
         var request = URLRequest(url: url)
-        
+
         request.allHTTPHeaderFields = [
-          "Content-Type": "application/json",
-          "Authorization": "Bearer \(session.token.token)"
+            "Content-Type": "application/json",
+            "Authorization": "Bearer \(session.token.token)"
         ]
-        
+
         request.httpMethod = "GET"
-        
+
         let (responseData, response) = try await URLSession.shared.data(for: request)
-        
-        try validateResponse(response, data: responseData, expectedStatus: [200], error: DS3AuthenticationError.serverError)
-        guard let projects = try? JSONDecoder().decode([Project].self, from: responseData) else { throw DS3AuthenticationError.jsonConversion }
-        
+
+        try validateResponse(
+            response,
+            data: responseData,
+            expectedStatus: [200],
+            error: DS3AuthenticationError.serverError
+        )
+        guard let projects = try? JSONDecoder().decode([Project].self, from: responseData)
+        else { throw DS3AuthenticationError.jsonConversion }
+
         return projects
     }
-   
+
     // MARK: - API Keys
-    
+
     /// This method retrieves all the API keys for the selected IAM user.
     /// - Parameter user: the IAM user for which to retrieve the API keys.
     /// - Returns: the list of API keys for the selected IAM user.
@@ -88,27 +96,28 @@ public enum DS3SDKError: Error, LocalizedError {
         forIAMUser user: IAMUser
     ) async throws -> [DS3ApiKey] {
         let iamToken = try await authentication.forgeIAMToken(forIAMUser: user)
-        
+
         guard let url = URL(string: "\(self.urls.keysURL)?user_id=\(user.id)") else {
             throw DS3SDKError.invalidURL(url: self.urls.keysURL)
         }
-        
+
         var request = URLRequest(url: url)
-        
+
         request.allHTTPHeaderFields = [
-          "Authorization": "Bearer \(iamToken.token)"
+            "Authorization": "Bearer \(iamToken.token)"
         ]
-        
+
         request.httpMethod = "GET"
-        
+
         let (responseData, response) = try await URLSession.shared.data(for: request)
-        
+
         try validateResponse(response, data: responseData, expectedStatus: [200], error: DS3SDKError.serverError)
-        guard let apiKeys = try? JSONDecoder().decode([DS3ApiKey].self, from: responseData) else { throw DS3SDKError.jsonConversion }
-        
+        guard let apiKeys = try? JSONDecoder().decode([DS3ApiKey].self, from: responseData)
+        else { throw DS3SDKError.jsonConversion }
+
         return apiKeys
     }
-    
+
     /// Deletes the given API key for the given IAM user.
     /// - Parameters:
     ///   - apiKey: the api key to delete.
@@ -118,27 +127,29 @@ public enum DS3SDKError: Error, LocalizedError {
         forIAMUser user: IAMUser
     ) async throws {
         let iamToken = try await authentication.forgeIAMToken(forIAMUser: user)
-        
-        guard let urlencodedApiKey = apiKey.apiKey.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { throw DS3SDKError.encodingError }
-        
+
+        guard let urlencodedApiKey = apiKey.apiKey.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+        else { throw DS3SDKError.encodingError }
+
         guard let url = URL(string: "\(self.urls.keysURL)/\(urlencodedApiKey)?user_id=\(user.id)") else {
             throw DS3SDKError.invalidURL(url: self.urls.keysURL)
         }
-        
+
         var request = URLRequest(url: url)
-        
+
         request.allHTTPHeaderFields = [
-          "Authorization": "Bearer \(iamToken.token)"
+            "Authorization": "Bearer \(iamToken.token)"
         ]
-        
+
         request.httpMethod = "DELETE"
-        
+
         let (responseData, response) = try await URLSession.shared.data(for: request)
-        
+
         try validateResponse(response, data: responseData, expectedStatus: [200, 204], error: DS3SDKError.serverError)
     }
-    
-    /// Load API keys for the given iam user and ds3 project from disk, if already available. Otherwise creates a new pair and save it to disk
+
+    /// Load API keys for the given iam user and ds3 project from disk, if already available. Otherwise creates a new
+    /// pair and save it to disk
     /// - Parameters:
     ///   - user: the IAM user for which to load or create the API keys.
     ///   - ds3ProjectName: the name of the DS3 project for which to load or create the API keys.
@@ -176,7 +187,7 @@ public enum DS3SDKError: Error, LocalizedError {
 
         return try await self.generateDS3APIKey(forIAMUser: user, iamToken: iamToken, apiKeyName: apiKeyName)
     }
-    
+
     /// Generates a new API key for the given IAM user.
     /// - Parameters:
     ///   - user: the IAM user for which to generate the API key.
@@ -191,30 +202,31 @@ public enum DS3SDKError: Error, LocalizedError {
         guard let url = URL(string: "\(self.urls.keysURL)/\(apiKeyName)?user_id=\(user.id)") else {
             throw DS3SDKError.invalidURL(url: self.urls.keysURL)
         }
-        
+
         self.logger.debug("Generating new API Key for IAM user: \(user.username)")
-        
+
         var request = URLRequest(url: url)
-        
+
         request.allHTTPHeaderFields = [
-          "Authorization": "Bearer \(iamToken.token)"
+            "Authorization": "Bearer \(iamToken.token)"
         ]
-        
+
         request.httpMethod = "POST"
-        
+
         let (responseData, response) = try await URLSession.shared.data(for: request)
-        
+
         try validateResponse(response, data: responseData, expectedStatus: [201], error: DS3SDKError.serverError)
-        guard let newApiKey = try? JSONDecoder().decode(DS3ApiKey.self, from: responseData) else { throw DS3SDKError.jsonConversion }
-        
+        guard let newApiKey = try? JSONDecoder().decode(DS3ApiKey.self, from: responseData)
+        else { throw DS3SDKError.jsonConversion }
+
         var localApiKeys = (try? SharedData.default().loadDS3APIKeysFromPersistence()) ?? []
         localApiKeys.append(newApiKey)
-        
+
         try SharedData.default().persistDS3APIKeys(localApiKeys)
-        
+
         return newApiKey
     }
-    
+
     /// Returns an unique name for an API key for the given IAM user and DS3 project.
     /// - Parameters:
     ///   - user: the IAM user for which to generate the API key name.
@@ -224,6 +236,6 @@ public enum DS3SDKError: Error, LocalizedError {
         forUser user: IAMUser,
         projectName: String
     ) -> String {
-        return "\(DefaultSettings.apiKeyNamePrefix)(\(user.username)_\(projectName.lowercased().replacingOccurrences(of: " ", with: "_"))_\(DefaultSettings.appUUID))"
+        "\(DefaultSettings.apiKeyNamePrefix)(\(user.username)_\(projectName.lowercased().replacingOccurrences(of: " ", with: "_"))_\(DefaultSettings.appUUID))"
     }
 }

@@ -13,42 +13,68 @@ public final class CubbitAPIURLs: Sendable {
     /// - Parameter coordinatorURL: The coordinator base URL. Defaults to the standard Cubbit coordinator.
     public init(coordinatorURL: String = CubbitAPIURLs.defaultCoordinatorURL) {
         var url = coordinatorURL
-        while url.hasSuffix("/") { url = String(url.dropLast()) }
+        while url.hasSuffix("/") {
+            url = String(url.dropLast())
+        }
         self.coordinatorURL = url
     }
 
     // MARK: - IAM URLs
 
     /// IAM service base URL
-    public var iamBaseURL: String { "\(coordinatorURL)/iam/v1" }
+    public var iamBaseURL: String {
+        "\(coordinatorURL)/iam/v1"
+    }
     /// Auth base URL
-    public var authBaseURL: String { "\(iamBaseURL)/auth" }
+    public var authBaseURL: String {
+        "\(iamBaseURL)/auth"
+    }
     /// Sign-in URL
-    public var signinURL: String { "\(authBaseURL)/signin" }
+    public var signinURL: String {
+        "\(authBaseURL)/signin"
+    }
     /// Challenge URL for authentication
-    public var challengeURL: String { "\(signinURL)/challenge" }
+    public var challengeURL: String {
+        "\(signinURL)/challenge"
+    }
     /// Token refresh URL
-    public var tokenRefreshURL: String { "\(authBaseURL)/refresh/access" }
+    public var tokenRefreshURL: String {
+        "\(authBaseURL)/refresh/access"
+    }
     /// Forge access JWT URL
-    public var forgeAccessJWTURL: String { "\(authBaseURL)/forge/access" }
+    public var forgeAccessJWTURL: String {
+        "\(authBaseURL)/forge/access"
+    }
     /// Accounts "me" URL
-    public var accountsMeURL: String { "\(iamBaseURL)/accounts/me" }
+    public var accountsMeURL: String {
+        "\(iamBaseURL)/accounts/me"
+    }
 
     // MARK: - Composer Hub URLs
 
     /// Composer Hub base URL
-    public var composerHubBaseURL: String { "\(coordinatorURL)/composer-hub/v1" }
+    public var composerHubBaseURL: String {
+        "\(coordinatorURL)/composer-hub/v1"
+    }
     /// Projects URL
-    public var projectsURL: String { "\(composerHubBaseURL)/projects" }
+    public var projectsURL: String {
+        "\(composerHubBaseURL)/projects"
+    }
     /// Tenants URL
-    public var tenantsURL: String { "\(composerHubBaseURL)/tenants" }
+    public var tenantsURL: String {
+        "\(composerHubBaseURL)/tenants"
+    }
 
     // MARK: - Keyvault URLs
 
     /// Keyvault base URL
-    public var keyvaultBaseURL: String { "\(coordinatorURL)/keyvault/api/v3" }
+    public var keyvaultBaseURL: String {
+        "\(coordinatorURL)/keyvault/api/v3"
+    }
     /// Keys URL (for create, get, delete operations)
-    public var keysURL: String { "\(keyvaultBaseURL)/keys" }
+    public var keysURL: String {
+        "\(keyvaultBaseURL)/keys"
+    }
 }
 
 /// Cubbit web console related URLs.

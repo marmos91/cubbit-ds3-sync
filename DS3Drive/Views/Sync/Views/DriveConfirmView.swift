@@ -44,7 +44,6 @@ struct DriveConfirmView: View {
 
     // MARK: - Summary section
 
-    @ViewBuilder
     private var summarySection: some View {
         VStack(alignment: .leading, spacing: 0) {
             summaryRow(label: "Project") {
@@ -87,7 +86,7 @@ struct DriveConfirmView: View {
         )
     }
 
-    private func summaryRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+    private func summaryRow(label: String, @ViewBuilder content: () -> some View) -> some View {
         HStack(spacing: DS3Spacing.sm) {
             Text(label)
                 .font(DS3Typography.caption)
@@ -105,7 +104,6 @@ struct DriveConfirmView: View {
 
     // MARK: - Name section
 
-    @ViewBuilder
     private var nameSection: some View {
         VStack(alignment: .leading, spacing: DS3Spacing.sm) {
             Text("Drive name")
@@ -125,15 +123,16 @@ struct DriveConfirmView: View {
                     .foregroundStyle(DS3Colors.statusError)
             }
 
-            Text("With a single drive, Finder displays the app name in the sidebar. This name will be shown when multiple drives are configured. [Learn more](https://developer.apple.com/documentation/fileprovider/nsfileproviderdomain/displayname)")
-                .font(DS3Typography.footnote)
-                .foregroundStyle(DS3Colors.secondaryText)
+            Text(
+                "With a single drive, Finder displays the app name in the sidebar. This name will be shown when multiple drives are configured. [Learn more](https://developer.apple.com/documentation/fileprovider/nsfileproviderdomain/displayname)"
+            )
+            .font(DS3Typography.footnote)
+            .foregroundStyle(DS3Colors.secondaryText)
         }
     }
 
     // MARK: - Footer bar
 
-    @ViewBuilder
     private var footerBar: some View {
         HStack {
             Button {
