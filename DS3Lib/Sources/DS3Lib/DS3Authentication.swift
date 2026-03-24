@@ -321,7 +321,10 @@ struct DS3Missing2FAResponse: Codable {
         
         let keychain = try Curve25519.Signing.PrivateKey(rawRepresentation: seed)
         
-        let signedChallenge = try keychain.signature(for: challenge.challenge.data(using: .utf8)!)
+        guard let challengeData = challenge.challenge.data(using: .utf8) else {
+            throw DS3AuthenticationError.encoding
+        }
+        let signedChallenge = try keychain.signature(for: challengeData)
         
         self.logger.debug("Challenge signed")
         
@@ -446,7 +449,7 @@ struct DS3Missing2FAResponse: Codable {
         
         request.allHTTPHeaderFields = [
           "Content-Type": "application/json",
-          "Authorization": "Bearer \(self.accountSession!.token.token)"
+          "Authorization": "Bearer \(self.accountSession?.token.token ?? "")"
         ]
         
         request.httpMethod = "GET"

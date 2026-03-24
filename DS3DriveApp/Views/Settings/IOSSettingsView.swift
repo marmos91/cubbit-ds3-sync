@@ -114,7 +114,7 @@ struct IOSSettingsView: View {
                     }
                 }
 
-                Link(destination: URL(string: ConsoleURLs.profileURL)!) {
+                Link(destination: URL(string: ConsoleURLs.profileURL) ?? URL(string: "https://console.cubbit.io")!) {
                     HStack {
                         Text("Manage Account")
                             .font(IOSTypography.body)
@@ -255,7 +255,7 @@ struct IOSSettingsView: View {
                     .font(IOSTypography.body)
             }
 
-            Link(destination: URL(string: HelpURLs.baseURL)!) {
+            Link(destination: URL(string: HelpURLs.baseURL) ?? URL(string: "https://cubbit.io")!) {
                 HStack {
                     Text("Support")
                         .font(IOSTypography.body)
@@ -292,9 +292,9 @@ struct IOSSettingsView: View {
     private func openUpdateDestination() {
         switch updateChecker.channel {
         case .testFlight:
-            UIApplication.shared.open(URL(string: "itms-beta://")!)
+            if let url = URL(string: "itms-beta://") { UIApplication.shared.open(url) }
         case .appStore:
-            UIApplication.shared.open(URL(string: "itms-apps://apps.apple.com")!)
+            if let url = URL(string: "itms-apps://apps.apple.com") { UIApplication.shared.open(url) }
         }
     }
 

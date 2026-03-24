@@ -147,22 +147,26 @@ struct LoginView: View {
                     .frame(maxWidth: .infinity, maxHeight: 36)
 
                     // Error message
-                    if loginViewModel.loginError != nil {
-                        Text("An error occurred: \(loginViewModel.loginError!.localizedDescription)")
+                    if let error = loginViewModel.loginError {
+                        Text("An error occurred: \(error.localizedDescription)")
                             .font(DS3Typography.caption)
                             .foregroundStyle(DS3Colors.statusError)
                             .multilineTextAlignment(.center)
                     }
 
                     // Links
-                    Link("Forgot your password?", destination: URL(string: ConsoleURLs.recoveryURL)!)
-                        .font(DS3Typography.caption)
-                        .foregroundStyle(Color.accentColor)
+                    if let url = URL(string: ConsoleURLs.recoveryURL) {
+                        Link("Forgot your password?", destination: url)
+                            .font(DS3Typography.caption)
+                            .foregroundStyle(Color.accentColor)
+                    }
 
-                    Link("Sign up", destination: URL(string: ConsoleURLs.signupURL)!)
-                        .font(DS3Typography.caption)
-                        .foregroundStyle(Color.accentColor)
-                        .padding(.bottom, DS3Spacing.sm)
+                    if let url = URL(string: ConsoleURLs.signupURL) {
+                        Link("Sign up", destination: url)
+                            .font(DS3Typography.caption)
+                            .foregroundStyle(Color.accentColor)
+                            .padding(.bottom, DS3Spacing.sm)
+                    }
                 }
                 .padding(.horizontal, DS3Spacing.xxl)
                 .padding(.vertical, DS3Spacing.xl)

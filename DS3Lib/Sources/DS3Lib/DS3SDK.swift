@@ -59,7 +59,9 @@ public enum DS3SDKError: Error, LocalizedError {
         let (responseData, response) = try await URLSession.shared.data(for: request)
         
         guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            self.logger.error("An error occurred. Status code is \((response as! HTTPURLResponse).statusCode) Response is: \(String(data: responseData, encoding: .utf8)!)")
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+            let body = String(data: responseData, encoding: .utf8) ?? "<non-UTF8>"
+            self.logger.error("An error occurred. Status code is \(statusCode) Response is: \(body)")
             throw DS3AuthenticationError.serverError
         }
         guard let projects = try? JSONDecoder().decode([Project].self, from: responseData) else { throw DS3AuthenticationError.jsonConversion }
@@ -92,7 +94,9 @@ public enum DS3SDKError: Error, LocalizedError {
         let (responseData, response) = try await URLSession.shared.data(for: request)
         
         guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            self.logger.error("An error occurred. Status code is \((response as! HTTPURLResponse).statusCode) Response is: \(String(data: responseData, encoding: .utf8)!)")
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+            let body = String(data: responseData, encoding: .utf8) ?? "<non-UTF8>"
+            self.logger.error("An error occurred. Status code is \(statusCode) Response is: \(body)")
             throw DS3SDKError.serverError
         }
         guard let apiKeys = try? JSONDecoder().decode([DS3ApiKey].self, from: responseData) else { throw DS3SDKError.jsonConversion }
@@ -127,7 +131,9 @@ public enum DS3SDKError: Error, LocalizedError {
         let (responseData, response) = try await URLSession.shared.data(for: request)
         
         guard (response as? HTTPURLResponse)?.statusCode == 200 || (response as? HTTPURLResponse)?.statusCode == 204 else {
-            self.logger.error("An error occurred. Status code is \((response as! HTTPURLResponse).statusCode) Response is \(String(data: responseData, encoding: .utf8)!)")
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+            let body = String(data: responseData, encoding: .utf8) ?? "<non-UTF8>"
+            self.logger.error("An error occurred. Status code is \(statusCode) Response is: \(body)")
             throw DS3SDKError.serverError
         }
     }
@@ -199,7 +205,9 @@ public enum DS3SDKError: Error, LocalizedError {
         let (responseData, response) = try await URLSession.shared.data(for: request)
         
         guard (response as? HTTPURLResponse)?.statusCode == 201 else {
-            self.logger.error("An error occurred. Status code is \((response as! HTTPURLResponse).statusCode) Response is: \(String(data: responseData, encoding: .utf8)!)")
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+            let body = String(data: responseData, encoding: .utf8) ?? "<non-UTF8>"
+            self.logger.error("An error occurred. Status code is \(statusCode) Response is: \(body)")
             throw DS3SDKError.serverError
         }
         guard let newApiKey = try? JSONDecoder().decode(DS3ApiKey.self, from: responseData) else { throw DS3SDKError.jsonConversion }

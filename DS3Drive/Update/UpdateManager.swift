@@ -61,10 +61,10 @@ final class UpdateManager {
             }
 
         case .testFlight:
-            NSWorkspace.shared.open(URL(string: "itms-beta://")!)
+            if let url = URL(string: "itms-beta://") { NSWorkspace.shared.open(url) }
 
         case .appStore:
-            NSWorkspace.shared.open(URL(string: "macappstore://apps.apple.com")!)
+            if let url = URL(string: "macappstore://apps.apple.com") { NSWorkspace.shared.open(url) }
         }
     }
 

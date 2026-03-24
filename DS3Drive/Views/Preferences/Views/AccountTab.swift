@@ -52,9 +52,11 @@ struct AccountTab: View {
             }
 
             Section {
-                Link("Edit on web console", destination: URL(string: ConsoleURLs.profileURL)!)
-                    .font(DS3Typography.body)
-                    .foregroundStyle(Color.accentColor)
+                if let url = URL(string: ConsoleURLs.profileURL) {
+                    Link("Edit on web console", destination: url)
+                        .font(DS3Typography.body)
+                        .foregroundStyle(Color.accentColor)
+                }
             }
 
             Section {
