@@ -2,7 +2,6 @@ import DS3Lib
 @preconcurrency import FileProvider
 import Foundation
 import os.log
-import SotoS3
 
 /// Enumerates items inside the `.trash/` prefix for a drive.
 class TrashS3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {

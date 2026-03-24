@@ -2,7 +2,6 @@ import DS3Lib
 
 @preconcurrency import FileProvider
 import os.log
-import SotoS3
 import SwiftData
 
 /// Wraps a non-Sendable value for use in `sending` closures where thread safety is

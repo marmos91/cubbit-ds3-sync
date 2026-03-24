@@ -1,7 +1,6 @@
 import DS3Lib
 @preconcurrency import FileProvider
 import os.log
-import SotoS3
 
 enum CustomActionIdentifier {
     static let copyS3URL = "io.cubbit.DS3Drive.DS3DriveProvider.action.copyS3URL"

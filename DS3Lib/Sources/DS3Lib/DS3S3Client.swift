@@ -2,6 +2,10 @@ import Foundation
 import os.log
 import SotoS3
 
+/// Re-export `S3ErrorType` so consumers can catch S3 errors via `import DS3Lib`
+/// without importing SotoS3 directly.
+public typealias S3ErrorType = SotoS3.S3ErrorType
+
 // MARK: - Supporting Types
 
 /// Result of an S3 ListObjectsV2 call.

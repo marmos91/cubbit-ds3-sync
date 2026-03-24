@@ -3,7 +3,6 @@ import DS3Lib
 @preconcurrency import FileProvider
 import Foundation
 import os.log
-import SotoS3
 
 enum EnumeratorError: Error {
     case unsupported
@@ -240,8 +239,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                 // into subfolders of an already-indexed parent.
                 if !self.recursively, page.toContinuationToken() == nil,
                    self.metadataStore != nil,
-                   try await self.serveCachedItems(to: observer)
-                { // swiftlint:disable:this opening_brace
+                   try await self.serveCachedItems(to: observer) {
                     observer.finishEnumerating(upTo: nil)
 
                     // TTL check: skip S3 refresh if recently enumerated
