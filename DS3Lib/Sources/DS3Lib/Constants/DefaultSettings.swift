@@ -63,27 +63,27 @@ public enum DefaultSettings {
     /// A unique identifier for the app. It is used to identify the specific app instance when creating API keys.
     /// A random UUID is created when the app starts for the first time and it is stored in the user defaults, to be retrieved at the next execution.
     public static let appUUID = {
-        if let userDefaults = UserDefaults(suiteName: DefaultSettings.appGroup) {
-            if let uuid = userDefaults.string(forKey: DefaultSettings.UserDefaultsKeys.appUUID) {
-                return uuid
-            } else {
-                let uuid = UUID().uuidString
-                userDefaults.set(uuid, forKey: DefaultSettings.UserDefaultsKeys.appUUID)
-                return uuid
-            }
-        } else {
+        guard let userDefaults = UserDefaults(suiteName: DefaultSettings.appGroup) else {
             return UUID().uuidString
         }
+
+        if let uuid = userDefaults.string(forKey: DefaultSettings.UserDefaultsKeys.appUUID) {
+            return uuid
+        }
+
+        let uuid = UUID().uuidString
+        userDefaults.set(uuid, forKey: DefaultSettings.UserDefaultsKeys.appUUID)
+        return uuid
     }()
 
     /// The application version number as string. It is retrieved from the app bundle.
     public static let appVersion: String = {
-        return Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
     }()
 
     /// The application build number as string. It is retrieved from the app bundle.
     public static let appBuild: String = {
-        return Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
     }()
 
     /// Whether the app is set to start at login or not.
@@ -141,6 +141,12 @@ public enum DefaultSettings {
 
         /// The name of the file used to store per-drive pause state.
         public static let pauseStateFileName = "pauseState.json"
+
+        /// The name of the file used to store per-drive trash settings.
+        public static let trashSettingsFileName = "trashSettings.json"
+
+        /// The name of the file used to signal an empty-trash request from the app to the extension.
+        public static let emptyTrashFlagFileName = "emptyTrashFlag.json"
     }
 
     /// Group of settings related to the S3 client.
@@ -177,6 +183,18 @@ public enum DefaultSettings {
 
         /// Milliseconds to pause between BFS levels to avoid starving user operations.
         public static let bfsLevelDelayMs = 200
+
+        /// S3 key prefix used for the trash folder inside each drive's prefix.
+        public static let trashPrefix = ".trash/"
+    }
+
+    /// Settings related to the trash feature.
+    public enum Trash {
+        /// Default number of days to retain trashed items before auto-purge.
+        public static let defaultRetentionDays = 30
+
+        /// Interval in seconds between auto-purge cycles (1 hour).
+        public static let purgeIntervalSeconds = 3600
     }
 
     /// Settings related to update checking.

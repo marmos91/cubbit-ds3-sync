@@ -30,6 +30,14 @@
 				<key>NSExtensionFileProviderActionActivationRule</key>
 				<string>TRUEPREDICATE</string>
 			</dict>
+			<dict>
+				<key>NSExtensionFileProviderActionIdentifier</key>
+				<string>io.cubbit.DS3Drive.DS3DriveProvider.action.restoreFromTrash</string>
+				<key>NSExtensionFileProviderActionName</key>
+				<string>Restore from Trash</string>
+				<key>NSExtensionFileProviderActionActivationRule</key>
+				<string>TRUEPREDICATE</string>
+			</dict>
 		</array>
 		<key>NSFileProviderDecorations</key>
 		<array>
@@ -92,6 +100,18 @@
 				<string>Badge</string>
 				<key>BadgeImageName</key>
 				<string>exclamationmark.triangle.fill</string>
+			</dict>
+			<dict>
+				<key>Identifier</key>
+				<string>io.cubbit.DS3Drive.DS3DriveProvider.trashed</string>
+				<key>BadgeImageType</key>
+				<string>com.apple.fileprovider.decoration.badge.system-symbol</string>
+				<key>Label</key>
+				<string>Trashed</string>
+				<key>Category</key>
+				<string>Badge</string>
+				<key>BadgeImageName</key>
+				<string>trash.fill</string>
 			</dict>
 		</array>
 	</dict>

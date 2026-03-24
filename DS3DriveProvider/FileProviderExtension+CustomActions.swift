@@ -1,10 +1,12 @@
 import DS3Lib
 @preconcurrency import FileProvider
 import os.log
+import SotoS3
 
 enum CustomActionIdentifier {
     static let copyS3URL = "io.cubbit.DS3Drive.DS3DriveProvider.action.copyS3URL"
     static let evictItem = "io.cubbit.DS3Drive.DS3DriveProvider.action.evictItem"
+    static let restoreFromTrash = "io.cubbit.DS3Drive.DS3DriveProvider.action.restoreFromTrash"
 }
 
 private extension NSFileProviderItemIdentifier {
@@ -52,12 +54,84 @@ extension FileProviderExtension {
                 completionHandler: completionHandler
             )
 
+        case CustomActionIdentifier.restoreFromTrash:
+            performRestoreFromTrash(
+                itemIdentifiers: itemIdentifiers,
+                drive: drive,
+                progress: progress,
+                completionHandler: completionHandler
+            )
+
         default:
             self.logger.warning("Unknown custom action: \(actionIdentifier.rawValue, privacy: .public)")
             completionHandler(NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError))
         }
 
         return progress
+    }
+
+    private func performRestoreFromTrash(
+        itemIdentifiers: [NSFileProviderItemIdentifier],
+        drive: DS3Drive,
+        progress: Progress,
+        completionHandler: @escaping (Error?) -> Void
+    ) {
+        guard let s3Lib = self.s3Lib, let nm = self.notificationManager else {
+            completionHandler(NSFileProviderError(.cannotSynchronize) as NSError)
+            return
+        }
+
+        let boxedCb = UncheckedBox(value: completionHandler)
+        Task {
+            var firstError: Error?
+            for identifier in itemIdentifiers {
+                if identifier.isSystemContainer { continue }
+
+                let rawKey = identifier.rawValue
+                let actualTrashKey = try await self.resolveTrashKey(rawKey, drive: drive)
+
+                do {
+                    await nm.sendDriveChangedNotification(status: .sync)
+                    let s3Item = S3Item(
+                        identifier: NSFileProviderItemIdentifier(actualTrashKey),
+                        drive: drive,
+                        objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
+                    )
+                    let restoredItem = try await s3Lib.restoreS3Item(s3Item, drive: drive, withProgress: progress)
+                    try? await self.metadataStore?.removeTrashRecord(trashKey: actualTrashKey, driveId: drive.id)
+                    if let manager = NSFileProviderManager(for: self.domain) {
+                        try? await manager.signalEnumerator(for: restoredItem.parentItemIdentifier)
+                    }
+                    self.logger.info("Restored \(actualTrashKey, privacy: .public) to \(restoredItem.itemIdentifier.rawValue, privacy: .public)")
+                } catch {
+                    self.logger.error("Failed to restore \(actualTrashKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    if firstError == nil {
+                        firstError = (error as? S3ErrorType)?.toFileProviderError()
+                            ?? NSFileProviderError(.cannotSynchronize) as NSError
+                    }
+                }
+                progress.completedUnitCount += 1
+            }
+            await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+            boxedCb.value(firstError)
+            self.signalChanges()
+            self.signalTrashChanges()
+        }
+    }
+
+    private func resolveTrashKey(_ rawKey: String, drive: DS3Drive) async throws -> String {
+        if S3Lib.isTrashedKey(rawKey, drive: drive) {
+            return rawKey
+        }
+
+        if let stored = try? await self.metadataStore?.fetchTrashKey(
+            forOriginalKey: rawKey, driveId: drive.id
+        ) {
+            return stored
+        }
+
+        let filename = rawKey.split(separator: "/").last.map(String.init) ?? rawKey
+        return S3Lib.fullTrashPrefix(forDrive: drive) + filename
     }
 
     private func performEvictAction(

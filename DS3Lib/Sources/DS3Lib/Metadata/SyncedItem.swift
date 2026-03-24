@@ -110,6 +110,11 @@ public enum SyncedItemSchemaV2: VersionedSchema {
         /// Defaults to false. Added in V2.
         public var isMaterialized: Bool = false
 
+        /// The original S3 key before the item was trashed. Nil for non-trashed items.
+        /// Used by TrashS3Enumerator to return the correct identifier so the system
+        /// can match trashed items with their original location for "Recover".
+        public var originalKey: String?
+
         public init(
             s3Key: String,
             driveId: UUID,
@@ -157,6 +162,7 @@ public enum SyncStatus: String, Codable, Sendable {
     case synced
     case error
     case conflict
+    case trashed
 }
 
 /// Migration plan for SyncedItem schema versions.
@@ -172,6 +178,7 @@ public enum SyncedItemMigrationPlan: SchemaMigrationPlan {
     /// Lightweight migration from V1 to V2:
     /// - Adds isMaterialized (Bool, default false) to SyncedItem
     /// - Adds SyncAnchorRecord as a new entity
+    /// - Adds originalKey (String?, default nil) to SyncedItem
     nonisolated(unsafe) static let migrateV1toV2 = MigrationStage.lightweight(
         fromVersion: SyncedItemSchemaV1.self,
         toVersion: SyncedItemSchemaV2.self

@@ -1,10 +1,11 @@
+import DS3Lib
+
 // swiftlint:disable file_length
 @preconcurrency import FileProvider
+import ImageIO
 import os.log
 import SotoS3
-import DS3Lib
 import SwiftData
-import ImageIO
 import UniformTypeIdentifiers
 
 /// Wraps a non-Sendable value for use in `sending` closures where thread safety is
@@ -43,34 +44,36 @@ actor AsyncSemaphore {
 }
 
 // swiftlint:disable:next type_body_length
-class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFileProviderCustomAction, NSFileProviderThumbnailing, @unchecked Sendable {
+class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
+    NSFileProviderCustomAction, NSFileProviderThumbnailing, @unchecked Sendable {
     typealias Logger = os.Logger
 
-    let logger: Logger = Logger(subsystem: LogSubsystem.provider, category: LogCategory.extension.rawValue)
+    let logger: Logger = .init(subsystem: LogSubsystem.provider, category: LogCategory.extension.rawValue)
 
     let domain: NSFileProviderDomain
     private var enabled: Bool
 
     private var s3Client: DS3S3Client?
-    private var s3Lib: S3Lib?
+    var s3Lib: S3Lib?
 
     private var apiKeys: DS3ApiKey?
     private var endpoint: String?
-    private var notificationManager: NotificationManager?
+    var notificationManager: NotificationManager?
     var metadataStore: MetadataStore?
     private var syncEngine: SyncEngine?
     private var networkMonitor: NetworkMonitor?
     private var pollingTask: Task<Void, Never>?
+    private var purgeTask: Task<Void, Never>?
 
     /// Proactive breadth-first indexer that populates MetadataStore level-by-level.
     private var breadthFirstIndexer: BreadthFirstIndexer?
 
-    /// Limits concurrent fetchContents/fetchPartialContents calls to prevent
-    /// HTTP/2 stream exhaustion (NIOHTTP2.StreamClosed errors).
+    // Limits concurrent fetchContents/fetchPartialContents calls to prevent
+    // HTTP/2 stream exhaustion (NIOHTTP2.StreamClosed errors).
     #if os(iOS)
-    private let fetchSemaphore = AsyncSemaphore(value: 4)
+        private let fetchSemaphore = AsyncSemaphore(value: 4)
     #else
-    private let fetchSemaphore = AsyncSemaphore(value: 20)
+        private let fetchSemaphore = AsyncSemaphore(value: 20)
     #endif
 
     var drive: DS3Drive?
@@ -138,13 +141,19 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
 
                 self.syncEngine = SyncEngine(metadataStore: store, networkMonitor: monitor)
             } catch {
-                logger.warning("Failed to initialize MetadataStore/SyncEngine: \(error.localizedDescription, privacy: .public). Extension will work without sync engine.")
+                logger
+                    .warning(
+                        "Failed to initialize MetadataStore/SyncEngine: \(error.localizedDescription, privacy: .public). Extension will work without sync engine."
+                    )
             }
 
             self.enabled = true
             logger.info("Extension initialized successfully for domain \(domain.identifier.rawValue, privacy: .public)")
         } catch {
-            logger.error("Extension init failed for domain \(domain.identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            logger
+                .error(
+                    "Extension init failed for domain \(domain.identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
             super.init()
             self.notifyInitFailure(reason: error.localizedDescription)
             return
@@ -153,6 +162,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
         super.init()
         self.startPolling()
         self.warmCacheThenStartBFS()
+        self.startAutoPurge()
 
         // If drive is paused, notify the main app so UI reflects the state
         if let driveId = self.drive?.id,
@@ -175,6 +185,8 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
         self.logger.debug("Stopping periodic polling task")
         self.pollingTask?.cancel()
         self.pollingTask = nil
+        self.purgeTask?.cancel()
+        self.purgeTask = nil
         self.breadthFirstIndexer?.stop()
         self.breadthFirstIndexer = nil
 
@@ -188,6 +200,22 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
     }
 
     // MARK: - Pure async business logic
+
+    /// Resolves the `.trash/` key for an item, checking MetadataStore first, then falling back
+    /// to the flat trash key (just the filename under `.trash/`).
+    private func resolveTrashKey(
+        forOriginalKey key: String,
+        drive: DS3Drive,
+        metadataStore: MetadataStore?
+    ) async -> String {
+        if let stored = try? await metadataStore?.fetchTrashKey(
+            forOriginalKey: key, driveId: drive.id
+        ) {
+            return stored
+        }
+        let filename = key.split(separator: "/").last.map(String.init) ?? key
+        return S3Lib.fullTrashPrefix(forDrive: drive) + filename
+    }
 
     /// Resolves item metadata: checks MetadataStore cache first, then falls back to S3 HEAD.
     private func resolveItem(
@@ -228,12 +256,30 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
         }
 
         self.logger.info("item(for:) S3 HEAD for \(identifier.rawValue, privacy: .public)")
-        return try await s3Lib.remoteS3Item(for: identifier, drive: drive)
+        do {
+            return try await s3Lib.remoteS3Item(for: identifier, drive: drive)
+        } catch {
+            // If the original key 404s, check whether the item lives in .trash/.
+            let trashKey = await resolveTrashKey(
+                forOriginalKey: identifier.rawValue, drive: drive, metadataStore: metadataStore
+            )
+            let trashIdentifier = NSFileProviderItemIdentifier(trashKey)
+            if let trashedItem = try? await s3Lib.remoteS3Item(for: trashIdentifier, drive: drive) {
+                self.logger.info("item(for:) found in trash: \(trashKey, privacy: .public)")
+                return S3Item(
+                    identifier: identifier,
+                    drive: drive,
+                    objectMetadata: trashedItem.metadata,
+                    forcedTrashed: true
+                )
+            }
+            throw error
+        }
     }
 
     // MARK: - Protocol methods
 
-    // Note: gets called when the extension wants to retrieve metadata for a specific item
+    /// Note: gets called when the extension wants to retrieve metadata for a specific item
     func item(
         for identifier: NSFileProviderItemIdentifier,
         request: NSFileProviderRequest,
@@ -249,22 +295,14 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
             return Progress()
         }
 
-        self.logger.debug("item(for: \(identifier.rawValue, privacy: .public))")
-
-        switch identifier {
-        case .trashContainer:
-            completionHandler(nil, NSFileProviderError(.noSuchItem))
-            return Progress()
-        case .rootContainer:
-            let rootItem = S3Item(
+        if identifier == .trashContainer || identifier == .rootContainer {
+            let item = S3Item(
                 identifier: identifier,
                 drive: drive,
                 objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
             )
-            completionHandler(rootItem, nil)
+            completionHandler(item, nil)
             return Progress()
-        default:
-            break
         }
 
         let metadataStore = self.metadataStore
@@ -277,8 +315,11 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                 )
                 completionHandler(item, nil)
             } catch let s3Error as S3ErrorType {
-                if identifier.rawValue.hasSuffix(String(DefaultSettings.S3.delimiter)) && s3Error.isNotFound {
-                    let folderSyncStatus = try? await metadataStore?.fetchItemSyncStatus(byKey: identifier.rawValue, driveId: drive.id)
+                if identifier.rawValue.hasSuffix(String(DefaultSettings.S3.delimiter)), s3Error.isNotFound {
+                    let folderSyncStatus = try? await metadataStore?.fetchItemSyncStatus(
+                        byKey: identifier.rawValue,
+                        driveId: drive.id
+                    )
                     let folderItem = S3Item(
                         identifier: identifier,
                         drive: drive,
@@ -297,6 +338,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
     }
 
     // NOTE: gets called when the extension wants to retrieve the contents of a specific item
+    // swiftlint:disable:next function_body_length
     func fetchContents(
         for itemIdentifier: NSFileProviderItemIdentifier,
         version requestedVersion: NSFileProviderItemVersion?,
@@ -320,7 +362,12 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
         // Check BEFORE pause gate: folder materialization is local-only and triggers
         // BFS prioritization, allowing folder navigation even when paused.
         if itemIdentifier.rawValue.hasSuffix(String(DefaultSettings.S3.delimiter)) {
-            return materializeFolderItem(itemIdentifier, drive: drive, temporaryDirectory: temporaryDirectory, completionHandler: completionHandler)
+            return materializeFolderItem(
+                itemIdentifier,
+                drive: drive,
+                temporaryDirectory: temporaryDirectory,
+                completionHandler: completionHandler
+            )
         }
 
         if isDrivePaused(drive.id, operation: "fetchContents") {
@@ -352,28 +399,66 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                 await nm.sendDriveChangedNotification(status: .sync)
                 logMemoryUsage(label: "fetch-start:\(itemIdentifier.rawValue)", logger: self.logger)
 
-                let (fileURL, s3Item) = try await self.withAPIKeyRecovery {
-                    try await withExponentialBackoff(maxRetries: 3, baseDelay: 1.0) {
-                        try await s3Lib.downloadS3Item(
-                            identifier: itemIdentifier,
-                            drive: drive,
-                            temporaryFolder: temporaryDirectory,
-                            progress: progress
-                        )
+                let (fileURL, s3Item): (URL, S3Item)
+                do {
+                    (fileURL, s3Item) = try await self.withAPIKeyRecovery {
+                        try await withExponentialBackoff(maxRetries: 3, baseDelay: 1.0) {
+                            try await s3Lib.downloadS3Item(
+                                identifier: itemIdentifier,
+                                drive: drive,
+                                temporaryFolder: temporaryDirectory,
+                                progress: progress
+                            )
+                        }
+                    }
+                } catch {
+                    // If original key fails, try .trash/ key (item may be trashed
+                    // but the system still knows it by its original identifier).
+                    let trashKey = await self.resolveTrashKey(
+                        forOriginalKey: itemIdentifier.rawValue, drive: drive, metadataStore: metadataStore
+                    )
+                    let trashId = NSFileProviderItemIdentifier(trashKey)
+                    (fileURL, s3Item) = try await self.withAPIKeyRecovery {
+                        try await withExponentialBackoff(maxRetries: 3, baseDelay: 1.0) {
+                            try await s3Lib.downloadS3Item(
+                                identifier: trashId,
+                                drive: drive,
+                                temporaryFolder: temporaryDirectory,
+                                progress: progress
+                            )
+                        }
                     }
                 }
 
                 logMemoryUsage(label: "fetch-complete:\(s3Item.filename)", logger: self.logger)
-                self.logger.info("File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize ?? 0, privacy: .public) downloaded successfully")
+                self.logger
+                    .info(
+                        "File \(s3Item.filename, privacy: .public) with size \(s3Item.documentSize ?? 0, privacy: .public) downloaded successfully"
+                    )
 
-                try? await metadataStore?.setMaterialized(s3Key: itemIdentifier.rawValue, driveId: drive.id, isMaterialized: true)
-                try? await metadataStore?.setSyncStatus(s3Key: itemIdentifier.rawValue, driveId: drive.id, status: .synced)
+                try? await metadataStore?.setMaterialized(
+                    s3Key: itemIdentifier.rawValue,
+                    driveId: drive.id,
+                    isMaterialized: true
+                )
+                try? await metadataStore?.setSyncStatus(
+                    s3Key: itemIdentifier.rawValue,
+                    driveId: drive.id,
+                    status: .synced
+                )
 
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 complete(fileURL, s3Item, nil)
             } catch let s3Error as S3ErrorType {
-                self.logger.error("Download failed for \(itemIdentifier.rawValue, privacy: .public) with S3 error \(s3Error.errorCode, privacy: .public)")
-                await self.markItemAndParentAsError(itemKey: itemIdentifier.rawValue, driveId: drive.id, metadataStore: metadataStore)
+                self.logger
+                    .error(
+                        "Download failed for \(itemIdentifier.rawValue, privacy: .public) with S3 error \(s3Error.errorCode, privacy: .public)"
+                    )
+                await self.markItemAndParentAsError(
+                    itemKey: itemIdentifier.rawValue,
+                    driveId: drive.id,
+                    metadataStore: metadataStore
+                )
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 complete(nil, nil, s3Error.toFileProviderError())
             } catch is CancellationError {
@@ -381,8 +466,15 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 complete(nil, nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
             } catch {
-                self.logger.error("Download failed for \(itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                await self.markItemAndParentAsError(itemKey: itemIdentifier.rawValue, driveId: drive.id, metadataStore: metadataStore)
+                self.logger
+                    .error(
+                        "Download failed for \(itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
+                await self.markItemAndParentAsError(
+                    itemKey: itemIdentifier.rawValue,
+                    driveId: drive.id,
+                    metadataStore: metadataStore
+                )
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 complete(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
             }
@@ -424,12 +516,21 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
         self.logger.debug("Starting upload for item \(itemTemplate.itemIdentifier.rawValue, privacy: .public)")
 
         guard itemTemplate.contentType != .symbolicLink else {
-            self.logger.warning("Skipping symbolic link \(itemTemplate.itemIdentifier.rawValue, privacy: .public) upload. Feature not supported")
-            completionHandler(itemTemplate, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [:]))
+            self.logger
+                .warning(
+                    "Skipping symbolic link \(itemTemplate.itemIdentifier.rawValue, privacy: .public) upload. Feature not supported"
+                )
+            completionHandler(
+                itemTemplate,
+                NSFileProviderItemFields(),
+                false,
+                NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [:])
+            )
             return Progress()
         }
 
-        let parentKey: String? = itemTemplate.parentItemIdentifier == .rootContainer ? nil : itemTemplate.parentItemIdentifier.rawValue
+        let parentKey: String? = itemTemplate.parentItemIdentifier == .rootContainer ? nil : itemTemplate
+            .parentItemIdentifier.rawValue
 
         var key = (parentKey ?? "") + itemTemplate.filename
 
@@ -452,7 +553,11 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
         )
 
         let documentSize = s3Item.documentSize?.intValue ?? 0
-        let numParts = max(Int64((documentSize + DefaultSettings.S3.multipartUploadPartSize - 1) / DefaultSettings.S3.multipartUploadPartSize), 1)
+        let numParts = max(
+            Int64((documentSize + DefaultSettings.S3.multipartUploadPartSize - 1) / DefaultSettings.S3
+                .multipartUploadPartSize),
+            1
+        )
         let progress = Progress(totalUnitCount: numParts)
         let uploadProgress = Progress(totalUnitCount: numParts)
         progress.addChild(uploadProgress, withPendingUnitCount: numParts)
@@ -482,7 +587,8 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
 
                     progress.completedUnitCount = numParts
                     completionHandler(existingItem, NSFileProviderItemFields(), false, nil)
-                } catch let s3Error as S3ErrorType where s3Error.errorCode == "NotFound" || s3Error.errorCode == "NoSuchKey" {
+                } catch let s3Error as S3ErrorType
+                    where s3Error.errorCode == "NotFound" || s3Error.errorCode == "NoSuchKey" {
                     // Item doesn't exist remotely — proceed with normal upload
                     self.logger.debug("Item not found remotely (.mayAlreadyExist), proceeding with upload")
                     do {
@@ -511,7 +617,12 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                         completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
                     } catch {
                         await nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                        completionHandler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
+                        completionHandler(
+                            nil,
+                            NSFileProviderItemFields(),
+                            false,
+                            NSFileProviderError(.cannotSynchronize) as NSError
+                        )
                     }
                 } catch let s3Error as S3ErrorType {
                     self.logger.error("HEAD failed for .mayAlreadyExist check: \(s3Error.errorCode, privacy: .public)")
@@ -521,7 +632,12 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                     // Network/unknown error — return transient error for retry
                     self.logger.error("HEAD failed for .mayAlreadyExist check: \(error)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                    completionHandler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.serverUnreachable) as NSError)
+                    completionHandler(
+                        nil,
+                        NSFileProviderItemFields(),
+                        false,
+                        NSFileProviderError(.serverUnreachable) as NSError
+                    )
                 }
             }
 
@@ -543,7 +659,10 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                             for: s3Item.itemIdentifier, drive: drive
                         )
 
-                        self.logger.warning("Create conflict: file already exists on S3 at \(s3Item.itemIdentifier.rawValue, privacy: .public)")
+                        self.logger
+                            .warning(
+                                "Create conflict: file already exists on S3 at \(s3Item.itemIdentifier.rawValue, privacy: .public)"
+                            )
 
                         let conflictS3Item = try await self.uploadConflictCopy(
                             for: s3Item,
@@ -564,7 +683,10 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                         // Any other S3 error also falls through (HEAD is best-effort for createItem)
                     } catch {
                         // Network error during HEAD -- proceed with create (best-effort check)
-                        self.logger.debug("Create conflict check failed, proceeding with upload: \(error.localizedDescription, privacy: .public)")
+                        self.logger
+                            .debug(
+                                "Create conflict check failed, proceeding with upload: \(error.localizedDescription, privacy: .public)"
+                            )
                     }
                 }
                 // --- End conflict detection ---
@@ -597,11 +719,24 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
             } catch is CancellationError {
                 self.logger.debug("Upload cancelled for \(key, privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
-                completionHandler(nil, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
+                completionHandler(
+                    nil,
+                    NSFileProviderItemFields(),
+                    false,
+                    NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)
+                )
             } catch {
-                self.logger.error("Upload failed for \(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                self.logger
+                    .error(
+                        "Upload failed for \(key, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                completionHandler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
+                completionHandler(
+                    nil,
+                    NSFileProviderItemFields(),
+                    false,
+                    NSFileProviderError(.cannotSynchronize) as NSError
+                )
             }
         }
 
@@ -656,11 +791,20 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
             // Modified
             switch s3Item.contentType {
             case .symbolicLink:
-                self.logger.warning("Skipping symbolic link modify for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
-                completionHandler(nil, [], false, NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [:]))
+                self.logger
+                    .warning("Skipping symbolic link modify for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
+                completionHandler(
+                    nil,
+                    [],
+                    false,
+                    NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [:])
+                )
                 return Progress()
             case .folder:
-                self.logger.error("Modify with contents requested for folder \(s3Item.itemIdentifier.rawValue, privacy: .public)")
+                self.logger
+                    .error(
+                        "Modify with contents requested for folder \(s3Item.itemIdentifier.rawValue, privacy: .public)"
+                    )
                 completionHandler(nil, [], false, NSFileProviderError(.cannotSynchronize) as NSError)
                 return progress
             default:
@@ -670,7 +814,11 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                 }
 
                 let documentSize = s3Item.documentSize?.intValue ?? 0
-                let numParts = max(Int64((documentSize + DefaultSettings.S3.multipartUploadPartSize - 1) / DefaultSettings.S3.multipartUploadPartSize), 1)
+                let numParts = max(
+                    Int64((documentSize + DefaultSettings.S3.multipartUploadPartSize - 1) / DefaultSettings.S3
+                        .multipartUploadPartSize),
+                    1
+                )
 
                 let putProgress = Progress(totalUnitCount: numParts)
                 progress.addChild(putProgress, withPendingUnitCount: numParts)
@@ -691,14 +839,21 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                                         byKey: s3Item.itemIdentifier.rawValue, driveId: drive.id
                                     )
                                 } else {
-                                    self.logger.warning("MetadataStore unavailable — skipping modify conflict check for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
+                                    self.logger
+                                        .warning(
+                                            "MetadataStore unavailable — skipping modify conflict check for \(s3Item.itemIdentifier.rawValue, privacy: .public)"
+                                        )
                                     storedETag = nil
                                 }
 
                                 if let remoteETag, let storedETag, !ETagUtils.areEqual(remoteETag, storedETag) {
-                                    self.logger.warning("Modify conflict for \(s3Item.itemIdentifier.rawValue, privacy: .public): remote ETag \(remoteETag, privacy: .public) differs from stored")
+                                    self.logger
+                                        .warning(
+                                            "Modify conflict for \(s3Item.itemIdentifier.rawValue, privacy: .public): remote ETag \(remoteETag, privacy: .public) differs from stored"
+                                        )
 
-                                    let parentKey = s3Item.parentItemIdentifier == .rootContainer ? nil : s3Item.parentItemIdentifier.rawValue
+                                    let parentKey = s3Item.parentItemIdentifier == .rootContainer ? nil : s3Item
+                                        .parentItemIdentifier.rawValue
                                     let conflictS3Item = try await self.uploadConflictCopy(
                                         for: s3Item,
                                         fileURL: contents,
@@ -711,19 +866,30 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                                     putProgress.completedUnitCount = numParts
                                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                                     self.signalChanges()
-                                    // Return empty remaining fields: the conflict copy already has the correct name/location
+                                    // Return empty remaining fields: the conflict copy already has the correct
+                                    // name/location
                                     completionHandler(conflictS3Item, NSFileProviderItemFields(), false, nil)
                                     return
                                 }
-                            } catch let s3Error as S3ErrorType where s3Error.errorCode == "NoSuchKey" || s3Error.errorCode == "NotFound" {
+                            } catch let s3Error as S3ErrorType
+                                where s3Error.errorCode == "NoSuchKey" || s3Error.errorCode == "NotFound" {
                                 // Remote file was deleted -- proceed with normal upload (re-create)
-                                self.logger.debug("Conflict check: remote file deleted, proceeding with upload for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
+                                self.logger
+                                    .debug(
+                                        "Conflict check: remote file deleted, proceeding with upload for \(s3Item.itemIdentifier.rawValue, privacy: .public)"
+                                    )
                             } catch let s3Error as S3ErrorType {
                                 // Any other S3 error — conflict check is best-effort, proceed with upload
-                                self.logger.warning("Conflict check HEAD failed (best-effort, proceeding): \(s3Error.errorCode, privacy: .public)")
+                                self.logger
+                                    .warning(
+                                        "Conflict check HEAD failed (best-effort, proceeding): \(s3Error.errorCode, privacy: .public)"
+                                    )
                             } catch {
                                 // Network error during HEAD — conflict check is best-effort, proceed with upload
-                                self.logger.warning("Conflict check failed (best-effort, proceeding) for \(s3Item.itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                                self.logger
+                                    .warning(
+                                        "Conflict check failed (best-effort, proceeding) for \(s3Item.itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                                    )
                             }
                         }
                         // --- End conflict detection ---
@@ -751,21 +917,78 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                         await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
                     } catch is CancellationError {
-                        self.logger.debug("Modify upload cancelled for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
+                        self.logger
+                            .debug("Modify upload cancelled for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
                         await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
-                        completionHandler(nil, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
+                        completionHandler(
+                            nil,
+                            NSFileProviderItemFields(),
+                            false,
+                            NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)
+                        )
                     } catch {
-                        self.logger.error("Modify upload failed for \(s3Item.itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                        self.logger
+                            .error(
+                                "Modify upload failed for \(s3Item.itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                            )
                         await nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                        completionHandler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
+                        completionHandler(
+                            nil,
+                            NSFileProviderItemFields(),
+                            false,
+                            NSFileProviderError(.cannotSynchronize) as NSError
+                        )
                     }
                 }
             }
-        } else if changedFields.contains(.filename) && changedFields.contains(.parentItemIdentifier) {
+        } else if changedFields.contains(.parentItemIdentifier), s3Item.isInTrash {
+            // Restore from trash: item has .trash/ key — move out of .trashContainer
+            Task {
+                let completionHandler = boxedCb.value
+                do {
+                    await nm.sendDriveChangedNotification(status: .sync)
+                    let restoredItem = try await self.withAPIKeyRecovery {
+                        try await s3Lib.restoreS3Item(s3Item, drive: drive, withProgress: progress)
+                    }
+                    try? await self.metadataStore?.removeTrashRecord(
+                        trashKey: s3Item.itemIdentifier.rawValue, driveId: drive.id
+                    )
+                    self.logger
+                        .info("Restored item from trash: \(restoredItem.itemIdentifier.rawValue, privacy: .public)")
+                    await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                    self.signalChanges()
+                    self.signalTrashChanges()
+                    completionHandler(restoredItem, NSFileProviderItemFields(), false, nil)
+                } catch let s3Error as S3ErrorType {
+                    self.logger.error("Restore from trash failed: \(s3Error.errorCode, privacy: .public)")
+                    await nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                    completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
+                } catch {
+                    self.logger.error("Restore from trash failed: \(error.localizedDescription, privacy: .public)")
+                    await nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                    completionHandler(
+                        nil,
+                        NSFileProviderItemFields(),
+                        false,
+                        NSFileProviderError(.cannotSynchronize) as NSError
+                    )
+                }
+            }
+        } else if changedFields.contains(.parentItemIdentifier), item.parentItemIdentifier == .trashContainer {
+            // Move to trash: Finder is trashing this item via Cmd+Delete
+            performMoveToTrash(
+                s3Item: s3Item, drive: drive, s3Lib: s3Lib, nm: nm,
+                progress: progress, completionHandler: boxedCb.value
+            )
+        } else if changedFields.contains(.filename), changedFields.contains(.parentItemIdentifier) {
             // Renamed + moved
             let newName = item.filename
-            let destinationParent = item.parentItemIdentifier == .rootContainer ? "" : item.parentItemIdentifier.rawValue
-            self.logger.debug("Rename+move detected for \(s3Item.itemIdentifier.rawValue, privacy: .public) to \(destinationParent, privacy: .public)\(newName, privacy: .public)")
+            let destinationParent = item.parentItemIdentifier == .rootContainer ? "" : item.parentItemIdentifier
+                .rawValue
+            self.logger
+                .debug(
+                    "Rename+move detected for \(s3Item.itemIdentifier.rawValue, privacy: .public) to \(destinationParent, privacy: .public)\(newName, privacy: .public)"
+                )
 
             let oldKey = s3Item.itemIdentifier.rawValue
             Task {
@@ -775,7 +998,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
 
                     let delimiter = String(DefaultSettings.S3.delimiter)
                     var newKey = destinationParent + newName
-                    if s3Item.isFolder && !newKey.hasSuffix(delimiter) {
+                    if s3Item.isFolder, !newKey.hasSuffix(delimiter) {
                         newKey += delimiter
                     }
 
@@ -803,20 +1026,34 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                 } catch {
                     self.logger.error("Rename+move failed with error \(error)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                    completionHandler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
+                    completionHandler(
+                        nil,
+                        NSFileProviderItemFields(),
+                        false,
+                        NSFileProviderError(.cannotSynchronize) as NSError
+                    )
                 }
             }
         } else if changedFields.contains(.filename) {
             // Renamed
             switch s3Item.contentType {
             case .symbolicLink:
-                self.logger.warning("Skipping symbolic link rename for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
-                completionHandler(nil, [], false, NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [:]))
+                self.logger
+                    .warning("Skipping symbolic link rename for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
+                completionHandler(
+                    nil,
+                    [],
+                    false,
+                    NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError, userInfo: [:])
+                )
                 return progress
             default:
                 // File/Folder rename
                 let newName = item.filename
-                self.logger.info("Rename detected for \(s3Item.itemIdentifier.rawValue, privacy: .public) with name \(newName, privacy: .public)")
+                self.logger
+                    .info(
+                        "Rename detected for \(s3Item.itemIdentifier.rawValue, privacy: .public) with name \(newName, privacy: .public)"
+                    )
 
                 let oldKey = s3Item.itemIdentifier.rawValue
                 Task {
@@ -843,18 +1080,35 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                     } catch is CancellationError {
                         self.logger.debug("Rename cancelled for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
                         await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
-                        completionHandler(nil, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
+                        completionHandler(
+                            nil,
+                            NSFileProviderItemFields(),
+                            false,
+                            NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)
+                        )
                     } catch {
-                        self.logger.error("Rename failed for \(oldKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                        self.logger
+                            .error(
+                                "Rename failed for \(oldKey, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                            )
                         await nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                        completionHandler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
+                        completionHandler(
+                            nil,
+                            NSFileProviderItemFields(),
+                            false,
+                            NSFileProviderError(.cannotSynchronize) as NSError
+                        )
                     }
                 }
             }
         } else if changedFields.contains(.parentItemIdentifier) {
-            // Move file/folder
-            let destinationParent = item.parentItemIdentifier == .rootContainer ? "" : item.parentItemIdentifier.rawValue
-            self.logger.info("Move detected for key \(s3Item.itemIdentifier.rawValue, privacy: .public) from \(s3Item.parentItemIdentifier.rawValue, privacy: .public) to \(destinationParent, privacy: .public)")
+            // Move file/folder (or restore from trash if the item's data is in .trash/)
+            let destinationParent = item.parentItemIdentifier == .rootContainer ? "" : item.parentItemIdentifier
+                .rawValue
+            self.logger
+                .info(
+                    "Move detected for key \(s3Item.itemIdentifier.rawValue, privacy: .public) from \(s3Item.parentItemIdentifier.rawValue, privacy: .public) to \(destinationParent, privacy: .public)"
+                )
 
             let moveOldKey = s3Item.itemIdentifier.rawValue
             Task {
@@ -862,10 +1116,43 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                 do {
                     await nm.sendDriveChangedNotification(status: .sync)
 
+                    // Check if the item is trashed (restore from trash).
+                    // MetadataStore is authoritative; fall back to S3 HEAD with flat key.
+                    var resolvedTrashKey: String?
+                    if let storedKey = try? await self.metadataStore?.fetchTrashKey(
+                        forOriginalKey: moveOldKey, driveId: drive.id
+                    ) {
+                        resolvedTrashKey = storedKey
+                    } else {
+                        let filename = moveOldKey.split(separator: "/").last.map(String.init) ?? moveOldKey
+                        let flatKey = S3Lib.fullTrashPrefix(forDrive: drive) + filename
+                        if (try? await s3Lib.remoteS3Item(for: NSFileProviderItemIdentifier(flatKey), drive: drive)) != nil {
+                            resolvedTrashKey = flatKey
+                        }
+                    }
+
+                    if let trashKey = resolvedTrashKey {
+                        let trashS3Item = S3Item(
+                            identifier: NSFileProviderItemIdentifier(trashKey),
+                            drive: drive,
+                            objectMetadata: s3Item.metadata
+                        )
+                        let restoredItem = try await self.withAPIKeyRecovery {
+                            try await s3Lib.restoreS3Item(trashS3Item, drive: drive, withProgress: progress)
+                        }
+                        try? await self.metadataStore?.removeTrashRecord(trashKey: trashKey, driveId: drive.id)
+                        self.logger.info("Restored item from trash: \(restoredItem.itemIdentifier.rawValue, privacy: .public)")
+                        await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                        self.signalChanges()
+                        self.signalTrashChanges()
+                        completionHandler(restoredItem, NSFileProviderItemFields(), false, nil)
+                        return
+                    }
+
                     var newKey = destinationParent + s3Item.filename
 
                     // Preserve trailing slash for folders
-                    if s3Item.isFolder && !newKey.hasSuffix(String(DefaultSettings.S3.delimiter)) {
+                    if s3Item.isFolder, !newKey.hasSuffix(String(DefaultSettings.S3.delimiter)) {
                         newKey += String(DefaultSettings.S3.delimiter)
                     }
 
@@ -894,11 +1181,24 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                 } catch is CancellationError {
                     self.logger.debug("Move cancelled for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
-                    completionHandler(nil, NSFileProviderItemFields(), false, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
+                    completionHandler(
+                        nil,
+                        NSFileProviderItemFields(),
+                        false,
+                        NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)
+                    )
                 } catch {
-                    self.logger.error("Move failed for \(moveOldKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    self.logger
+                        .error(
+                            "Move failed for \(moveOldKey, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                        )
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                    completionHandler(nil, NSFileProviderItemFields(), false, NSFileProviderError(.cannotSynchronize) as NSError)
+                    completionHandler(
+                        nil,
+                        NSFileProviderItemFields(),
+                        false,
+                        NSFileProviderError(.cannotSynchronize) as NSError
+                    )
                 }
             }
         } else {
@@ -936,28 +1236,276 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
         }
 
         switch identifier {
-        case .trashContainer, .rootContainer:
-            self.logger.debug("Skipping deletion of container \(identifier.rawValue, privacy: .public)")
+        case .rootContainer:
+            self.logger.debug("Skipping deletion of root container")
             completionHandler(nil)
             return Progress()
+        case .trashContainer:
+            // Empty all trash
+            let progress = Progress(totalUnitCount: 1)
+            let boxedCb = UncheckedBox(value: completionHandler)
+            Task {
+                do {
+                    await nm.sendDriveChangedNotification(status: .sync)
+                    try await self.withAPIKeyRecovery {
+                        try await s3Lib.emptyTrash(drive: drive, withProgress: progress)
+                    }
+                    try? await self.metadataStore?.removeAllTrashRecords(driveId: drive.id)
+                    self.logger.info("Trash emptied for drive \(drive.id, privacy: .public)")
+                    progress.completedUnitCount = 1
+                    await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                    self.signalTrashChanges()
+                    boxedCb.value(nil)
+                } catch let s3Error as S3ErrorType {
+                    self.logger.error("Failed to empty trash: \(s3Error.errorCode, privacy: .public)")
+                    await nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                    boxedCb.value(s3Error.toFileProviderError())
+                } catch is CancellationError {
+                    self.logger.debug("Empty trash cancelled for drive \(drive.id, privacy: .public)")
+                    await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                    boxedCb.value(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
+                } catch {
+                    self.logger.error("Failed to empty trash: \(error.localizedDescription, privacy: .public)")
+                    await nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                    boxedCb.value(NSFileProviderError(.cannotSynchronize) as NSError)
+                }
+            }
+            return progress
         default:
             break
         }
 
-        // TODO: Handle versioning
+        let s3Item = S3Item(
+            identifier: identifier,
+            drive: drive,
+            objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
+        )
 
+        // If item is already in trash → hard-delete (permanent).
+        // Check both the .trash/ key prefix AND the original-key-with-trash-counterpart
+        // case (the system may send the original identifier for a trashed item).
+        if s3Item.isInTrash {
+            return performHardDelete(
+                s3Item: s3Item, drive: drive, s3Lib: s3Lib, nm: nm, completionHandler: completionHandler
+            )
+        }
+
+        let trashKey = S3Lib.trashKey(forKey: identifier.rawValue, drive: drive)
+        let trashIdentifier = NSFileProviderItemIdentifier(trashKey)
         let progress = Progress(totalUnitCount: 1)
+        let boxedCb = UncheckedBox(value: completionHandler)
+        Task {
+            // Peek at the trash key — if it exists, this is a permanent delete of a trashed item
+            if (try? await s3Lib.remoteS3Item(for: trashIdentifier, drive: drive)) != nil {
+                self.logger.info("deleteItem: original key \(identifier.rawValue, privacy: .public) has .trash/ counterpart, hard-deleting")
+                let trashS3Item = S3Item(
+                    identifier: trashIdentifier,
+                    drive: drive,
+                    objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
+                )
+                let hardProgress = self.performHardDelete(
+                    s3Item: trashS3Item, drive: drive, s3Lib: s3Lib, nm: nm, completionHandler: boxedCb.value
+                )
+                progress.addChild(hardProgress, withPendingUnitCount: 1)
+                return
+            }
 
+            let trashEnabled = (try? SharedData.default().loadTrashSettings(forDrive: drive.id))?.enabled ?? true
+            let childProgress: Progress
+            if trashEnabled {
+                childProgress = self.performSoftDelete(
+                    s3Item: s3Item, drive: drive, s3Lib: s3Lib, nm: nm, completionHandler: boxedCb.value
+                )
+            } else {
+                childProgress = self.performHardDeleteWithConflictCheck(
+                    identifier: identifier, s3Item: s3Item, drive: drive, s3Lib: s3Lib, nm: nm,
+                    completionHandler: boxedCb.value
+                )
+            }
+            progress.addChild(childProgress, withPendingUnitCount: 1)
+        }
+        return progress
+    }
+
+    /// Handles Finder's "Move to Trash" reparenting (modifyItem with parent == .trashContainer).
+    private func performMoveToTrash(
+        s3Item: S3Item,
+        drive: DS3Drive,
+        s3Lib: S3Lib,
+        nm: NotificationManager,
+        progress: Progress,
+        completionHandler: @escaping (NSFileProviderItem?, NSFileProviderItemFields, Bool, Error?) -> Void
+    ) {
+        self.logger.info("Move to trash detected for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
         let boxedCb = UncheckedBox(value: completionHandler)
         Task {
             let completionHandler = boxedCb.value
             do {
-                let s3Item = S3Item(
-                    identifier: identifier,
-                    drive: drive,
-                    objectMetadata: S3Item.Metadata(size: NSNumber(value: 0))
+                await nm.sendDriveChangedNotification(status: .sync)
+                let trashedKey = try await self.withAPIKeyRecovery {
+                    try await s3Lib.trashS3Item(s3Item, drive: drive, withProgress: progress)
+                }
+
+                try? await self.metadataStore?.deleteItem(byKey: s3Item.itemIdentifier.rawValue, driveId: drive.id)
+
+                // Get actual metadata from the trashed S3 object since the incoming
+                // item may have nil documentSize (cloud-only items not downloaded).
+                let trashedS3Item = try? await s3Lib.remoteS3Item(
+                    for: NSFileProviderItemIdentifier(trashedKey),
+                    drive: drive
+                )
+                let actualSize = Int64(truncating: trashedS3Item?.documentSize ?? s3Item.documentSize ?? 0)
+
+                // Record trash mapping in MetadataStore so TrashS3Enumerator can
+                // resolve original keys without expensive S3 HEAD requests.
+                try? await self.metadataStore?.recordTrash(
+                    trashKey: trashedKey,
+                    originalKey: s3Item.itemIdentifier.rawValue,
+                    driveId: drive.id,
+                    size: actualSize
                 )
 
+                // Return the item with its ORIGINAL identifier so the system
+                // tracks the same item moving to .trashContainer.
+                let trashedItem = S3Item(
+                    identifier: s3Item.itemIdentifier,
+                    drive: drive,
+                    objectMetadata: S3Item.Metadata(
+                        etag: trashedS3Item?.metadata.etag,
+                        lastModified: Date(),
+                        size: NSNumber(value: actualSize)
+                    ),
+                    forcedTrashed: true
+                )
+
+                await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                // Complete FIRST so the system processes the reparenting,
+                // then signal for re-enumeration.
+                completionHandler(trashedItem, NSFileProviderItemFields(), false, nil)
+                self.signalChanges()
+                self.signalTrashChanges()
+            } catch let s3Error as S3ErrorType {
+                self.logger.error("Move to trash failed: \(s3Error.errorCode, privacy: .public)")
+                await nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
+            } catch {
+                self.logger.error("Move to trash failed: \(error.localizedDescription, privacy: .public)")
+                await nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                completionHandler(
+                    nil,
+                    NSFileProviderItemFields(),
+                    false,
+                    NSFileProviderError(.cannotSynchronize) as NSError
+                )
+            }
+        }
+    }
+
+    /// Soft-delete: moves an item to the `.trash/` prefix instead of permanently deleting it.
+    private func performSoftDelete(
+        s3Item: S3Item,
+        drive: DS3Drive,
+        s3Lib: S3Lib,
+        nm: NotificationManager,
+        completionHandler: @escaping (Error?) -> Void
+    ) -> Progress {
+        let progress = Progress(totalUnitCount: 1)
+        let boxedCb = UncheckedBox(value: completionHandler)
+        Task {
+            let completionHandler = boxedCb.value
+            do {
+                await nm.sendDriveChangedNotification(status: .sync)
+                let trashedKey = try await self.withAPIKeyRecovery {
+                    try await s3Lib.trashS3Item(s3Item, drive: drive, withProgress: progress)
+                }
+                self.logger.info("Soft-deleted (trashed) item \(s3Item.itemIdentifier.rawValue, privacy: .public)")
+
+                try? await self.metadataStore?.deleteItem(byKey: s3Item.itemIdentifier.rawValue, driveId: drive.id)
+                try? await self.metadataStore?.recordTrash(
+                    trashKey: trashedKey,
+                    originalKey: s3Item.itemIdentifier.rawValue,
+                    driveId: drive.id,
+                    size: Int64(truncating: s3Item.documentSize ?? 0)
+                )
+                progress.completedUnitCount = 1
+                await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                self.signalChanges()
+                self.signalTrashChanges()
+                completionHandler(nil)
+            } catch let s3Error as S3ErrorType {
+                self.logger.error("Soft-delete failed with S3 error \(s3Error.errorCode, privacy: .public)")
+                await nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                completionHandler(s3Error.toFileProviderError())
+            } catch is CancellationError {
+                self.logger.debug("Soft-delete cancelled for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
+                await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                completionHandler(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
+            } catch {
+                self.logger.error("Soft-delete failed: \(error.localizedDescription, privacy: .public)")
+                await nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                completionHandler(NSFileProviderError(.cannotSynchronize) as NSError)
+            }
+        }
+        return progress
+    }
+
+    /// Hard-delete: permanently removes an already-trashed item.
+    private func performHardDelete(
+        s3Item: S3Item,
+        drive: DS3Drive,
+        s3Lib: S3Lib,
+        nm: NotificationManager,
+        completionHandler: @escaping (Error?) -> Void
+    ) -> Progress {
+        let progress = Progress(totalUnitCount: 1)
+        let boxedCb = UncheckedBox(value: completionHandler)
+        Task {
+            let completionHandler = boxedCb.value
+            do {
+                await nm.sendDriveChangedNotification(status: .sync)
+                try await self.withAPIKeyRecovery {
+                    try await s3Lib.deleteS3Item(s3Item, withProgress: progress)
+                }
+                try? await self.metadataStore?.removeTrashRecord(
+                    trashKey: s3Item.itemIdentifier.rawValue, driveId: drive.id
+                )
+                self.logger.info("Hard-deleted trashed item \(s3Item.itemIdentifier.rawValue, privacy: .public)")
+                progress.completedUnitCount = 1
+                await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                self.signalTrashChanges()
+                completionHandler(nil)
+            } catch let s3Error as S3ErrorType {
+                self.logger.error("Hard-delete failed with S3 error \(s3Error.errorCode, privacy: .public)")
+                await nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                completionHandler(s3Error.toFileProviderError())
+            } catch is CancellationError {
+                self.logger.debug("Hard-delete cancelled for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
+                await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                completionHandler(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
+            } catch {
+                self.logger.error("Hard-delete failed: \(error.localizedDescription, privacy: .public)")
+                await nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                completionHandler(NSFileProviderError(.cannotSynchronize) as NSError)
+            }
+        }
+        return progress
+    }
+
+    // Hard-delete with conflict detection: used when trash is disabled.
+    // swiftlint:disable:next function_body_length
+    private func performHardDeleteWithConflictCheck(
+        identifier: NSFileProviderItemIdentifier,
+        s3Item: S3Item,
+        drive: DS3Drive,
+        s3Lib: S3Lib,
+        nm: NotificationManager,
+        completionHandler: @escaping (Error?) -> Void
+    ) -> Progress {
+        let progress = Progress(totalUnitCount: 1)
+        let boxedCb = UncheckedBox(value: completionHandler)
+        Task {
+            let completionHandler = boxedCb.value
+            do {
                 if !s3Item.isFolder {
                     // --- Conflict detection ---
                     do {
@@ -969,20 +1517,25 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                                 byKey: identifier.rawValue, driveId: drive.id
                             )
                         } else {
-                            self.logger.warning("MetadataStore unavailable — skipping delete conflict check for \(identifier.rawValue, privacy: .public)")
+                            self.logger
+                                .warning(
+                                    "MetadataStore unavailable — skipping delete conflict check for \(identifier.rawValue, privacy: .public)"
+                                )
                             storedETag = nil
                         }
 
                         if let remoteETag, let storedETag, !ETagUtils.areEqual(remoteETag, storedETag) {
-                            // Remote was modified since last sync -- cancel delete
-                            self.logger.warning("Delete cancelled: remote ETag changed for \(identifier.rawValue, privacy: .public)")
+                            self.logger
+                                .warning(
+                                    "Delete cancelled: remote ETag changed for \(identifier.rawValue, privacy: .public)"
+                                )
                             await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                             self.signalChanges()
                             completionHandler(NSFileProviderError(.cannotSynchronize) as NSError)
                             return
                         }
-                    } catch let s3Error as S3ErrorType where s3Error.errorCode == "NoSuchKey" || s3Error.errorCode == "NotFound" {
-                        // Both sides deleted -- treat as success
+                    } catch let s3Error as S3ErrorType
+                        where s3Error.errorCode == "NoSuchKey" || s3Error.errorCode == "NotFound" {
                         self.logger.debug("File already deleted remotely: \(identifier.rawValue, privacy: .public)")
                         try? await self.metadataStore?.deleteItem(byKey: identifier.rawValue, driveId: drive.id)
                         progress.completedUnitCount = 1
@@ -991,8 +1544,10 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                         completionHandler(nil)
                         return
                     } catch {
-                        // HEAD failed (network) -- return transient error for retry
-                        self.logger.error("Delete conflict check HEAD failed for \(identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                        self.logger
+                            .error(
+                                "Delete conflict check HEAD failed for \(identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                            )
                         await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(NSFileProviderError(.serverUnreachable) as NSError)
                         return
@@ -1006,15 +1561,13 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                 }
                 self.logger.info("S3Item with identifier \(identifier.rawValue, privacy: .public) deleted successfully")
 
-                // Remove from MetadataStore
                 try? await self.metadataStore?.deleteItem(byKey: identifier.rawValue, driveId: drive.id)
-
                 progress.completedUnitCount = 1
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 self.signalChanges()
                 completionHandler(nil)
-            } catch let s3Error as S3ErrorType where s3Error.errorCode == "NoSuchKey" || s3Error.errorCode == "NotFound" {
-                // Both sides deleted during the race -- treat as success
+            } catch let s3Error as S3ErrorType
+                where s3Error.errorCode == "NoSuchKey" || s3Error.errorCode == "NotFound" {
                 self.logger.debug("File deleted remotely during our delete: \(identifier.rawValue, privacy: .public)")
                 try? await self.metadataStore?.deleteItem(byKey: identifier.rawValue, driveId: drive.id)
                 progress.completedUnitCount = 1
@@ -1022,7 +1575,10 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                 self.signalChanges()
                 completionHandler(nil)
             } catch let s3Error as S3ErrorType {
-                self.logger.error("An error occurred while deleting file \(identifier.rawValue, privacy: .public): \(s3Error.errorCode, privacy: .public)")
+                self.logger
+                    .error(
+                        "An error occurred while deleting file \(identifier.rawValue, privacy: .public): \(s3Error.errorCode, privacy: .public)"
+                    )
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(s3Error.toFileProviderError())
             } catch is CancellationError {
@@ -1030,7 +1586,10 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 completionHandler(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
             } catch {
-                self.logger.error("An error occurred while deleting file \(identifier.rawValue, privacy: .public): \(error, privacy: .public)")
+                self.logger
+                    .error(
+                        "An error occurred while deleting file \(identifier.rawValue, privacy: .public): \(error, privacy: .public)"
+                    )
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(NSFileProviderError(.cannotSynchronize) as NSError)
             }
@@ -1137,7 +1696,11 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
             try Data().write(to: emptyFileURL)
             completionHandler(emptyFileURL, folderItem, nil)
             let store = self.metadataStore
-            Task { try? await store?.setMaterialized(s3Key: itemIdentifier.rawValue, driveId: drive.id, isMaterialized: true) }
+            Task { try? await store?.setMaterialized(
+                s3Key: itemIdentifier.rawValue,
+                driveId: drive.id,
+                isMaterialized: true
+            ) }
         } catch {
             completionHandler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
         }
@@ -1155,9 +1718,12 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
     }
 
     /// Signals the system to re-enumerate changes after a local CRUD operation.
-    private func signalChanges() {
+    func signalChanges() {
         guard let manager = NSFileProviderManager(for: self.domain) else {
-            logger.warning("Cannot signal enumerator: no manager for domain \(self.domain.identifier.rawValue, privacy: .public)")
+            logger
+                .warning(
+                    "Cannot signal enumerator: no manager for domain \(self.domain.identifier.rawValue, privacy: .public)"
+                )
             return
         }
 
@@ -1241,28 +1807,39 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
         #endif
     }
 
+    /// Signals the trash container enumerator to re-enumerate.
+    /// Call `signalChanges()` alongside this if the working set also changed.
+    func signalTrashChanges() {
+        guard let manager = NSFileProviderManager(for: self.domain) else { return }
+        manager.signalEnumerator(for: .trashContainer) { error in
+            if let error {
+                self.logger.error("Failed to signal trash container: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
     // MARK: - BFS Indexer
 
     private func startBFSIndexer() {
         #if os(iOS)
-        // BFS disabled on iOS. iOS kills the extension every few seconds,
-        // so BFS never completes a pass and each restart burns the limited
-        // networking grace period. Per-folder enumeration (cache-first with
-        // background S3 refresh) handles content discovery as the user navigates.
-        return
+            // BFS disabled on iOS. iOS kills the extension every few seconds,
+            // so BFS never completes a pass and each restart burns the limited
+            // networking grace period. Per-folder enumeration (cache-first with
+            // background S3 refresh) handles content discovery as the user navigates.
+            return
         #else
-        guard self.enabled,
-              let drive = self.drive,
-              let s3Lib = self.s3Lib else { return }
+            guard self.enabled,
+                  let drive = self.drive,
+                  let s3Lib = self.s3Lib else { return }
 
-        let indexer = BreadthFirstIndexer(
-            s3Lib: s3Lib,
-            drive: drive,
-            metadataStore: self.metadataStore,
-            manager: NSFileProviderManager(for: self.domain)
-        )
-        indexer.start()
-        self.breadthFirstIndexer = indexer
+            let indexer = BreadthFirstIndexer(
+                s3Lib: s3Lib,
+                drive: drive,
+                metadataStore: self.metadataStore,
+                manager: NSFileProviderManager(for: self.domain)
+            )
+            indexer.start()
+            self.breadthFirstIndexer = indexer
         #endif
     }
 
@@ -1274,14 +1851,11 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
     private func startPolling() {
         guard self.enabled else { return }
 
-        #if os(iOS)
         // Polling disabled on iOS. enumerateChanges is skipped entirely on iOS
         // (SyncEngine.reconcile does full recursive S3 listings that spike memory
         // and burn the networking grace period), so signaling does nothing useful.
         // Changes are discovered via per-folder enumerateItems when the user navigates.
-        return
-        #endif
-
+        #if os(macOS)
         let pollingInterval = DefaultSettings.Extension.pollingIntervalSeconds
 
         // Signal immediately on startup so enumerateChanges/reconciliation
@@ -1304,6 +1878,89 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
         }
 
         self.logger.debug("Periodic polling started with interval \(pollingInterval)s")
+        #endif
+    }
+
+    // MARK: - Auto-Purge Expired Trash
+
+    /// Starts a periodic background task that purges expired trash items.
+    /// macOS only — iOS extension lifetime is too short.
+    private func startAutoPurge() {
+        #if os(iOS)
+            return
+        #else
+            guard self.enabled, let drive = self.drive, let s3Lib = self.s3Lib else { return }
+
+            let interval = DefaultSettings.Trash.purgeIntervalSeconds
+            let driveId = drive.id
+            let bucket = drive.syncAnchor.bucket.name
+
+            self.purgeTask = Task { [weak self] in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(interval))
+                    guard !Task.isCancelled, let self else { break }
+
+                    if (try? SharedData.default().isDrivePaused(driveId)) == true { continue }
+
+                    // Check for empty-trash flag from main app
+                    if (try? SharedData.default().hasEmptyTrashRequest(forDrive: driveId)) == true {
+                        do {
+                            try await s3Lib.emptyTrash(drive: drive, withProgress: Progress())
+                            try? await self.metadataStore?.removeAllTrashRecords(driveId: driveId)
+                            try? SharedData.default().setEmptyTrashRequest(forDrive: driveId, requested: false)
+                            self.signalTrashChanges()
+                            self.logger
+                                .info("Empty trash completed via app request for drive \(driveId, privacy: .public)")
+                        } catch {
+                            self.logger.error("Empty trash failed: \(error.localizedDescription, privacy: .public)")
+                        }
+                    }
+
+                    // Auto-purge based on retention days
+                    do {
+                        let settings = try SharedData.default().loadTrashSettings(forDrive: driveId)
+                        guard settings.enabled, settings.retentionDays > 0 else { continue }
+
+                        let cutoff = Date().addingTimeInterval(-Double(settings.retentionDays) * 86400)
+                        let (items, _) = try await s3Lib.listTrashedItems(forDrive: drive)
+                        var purged = 0
+
+                        for item in items {
+                            guard !Task.isCancelled else { break }
+                            if let trashedAt = try? await s3Lib.getTrashedAtDate(
+                                forKey: item.itemIdentifier.rawValue,
+                                bucket: bucket
+                            ),
+                                trashedAt < cutoff {
+                                do {
+                                    try await s3Lib.deleteS3Item(item, withProgress: Progress())
+                                    try? await self.metadataStore?.removeTrashRecord(
+                                        trashKey: item.itemIdentifier.rawValue, driveId: driveId
+                                    )
+                                    purged += 1
+                                } catch {
+                                    self.logger
+                                        .warning(
+                                            "Failed to purge \(item.itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                                        )
+                                }
+                            }
+                        }
+                        if purged > 0 {
+                            self.signalTrashChanges()
+                            self.logger
+                                .info(
+                                    "Auto-purged \(purged) expired trash items for drive \(driveId, privacy: .public)"
+                                )
+                        }
+                    } catch {
+                        self.logger.error("Auto-purge check failed: \(error.localizedDescription, privacy: .public)")
+                    }
+                }
+            }
+
+            self.logger.debug("Auto-purge task started with interval \(interval)s")
+        #endif
     }
 
     // MARK: - Materialized Items Tracking
@@ -1311,7 +1968,8 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
     func materializedItemsDidChange(completionHandler: @escaping () -> Void) {
         guard let manager = NSFileProviderManager(for: self.domain),
               let drive = self.drive,
-              let metadataStore = self.metadataStore else {
+              let metadataStore = self.metadataStore
+        else {
             completionHandler()
             return
         }
@@ -1334,7 +1992,8 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
 
                 self.logger.debug("Updated materialized state for \(materializedKeys.count) items")
             } catch {
-                self.logger.error("Failed to update materialized items: \(error.localizedDescription, privacy: .public)")
+                self.logger
+                    .error("Failed to update materialized items: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -1345,7 +2004,10 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
         var currentPage = NSFileProviderPage.initialPageSortedByName as NSFileProviderPage
 
         while true {
-            let (keys, nextPage): (Set<String>, NSFileProviderPage?) = try await withCheckedThrowingContinuation { continuation in
+            let (keys, nextPage): (
+                Set<String>,
+                NSFileProviderPage?
+            ) = try await withCheckedThrowingContinuation { continuation in
                 let observer = MaterializedItemObserver()
                 observer.onFinish = { keys, next in
                     continuation.resume(returning: (keys, next))
@@ -1436,7 +2098,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
         }
     }
 
-    // NOTE: gets called when the extension wants to get an enumerator for a folder
+    /// NOTE: gets called when the extension wants to get an enumerator for a folder
     func enumerator(
         for containerItemIdentifier: NSFileProviderItemIdentifier,
         request: NSFileProviderRequest
@@ -1455,8 +2117,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension, NSFile
 
         switch containerItemIdentifier {
         case .trashContainer:
-            // Trash not supported — return an empty enumerator to avoid FP -1005 errors
-            return EmptyEnumerator()
+            return TrashS3Enumerator(s3Lib: s3Lib, drive: drive, metadataStore: self.metadataStore)
 
         case .workingSet:
             // NOTE: The system is requesting the whole working set (probably to index it via spotlight
@@ -1493,6 +2154,19 @@ extension FileProviderExtension {
         completionHandler: @escaping (Error?) -> Void
     ) -> Progress {
         let progress = Progress(totalUnitCount: Int64(itemIdentifiers.count))
+
+        #if os(iOS)
+        // On iOS, skip all thumbnail generation to stay within the 20MB memory limit.
+        // Each thumbnail requires S3 HEAD + download + image processing which quickly
+        // exhausts the extension's memory budget, causing jetsam kills.
+        for identifier in itemIdentifiers {
+            perThumbnailCompletionHandler(identifier, nil, nil)
+        }
+        completionHandler(nil)
+        progress.completedUnitCount = Int64(itemIdentifiers.count)
+        return progress
+        #else
+
         let completed = OSAllocatedUnfairLock(initialState: false)
         let boxedFinalCb = UncheckedBox(value: completionHandler)
 
@@ -1562,9 +2236,11 @@ extension FileProviderExtension {
         }
 
         return progress
+        #endif // os(macOS)
     }
 
-    /// Downloads and generates a thumbnail for a single item. Returns the temporary file URL if downloaded, nil if skipped.
+    /// Downloads and generates a thumbnail for a single item. Returns the temporary file URL if downloaded, nil if
+    /// skipped.
     private func downloadThumbnailImage(
         for identifier: NSFileProviderItemIdentifier,
         drive: DS3Drive,
@@ -1573,20 +2249,44 @@ extension FileProviderExtension {
         size: CGSize,
         perItemHandler: @escaping (NSFileProviderItemIdentifier, Data?, Error?) -> Void
     ) async throws -> URL? {
-        // Skip folders
+        // Skip folders and system containers
         if identifier.rawValue.last == "/" || identifier == .rootContainer {
             perItemHandler(identifier, nil, nil)
             return nil
         }
+
+        #if os(iOS)
+        // On iOS, skip thumbnails for trashed items entirely.
+        // Their identifiers are original keys (not .trash/ keys) so S3 HEAD
+        // fails, and fallback HEAD requests spike memory → jetsam.
+        let isTrashedByKey = S3Lib.isTrashedKey(identifier.rawValue, drive: drive)
+        let store = self.metadataStore
+        let hasTrashed = try? await store?.fetchTrashKey(
+            forOriginalKey: identifier.rawValue, driveId: drive.id
+        )
+        if isTrashedByKey || hasTrashed != nil {
+            perItemHandler(identifier, nil, nil)
+            return nil
+        }
+        #endif
 
         do {
             let s3Item = try await self.withAPIKeyRecovery {
                 try await s3Lib.remoteS3Item(for: identifier, drive: drive)
             }
 
+            #if os(iOS)
+            // On iOS, skip thumbnails for files > 5MB to avoid jetsam (20MB limit)
+            if (s3Item.documentSize?.intValue ?? 0) > 5_000_000 {
+                perItemHandler(identifier, nil, nil)
+                return nil
+            }
+            #endif
+
             let fileExtension = (s3Item.filename as NSString).pathExtension
             guard let utType = UTType(filenameExtension: fileExtension),
-                  utType.conforms(to: .image) else {
+                  utType.conforms(to: .image)
+            else {
                 perItemHandler(identifier, nil, nil)
                 return nil
             }
@@ -1600,11 +2300,17 @@ extension FileProviderExtension {
             self.logger.debug("fetchThumbnails: generated thumbnail for \(identifier.rawValue, privacy: .public)")
             return fileURL
         } catch let s3Error as S3ErrorType {
-            self.logger.error("fetchThumbnails: S3 error for \(identifier.rawValue, privacy: .public): \(s3Error.description, privacy: .public)")
+            self.logger
+                .error(
+                    "fetchThumbnails: S3 error for \(identifier.rawValue, privacy: .public): \(s3Error.description, privacy: .public)"
+                )
             perItemHandler(identifier, nil, s3Error.toFileProviderError())
             return nil
         } catch {
-            self.logger.error("fetchThumbnails: error for \(identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            self.logger
+                .error(
+                    "fetchThumbnails: error for \(identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
             perItemHandler(identifier, nil, NSFileProviderError(.cannotSynchronize) as NSError)
             return nil
         }
@@ -1624,7 +2330,12 @@ extension FileProviderExtension {
         guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
 
         let data = NSMutableData()
-        guard let dest = CGImageDestinationCreateWithData(data as CFMutableData, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
+        guard let dest = CGImageDestinationCreateWithData(
+            data as CFMutableData,
+            UTType.jpeg.identifier as CFString,
+            1,
+            nil
+        ) else { return nil }
         CGImageDestinationAddImage(dest, cgImage, [kCGImageDestinationLossyCompressionQuality: 0.7] as CFDictionary)
         guard CGImageDestinationFinalize(dest) else { return nil }
         return data as Data
@@ -1655,106 +2366,146 @@ private class MaterializedItemObserver: NSObject, NSFileProviderEnumerationObser
 // MARK: - Partial Content Fetching
 
 #if os(macOS)
-extension FileProviderExtension: NSFileProviderPartialContentFetching {
-    // swiftlint:disable:next function_parameter_count
-    func fetchPartialContents(
-        for itemIdentifier: NSFileProviderItemIdentifier,
-        version requestedVersion: NSFileProviderItemVersion,
-        request: NSFileProviderRequest,
-        minimalRange requestedRange: NSRange,
-        aligningTo alignment: Int,
-        options: NSFileProviderFetchContentsOptions,
-        completionHandler: @escaping (URL?, NSFileProviderItem?, NSRange, NSFileProviderMaterializationFlags, Error?) -> Void
-    ) -> Progress {
-        guard
-            self.enabled,
-            let temporaryDirectory = self.temporaryDirectory
-        else {
-            completionHandler(nil, nil, NSRange(location: 0, length: 0), [], NSFileProviderError(.notAuthenticated) as NSError)
-            return Progress()
-        }
-
-        guard let drive = self.drive, let s3Lib = self.s3Lib, let nm = self.notificationManager else {
-            completionHandler(nil, nil, NSRange(location: 0, length: 0), [], NSFileProviderError(.cannotSynchronize) as NSError)
-            return Progress()
-        }
-
-        let progress = Progress(totalUnitCount: 1)
-        let completed = OSAllocatedUnfairLock(initialState: false)
-        let boxedCb = UncheckedBox(value: completionHandler)
-
-        @Sendable func complete(_ url: URL?, _ item: NSFileProviderItem?, _ range: NSRange, _ flags: NSFileProviderMaterializationFlags, _ error: Error?) {
-            let shouldCall = completed.withLock { flag -> Bool in
-                guard !flag else { return false }
-                flag = true
-                return true
+    extension FileProviderExtension: NSFileProviderPartialContentFetching {
+        // swiftlint:disable:next function_parameter_count function_body_length
+        func fetchPartialContents(
+            for itemIdentifier: NSFileProviderItemIdentifier,
+            version requestedVersion: NSFileProviderItemVersion,
+            request: NSFileProviderRequest,
+            minimalRange requestedRange: NSRange,
+            aligningTo alignment: Int,
+            options: NSFileProviderFetchContentsOptions,
+            completionHandler: @escaping (
+                URL?,
+                NSFileProviderItem?,
+                NSRange,
+                NSFileProviderMaterializationFlags,
+                Error?
+            ) -> Void
+        ) -> Progress {
+            guard
+                self.enabled,
+                let temporaryDirectory = self.temporaryDirectory
+            else {
+                completionHandler(
+                    nil,
+                    nil,
+                    NSRange(location: 0, length: 0),
+                    [],
+                    NSFileProviderError(.notAuthenticated) as NSError
+                )
+                return Progress()
             }
-            guard shouldCall else { return }
-            boxedCb.value(url, item, range, flags, error)
-        }
 
-        let fetchSemaphore = self.fetchSemaphore
-        let task = Task {
-            await fetchSemaphore.wait()
-            defer { Task { await fetchSemaphore.signal() } }
+            guard let drive = self.drive, let s3Lib = self.s3Lib, let nm = self.notificationManager else {
+                completionHandler(
+                    nil,
+                    nil,
+                    NSRange(location: 0, length: 0),
+                    [],
+                    NSFileProviderError(.cannotSynchronize) as NSError
+                )
+                return Progress()
+            }
 
-            do {
-                await nm.sendDriveChangedNotification(status: .sync)
+            let progress = Progress(totalUnitCount: 1)
+            let completed = OSAllocatedUnfairLock(initialState: false)
+            let boxedCb = UncheckedBox(value: completionHandler)
 
-                // Align the requested range to the alignment boundary
-                let alignedStart: Int
-                if alignment > 0 {
-                    alignedStart = (requestedRange.location / alignment) * alignment
-                } else {
-                    alignedStart = requestedRange.location
+            @Sendable func complete(
+                _ url: URL?,
+                _ item: NSFileProviderItem?,
+                _ range: NSRange,
+                _ flags: NSFileProviderMaterializationFlags,
+                _ error: Error?
+            ) {
+                let shouldCall = completed.withLock { flag -> Bool in
+                    guard !flag else { return false }
+                    flag = true
+                    return true
                 }
+                guard shouldCall else { return }
+                boxedCb.value(url, item, range, flags, error)
+            }
 
-                let requestedEnd = requestedRange.location + requestedRange.length - 1
-                let alignedEnd: Int
-                if alignment > 0 {
-                    alignedEnd = ((requestedEnd / alignment) + 1) * alignment - 1
-                } else {
-                    alignedEnd = requestedEnd
-                }
+            let fetchSemaphore = self.fetchSemaphore
+            let task = Task {
+                await fetchSemaphore.wait()
+                defer { Task { await fetchSemaphore.signal() } }
 
-                let alignedRange = NSRange(location: alignedStart, length: alignedEnd - alignedStart + 1)
-                let rangeHeader = "bytes=\(alignedStart)-\(alignedEnd)"
+                do {
+                    await nm.sendDriveChangedNotification(status: .sync)
 
-                // Download range with exponential backoff retry
-                let fileURL = try await withExponentialBackoff(maxRetries: 3, baseDelay: 1.0) {
-                    try await s3Lib.getS3ItemRange(
-                        identifier: itemIdentifier,
-                        drive: drive,
-                        range: rangeHeader,
-                        temporaryFolder: temporaryDirectory,
-                        progress: progress
+                    // Align the requested range to the alignment boundary
+                    let alignedStart: Int = if alignment > 0 {
+                        (requestedRange.location / alignment) * alignment
+                    } else {
+                        requestedRange.location
+                    }
+
+                    let requestedEnd = requestedRange.location + requestedRange.length - 1
+                    let alignedEnd: Int = if alignment > 0 {
+                        ((requestedEnd / alignment) + 1) * alignment - 1
+                    } else {
+                        requestedEnd
+                    }
+
+                    let alignedRange = NSRange(location: alignedStart, length: alignedEnd - alignedStart + 1)
+                    let rangeHeader = "bytes=\(alignedStart)-\(alignedEnd)"
+
+                    // Download range with exponential backoff retry
+                    let fileURL = try await withExponentialBackoff(maxRetries: 3, baseDelay: 1.0) {
+                        try await s3Lib.getS3ItemRange(
+                            identifier: itemIdentifier,
+                            drive: drive,
+                            range: rangeHeader,
+                            temporaryFolder: temporaryDirectory,
+                            progress: progress
+                        )
+                    }
+
+                    // Get metadata for the item
+                    let s3Item = try await s3Lib.remoteS3Item(for: itemIdentifier, drive: drive)
+
+                    self.logger
+                        .info(
+                            "Partial download complete for \(s3Item.filename, privacy: .public) range \(rangeHeader, privacy: .public)"
+                        )
+
+                    await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
+                    complete(fileURL, s3Item, alignedRange, [], nil)
+                } catch let s3Error as S3ErrorType {
+                    self.logger.error("Partial download failed with S3 error \(s3Error.errorCode, privacy: .public)")
+                    await nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                    complete(nil, nil, NSRange(location: 0, length: 0), [], s3Error.toFileProviderError())
+                } catch {
+                    self.logger
+                        .error(
+                            "Partial download failed for \(itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                        )
+                    await nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                    complete(
+                        nil,
+                        nil,
+                        NSRange(location: 0, length: 0),
+                        [],
+                        NSFileProviderError(.cannotSynchronize) as NSError
                     )
                 }
-
-                // Get metadata for the item
-                let s3Item = try await s3Lib.remoteS3Item(for: itemIdentifier, drive: drive)
-
-                self.logger.info("Partial download complete for \(s3Item.filename, privacy: .public) range \(rangeHeader, privacy: .public)")
-
-                await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
-                complete(fileURL, s3Item, alignedRange, [], nil)
-            } catch let s3Error as S3ErrorType {
-                self.logger.error("Partial download failed with S3 error \(s3Error.errorCode, privacy: .public)")
-                await nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                complete(nil, nil, NSRange(location: 0, length: 0), [], s3Error.toFileProviderError())
-            } catch {
-                self.logger.error("Partial download failed for \(itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                await nm.sendDriveChangedNotificationWithDebounce(status: .error)
-                complete(nil, nil, NSRange(location: 0, length: 0), [], NSFileProviderError(.cannotSynchronize) as NSError)
             }
-        }
 
-        progress.cancellationHandler = {
-            task.cancel()
-            complete(nil, nil, NSRange(location: 0, length: 0), [], NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
-        }
+            progress.cancellationHandler = {
+                task.cancel()
+                complete(
+                    nil,
+                    nil,
+                    NSRange(location: 0, length: 0),
+                    [],
+                    NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)
+                )
+            }
 
-        return progress
+            return progress
+        }
     }
-}
 #endif

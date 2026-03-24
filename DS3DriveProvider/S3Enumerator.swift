@@ -43,6 +43,11 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
     private let syncEngine: SyncEngine?
     private let metadataStore: MetadataStore?
 
+    /// The parent key used for MetadataStore queries: `nil` for root, otherwise the raw identifier.
+    private var parentKey: String? {
+        self.parent == .rootContainer ? nil : self.parent.rawValue
+    }
+
     init(
         parent: NSFileProviderItemIdentifier,
         s3Lib: S3Lib,
@@ -70,6 +75,20 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
     }
 
     func invalidate() {}
+
+    /// Fetches cached children from MetadataStore and sends them to the observer.
+    /// Returns `true` if cached items were found and sent, `false` otherwise.
+    private func serveCachedItems(to observer: NSFileProviderEnumerationObserver) async throws -> Bool {
+        guard let metadataStore = self.metadataStore else { return false }
+        let cachedChildren = try await metadataStore.fetchChildren(
+            parentKey: self.parentKey,
+            driveId: self.drive.id
+        )
+        guard !cachedChildren.isEmpty else { return false }
+        let items = self.s3Items(from: cachedChildren)
+        observer.didEnumerate(items)
+        return true
+    }
 
     /// Converts MetadataStore cached children into S3Items for the File Provider observer.
     private func s3Items(from children: [MetadataStore.CachedChildItem]) -> [S3Item] {
@@ -171,18 +190,8 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
             do {
                 // When paused, serve from cache or return empty. No S3 calls.
                 if (try? SharedData.default().isDrivePaused(self.drive.id)) == true {
-                    if let metadataStore = self.metadataStore {
-                        let parentKey: String? = self.parent == .rootContainer ? nil : self.parent.rawValue
-                        let cachedChildren = try await metadataStore.fetchChildren(
-                            parentKey: parentKey,
-                            driveId: self.drive.id
-                        )
-                        if !cachedChildren.isEmpty {
-                            let items = self.s3Items(from: cachedChildren)
-                            self.logger.debug("enumerateItems (paused): serving \(items.count) cached items for prefix \(self.prefix ?? "nil", privacy: .public)")
-                            observer.didEnumerate(items)
-                        }
-                    }
+                    let hadCachedItems = try await self.serveCachedItems(to: observer)
+                    self.logger.debug("enumerateItems (paused): hadCachedItems=\(hadCachedItems) for prefix \(self.prefix ?? "nil", privacy: .public)")
                     observer.finishEnumerating(upTo: nil)
                     return
                 }
@@ -221,33 +230,22 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                 // the BFS indexer). This avoids hitting S3 when navigating
                 // into subfolders of an already-indexed parent.
                 if !self.recursively && page.toContinuationToken() == nil,
-                   let metadataStore = self.metadataStore {
-                    let parentKey: String? = self.parent == .rootContainer ? nil : self.parent.rawValue
-                    let cachedChildren = try await metadataStore.fetchChildren(
-                        parentKey: parentKey,
-                        driveId: self.drive.id
-                    )
+                   self.metadataStore != nil,
+                   try await self.serveCachedItems(to: observer) {
+                    observer.finishEnumerating(upTo: nil)
 
-                    if !cachedChildren.isEmpty {
-                        let items = self.s3Items(from: cachedChildren)
-
-                        self.logger.debug("enumerateItems: serving \(items.count) cached items for prefix \(self.prefix ?? "nil", privacy: .public)")
-                        observer.didEnumerate(items)
-                        observer.finishEnumerating(upTo: nil)
-
-                        // TTL check: skip S3 refresh if recently enumerated
-                        let cacheKey = parentKey ?? "__root__"
-                        let lastEnumerated = await EnumerationTimestampCache.shared.lastEnumerated(forPrefix: cacheKey)
-                        if !isCacheStale(lastEnumerated: lastEnumerated, ttl: Self.cacheTTL) {
-                            self.logger.debug("enumerateItems: TTL fresh, skipping S3 refresh for \(self.prefix ?? "nil", privacy: .public)")
-                            return
-                        }
-
-                        // Schedule background S3 refresh and record timestamp
-                        await EnumerationTimestampCache.shared.recordEnumeration(forPrefix: cacheKey)
-                        self.refreshCacheInBackground()
+                    // TTL check: skip S3 refresh if recently enumerated
+                    let cacheKey = self.parentKey ?? "__root__"
+                    let lastEnumerated = await EnumerationTimestampCache.shared.lastEnumerated(forPrefix: cacheKey)
+                    if !isCacheStale(lastEnumerated: lastEnumerated, ttl: Self.cacheTTL) {
+                        self.logger.debug("enumerateItems: TTL fresh, skipping S3 refresh for \(self.prefix ?? "nil", privacy: .public)")
                         return
                     }
+
+                    // Schedule background S3 refresh and record timestamp
+                    await EnumerationTimestampCache.shared.recordEnumeration(forPrefix: cacheKey)
+                    self.refreshCacheInBackground()
+                    return
                 }
 
                 await self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .indexing, isFileOperation: false)
@@ -275,6 +273,13 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                         if !virtualFolders.isEmpty {
                             self.logger.info("Synthesized \(virtualFolders.count) virtual folder(s) for working set")
                             allItems.append(contentsOf: virtualFolders)
+                        }
+
+                        // Filter out .trash/ items from the working set — trashed items
+                        // are enumerated exclusively by TrashS3Enumerator to avoid
+                        // identity conflicts with the system's trash tracking.
+                        allItems = allItems.filter { item in
+                            !S3Lib.isTrashedKey(item.itemIdentifier.rawValue, drive: self.drive)
                         }
                     }
 
@@ -304,19 +309,10 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                     self.logger.warning("S3 listing failed, trying MetadataStore fallback for prefix \(self.prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)")
 
                     // Last-resort: BFS may have populated MetadataStore since our first check
-                    if let metadataStore = self.metadataStore {
-                        let parentKey: String? = self.parent == .rootContainer ? nil : self.parent.rawValue
-                        let fallbackChildren = try await metadataStore.fetchChildren(
-                            parentKey: parentKey,
-                            driveId: self.drive.id
-                        )
-                        if !fallbackChildren.isEmpty {
-                            let items = self.s3Items(from: fallbackChildren)
-                            self.logger.info("enumerateItems: MetadataStore fallback serving \(items.count) items for prefix \(self.prefix ?? "nil", privacy: .public)")
-                            observer.didEnumerate(items)
-                            observer.finishEnumerating(upTo: nil)
-                            return
-                        }
+                    if try await self.serveCachedItems(to: observer) {
+                        self.logger.info("enumerateItems: MetadataStore fallback served items for prefix \(self.prefix ?? "nil", privacy: .public)")
+                        observer.finishEnumerating(upTo: nil)
+                        return
                     }
 
                     // Both S3 and MetadataStore fallback failed — propagate
@@ -394,8 +390,6 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                 try? await NSFileProviderManager(for: domain)?
                     .signalEnumerator(for: container)
                 logger.debug("Background cache refresh + signal(\(container.rawValue, privacy: .public)) complete for prefix \(prefix ?? "nil", privacy: .public)")
-                #else
-                logger.debug("Background cache refresh complete (no signal) for prefix \(prefix ?? "nil", privacy: .public)")
                 #endif
             } catch {
                 logger.debug("Background cache refresh failed for prefix \(prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)")
@@ -424,9 +418,8 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
             // Changes are discovered via per-folder enumerateItems (cache-first with
             // background S3 refresh) when the user navigates.
             self.logger.info("enumerateChanges: skipping on iOS for prefix \(self.prefix ?? "nil", privacy: .public)")
-            return observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
-            #endif
-
+            observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
+            #else
             await self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .indexing, isFileOperation: false)
 
             do {
@@ -526,6 +519,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                 await self.notificationManager.sendDriveChangedNotificationWithDebounce(status: .error, isFileOperation: false)
                 return observer.finishEnumeratingWithError(NSFileProviderError(.cannotSynchronize) as NSError)
             }
+            #endif
         }
     }
 }
