@@ -56,7 +56,7 @@ class TrashS3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable
                             identifier: NSFileProviderItemIdentifier(originalKey),
                             drive: self.drive,
                             objectMetadata: S3Item.Metadata(
-                                lastModified: trashItem.contentModificationDate,
+                                lastModified: trashItem.metadata.lastModified,
                                 size: trashItem.documentSize ?? 0
                             ),
                             forcedTrashed: true

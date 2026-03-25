@@ -146,12 +146,11 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
 
     var contentModificationDate: Date? {
         if isFolder {
-            // Folders MUST return a stable date regardless of code path.
-            // Different paths create folders with or without lastModified
-            // (common prefix vs explicit S3 marker vs synthesized virtual).
-            // If dates differ, the system sees "updates" on each working-set
-            // page, invalidating folder icons in Finder's icon view.
-            return metadata.lastModified ?? Date(timeIntervalSince1970: 0)
+            // Always nil for folders. Some code paths carry a real lastModified
+            // (S3 marker objects, HeadObject) while others don't (common prefixes,
+            // virtual folders). Returning a date only when available makes the
+            // system see property changes each enumeration, breaking Finder icons.
+            return nil
         }
         return metadata.lastModified
     }
@@ -281,7 +280,7 @@ extension MetadataStore.ItemUpsertData {
             s3Key: item.itemIdentifier.rawValue,
             driveId: item.drive.id,
             etag: ETagUtils.normalize(item.metadata.etag),
-            lastModified: item.contentModificationDate,
+            lastModified: item.metadata.lastModified,
             syncStatus: .synced,
             parentKey: item.parentItemIdentifier == .rootContainer ? nil : item.parentItemIdentifier.rawValue,
             contentType: item.metadata.contentType,
