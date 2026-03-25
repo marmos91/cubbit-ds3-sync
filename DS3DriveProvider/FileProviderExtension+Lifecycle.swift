@@ -39,7 +39,7 @@ extension FileProviderExtension {
 
                 do {
                     var continuationToken: String?
-                    var allItems: [S3Item] = []
+                    var allKeys: Set<String> = []
 
                     repeat {
                         let (items, nextToken) = try await s3Lib.listS3Items(
@@ -49,7 +49,10 @@ extension FileProviderExtension {
                             withContinuationToken: continuationToken
                         )
                         continuationToken = nextToken
-                        allItems.append(contentsOf: items)
+
+                        for item in items {
+                            allKeys.insert(item.itemIdentifier.rawValue)
+                        }
 
                         // Upsert each page incrementally so enumerateItems can
                         // start serving partial results while we're still listing.
@@ -59,7 +62,7 @@ extension FileProviderExtension {
 
                     // Synthesize virtual folders (recursive listing omits directory-only prefixes)
                     let virtualFolders = S3Enumerator.synthesizeVirtualFolders(
-                        from: allItems, drive: drive, prefix: prefix
+                        fromKeys: allKeys, drive: drive, prefix: prefix
                     )
                     if !virtualFolders.isEmpty {
                         let folderData = virtualFolders.map { MetadataStore.ItemUpsertData(from: $0) }
@@ -68,7 +71,7 @@ extension FileProviderExtension {
 
                     self?.logger
                         .info(
-                            "Cache warm-up complete: \(allItems.count) items + \(virtualFolders.count) virtual folders"
+                            "Cache warm-up complete: \(allKeys.count) items + \(virtualFolders.count) virtual folders"
                         )
 
                     // Signal working set so fileproviderd picks up the warm cache

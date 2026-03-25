@@ -74,6 +74,7 @@ final class BreadthFirstIndexer: @unchecked Sendable {
         logger.info("BFS pass starting from prefix \(rootPrefix, privacy: .public)")
 
         let delimiter = String(DefaultSettings.S3.delimiter)
+        var allPassKeys: Set<String> = []
 
         while !Task.isCancelled {
             if (try? SharedData.default().isDrivePaused(drive.id)) == true {
@@ -106,6 +107,7 @@ final class BreadthFirstIndexer: @unchecked Sendable {
                         if key.hasPrefix(trashPrefix) { continue }
 
                         upsertBatch.append(MetadataStore.ItemUpsertData(from: item))
+                        allPassKeys.insert(key)
 
                         if key.hasSuffix(delimiter), key != prefix {
                             discoveredSubfolders.append(key)
@@ -168,7 +170,55 @@ final class BreadthFirstIndexer: @unchecked Sendable {
             }
         }
 
+        // Synthesize virtual folders from keys collected during this pass.
+        // This closes the gap when cache warm-up fails: virtual folders
+        // (prefix-only, no S3 marker) would otherwise be missing.
+        if !Task.isCancelled {
+            await synthesizeVirtualFoldersFromKeys(allPassKeys)
+        }
+
         logger.info("BFS pass complete for drive \(self.drive.id, privacy: .public)")
+    }
+
+    // MARK: - Virtual Folder Synthesis
+
+    /// Synthesizes virtual folders from S3 keys collected during a BFS pass
+    /// and upserts them into MetadataStore. Virtual folders are parent directories
+    /// that exist only as key prefixes (no 0-byte S3 marker object).
+    ///
+    /// Accepts a `Set<String>` of keys rather than `[S3Item]` to avoid retaining
+    /// full item objects across the entire pass — only lightweight key strings are
+    /// kept in memory, which matters for buckets with millions of objects.
+    private func synthesizeVirtualFoldersFromKeys(_ keys: Set<String>) async {
+        guard let metadataStore, !keys.isEmpty else { return }
+
+        let prefix = drive.syncAnchor.prefix
+        let virtualFolders = S3Enumerator.synthesizeVirtualFolders(
+            fromKeys: keys, drive: drive, prefix: prefix
+        )
+
+        guard !virtualFolders.isEmpty else {
+            logger.debug("BFS pass found no virtual folders to synthesize")
+            return
+        }
+
+        do {
+            let folderData = virtualFolders.map { MetadataStore.ItemUpsertData(from: $0) }
+            try await metadataStore.batchUpsertItems(folderData)
+            logger
+                .info(
+                    "BFS synthesized \(virtualFolders.count) virtual folders from \(keys.count) keys"
+                )
+
+            #if os(macOS)
+                try? await manager?.signalEnumerator(for: .workingSet)
+            #endif
+        } catch {
+            logger
+                .error(
+                    "BFS virtual folder synthesis failed: \(error.localizedDescription, privacy: .public)"
+                )
+        }
     }
 }
 

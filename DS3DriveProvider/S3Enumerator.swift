@@ -120,11 +120,21 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
         prefix: String?
     ) -> [S3Item] {
         let existingKeys = Set(items.map(\.itemIdentifier.rawValue))
+        return synthesizeVirtualFolders(fromKeys: existingKeys, drive: drive, prefix: prefix)
+    }
+
+    /// Key-based overload that avoids retaining full S3Item objects. Useful when
+    /// the caller already tracks item keys (e.g. during BFS passes).
+    static func synthesizeVirtualFolders(
+        fromKeys existingKeys: Set<String>,
+        drive: DS3Drive,
+        prefix: String?
+    ) -> [S3Item] {
         var synthesized: [S3Item] = []
         var seenDirs: Set<String> = []
 
-        for item in items {
-            let components = item.itemIdentifier.rawValue.split(
+        for key in existingKeys {
+            let components = key.split(
                 separator: DefaultSettings.S3.delimiter,
                 omittingEmptySubsequences: true
             )
