@@ -2,7 +2,6 @@ import Foundation
 import os.log
 import SotoS3
 
-
 /// Re-export Soto error types so consumers can catch S3 errors via `import DS3Lib`
 /// without importing SotoS3 directly.
 ///
