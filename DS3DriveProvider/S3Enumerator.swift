@@ -280,20 +280,15 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                         withContinuationToken: page.toContinuationToken()
                     )
 
-                    // For recursive (working set) enumeration, synthesize virtual parent
-                    // folders. S3 recursive listing (delimiter=nil) returns only actual
-                    // objects — virtual folders that exist only as key prefixes are missing.
-                    // Without them the File Provider system can't build the folder tree.
+                    // Do NOT synthesize virtual parent folders for working set pages.
+                    // Each page of the paginated S3 listing re-synthesizes ancestor
+                    // folders with degraded metadata (no etag, mod=0, sync=nil →
+                    // deco=cloudOnly), overriding the per-folder enumeration's
+                    // deco=synced. This constant decoration flip-flop breaks folder
+                    // icons in Finder's icon view. The cache warm-up and BFS indexer
+                    // handle virtual folder discovery via MetadataStore instead.
                     var allItems = items
                     if self.recursively {
-                        let virtualFolders = Self.synthesizeVirtualFolders(
-                            from: items, drive: self.drive, prefix: self.prefix
-                        )
-                        if !virtualFolders.isEmpty {
-                            self.logger.info("Synthesized \(virtualFolders.count) virtual folder(s) for working set")
-                            allItems.append(contentsOf: virtualFolders)
-                        }
-
                         // Filter out .trash/ items from the working set — trashed items
                         // are enumerated exclusively by TrashS3Enumerator to avoid
                         // identity conflicts with the system's trash tracking.
@@ -307,13 +302,6 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                         .info(
                             "enumerateItems S3 path: \(allItems.count) items (\(items.count) from S3) for prefix \(self.prefix ?? "nil", privacy: .public)"
                         )
-                    // Log first 10 items at info level for debugging folder icon issues
-                    for item in allItems.prefix(10) {
-                        self.logger
-                            .info(
-                                "  item: \(item.itemIdentifier.rawValue, privacy: .public) contentType=\(item.contentType.identifier, privacy: .public) isFolder=\(item.isFolder)"
-                            )
-                    }
                     if !allItems.isEmpty {
                         observer.didEnumerate(allItems)
                     }
@@ -544,14 +532,10 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                         )
                     }
 
-                    // Synthesize virtual parent folders for new items so the
-                    // system can display them in the correct directory.
-                    if self.recursively, !updatedItems.isEmpty {
-                        let virtualFolders = Self.synthesizeVirtualFolders(
-                            from: updatedItems, drive: self.drive, prefix: self.prefix
-                        )
-                        updatedItems.append(contentsOf: virtualFolders)
-                    }
+                    // NOTE: Do NOT synthesize virtual parent folders here.
+                    // See enumerateItems for the rationale — synthesized folders
+                    // re-report items with degraded metadata, breaking folder
+                    // icons. Per-folder enumeration handles folder discovery.
 
                     if !updatedItems.isEmpty {
                         observer.didUpdate(updatedItems)

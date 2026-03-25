@@ -201,6 +201,7 @@ extension FileProviderExtension {
                     perThumbnailCompletionHandler(identifier, nil, nil)
                 }
                 completeFinal(nil)
+                progress.completedUnitCount = Int64(itemIdentifiers.count)
                 return progress
             }
 
@@ -217,7 +218,7 @@ extension FileProviderExtension {
                 for identifier in itemIdentifiers {
                     guard !Task.isCancelled, !progress.isCancelled else { break }
 
-                    if let fileURL = try await self.downloadThumbnailImage(
+                    if let fileURL = await self.downloadThumbnailImage(
                         for: identifier, drive: drive, s3Lib: s3Lib,
                         temporaryDirectory: temporaryDirectory, size: size,
                         perItemHandler: perThumbnailCompletionHandler
@@ -239,8 +240,22 @@ extension FileProviderExtension {
         #endif // os(macOS)
     }
 
+    /// Maximum file size for thumbnail downloads on macOS (50 MB).
+    private static let macOSThumbnailMaxBytes = 50_000_000
+
+    /// Checks whether a UTType is eligible for thumbnail generation without
+    /// any network requests. Returns `true` for images, videos, and PDFs.
+    private static func isThumbnailable(_ utType: UTType) -> Bool {
+        utType.conforms(to: .image) || utType.conforms(to: .movie) || utType.conforms(to: .pdf)
+    }
+
     /// Downloads and generates a thumbnail for a single item. Returns the temporary file URL if downloaded, nil if
     /// skipped.
+    ///
+    /// **Important:** This method NEVER returns errors via `perItemHandler`. Returning an
+    /// error can prevent Finder from falling back to the UTType-based system icon, causing
+    /// blank page icons in icon view. Instead, failures are logged and `(nil, nil)` is
+    /// returned so the system gracefully shows the file-type icon.
     private func downloadThumbnailImage(
         for identifier: NSFileProviderItemIdentifier,
         drive: DS3Drive,
@@ -248,7 +263,7 @@ extension FileProviderExtension {
         temporaryDirectory: URL,
         size: CGSize,
         perItemHandler: @escaping (NSFileProviderItemIdentifier, Data?, Error?) -> Void
-    ) async throws -> URL? {
+    ) async -> URL? {
         // Skip folders and system containers
         if identifier.rawValue.hasSuffix("/") || identifier == .rootContainer {
             perItemHandler(identifier, nil, nil)
@@ -258,7 +273,7 @@ extension FileProviderExtension {
         #if os(iOS)
             // On iOS, skip thumbnails for trashed items entirely.
             // Their identifiers are original keys (not .trash/ keys) so S3 HEAD
-            // fails, and fallback HEAD requests spike memory → jetsam.
+            // fails, and fallback HEAD requests spike memory -> jetsam.
             let isTrashedByKey = S3Lib.isTrashedKey(identifier.rawValue, drive: drive)
             let store = self.metadataStore
             let hasTrashed = try? await store?.fetchTrashKey(
@@ -270,76 +285,76 @@ extension FileProviderExtension {
             }
         #endif
 
+        // Determine the file extension from the identifier key (avoids an S3 HEAD
+        // request for file types we can't thumbnail anyway).
+        let filename = String(identifier.rawValue.split(separator: "/").last ?? "")
+        let fileExtension = (filename as NSString).pathExtension
+        guard !fileExtension.isEmpty,
+              let utType = UTType(filenameExtension: fileExtension),
+              Self.isThumbnailable(utType)
+        else {
+            perItemHandler(identifier, nil, nil)
+            return nil
+        }
+
         do {
             let s3Item = try await self.withAPIKeyRecovery {
                 try await s3Lib.remoteS3Item(for: identifier, drive: drive)
             }
 
+            let fileSize = s3Item.documentSize?.intValue ?? 0
+
             #if os(iOS)
                 // On iOS, skip thumbnails for files > 5MB to avoid jetsam (20MB limit)
-                if (s3Item.documentSize?.intValue ?? 0) > 5_000_000 {
+                if fileSize > 5_000_000 {
+                    perItemHandler(identifier, nil, nil)
+                    return nil
+                }
+            #else
+                // On macOS, skip thumbnails for very large files to avoid excessive
+                // memory usage and long download times.
+                if fileSize > Self.macOSThumbnailMaxBytes {
+                    self.logger
+                        .debug(
+                            "fetchThumbnails: skipping \(identifier.rawValue, privacy: .public) — \(fileSize) bytes exceeds limit"
+                        )
                     perItemHandler(identifier, nil, nil)
                     return nil
                 }
             #endif
 
-            let fileExtension = (s3Item.filename as NSString).pathExtension
-            guard let utType = UTType(filenameExtension: fileExtension),
-                  utType.conforms(to: .image)
-            else {
-                perItemHandler(identifier, nil, nil)
-                return nil
-            }
-
             let fileURL = try await self.withAPIKeyRecovery {
                 try await s3Lib.getS3Item(s3Item, withTemporaryFolder: temporaryDirectory, withProgress: nil)
             }
 
-            let thumbnailData = Self.generateThumbnail(from: fileURL, fitting: size)
+            let thumbnailData: Data? = if utType.conforms(to: .image) {
+                Self.generateImageThumbnail(from: fileURL, fitting: size)
+            } else if utType.conforms(to: .movie) {
+                await Self.generateVideoThumbnail(from: fileURL, fitting: size)
+            } else if utType.conforms(to: .pdf) {
+                Self.generatePDFThumbnail(from: fileURL, fitting: size)
+            } else {
+                nil
+            }
+
             perItemHandler(identifier, thumbnailData, nil)
-            self.logger.debug("fetchThumbnails: generated thumbnail for \(identifier.rawValue, privacy: .public)")
+            if thumbnailData != nil {
+                self.logger
+                    .debug("fetchThumbnails: generated thumbnail for \(identifier.rawValue, privacy: .public)")
+            }
             return fileURL
-        } catch let s3Error as AWSErrorType {
-            self.logger
-                .error(
-                    "fetchThumbnails: S3 error for \(identifier.rawValue, privacy: .public): \(s3Error.description, privacy: .public)"
-                )
-            perItemHandler(identifier, nil, s3Error.toFileProviderError())
-            return nil
         } catch {
+            // Never propagate errors to the per-item handler. Returning an error
+            // can prevent Finder from showing the UTType-based file icon, resulting
+            // in blank page icons in icon view. Log and return (nil, nil) so the
+            // system falls back to the content-type icon gracefully.
             self.logger
                 .error(
-                    "fetchThumbnails: error for \(identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    "fetchThumbnails: failed for \(identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
                 )
-            perItemHandler(identifier, nil, NSFileProviderError(.cannotSynchronize) as NSError)
+            perItemHandler(identifier, nil, nil)
             return nil
         }
-    }
-
-    /// Thread-safe thumbnail generation using ImageIO.
-    static func generateThumbnail(from fileURL: URL, fitting maxSize: CGSize) -> Data? {
-        guard let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil) else { return nil }
-
-        let maxDimension = max(maxSize.width, maxSize.height)
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxDimension,
-            kCGImageSourceCreateThumbnailWithTransform: true
-        ]
-
-        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
-
-        let data = NSMutableData()
-        guard let dest = CGImageDestinationCreateWithData(
-            data as CFMutableData,
-            UTType.jpeg.identifier as CFString,
-            1,
-            nil
-        )
-        else { return nil }
-        CGImageDestinationAddImage(dest, cgImage, [kCGImageDestinationLossyCompressionQuality: 0.7] as CFDictionary)
-        guard CGImageDestinationFinalize(dest) else { return nil }
-        return data as Data
     }
 }
 

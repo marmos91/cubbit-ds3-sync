@@ -145,7 +145,15 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     }
 
     var contentModificationDate: Date? {
-        metadata.lastModified ?? (isFolder ? Date() : nil)
+        if isFolder {
+            // Folders MUST return a stable date regardless of code path.
+            // Different paths create folders with or without lastModified
+            // (common prefix vs explicit S3 marker vs synthesized virtual).
+            // If dates differ, the system sees "updates" on each working-set
+            // page, invalidating folder icons in Finder's icon view.
+            return metadata.lastModified ?? Date(timeIntervalSince1970: 0)
+        }
+        return metadata.lastModified
     }
 
     // NOTE: isTrashed and trashingDate deliberately NOT implemented.
@@ -161,13 +169,15 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     }
 
     var itemVersion: NSFileProviderItemVersion {
-        let versionData: Data = if let etag = self.metadata.etag, let data = etag.data(using: .utf8) {
-            data
-        } else if isFolder {
-            // Virtual folders have no ETag. Use a stable version derived from
-            // the identifier so the File Provider system doesn't treat them as
-            // versionless/invalid items.
+        let versionData: Data = if isFolder {
+            // Folders MUST use a stable, identifier-based version regardless
+            // of whether an etag is available. Different code paths (per-folder
+            // enumeration, working set, item(for:), materializeFolderItem)
+            // produce folders with or without etags. Inconsistent versions
+            // cause the system to re-process items, breaking folder icons.
             identifier.rawValue.data(using: .utf8) ?? Data()
+        } else if let etag = self.metadata.etag, let data = etag.data(using: .utf8) {
+            data
         } else {
             Data()
         }
@@ -239,9 +249,16 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
             if isInTrash {
                 return [Self.decorationTrashed]
             }
+            // Only show decorations for transient/actionable states.
+            // The "synced" and "cloudOnly" states must NOT produce
+            // decorations: items from the working set S3 listing have
+            // syncStatus=nil while the same items from MetadataStore
+            // have syncStatus="synced". Any decoration difference
+            // between these code paths causes Finder to re-process
+            // items in icon view, replacing their icons with blank
+            // documents. macOS natively shows cloud/download badges
+            // for non-materialized File Provider items.
             switch metadata.syncStatus {
-            case "synced":
-                return [Self.decorationSynced]
             case "syncing":
                 return [Self.decorationSyncing]
             case "error":
@@ -249,7 +266,7 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
             case "conflict":
                 return [Self.decorationConflict]
             default:
-                return [Self.decorationCloudOnly]
+                return nil
             }
         #endif
     }
