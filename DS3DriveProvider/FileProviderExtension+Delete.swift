@@ -221,6 +221,14 @@ extension FileProviderExtension {
                     driveId: drive.id,
                     size: Int64(truncating: s3Item.documentSize ?? 0)
                 )
+
+                // Clear parent error badge if the deleted item was in error
+                if let parentCleared = try? await self.metadataStore?.clearParentErrorIfResolved(
+                    childKey: s3Item.itemIdentifier.rawValue, driveId: drive.id
+                ), parentCleared {
+                    self.signalChanges()
+                }
+
                 progress.completedUnitCount = 1
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 self.signalChanges()
@@ -354,6 +362,13 @@ extension FileProviderExtension {
                     try await s3Lib.deleteS3Item(s3Item, withProgress: progress)
                 }
                 self.logger.info("S3Item with identifier \(identifier.rawValue, privacy: .public) deleted successfully")
+
+                // Clear parent error badge if the deleted item was in error
+                if let parentCleared = try? await self.metadataStore?.clearParentErrorIfResolved(
+                    childKey: identifier.rawValue, driveId: drive.id
+                ), parentCleared {
+                    self.signalChanges()
+                }
 
                 try? await self.metadataStore?.deleteItem(byKey: identifier.rawValue, driveId: drive.id)
                 progress.completedUnitCount = 1

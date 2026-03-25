@@ -163,6 +163,17 @@ public enum SyncStatus: String, Codable, Sendable {
     case error
     case conflict
     case trashed
+
+    /// Whether this status represents an in-progress or failure state that
+    /// should not be silently overwritten by a default `.synced` upsert.
+    public var isTransient: Bool {
+        switch self {
+        case .error, .syncing, .conflict:
+            true
+        case .pending, .synced, .trashed:
+            false
+        }
+    }
 }
 
 /// Migration plan for SyncedItem schema versions.
