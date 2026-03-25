@@ -277,12 +277,19 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
 extension MetadataStore.ItemUpsertData {
     /// Creates upsert data from an S3Item, mapping parent identifiers and metadata.
     init(from item: S3Item) {
+        // Preserve the item's existing syncStatus when present (e.g. items
+        // built from MetadataStore cache). Default to .synced for S3-originated
+        // items that have no status. MetadataStore.applyUpsert provides a
+        // second guard against downgrading transient states.
+        let status: SyncStatus = item.metadata.syncStatus
+            .flatMap { SyncStatus(rawValue: $0) } ?? .synced
+
         self.init(
             s3Key: item.itemIdentifier.rawValue,
             driveId: item.drive.id,
             etag: ETagUtils.normalize(item.metadata.etag),
             lastModified: item.contentModificationDate,
-            syncStatus: .synced,
+            syncStatus: status,
             parentKey: item.parentItemIdentifier == .rootContainer ? nil : item.parentItemIdentifier.rawValue,
             contentType: item.metadata.contentType,
             size: Int64(truncating: item.metadata.size)

@@ -141,6 +141,38 @@ public extension MetadataStore {
         try modelExecutor.modelContext.save()
     }
 
+    /// Clears the error status on a parent folder if none of its children are
+    /// in error state. Called after a child item's error is resolved (e.g. after
+    /// a successful retry in fetchContents) so the parent folder badge updates.
+    /// - Returns: `true` if the parent's status was changed.
+    @discardableResult
+    func clearParentErrorIfResolved(childKey: String, driveId: UUID) throws -> Bool {
+        let delimiter = String(DefaultSettings.S3.delimiter)
+        let trimmed = childKey.hasSuffix(delimiter) ? String(childKey.dropLast()) : childKey
+        guard let lastSlash = trimmed.lastIndex(of: Character(delimiter)) else { return false }
+        let parentKey = String(trimmed[...lastSlash])
+
+        guard let parent = try findItem(byKey: parentKey, driveId: driveId),
+              parent.syncStatus == SyncStatus.error.rawValue
+        else { return false }
+
+        // Check whether any sibling (other than the resolved child) is still in error
+        let errorStatus = SyncStatus.error.rawValue
+        let predicate = #Predicate<SyncedItem> {
+            $0.driveId == driveId && $0.parentKey == parentKey && $0.syncStatus == errorStatus && $0.s3Key != childKey
+        }
+        let errorChildren = try modelExecutor.modelContext.fetch(
+            FetchDescriptor<SyncedItem>(predicate: predicate)
+        )
+
+        if errorChildren.isEmpty {
+            parent.syncStatus = SyncStatus.synced.rawValue
+            try modelExecutor.modelContext.save()
+            return true
+        }
+        return false
+    }
+
     /// Set the materialization state for an item by S3 key within a specific drive.
     /// Called after a file is downloaded (isMaterialized = true) or evicted (isMaterialized = false).
     func setMaterialized(s3Key: String, driveId: UUID, isMaterialized: Bool) throws {

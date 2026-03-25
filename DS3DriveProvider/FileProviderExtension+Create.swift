@@ -221,6 +221,13 @@ extension FileProviderExtension {
                     size: Int64(itemSize)
                 )
 
+                // Clear parent error badge if this item was previously in error
+                if let parentCleared = try? await self.metadataStore?.clearParentErrorIfResolved(
+                    childKey: key, driveId: drive.id
+                ), parentCleared {
+                    self.signalChanges()
+                }
+
                 logMemoryUsage(label: "upload-complete:\(key)", logger: self.logger)
                 uploadProgress.completedUnitCount = numParts
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
