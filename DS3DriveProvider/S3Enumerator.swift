@@ -233,68 +233,140 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                     }
                 #endif
 
-                // Cache-first: for per-folder (non-recursive) first-page enumeration,
-                // serve from MetadataStore if items are already known (e.g. from
-                // the BFS indexer). This avoids hitting S3 when navigating
-                // into subfolders of an already-indexed parent.
-                if !self.recursively, page.toContinuationToken() == nil,
-                   self.metadataStore != nil,
-                   try await self.serveCachedItems(to: observer) {
-                    observer.finishEnumerating(upTo: nil)
-
-                    // TTL check: skip S3 refresh if recently enumerated
+                // Per-folder enumeration: S3-first with cache fallback.
+                // Do a direct delimited ListObjectsV2 for immediate results,
+                // then upsert into MetadataStore in the background. Fall back
+                // to cache only when S3 fails (e.g. offline).
+                if !self.recursively {
+                    // TTL gate: if we recently listed this folder from S3, serve
+                    // from cache to avoid redundant network calls.
                     let cacheKey = self.parentKey ?? "__root__"
                     let lastEnumerated = await EnumerationTimestampCache.shared.lastEnumerated(forPrefix: cacheKey)
-                    if !isCacheStale(lastEnumerated: lastEnumerated, ttl: Self.cacheTTL) {
+                    if page.toContinuationToken() == nil,
+                       !isCacheStale(lastEnumerated: lastEnumerated, ttl: Self.cacheTTL),
+                       self.metadataStore != nil,
+                       try await self.serveCachedItems(to: observer) {
                         self.logger
                             .debug(
-                                "enumerateItems: TTL fresh, skipping S3 refresh for \(self.prefix ?? "nil", privacy: .public)"
+                                "enumerateItems: TTL fresh, serving cache for \(self.prefix ?? "nil", privacy: .public)"
                             )
+                        observer.finishEnumerating(upTo: nil)
                         return
                     }
 
-                    // Schedule background S3 refresh and record timestamp
-                    await EnumerationTimestampCache.shared.recordEnumeration(forPrefix: cacheKey)
-                    self.refreshCacheInBackground()
-                    return
-                }
-
-                // Only show "Indexing" for per-folder enumeration. Working set (recursive)
-                // enumeration is system-initiated and paginated — sending .indexing/.idle
-                // per page causes the tray status to get stuck on "Indexing".
-                if !self.recursively {
                     await self.notificationManager.sendDriveChangedNotificationWithDebounce(
                         status: .indexing,
                         isFileOperation: false
                     )
+
+                    do {
+                        let (items, continuationToken) = try await self.s3Lib.listS3Items(
+                            forDrive: self.drive,
+                            withPrefix: self.prefix,
+                            recursively: false,
+                            withContinuationToken: page.toContinuationToken()
+                        )
+
+                        self.logger
+                            .info(
+                                "enumerateItems S3-first: \(items.count) items for prefix \(self.prefix ?? "nil", privacy: .public)"
+                            )
+                        if !items.isEmpty {
+                            observer.didEnumerate(items)
+                        }
+
+                        let nextPage = continuationToken.map { NSFileProviderPage($0) }
+
+                        await self.notificationManager.sendDriveChangedNotificationWithDebounce(
+                            status: .idle,
+                            isFileOperation: false
+                        )
+                        observer.finishEnumerating(upTo: nextPage)
+                        if let metadataStore = self.metadataStore {
+                            let upsertData = items.map { MetadataStore.ItemUpsertData(from: $0) }
+                            let parentKey = self.parentKey
+                            let driveId = self.drive.id
+                            let isFirstPage = page.toContinuationToken() == nil
+                            let drive = self.drive
+                            let parent = self.parent
+                            Task.detached {
+                                if !upsertData.isEmpty {
+                                    try? await metadataStore.batchUpsertItems(upsertData)
+                                }
+                                // Prune stale items only when the entire folder fit in a
+                                // single page (no incoming continuation token AND no outgoing
+                                // one). For paginated folders we lack the full key set, so
+                                // pruning would incorrectly delete items from other pages.
+                                if isFirstPage, continuationToken == nil {
+                                    let allKeys = Set(upsertData.map(\.s3Key))
+                                    try? await metadataStore.pruneChildren(
+                                        parentKey: parentKey,
+                                        driveId: driveId,
+                                        keepKeys: allKeys
+                                    )
+                                }
+                                // Record TTL timestamp only after the cache is up-to-date
+                                await EnumerationTimestampCache.shared.recordEnumeration(forPrefix: cacheKey)
+                                // Signal the enumerator so Finder picks up changes from
+                                // other clients without requiring manual navigation
+                                #if os(macOS)
+                                    let domain = NSFileProviderDomain(
+                                        identifier: NSFileProviderDomainIdentifier(rawValue: drive.id.uuidString),
+                                        displayName: drive.name
+                                    )
+                                    let container = parent == .rootContainer
+                                        ? NSFileProviderItemIdentifier.rootContainer : parent
+                                    try? await NSFileProviderManager(for: domain)?
+                                        .signalEnumerator(for: container)
+                                #endif
+                            }
+                        }
+                    } catch {
+                        self.logger
+                            .warning(
+                                "S3 listing failed for folder \(self.prefix ?? "nil", privacy: .public), trying cache fallback: \(error.localizedDescription, privacy: .public)"
+                            )
+
+                        // Offline fallback: serve from MetadataStore if available.
+                        // Only fall back to cache on the first page — on subsequent pages,
+                        // the observer already received partial S3 results from earlier pages,
+                        // and serving the full cache would produce duplicate items.
+                        if page.toContinuationToken() == nil,
+                           try await self.serveCachedItems(to: observer) {
+                            self.logger
+                                .info(
+                                    "enumerateItems: cache fallback served items for \(self.prefix ?? "nil", privacy: .public)"
+                                )
+                            await self.notificationManager.sendDriveChangedNotificationWithDebounce(
+                                status: .idle,
+                                isFileOperation: false
+                            )
+                            observer.finishEnumerating(upTo: nil)
+                            return
+                        }
+
+                        // Both S3 and cache failed — propagate
+                        throw error
+                    }
+
+                    return
                 }
 
-                // S3 fallback path (cache miss). If S3 fails (e.g. iOS networking
-                // grace period exhausted), retry MetadataStore as last resort — BFS
-                // may have populated it between the first cache check and now.
+                // Working set (recursive) enumeration: S3 listing with cache fallback.
+                // This path is only reached when self.recursively == true.
                 do {
                     let (items, continuationToken) = try await self.s3Lib.listS3Items(
                         forDrive: self.drive,
                         withPrefix: self.prefix,
-                        recursively: self.recursively,
+                        recursively: true,
                         withContinuationToken: page.toContinuationToken()
                     )
 
-                    // Do NOT synthesize virtual parent folders for working set pages.
-                    // Each page of the paginated S3 listing re-synthesizes ancestor
-                    // folders with degraded metadata (no etag, mod=0, sync=nil →
-                    // deco=cloudOnly), overriding the per-folder enumeration's
-                    // deco=synced. This constant decoration flip-flop breaks folder
-                    // icons in Finder's icon view. The cache warm-up and BFS indexer
-                    // handle virtual folder discovery via MetadataStore instead.
-                    var allItems = items
-                    if self.recursively {
-                        // Filter out .trash/ items from the working set — trashed items
-                        // are enumerated exclusively by TrashS3Enumerator to avoid
-                        // identity conflicts with the system's trash tracking.
-                        allItems = allItems.filter { item in
-                            !S3Lib.isTrashedKey(item.itemIdentifier.rawValue, drive: self.drive)
-                        }
+                    // Filter out .trash/ items from the working set — trashed items
+                    // are enumerated exclusively by TrashS3Enumerator to avoid
+                    // identity conflicts with the system's trash tracking.
+                    let allItems = items.filter { item in
+                        !S3Lib.isTrashedKey(item.itemIdentifier.rawValue, drive: self.drive)
                     }
 
                     // Signal observer FIRST so Finder shows items immediately
@@ -307,13 +379,6 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                     }
 
                     let page = continuationToken.map { NSFileProviderPage($0) }
-
-                    if !self.recursively {
-                        await self.notificationManager.sendDriveChangedNotificationWithDebounce(
-                            status: .idle,
-                            isFileOperation: false
-                        )
-                    }
                     observer.finishEnumerating(upTo: page)
 
                     // Batch upsert into MetadataStore in the background (doesn't block display)
@@ -329,7 +394,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                             "S3 listing failed, trying MetadataStore fallback for prefix \(self.prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)"
                         )
 
-                    // Last-resort: BFS may have populated MetadataStore since our first check
+                    // Last-resort: BFS may have populated MetadataStore
                     if try await self.serveCachedItems(to: observer) {
                         self.logger
                             .info(
@@ -376,76 +441,6 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
         }
     }
 
-    /// Fires a background S3 listing to refresh the MetadataStore cache after
-    /// serving cached items from `enumerateItems`. This ensures the DB stays
-    /// in sync with remote data even between polling cycles.
-    private func refreshCacheInBackground() {
-        Task.detached { [s3Lib, drive, prefix, parent, metadataStore, logger, recursively] in
-            guard let metadataStore else { return }
-
-            // Skip refresh when drive is paused
-            if (try? SharedData.default().isDrivePaused(drive.id)) == true {
-                logger
-                    .debug("Background cache refresh skipped (paused) for prefix \(prefix ?? "nil", privacy: .public)")
-                return
-            }
-
-            do {
-                var continuationToken: String?
-                var allKeys = Set<String>()
-                repeat {
-                    let (items, nextToken) = try await s3Lib.listS3Items(
-                        forDrive: drive,
-                        withPrefix: prefix,
-                        recursively: recursively,
-                        withContinuationToken: continuationToken
-                    )
-                    continuationToken = nextToken
-
-                    let upsertData = items.map { MetadataStore.ItemUpsertData(from: $0) }
-                    allKeys.formUnion(upsertData.lazy.map(\.s3Key))
-                    try await metadataStore.batchUpsertItems(upsertData)
-                } while continuationToken != nil
-
-                // Remove cached items that are no longer in S3 (only synced items,
-                // preserving pending uploads and items in error/conflict state).
-                if !recursively {
-                    let parentKey: String? = parent == .rootContainer ? nil : parent.rawValue
-                    try await metadataStore.pruneChildren(
-                        parentKey: parentKey,
-                        driveId: drive.id,
-                        keepKeys: allKeys
-                    )
-                }
-
-                // On macOS, signal the specific folder container so Finder picks up
-                // the refreshed cache immediately. On iOS, skip the signal — it would
-                // trigger enumerateChanges → SyncEngine.reconcile() (full recursive S3
-                // listing), burning the networking grace period and causing the system
-                // to briefly clear the folder view (thumbnails/icons disappear).
-                // The updated MetadataStore cache will be served on next navigation.
-                #if os(macOS)
-                    let domain = NSFileProviderDomain(
-                        identifier: NSFileProviderDomainIdentifier(rawValue: drive.id.uuidString),
-                        displayName: drive.name
-                    )
-                    let container = parent == .rootContainer ? NSFileProviderItemIdentifier.rootContainer : parent
-                    try? await NSFileProviderManager(for: domain)?
-                        .signalEnumerator(for: container)
-                    logger
-                        .debug(
-                            "Background cache refresh + signal(\(container.rawValue, privacy: .public)) complete for prefix \(prefix ?? "nil", privacy: .public)"
-                        )
-                #endif
-            } catch {
-                logger
-                    .debug(
-                        "Background cache refresh failed for prefix \(prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)"
-                    )
-            }
-        }
-    }
-
     // swiftlint:disable:next function_body_length
     func enumerateChanges(
         for observer: NSFileProviderChangeObserver,
@@ -467,8 +462,8 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                 // On iOS, skip ALL change enumeration. Even per-folder enumerateChanges
                 // calls SyncEngine.reconcile() which does a full recursive S3 listing,
                 // burning the networking grace period and spiking memory (→ jetsam).
-                // Changes are discovered via per-folder enumerateItems (cache-first with
-                // background S3 refresh) when the user navigates.
+                // Changes are discovered via per-folder enumerateItems (S3-first with
+                // cache fallback) when the user navigates.
                 self.logger
                     .info("enumerateChanges: skipping on iOS for prefix \(self.prefix ?? "nil", privacy: .public)")
                 observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
@@ -519,7 +514,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
 
                     // Convert new + modified keys to S3Item instances for the observer
                     let changedKeys = result.newKeys.union(result.modifiedKeys)
-                    var updatedItems: [S3Item] = changedKeys.compactMap { key in
+                    let updatedItems: [S3Item] = changedKeys.compactMap { key in
                         guard let info = result.remoteItems[key] else { return nil }
                         return S3Item(
                             identifier: NSFileProviderItemIdentifier(key),
