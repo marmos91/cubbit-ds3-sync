@@ -106,6 +106,14 @@ extension FileProviderExtension {
                 try? await metadataStore?.setSyncStatus(
                     s3Key: itemIdentifier.rawValue, driveId: drive.id, status: .synced
                 )
+                // If this item was previously in error and its parent folder was
+                // also marked as error, clear the parent's error badge when no
+                // other siblings remain in error state.
+                if let parentCleared = try? await metadataStore?.clearParentErrorIfResolved(
+                    childKey: itemIdentifier.rawValue, driveId: drive.id
+                ), parentCleared {
+                    self.signalChanges()
+                }
 
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 complete(fileURL, s3Item, nil)

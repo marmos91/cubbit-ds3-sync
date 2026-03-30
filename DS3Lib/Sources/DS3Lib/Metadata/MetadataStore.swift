@@ -115,7 +115,11 @@ public actor MetadataStore {
             existing.etag = etag
             existing.lastModified = lastModified
             existing.localFileHash = localFileHash
-            existing.syncStatus = syncStatus.rawValue
+            // Don't downgrade transient states (error, syncing, conflict)
+            // to synced — S3 listing upserts would silently clear error badges.
+            if !(existing.status.isTransient && syncStatus == .synced) {
+                existing.syncStatus = syncStatus.rawValue
+            }
             existing.parentKey = parentKey
             existing.contentType = contentType
             existing.size = size

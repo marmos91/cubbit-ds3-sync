@@ -165,6 +165,13 @@ extension FileProviderExtension {
                             size: Int64(documentSize)
                         )
 
+                        // Clear parent error badge if this item was previously in error
+                        if let parentCleared = try? await self.metadataStore?.clearParentErrorIfResolved(
+                            childKey: s3Item.itemIdentifier.rawValue, driveId: drive.id
+                        ), parentCleared {
+                            self.signalChanges()
+                        }
+
                         putProgress.completedUnitCount = numParts
                         await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                         self.signalChanges()
