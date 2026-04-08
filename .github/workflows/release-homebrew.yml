@@ -238,6 +238,13 @@ jobs:
         with:
           files: ${{ runner.temp }}/${{ steps.version.outputs.dmg_name }}
           generate_release_notes: true
+          append_body: true
+          body: |
+            ## 📱 iOS TestFlight
+
+            Join the iOS public beta: **https://testflight.apple.com/join/NwEErXFQ**
+
+            Requires iOS 17 or later.
 
       - name: Update Homebrew tap
         env:

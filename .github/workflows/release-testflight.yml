@@ -175,13 +175,13 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
+          set -o pipefail
           xcrun altool --upload-app \
             -f "$RUNNER_TEMP/export/"*.pkg \
             -t macos \
             --apiKey "$ASC_KEY_ID" \
             --apiIssuer "$ASC_ISSUER_ID" \
             --verbose 2>&1 | tee /tmp/altool.log
-          grep -qi "error\|failed\|fault" /tmp/altool.log && { echo "altool upload failed"; exit 1; } || true
 
       - name: Cleanup
         if: always()
