@@ -44,15 +44,19 @@ actor S3Lib {
     /// Maximum retry attempts for S3 SlowDown (HTTP 503) throttling.
     private static let maxListRetries = 5
 
+    // swiftformat:disable redundantSendable
     /// Parameters bundle for `listWithRetries`, kept below the SwiftLint
-    /// function-parameter-count limit.
-    struct ListRequest {
+    /// function-parameter-count limit. Explicit `Sendable` for clarity —
+    /// the conformance is implicit under Swift 6, but spelling it out
+    /// documents intent for cross-actor passing into `listWithRetries`.
+    struct ListRequest: Sendable {
         let bucket: String
         let prefix: String?
         let delimiter: String?
         let maxKeys: Int?
         let continuationToken: String?
     }
+    // swiftformat:enable redundantSendable
 
     /// List S3 items for a given drive with a given prefix
     func listS3Items(
