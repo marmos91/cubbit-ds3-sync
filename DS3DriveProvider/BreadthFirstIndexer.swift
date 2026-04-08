@@ -67,7 +67,18 @@ final class BreadthFirstIndexer: @unchecked Sendable {
         }
     }
 
+    /// Always-emitted completion signal (Gap 15). A `defer` block in
+    /// `runOneBFSPass` calls this helper so every exit path — success,
+    /// thrown error, cancellation, early return — flushes a single
+    /// "indexing complete" log line. Without this, a missed completion
+    /// could leave the global tray status stuck on `.indexing`.
+    private func signalIndexingComplete() {
+        logger.info("BFS pass complete for drive \(self.drive.id, privacy: .public)")
+    }
+
     private func runOneBFSPass() async {
+        defer { signalIndexingComplete() }
+
         let rootPrefix = drive.syncAnchor.prefix ?? ""
         await queueManager.reset(rootPrefix: rootPrefix)
 
@@ -177,7 +188,8 @@ final class BreadthFirstIndexer: @unchecked Sendable {
             await synthesizeVirtualFoldersFromKeys(allPassKeys)
         }
 
-        logger.info("BFS pass complete for drive \(self.drive.id, privacy: .public)")
+        // The completion log is emitted by `signalIndexingComplete` via the
+        // top-of-function `defer`, so every exit path is covered.
     }
 
     // MARK: - Virtual Folder Synthesis

@@ -5,6 +5,15 @@ import os.log
 import SwiftData
 import SwiftUI
 
+/// Identifies which popover surface is currently active for a drive row.
+/// Used to make the gear menu and the Recent Files side panel mutually
+/// exclusive — only one can be open at a time (Gap 10).
+enum ActivePopover: Equatable {
+    case none
+    case sidePanel(driveID: UUID)
+    case gearMenu(driveID: UUID)
+}
+
 /// Manages a drive
 @MainActor @Observable
 class DS3DriveViewModel {
@@ -14,13 +23,31 @@ class DS3DriveViewModel {
     var driveStatus: DS3DriveStatus = .idle
     var driveStats: DS3DriveStats = .init(lastUpdate: Date())
 
+    /// Tracks which popover (gear menu vs Recent Files side panel) is currently
+    /// shown for THIS drive. Read by `TrayDriveRowView` to coordinate dismissal.
+    var activePopover: ActivePopover = .none
+
+    // Plan 05-15 (Gaps 15 + 27): the per-view-model `aggregateStatus` from plan
+    // 05-10 has been deleted. There is now exactly ONE source of truth for the
+    // aggregate tray state — `DS3DriveManager.aggregateStatus` — and every
+    // tray surface binds directly to it. A per-view-model alias is a footgun:
+    // it gave callers a way to disagree with the manager.
+
     var totalTransferredSize: Int64 = 0
     var totalTransferDuration: TimeInterval = 0
-    var transferStatsResetTimer: Timer?
+
+    /// Swift Concurrency replacement for `Timer.scheduledTimer` (Plan 05-15
+    /// Gap 32). The former Timer-based approach required a `weakSelf` capture
+    /// plus `MainActor.assumeIsolated`, which Swift 6 strict concurrency flags
+    /// as a data-race hazard. A `Task` started on a `@MainActor` class
+    /// inherits MainActor isolation automatically, so the body runs on the
+    /// main actor with no unsafe capture dance.
+    var transferStatsResetTask: Task<Void, Never>?
 
     /// Debounces idle transitions to prevent the tray icon from flashing
-    /// between sync and idle during parallel file operations.
-    private var idleDebounceTimer: Timer?
+    /// between sync and idle during parallel file operations. See
+    /// `transferStatsResetTask` for the rationale on the Timer -> Task move.
+    private var idleDebounceTask: Task<Void, Never>?
 
     /// Tracks the last reported cumulative size per filename to compute deltas
     private var lastReportedSize: [String: Int64] = [:]
@@ -57,12 +84,20 @@ class DS3DriveViewModel {
             self.driveStatus = .paused
         }
 
+        // Plan 05-15 Gap 14: any syncing entries left in the tracker from a
+        // previous session (e.g. the app was quit mid-transfer) should be
+        // transitioned to `.error("interrupted")` immediately so the user
+        // doesn't see phantom "transferring" rows after restart.
+        self.recentFilesTracker.purgeOnStartup()
+
         self.setupObserver()
     }
 
     func cleanup() {
-        transferStatsResetTimer?.invalidate()
-        idleDebounceTimer?.invalidate()
+        transferStatsResetTask?.cancel()
+        transferStatsResetTask = nil
+        idleDebounceTask?.cancel()
+        idleDebounceTask = nil
         DistributedNotificationCenter
             .default()
             .removeObserver(self)
@@ -100,35 +135,33 @@ class DS3DriveViewModel {
             driveTransferStats.driveId == self.drive.id // Only update if the notification is for this drive
         else { return }
 
-        self.transferStatsResetTimer?.invalidate()
+        self.transferStatsResetTask?.cancel()
         self.processTransferStats(driveTransferStats)
 
-        nonisolated(unsafe) weak var weakSelf = self
-        self.transferStatsResetTimer = Timer.scheduledTimer(
-            withTimeInterval: DefaultSettings.Tray.driveStatsReset,
-            repeats: false
-        ) { _ in
-            MainActor.assumeIsolated {
-                guard let self = weakSelf else { return }
-                self.lastReportedSize.removeAll()
-                self.lastReportedDuration.removeAll()
-                self.lastFileUpdate.removeAll()
-                self.perFileUploadSpeed.removeAll()
-                self.perFileDownloadSpeed.removeAll()
-                self.totalTransferredSize = 0
-                self.totalTransferDuration = 0
-                self.driveStats.uploadSpeedBs = nil
-                self.driveStats.downloadSpeedBs = nil
-                self.driveStats.lastUpdate = Date()
+        // Swift Concurrency replacement for Timer — inherits @MainActor from
+        // the enclosing class, so no `weakSelf` / `MainActor.assumeIsolated`
+        // dance is required (Plan 05-15 Gap 32).
+        self.transferStatsResetTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(DefaultSettings.Tray.driveStatsReset))
+            guard !Task.isCancelled, let self else { return }
+            self.lastReportedSize.removeAll()
+            self.lastReportedDuration.removeAll()
+            self.lastFileUpdate.removeAll()
+            self.perFileUploadSpeed.removeAll()
+            self.perFileDownloadSpeed.removeAll()
+            self.totalTransferredSize = 0
+            self.totalTransferDuration = 0
+            self.driveStats.uploadSpeedBs = nil
+            self.driveStats.downloadSpeedBs = nil
+            self.driveStats.lastUpdate = Date()
 
-                // Safety net: mark any remaining syncing entries as completed.
-                // The sync→idle transition may have fired while files were still
-                // transferring, leaving them stuck as .syncing in the tray.
-                for entry in self.recentFilesTracker.entries(forDrive: self.drive.id) where entry.status == .syncing {
-                    self.recentFilesTracker.update(filename: entry.filename, driveId: self.drive.id, status: .completed)
-                }
-                self.refreshRecentFiles()
+            // Safety net: mark any remaining syncing entries as completed.
+            // The sync→idle transition may have fired while files were still
+            // transferring, leaving them stuck as .syncing in the tray.
+            for entry in self.recentFilesTracker.entries(forDrive: self.drive.id) where entry.status == .syncing {
+                self.recentFilesTracker.update(filename: entry.filename, driveId: self.drive.id, status: .completed)
             }
+            self.refreshRecentFiles()
         }
     }
 
@@ -177,20 +210,30 @@ class DS3DriveViewModel {
         self.driveStats.downloadSpeedBs = self.perFileDownloadSpeed.isEmpty
             ? nil : self.perFileDownloadSpeed.values.reduce(0, +)
 
-        // Track in recent files
+        // Track in recent files. Plan 05-15 Gap 14: when the cumulative size
+        // reaches the reported total, upsert with `.completed` instead of
+        // `.syncing` so the row immediately transitions to a terminal state.
+        // Round 1 left the entry stuck on `.syncing` until the reset timer
+        // fired, which is what the user reported as "stuck transferring".
         let fileSpeed = isUpload ? self.perFileUploadSpeed[fileKey] : self.perFileDownloadSpeed[fileKey]
         if let filename = driveTransferStats.filename, !filename.isEmpty {
+            let isComplete: Bool = if let totalSize = driveTransferStats.totalSize, totalSize > 0 {
+                driveTransferStats.size >= totalSize
+            } else {
+                false
+            }
+
             let entry = RecentFileEntry(
                 driveId: driveTransferStats.driveId,
                 filename: filename,
                 size: driveTransferStats.size,
-                status: .syncing,
+                status: isComplete ? .completed : .syncing,
                 timestamp: Date(),
                 transferredBytes: driveTransferStats.size,
                 totalBytes: driveTransferStats.totalSize,
-                speed: fileSpeed
+                speed: isComplete ? nil : fileSpeed
             )
-            self.recentFilesTracker.add(entry)
+            self.recentFilesTracker.upsert(entry)
             self.refreshRecentFiles()
         }
     }
@@ -245,31 +288,32 @@ class DS3DriveViewModel {
         }
 
         // Always cancel any pending idle transition
-        self.idleDebounceTimer?.invalidate()
-        self.idleDebounceTimer = nil
+        self.idleDebounceTask?.cancel()
+        self.idleDebounceTask = nil
 
         if newStatus == .idle {
             // Debounce idle: wait 2s before applying so a new .sync arriving
             // in the window cancels this transition, preventing icon flashing.
-            nonisolated(unsafe) weak var weakSelf = self
-            self.idleDebounceTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
-                MainActor.assumeIsolated {
-                    guard let self = weakSelf else { return }
-                    let previousStatus = self.driveStatus
-                    self.driveStatus = .idle
+            // Swift Concurrency replacement for Timer — inherits @MainActor
+            // from the enclosing class, no weakSelf needed (Plan 05-15 Gap 32).
+            self.idleDebounceTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(2.0))
+                guard !Task.isCancelled, let self else { return }
 
-                    // When transitioning from sync to idle, mark all syncing entries as completed
-                    if previousStatus == .sync {
-                        let entries = self.recentFilesTracker.entries(forDrive: self.drive.id)
-                        for entry in entries where entry.status == .syncing {
-                            self.recentFilesTracker.update(
-                                filename: entry.filename,
-                                driveId: self.drive.id,
-                                status: .completed
-                            )
-                        }
-                        self.refreshRecentFiles()
+                let previousStatus = self.driveStatus
+                self.driveStatus = .idle
+
+                // When transitioning from sync to idle, mark all syncing entries as completed
+                if previousStatus == .sync {
+                    let entries = self.recentFilesTracker.entries(forDrive: self.drive.id)
+                    for entry in entries where entry.status == .syncing {
+                        self.recentFilesTracker.update(
+                            filename: entry.filename,
+                            driveId: self.drive.id,
+                            status: .completed
+                        )
                     }
+                    self.refreshRecentFiles()
                 }
             }
         } else {

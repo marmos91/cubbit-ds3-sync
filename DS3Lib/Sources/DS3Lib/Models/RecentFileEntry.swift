@@ -33,6 +33,12 @@ public struct RecentFileEntry: Identifiable, Sendable {
     /// Unique identifier for this entry.
     public let id: UUID
 
+    /// Stable identifier used for dedupe — typically `driveId/filename` (or the
+    /// full S3 key when known). Two entries with the same `identifier` represent
+    /// the same logical transfer and must be merged in place rather than
+    /// duplicated in the tracker.
+    public let identifier: String
+
     /// The drive this file belongs to.
     public let driveId: UUID
 
@@ -45,8 +51,12 @@ public struct RecentFileEntry: Identifiable, Sendable {
     /// The current transfer status.
     public var status: TransferStatus
 
-    /// When this transfer was recorded.
+    /// When this transfer was first seen (immutable across merges).
     public var timestamp: Date
+
+    /// Last time this entry was updated. Used by sort order and the stuck-transfer
+    /// watchdog to detect entries that never reached a terminal state.
+    public var updatedAt: Date
 
     /// Bytes transferred so far (cumulative). Used for progress percentage during syncing.
     public var transferredBytes: Int64
@@ -57,26 +67,56 @@ public struct RecentFileEntry: Identifiable, Sendable {
     /// Current transfer speed in bytes per second.
     public var speed: Double?
 
+    /// Optional error message if `status == .error`.
+    public var errorMessage: String?
+
     public init(
         id: UUID = UUID(),
+        identifier: String? = nil,
         driveId: UUID,
         filename: String,
         size: Int64,
         status: TransferStatus,
         timestamp: Date,
+        updatedAt: Date? = nil,
         transferredBytes: Int64 = 0,
         totalBytes: Int64? = nil,
-        speed: Double? = nil
+        speed: Double? = nil,
+        errorMessage: String? = nil
     ) {
         self.id = id
+        self.identifier = identifier ?? "\(driveId.uuidString)/\(filename)"
         self.driveId = driveId
         self.filename = filename
         self.size = size
         self.status = status
         self.timestamp = timestamp
+        self.updatedAt = updatedAt ?? timestamp
         self.transferredBytes = transferredBytes
         self.totalBytes = totalBytes
         self.speed = speed
+        self.errorMessage = errorMessage
+    }
+
+    /// Returns a new entry resulting from merging `self` with `other`.
+    /// Preserves the earliest `timestamp` (when the transfer started), takes the
+    /// latest `status` and `updatedAt`, the maximum `transferredBytes`, and the
+    /// most recent error message if any.
+    public func merging(with other: RecentFileEntry) -> RecentFileEntry {
+        RecentFileEntry(
+            id: id,
+            identifier: identifier,
+            driveId: driveId,
+            filename: other.filename,
+            size: max(size, other.size),
+            status: other.status,
+            timestamp: min(timestamp, other.timestamp),
+            updatedAt: max(updatedAt, other.updatedAt),
+            transferredBytes: max(transferredBytes, other.transferredBytes),
+            totalBytes: other.totalBytes ?? totalBytes,
+            speed: other.speed ?? speed,
+            errorMessage: other.errorMessage ?? errorMessage
+        )
     }
 
     /// Human-readable file size (e.g., "2.0 KB", "5.0 MB").

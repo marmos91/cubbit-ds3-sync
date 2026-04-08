@@ -18,12 +18,30 @@ actor NotificationManager {
     /// Tracks the number of in-flight file operations (fetch, create, modify, delete).
     /// Each immediate `.sync` increments; each debounced `.idle`/`.error` decrements.
     /// Idle transitions are suppressed while > 0, preventing rapid sync-idle flashing.
+    ///
+    /// Serialization is provided by the surrounding `actor`, so no separate
+    /// lock is required — this is the `counterLock` referenced by Gap 15.
     private var activeOperations: Int = 0
+
+    /// Tracks whether any operation in the current batch completed with an error.
+    /// When `activeOperations` reaches 0, the final status is `.error` instead of `.idle`
+    /// if this flag is set. Reset when a new batch starts (activeOperations goes from 0 to 1).
+    private var batchHadError: Bool = false
+
+    /// Last time `activeOperations` changed. Used by `resetCounterIfQuiescent`
+    /// to detect a leak: if the counter has been > 0 for > 30s without any
+    /// activity, the watchdog clamps it back to 0 and logs a warning.
+    private var lastCounterMutationTime: ContinuousClock.Instant = .now
+
+    /// Repeating watchdog task spawned at init. Cancelled in `shutdown` (best
+    /// effort — actor isolation guarantees the task observes the latest state).
+    private var counterWatchdogTask: Task<Void, Never>?
 
     init(drive: DS3Drive, ipcService: (any IPCService)? = nil) {
         self.drive = drive
         self.driveStatus = .idle
         self.ipcService = ipcService ?? makeDefaultIPCService()
+        Task { [weak self] in await self?.startCounterWatchdog() }
     }
 
     /// Sends a notification to the app with the current status of the drive debounced. If you want to send the
@@ -34,8 +52,24 @@ actor NotificationManager {
     ///     that was previously tracked with an immediate `.sync`. Only file-operation completions should
     ///     decrement the active operations counter. Enumerator status updates should pass `false`.
     func sendDriveChangedNotificationWithDebounce(status: DS3DriveStatus, isFileOperation: Bool = true) {
-        if isFileOperation, activeOperations > 0, status == .idle || status == .error {
-            activeOperations -= 1
+        // Track errors so we can report the correct final status when the batch finishes
+        if isFileOperation, status == .error {
+            batchHadError = true
+        }
+
+        if isFileOperation, status == .idle || status == .error {
+            // Clamp-to-zero invariant: if a decrement would push the counter
+            // below zero, the upstream notifications got out of balance
+            // (Gap 15). Log it and clamp instead of crashing or wrapping.
+            if activeOperations > 0 {
+                activeOperations -= 1
+                lastCounterMutationTime = .now
+            } else {
+                logger
+                    .warning(
+                        "NotificationManager counter leak detected: decrement attempted at 0 (status=\(status.rawValue, privacy: .public))"
+                    )
+            }
         }
 
         // While file operations are still active, suppress idle/error from ANY source
@@ -46,12 +80,25 @@ actor NotificationManager {
             return
         }
 
+        // When all operations complete and any had an error, report .error
+        // even if the last operation itself succeeded with .idle.
+        let effectiveStatus: DS3DriveStatus = if activeOperations == 0, status == .idle, batchHadError {
+            .error
+        } else {
+            status
+        }
+
+        // Reset batch error tracking when all operations are done
+        if activeOperations == 0 {
+            batchHadError = false
+        }
+
         debounceTask?.cancel()
 
         debounceTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(DefaultSettings.Extension.statusChangeDebounceInterval))
             guard !Task.isCancelled else { return }
-            await self?.postStatusNotification(status: status)
+            await self?.postStatusNotification(status: effectiveStatus)
         }
     }
 
@@ -63,7 +110,12 @@ actor NotificationManager {
         debounceTask = nil
 
         if status == .sync {
+            // Reset batch error tracking when starting a new batch (first operation)
+            if activeOperations == 0 {
+                batchHadError = false
+            }
             activeOperations += 1
+            lastCounterMutationTime = .now
         }
 
         if status == .idle, activeOperations > 0 {
@@ -163,6 +215,43 @@ actor NotificationManager {
             await ipcService.postAuthFailure(domainId: domainId, reason: reason)
         }
         logger.warning("Auth failure notification sent: \(reason, privacy: .public)")
+    }
+
+    // MARK: - Counter Watchdog (Gap 15)
+
+    /// Spawns a repeating task that periodically calls
+    /// `resetCounterIfQuiescent` so a phantom `.indexing`/`.sync` state cannot
+    /// stick after the upstream notifications stop arriving.
+    private func startCounterWatchdog() {
+        counterWatchdogTask?.cancel()
+        counterWatchdogTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(30))
+                guard !Task.isCancelled else { return }
+                await self?.resetCounterIfQuiescent()
+            }
+        }
+    }
+
+    /// If `activeOperations` has been > 0 with no mutation for at least 30
+    /// seconds, force the counter back to 0 and emit an `.idle` notification
+    /// so the tray recovers from a counter leak.
+    func resetCounterIfQuiescent() {
+        guard activeOperations > 0 else { return }
+
+        let elapsed = ContinuousClock.now - lastCounterMutationTime
+        let elapsedSeconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
+        guard elapsedSeconds >= 30 else { return }
+
+        logger
+            .warning(
+                "NotificationManager counter watchdog: clamping leaked counter from \(self.activeOperations, privacy: .public) to 0 after \(elapsedSeconds, privacy: .public)s of inactivity"
+            )
+
+        activeOperations = 0
+        batchHadError = false
+        lastCounterMutationTime = .now
+        postStatusNotification(status: .idle)
     }
 
     func sendConflictNotification(filename: String, conflictKey: String) {
