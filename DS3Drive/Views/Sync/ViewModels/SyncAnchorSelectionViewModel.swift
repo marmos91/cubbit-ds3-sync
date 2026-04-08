@@ -77,6 +77,9 @@ class SyncAnchorSelectionViewModel {
         defer { self.loading = false }
 
         do {
+            // Gap 1: refresh access token before any S3 call so an expired
+            // token recovers transparently via the still-valid refresh cookie.
+            try? await authentication.refreshIfNeeded()
             try await self.initializeClient()
 
             self.logger.debug("Loading buckets for project \(self.project.name)")
@@ -109,13 +112,16 @@ class SyncAnchorSelectionViewModel {
 
         defer { self.loading = false }
 
+        let start = Date()
         do {
+            try? await authentication.refreshIfNeeded()
             guard let selectedBucket = self.selectedBucket else { throw SyncAnchorSelectionError.noBucketSelected }
 
-            self.logger
-                .debug(
-                    "Listing objects for bucket \(selectedBucket.name) and prefix \(self.selectedPrefix?.removingPercentEncoding ?? "no-prefix")"
-                )
+            let prefixLabel = self.selectedPrefix?.removingPercentEncoding ?? "no-prefix"
+            let clientCached = self.s3Client != nil
+            self.logger.info(
+                "listFolders start bucket=\(selectedBucket.name, privacy: .public) prefix=\(prefixLabel, privacy: .public) clientCached=\(clientCached, privacy: .public)"
+            )
 
             try await self.initializeClient()
 
@@ -132,8 +138,20 @@ class SyncAnchorSelectionViewModel {
             for prefix in result.commonPrefixes {
                 self.folders[self.selectedPrefix ?? ""]?.append(prefix)
             }
+
+            let elapsedMs = Int(Date().timeIntervalSince(start) * 1000)
+            self.logger.info(
+                "listFolders ok bucket=\(selectedBucket.name, privacy: .public) foundPrefixes=\(result.commonPrefixes.count, privacy: .public) elapsedMs=\(elapsedMs, privacy: .public)"
+            )
         } catch {
-            self.logger.error("An error occurred while listing objects \(error)")
+            // Only the localized description is safe to log publicly —
+            // `String(describing: error)` on Soto/NIO errors can leak full
+            // request URLs, headers, or response bodies into the system
+            // log. Keep the raw error at `.private` for on-device debug.
+            let elapsedMs = Int(Date().timeIntervalSince(start) * 1000)
+            self.logger.error(
+                "listFolders failed elapsedMs=\(elapsedMs, privacy: .public) error=\(error.localizedDescription, privacy: .public) raw=\(String(describing: error), privacy: .private)"
+            )
             self.error = error
         }
     }

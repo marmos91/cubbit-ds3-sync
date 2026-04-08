@@ -9,6 +9,7 @@ struct DriveConfirmView: View {
     var onComplete: ((DS3Drive) -> Void)?
 
     @State private var nameError: String?
+    @FocusState private var driveNameFocused: Bool
 
     init(syncAnchor: SyncAnchor, suggestedName: String) {
         self.syncAnchor = syncAnchor
@@ -22,8 +23,8 @@ struct DriveConfirmView: View {
             VStack(alignment: .leading, spacing: DS3Spacing.lg) {
                 // Header
                 Text("Confirm your drive")
-                    .font(DS3Typography.title)
-                    .foregroundStyle(DS3Colors.primaryText)
+                    .font(DS3Typography.h3)
+                    .foregroundStyle(DS3Colors.brandTextPrimary)
 
                 // Read-only summary of selection
                 summarySection
@@ -39,7 +40,13 @@ struct DriveConfirmView: View {
             // Footer
             footerBar
         }
-        .background(DS3Colors.background)
+        .background(DS3Colors.brandBackground)
+        .transition(.opacity.combined(with: .move(edge: .trailing)))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                driveNameFocused = true
+            }
+        }
     }
 
     // MARK: - Summary section
@@ -47,14 +54,11 @@ struct DriveConfirmView: View {
     private var summarySection: some View {
         VStack(alignment: .leading, spacing: 0) {
             summaryRow(label: "Project") {
-                Text(syncAnchor.project.short().uppercased())
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(.black)
-                    .frame(width: 18, height: 18)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.orange)
-                    )
+                ProjectBadge(
+                    projectId: syncAnchor.project.id,
+                    projectName: syncAnchor.project.name,
+                    size: 24
+                )
                 Text(syncAnchor.project.name)
             }
 
@@ -73,29 +77,25 @@ struct DriveConfirmView: View {
 
                 summaryRow(label: "Path") {
                     Image(systemName: "folder")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DS3Colors.brandTextSecondary)
                         .font(.system(size: 13))
                     Text(displayPrefix(prefix))
                 }
             }
         }
-        .padding(DS3Spacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(DS3Colors.secondaryBackground)
-        )
+        .brandCard()
     }
 
     private func summaryRow(label: String, @ViewBuilder content: () -> some View) -> some View {
         HStack(spacing: DS3Spacing.sm) {
             Text(label)
                 .font(DS3Typography.caption)
-                .foregroundStyle(DS3Colors.secondaryText)
+                .foregroundStyle(DS3Colors.brandTextSecondary)
                 .frame(width: 54, alignment: .leading)
 
             content()
                 .font(DS3Typography.body)
-                .foregroundStyle(DS3Colors.primaryText)
+                .foregroundStyle(DS3Colors.brandTextPrimary)
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
@@ -108,11 +108,15 @@ struct DriveConfirmView: View {
         VStack(alignment: .leading, spacing: DS3Spacing.sm) {
             Text("Drive name")
                 .font(DS3Typography.caption)
-                .foregroundStyle(DS3Colors.secondaryText)
+                .foregroundStyle(DS3Colors.brandTextSecondary)
 
             TextField("Enter drive name", text: $driveName)
                 .textFieldStyle(.roundedBorder)
                 .font(DS3Typography.body)
+                .focused($driveNameFocused)
+                .onSubmit {
+                    if isValid { createDrive() }
+                }
                 .onChange(of: driveName) {
                     validateName()
                 }
@@ -127,7 +131,7 @@ struct DriveConfirmView: View {
                 "With a single drive, Finder displays the app name in the sidebar. This name will be shown when multiple drives are configured. [Learn more](https://developer.apple.com/documentation/fileprovider/nsfileproviderdomain/displayname)"
             )
             .font(DS3Typography.footnote)
-            .foregroundStyle(DS3Colors.secondaryText)
+            .foregroundStyle(DS3Colors.brandTextSecondary)
         }
     }
 
@@ -141,6 +145,7 @@ struct DriveConfirmView: View {
                 HStack(spacing: DS3Spacing.xs) {
                     Image(systemName: "chevron.left")
                     Text("Back")
+                        .font(DS3Typography.body)
                 }
             }
             .buttonStyle(.plain)
@@ -152,16 +157,16 @@ struct DriveConfirmView: View {
             Button("Create Drive") {
                 createDrive()
             }
-            .buttonStyle(PrimaryButtonStyle())
+            .buttonStyle(BrandPrimaryButtonStyle())
             .disabled(!isValid)
-            .frame(maxWidth: 140, maxHeight: 32)
+            .keyboardShortcut(.defaultAction)
             .padding(DS3Spacing.lg)
         }
-        .background(DS3Colors.secondaryBackground)
+        .background(DS3Colors.brandSurface)
         .overlay(
             Rectangle()
                 .frame(height: 1)
-                .foregroundStyle(DS3Colors.separator),
+                .foregroundStyle(DS3Colors.brandBorderSubtle),
             alignment: .top
         )
     }
@@ -173,6 +178,10 @@ struct DriveConfirmView: View {
     }
 
     private func validateName() {
+        // Enforce max length to prevent excessively long domain names
+        if driveName.count > 64 {
+            driveName = String(driveName.prefix(64))
+        }
         let trimmed = driveName.trimmingCharacters(in: .whitespaces)
         nameError = trimmed.isEmpty ? "Drive name cannot be empty" : nil
     }

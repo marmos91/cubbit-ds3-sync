@@ -167,6 +167,10 @@ class TreeNavigationViewModel {
         defer { node.isLoading = false }
 
         do {
+            // Layer 1 (Gap 1): proactively refresh the access token before
+            // any S3 call so an expired access token recovers transparently
+            // via the still-valid refresh cookie.
+            try? await authentication.refreshIfNeeded()
             let s3Client = try await getOrCreateS3Client(forProject: project)
             let buckets = try await s3Client.listBuckets()
 
@@ -200,6 +204,7 @@ class TreeNavigationViewModel {
         defer { node.isLoading = false }
 
         do {
+            try? await authentication.refreshIfNeeded()
             let s3Client = try await getOrCreateS3Client(forProject: project)
             let result = try await s3Client.listObjects(
                 bucket: bucket.name,
@@ -243,6 +248,7 @@ class TreeNavigationViewModel {
         }
 
         do {
+            try? await authentication.refreshIfNeeded()
             let s3Client = try await getOrCreateS3Client(forProject: project)
             // prefix is already decoded (stored decoded from expandBucket)
             let result = try await s3Client.listObjects(
@@ -370,6 +376,7 @@ class TreeNavigationViewModel {
 
 struct TreeNavigationView: View {
     @State private var viewModel: TreeNavigationViewModel
+    @Environment(\.dismiss) private var dismiss
 
     var onSyncAnchorSelected: ((SyncAnchor) -> Void)?
 
@@ -382,7 +389,7 @@ struct TreeNavigationView: View {
             // Left sidebar: tree view
             treeSidebar
                 .frame(width: 280)
-                .border(width: 1, edges: [.trailing], color: DS3Colors.separator)
+                .border(width: 1, edges: [.trailing], color: DS3Colors.brandBorder)
 
             // Right content: selection details + continue button
             detailPanel
@@ -437,7 +444,7 @@ struct TreeNavigationView: View {
                 }
             }
         }
-        .background(DS3Colors.secondaryBackground)
+        .background(DS3Colors.brandSurface)
     }
 
     // MARK: - Recursive tree row
@@ -499,6 +506,87 @@ struct TreeNavigationView: View {
         )
     }
 
+    // MARK: - Wizard empty hero (Gap 5)
+
+    /// Empty-state hero shown in the right detail pane before any tree node
+    /// is selected. Replaces the bare back-arrow + caption with a Cubbit
+    /// brand mark, an inviting heading, and a 3-step "how this works" hint.
+    private var wizardEmptyHero: some View {
+        VStack(spacing: DS3Spacing.lg) {
+            // Cubbit logo with a soft brand-blue radial halo behind it.
+            // No hard circle outline — the halo just blends into the
+            // backdrop, matching the radial-glow accents on Composer
+            // canary cards.
+            ZStack {
+                DS3Gradients.brandRadialGlow
+                    .frame(width: 200, height: 120)
+                    .blur(radius: 24)
+                Image(.cubbitLogo)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 120, height: 44)
+            }
+
+            Text(NSLocalizedString(
+                "wizard.empty.title",
+                value: "Set up your first drive",
+                comment: "Wizard empty detail pane heading"
+            ))
+            .font(DS3Typography.title2)
+            .foregroundStyle(DS3Colors.brandTextPrimary)
+            .multilineTextAlignment(.center)
+
+            VStack(alignment: .leading, spacing: DS3Spacing.md) {
+                wizardHintRow(
+                    number: 1,
+                    text: NSLocalizedString(
+                        "wizard.empty.step1",
+                        value: "Choose a project",
+                        comment: "Wizard empty step 1"
+                    )
+                )
+                wizardHintRow(
+                    number: 2,
+                    text: NSLocalizedString(
+                        "wizard.empty.step2",
+                        value: "Pick a bucket",
+                        comment: "Wizard empty step 2"
+                    )
+                )
+                wizardHintRow(
+                    number: 3,
+                    text: NSLocalizedString(
+                        "wizard.empty.step3",
+                        value: "Select a folder to sync",
+                        comment: "Wizard empty step 3"
+                    )
+                )
+            }
+            .padding(.top, DS3Spacing.sm)
+        }
+        .padding(DS3Spacing.xl)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DS3Colors.brandBackground)
+    }
+
+    private func wizardHintRow(number: Int, text: String) -> some View {
+        HStack(spacing: DS3Spacing.md) {
+            ZStack {
+                Circle()
+                    .fill(DS3Colors.brandPrimary)
+                    .frame(width: 24, height: 24)
+
+                Text("\(number)")
+                    .font(DS3Typography.caption.bold())
+                    .foregroundStyle(.white)
+            }
+
+            Text(text)
+                .font(DS3Typography.body)
+                .foregroundStyle(DS3Colors.brandTextSecondary)
+        }
+    }
+
     // MARK: - Detail panel
 
     private var detailPanel: some View {
@@ -520,28 +608,35 @@ struct TreeNavigationView: View {
                 }
                 .padding(DS3Spacing.xl)
             } else {
-                VStack(spacing: DS3Spacing.md) {
-                    Image(systemName: "arrow.left.circle")
-                        .font(.system(size: 40))
-                        .foregroundStyle(DS3Colors.secondaryText)
-
-                    Text("Select a project, bucket, or folder from the tree")
-                        .font(DS3Typography.body)
-                        .foregroundStyle(DS3Colors.secondaryText)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(DS3Spacing.xl)
+                wizardEmptyHero
             }
 
             Spacer()
 
-            // Error display
+            // Error display — Gap 1: when the error is an authentication
+            // failure that refreshIfNeeded couldn't recover from (refresh
+            // token expired/revoked), surface a "Sign in again" affordance
+            // so the wizard is no longer a dead end.
             if let error = viewModel.error {
-                Text(error.localizedDescription)
-                    .font(DS3Typography.caption)
-                    .foregroundStyle(DS3Colors.statusError)
-                    .padding(.horizontal, DS3Spacing.lg)
-                    .padding(.bottom, DS3Spacing.sm)
+                VStack(spacing: DS3Spacing.sm) {
+                    Text(error.localizedDescription)
+                        .font(DS3Typography.caption)
+                        .foregroundStyle(DS3Colors.statusError)
+
+                    if error is DS3AuthenticationError {
+                        Button(NSLocalizedString(
+                            "auth.signInAgain",
+                            value: "Sign in again",
+                            comment: "Wizard auth recovery button"
+                        )) {
+                            viewModel.authentication.logout()
+                            dismiss()
+                        }
+                        .buttonStyle(OutlineButtonStyle())
+                    }
+                }
+                .padding(.horizontal, DS3Spacing.lg)
+                .padding(.bottom, DS3Spacing.sm)
             }
 
             // IAM user picker in footer area
@@ -566,20 +661,20 @@ struct TreeNavigationView: View {
                         onSyncAnchorSelected?(anchor)
                     }
                 }
-                .buttonStyle(PrimaryButtonStyle())
+                .buttonStyle(BrandPrimaryButtonStyle())
                 .disabled(!viewModel.canContinue)
-                .frame(maxWidth: 120, maxHeight: 32)
+                .keyboardShortcut(.defaultAction)
                 .padding(DS3Spacing.lg)
             }
-            .background(DS3Colors.secondaryBackground)
+            .background(DS3Colors.brandSurface)
             .overlay(
                 Rectangle()
                     .frame(height: 1)
-                    .foregroundStyle(DS3Colors.separator),
+                    .foregroundStyle(DS3Colors.brandBorder),
                 alignment: .top
             )
         }
-        .background(DS3Colors.background)
+        .background(DS3Colors.brandBackground)
     }
 
     // MARK: - IAM User Picker
@@ -623,11 +718,11 @@ struct TreeNavigationView: View {
             .padding(.vertical, 5)
             .background(
                 Capsule()
-                    .fill(DS3Colors.separator.opacity(0.3))
+                    .fill(DS3Colors.brandSurface)
             )
             .overlay(
                 Capsule()
-                    .stroke(DS3Colors.separator, lineWidth: 0.5)
+                    .stroke(DS3Colors.brandBorderSubtle, lineWidth: 0.5)
             )
         }
         .menuStyle(.borderlessButton)
@@ -669,14 +764,9 @@ struct TreeNavigationView: View {
     private func iconView(for node: TreeNode) -> some View {
         switch node.type {
         case .project:
-            Text(node.project?.short().uppercased() ?? "")
-                .font(.system(size: 8, weight: .bold))
-                .foregroundStyle(.black)
-                .frame(width: 20, height: 20)
-                .background(
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.orange)
-                )
+            let projectId = node.project?.id ?? node.id
+            let projectName = node.project?.name ?? "?"
+            ProjectBadge(projectId: projectId, projectName: projectName, size: 24)
         case .bucket:
             Image(.bucketIcon)
                 .resizable()
@@ -693,14 +783,9 @@ struct TreeNavigationView: View {
     private func detailIconView(for node: TreeNode) -> some View {
         switch node.type {
         case .project:
-            Text(node.project?.short().uppercased() ?? "")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(.black)
-                .frame(width: 48, height: 48)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.orange)
-                )
+            let projectId = node.project?.id ?? node.id
+            let projectName = node.project?.name ?? "?"
+            ProjectBadge(projectId: projectId, projectName: projectName, size: 48)
         case .bucket:
             Image(.bucketIcon)
                 .resizable()
