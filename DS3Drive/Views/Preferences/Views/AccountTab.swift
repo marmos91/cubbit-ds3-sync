@@ -73,6 +73,8 @@ struct AccountTab: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(DS3Colors.brandBackground)
         .padding(DS3Spacing.lg)
     }
 

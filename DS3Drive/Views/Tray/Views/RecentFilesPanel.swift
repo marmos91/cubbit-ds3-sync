@@ -8,6 +8,8 @@ struct RecentFilesPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            header
+
             if driveViewModel.recentFiles.isEmpty {
                 emptyState
             } else {
@@ -15,6 +17,44 @@ struct RecentFilesPanel: View {
             }
         }
         .padding(.vertical, DS3Spacing.sm)
+        // Plan 05-12: brand surface so the panel matches the tray cards.
+        .background(DS3Colors.brandSurface)
+    }
+
+    // MARK: - Header
+
+    /// Header row with the panel title and a Clear action (Gap 14).
+    /// Clicking Clear empties the per-drive tracker so stale entries can be
+    /// dismissed all at once.
+    private var header: some View {
+        HStack {
+            Text(NSLocalizedString(
+                "recentFiles.title",
+                value: "Recent Files",
+                comment: "Recent files panel title"
+            ))
+            .font(DS3Typography.caption.bold())
+            .foregroundStyle(DS3Colors.brandTextSecondary)
+
+            Spacer()
+
+            Button {
+                driveViewModel.recentFilesTracker.clearAll(forDrive: driveViewModel.drive.id)
+                driveViewModel.refreshRecentFiles()
+            } label: {
+                Text(NSLocalizedString(
+                    "recentFiles.clear",
+                    value: "Clear",
+                    comment: "Recent files panel clear button"
+                ))
+                .font(DS3Typography.footnote)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(DS3Colors.brandTextSecondary)
+            .disabled(driveViewModel.recentFiles.isEmpty)
+        }
+        .padding(.horizontal, DS3Spacing.lg)
+        .padding(.bottom, DS3Spacing.xs)
     }
 
     // MARK: - File List
@@ -31,10 +71,10 @@ struct RecentFilesPanel: View {
         VStack(spacing: DS3Spacing.sm) {
             Image(systemName: "doc")
                 .font(.system(size: 20))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(DS3Colors.brandTextSecondary)
             Text(NSLocalizedString("No recent files", comment: "Empty recent files"))
                 .font(DS3Typography.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DS3Colors.brandTextSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, DS3Spacing.xl)
@@ -60,12 +100,13 @@ private struct RecentFileRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(entry.filename)
                         .font(DS3Typography.caption)
+                        .foregroundStyle(DS3Colors.brandTextPrimary)
                         .lineLimit(1)
                         .truncationMode(.middle)
 
                     Text(subtitleText)
                         .font(DS3Typography.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DS3Colors.brandTextSecondary)
                 }
 
                 Spacer()
@@ -79,7 +120,7 @@ private struct RecentFileRow: View {
                     .padding(.horizontal, DS3Spacing.lg)
             }
         }
-        .background(isHover ? Color(nsColor: .selectedContentBackgroundColor).opacity(0.15) : Color.clear)
+        .background(DS3Colors.brandPrimary.opacity(isHover ? 0.08 : 0))
         .contentShape(Rectangle())
         .onHover { isHover = $0 }
         .onTapGesture {

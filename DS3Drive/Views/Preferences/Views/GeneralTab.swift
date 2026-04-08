@@ -3,9 +3,32 @@ import SwiftUI
 
 struct GeneralTab: View {
     @AppStorage(DefaultSettings.UserDefaultsKeys.loginItemSet) var loginItemSet: Bool = DefaultSettings.loginItemSet
+    @AppStorage(DefaultSettings.UserDefaultsKeys.tutorial) var tutorialShown: Bool = DefaultSettings.tutorialShown
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
     @State private var startAtLogin: Bool = DefaultSettings.appIsLoginItem
 
     var preferencesViewModel: PreferencesViewModel
+
+    /// Shared "Last checked: …" subtitle used by the updates section.
+    /// Renders a relative timestamp (e.g. "2 minutes ago") when a check has happened,
+    /// or "Never" when there is no `lastCheckDate` yet.
+    static func lastCheckedSubtitle(for lastCheckDate: Date?) -> String {
+        guard let lastCheckDate else {
+            return NSLocalizedString("updates.never", value: "Last checked: Never", comment: "Never checked")
+        }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        let relative = formatter.localizedString(for: lastCheckDate, relativeTo: Date())
+        return String(
+            format: NSLocalizedString(
+                "updates.lastChecked",
+                value: "Last checked: %@",
+                comment: "Last update check timestamp"
+            ),
+            relative
+        )
+    }
 
     var body: some View {
         Form {
@@ -48,8 +71,40 @@ struct GeneralTab: View {
             }
 
             UpdateSection()
+
+            Section {
+                Button {
+                    // Explicit `openWindow` is required: the main scene is
+                    // gated on `!tutorialShown`, but flipping the flag alone
+                    // has no effect if the window was previously closed.
+                    tutorialShown = false
+                    openWindow(id: "io.cubbit.DS3Drive.main")
+                    dismissWindow(id: "io.cubbit.DS3Drive.preferences")
+                } label: {
+                    HStack(spacing: DS3Spacing.sm) {
+                        Image(systemName: "play.rectangle.on.rectangle")
+                            .foregroundStyle(DS3Colors.brandPrimary)
+                        VStack(alignment: .leading, spacing: DS3Spacing.xs) {
+                            Text("Show Tutorial Again")
+                                .font(DS3Typography.body)
+                                .foregroundStyle(DS3Colors.primaryText)
+                            Text("Replay the onboarding walkthrough.")
+                                .font(DS3Typography.caption)
+                                .foregroundStyle(DS3Colors.secondaryText)
+                        }
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            } header: {
+                Text("Onboarding")
+                    .font(DS3Typography.caption)
+            }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(DS3Colors.brandBackground)
         .padding(DS3Spacing.lg)
     }
 }

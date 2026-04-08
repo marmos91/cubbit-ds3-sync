@@ -80,6 +80,8 @@ struct TrashTab: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(DS3Colors.brandBackground)
         .padding(DS3Spacing.lg)
         .onAppear {
             loadSettings()
