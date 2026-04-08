@@ -29,12 +29,11 @@ DS3 Drive connects your [Cubbit DS3](https://www.cubbit.io) buckets to the nativ
 
 ## What's new in 1.7.0
 
-- **iOS app (public beta).** Full-featured companion app for iPhone and iPad, built on the same File Provider extension as the macOS app. Tutorial onboarding, drive setup wizard, account settings, and Files-app integration.
-- **Refreshed macOS UI.** New brand typography (Figtree), design tokens (`DS3Colors`, `DS3Typography`, `DS3Gradients`, `DS3Spacing`), redesigned tray menu with per-drive gear menu, and a new Recent Files panel with live transfer progress.
-- **New Connection tab in Preferences.** Inspect and configure the Cubbit coordinator URL, view tenant info, and copy the API endpoint.
-- **Tray polish.** Per-drive status pills, aggregate sync/speed summary, in-tray "empty drives" hint, and programmatic menu wiring (fixes a long-standing SwiftUI `Menu` hit-test bug on Sequoia).
-- **Drive setup wizard rewrite.** Tree-based bucket navigation with IAM-user switching, folder-prefix picker, and a single confirm step that reads like a receipt.
-- **Shared design system.** `DS3Lib` now ships the brand token set so iOS and macOS stay visually in lockstep.
+- **iOS app (public beta)** — full-featured companion app for iPhone and iPad, sharing the same File Provider extension as the macOS app
+- **Refreshed macOS UI** — new brand typography (Figtree), design tokens (`DS3Colors`, `DS3Typography`, `DS3Gradients`, `DS3Spacing`), redesigned tray with per-drive gear menu, and a live Recent Files panel
+- **Drive setup wizard rewrite** — tree-based bucket navigation with IAM-user switching, folder-prefix picker, and a single confirm step
+- **New Connection tab in Preferences** — inspect and configure the Cubbit coordinator URL
+- **Shared design system** — `DS3Lib` ships brand tokens so iOS and macOS stay visually in lockstep
 
 See the full changelog on the [v1.7.0 release](https://github.com/marmos91/cubbit-ds3-drive/releases/tag/v1.7.0).
 
@@ -61,122 +60,71 @@ Requires iOS 17 or later and the [TestFlight app](https://apps.apple.com/app/tes
 
 ### 1. Set up your first drive
 
-Log in with your Cubbit credentials, pick a project, expand to a bucket, and optionally drill down into a folder prefix to scope the sync.
+Log in with your Cubbit credentials, pick a project, expand to a bucket, and optionally drill down into a folder prefix to scope the sync. Confirm in one screen and you're done.
 
 <p align="center">
-  <img alt="Setup wizard — start" src="/Assets/SetupStart.png?raw=true" width="520">
-  <br><br>
-  <img alt="Setup wizard — pick bucket" src="/Assets/SelectBucket.png?raw=true" width="520">
+  <img alt="Setup wizard" src="/Assets/SetupStart.png?raw=true" width="460">
+  &nbsp;
+  <img alt="Confirm drive" src="/Assets/ConfirmDrive.png?raw=true" width="460">
 </p>
 
-Confirm the drive in one screen — with a single drive Finder uses the app name as the sidebar label; with multiple drives the custom name shows instead.
+### 2. Drive your drives from the menu bar
+
+Each drive shows its status, last activity, and a gear menu for quick actions (view in Finder, web console, copy S3 path, pause/resume, rename, delete). The footer aggregates sync state and transfer speed across all drives. Click a drive to flip open a Recent Files panel with per-file progress.
 
 <p align="center">
-  <img alt="Confirm drive" src="/Assets/ConfirmDrive.png?raw=true" width="520">
+  <img alt="Tray menu" src="/Assets/TrayMenuDetail.png?raw=true" width="320">
+  &nbsp;
+  <img alt="Recent files panel" src="/Assets/RecentFiles.png?raw=true" width="520">
 </p>
 
-### 2. Control your drives from the menu bar
+### 3. Preferences
 
-Each drive shows its status, the last activity timestamp, and a per-drive gear menu for quick actions. The footer aggregates sync state and transfer speed across all drives.
-
-<p align="center">
-  <img alt="Tray menu" src="/Assets/TrayMenuDetail.png?raw=true" width="360">
-</p>
-
-### 3. Watch transfers in real time
-
-The Recent Files panel surfaces in-flight uploads and downloads with per-file progress. Files stream directly to and from S3 — no intermediate local cache unless you ask for it.
+Startup, notifications, account, sync, coordinator connection, and trash — each behind its own tab. The **Connection** tab is new in 1.7.0 and lets you point DS3 Drive at any Cubbit coordinator (SaaS, on-prem, or a custom tenant).
 
 <p align="center">
-  <img alt="Recent files" src="/Assets/RecentFiles.png?raw=true" width="640">
-</p>
-
-### 4. Use Finder like always
-
-Your bucket appears as a native location in Finder's sidebar. Open, edit, rename, move, and delete files the same way you would with iCloud Drive or Dropbox. Multipart uploads kick in automatically for files over 5 MB.
-
-<p align="center">
-  <img alt="Finder — icon view" src="/Assets/FinderIntegration.png?raw=true" width="640">
-  <br><br>
-  <img alt="Finder — list view" src="/Assets/FinderList.png?raw=true" width="640">
-</p>
-
-### 5. Preferences
-
-Startup, notifications, account, sync, coordinator connection, and trash — each behind its own tab.
-
-<p align="center">
-  <img alt="Preferences" src="/Assets/Preferences.png?raw=true" width="500">
+  <img alt="Preferences" src="/Assets/Preferences.png?raw=true" width="460">
 </p>
 
 ## iOS
 
-The iOS app mirrors the macOS feature set with a native iPhone/iPad UI. Sign in, run through the setup wizard, and your bucket is mounted into the system Files app.
+The iOS app mirrors the macOS feature set with a native iPhone/iPad UI. Sign in, run through the setup wizard, and your bucket is mounted into the system Files app under **Locations** — with live sync indicators on files being uploaded or downloaded.
 
 <p align="center">
-  <img alt="Drives — empty state" src="/Assets/ios/NoDrives.png?raw=true" width="220">
   <img alt="Drives dashboard" src="/Assets/ios/Drives.png?raw=true" width="220">
-  <img alt="Project picker" src="/Assets/ios/ProjectSelect.png?raw=true" width="220">
   <img alt="Bucket picker" src="/Assets/ios/BucketSelect.png?raw=true" width="220">
-</p>
-
-<p align="center">
   <img alt="Create drive" src="/Assets/ios/CreateDrive.png?raw=true" width="220">
-  <img alt="Drive settings" src="/Assets/ios/DriveSettings.png?raw=true" width="220">
-  <img alt="Settings" src="/Assets/ios/Settings.png?raw=true" width="220">
-  <img alt="Files app" src="/Assets/ios/FilesApp.png?raw=true" width="220">
 </p>
 
-Your synced buckets appear directly under **Locations** in the Files app, with live sync indicators on files being uploaded or downloaded.
-
 <p align="center">
-  <img alt="Files app — syncing" src="/Assets/ios/FilesAppSync.png?raw=true" width="260">
+  <img alt="Settings" src="/Assets/ios/Settings.png?raw=true" width="220">
+  <img alt="Files app — syncing" src="/Assets/ios/FilesAppSync.png?raw=true" width="220">
 </p>
 
 ## Features
 
-### File Provider integration
-- Virtual drives surface as native locations in Finder (macOS) and the Files app (iOS)
-- Full read/write: upload, download, rename, move, delete, copy
+### File Provider
+- Full read/write on virtual drives: upload, download, rename, move, delete, copy
 - Multipart upload for files larger than 5 MB
 - Streaming fetch — files aren't pre-cached unless you open them
-- Per-file sync status badges and error propagation to the parent folder
+- Per-file sync badges and error propagation to the parent folder
 
-### Tray menu (macOS)
-- Real-time aggregate upload/download speed with per-drive breakdown
+### Drive management
+- Up to 3 concurrent drives per account
+- Tree-based bucket picker with IAM-user switching and folder-prefix scoping
+- Pause, resume, refresh, reset, rename, or delete from the per-drive gear menu
+
+### Real-time feedback
+- Aggregate and per-drive transfer speed in the tray footer
 - Sync status pills (idle, syncing, indexing, error, paused, offline)
-- Recent Files panel with per-file transfer progress
-- Per-drive gear menu: view in Finder, open in web console, copy S3 path, pause/resume, refresh, reset, rename, delete
-- Top-level actions: add drive, preferences, web console, check for updates, help, quit
-
-### Drive setup wizard
-- Tree-based bucket navigation with IAM-user switching
-- Folder-prefix picker so a single bucket can back multiple drives
-- One-screen confirm step showing project, bucket, prefix, and drive name
-- Up to 3 concurrent drives
+- Live Recent Files panel with per-file progress
+- Batched conflict notifications with "Show in Finder" action, plus automatic `(conflicted copy)` fallback
 
 ### Authentication
-- Email + password login with 2FA (TOTP) support
+- Email + password with 2FA (TOTP) support
 - Custom coordinator URL for on-prem and multi-tenant deployments
 - JWT access tokens with proactive refresh and persistent sessions
 - Auto-managed DS3 API keys, reconciled between local and remote on setup
-
-### Conflict handling
-- Local/remote edit-collision detection with automatic `(conflicted copy)` creation
-- Batched macOS notifications with "Show in Finder" action
-
-### Preferences (macOS)
-- **General** — start at login, sync notifications, update checks, Sparkle channel
-- **Account** — identity, tenant, sign out
-- **Sync** — per-drive sync controls
-- **Connection** — coordinator URL, tenant info, endpoint copy
-- **Trash** — retention and purge controls
-
-### iOS parity
-- Same File Provider extension as macOS — shared code path, shared bugs fixed once
-- Brand typography and design tokens via `DS3Lib`
-- Tutorial onboarding, drive dashboard, setup wizard, settings tab
-- Tab layout (Drives / Settings) with live status cards
 
 ## Architecture
 
@@ -184,25 +132,19 @@ Two apps share a single File Provider extension and a local Swift Package for al
 
 | Target | Platform | Role |
 |--------|----------|------|
-| **DS3Drive** | macOS 15+ | SwiftUI menu bar app. Login, onboarding, setup wizard, preferences, tray |
-| **DS3DriveApp** | iOS 17+ | SwiftUI iPhone/iPad app. Login, tutorial, dashboard, setup, settings |
-| **DS3DriveProvider** | macOS + iOS | `NSFileProviderReplicatedExtension`. Runs out-of-process, handles every S3 operation |
+| **DS3Drive** | macOS 15+ | SwiftUI menu bar app |
+| **DS3DriveApp** | iOS 17+ | SwiftUI iPhone/iPad app |
+| **DS3DriveProvider** | macOS + iOS | `NSFileProviderReplicatedExtension` — runs out-of-process, handles every S3 operation |
 | **DS3DriveShareExtension** | macOS + iOS | Share-sheet target for uploading into a drive from other apps |
 | **DS3Lib** | Swift Package | Auth, API client, drive manager, design tokens, shared models |
 
-Main app ↔ extension communication goes through:
-- **App Group shared container** for persisted state (drives, credentials, API keys)
-- **DistributedNotificationCenter** for live status / speed updates
+Main app ↔ extension communication uses an App Group shared container (persisted state) and `DistributedNotificationCenter` (live status / speed updates).
 
 Key dependencies: [Soto](https://github.com/soto-project/soto) v6 for S3, [swift-atomics](https://github.com/apple/swift-atomics) for thread-safe state in the extension, [Sparkle](https://sparkle-project.org) for macOS updates.
 
 ## Build from source
 
-Requirements:
-
-- macOS 15 or later
-- Xcode 16 or later
-- Git LFS (for image assets)
+Requirements: macOS 15+, Xcode 16+, and Git LFS (for image assets).
 
 ```bash
 git clone git@github.com:marmos91/cubbit-ds3-drive.git
