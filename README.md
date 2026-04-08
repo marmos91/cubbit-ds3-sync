@@ -30,7 +30,11 @@ Grab the latest `.dmg` from the [Releases](https://github.com/marmos91/cubbit-ds
 
 ### iOS
 
-The iOS app is distributed through TestFlight (beta). The public invite link will be added here once it's published — in the meantime, request access by opening an issue. Requires iOS 17 or later.
+The iOS app is in public beta on TestFlight. Join with this link:
+
+**[👉 Join the TestFlight beta](https://testflight.apple.com/join/NwEErXFQ)**
+
+Requires iOS 17 or later and the [TestFlight app](https://apps.apple.com/app/testflight/id899247664).
 
 ## How It Works
 
