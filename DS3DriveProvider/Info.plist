@@ -115,6 +115,8 @@
 			</dict>
 		</array>
 	</dict>
+	<key>CFBundleDisplayName</key>
+	<string>Cubbit DS3 Drive</string>
 	<key>NSFileProviderDomain</key>
 	<dict>
 		<key>NSFileProviderDomainDisplayName</key>

@@ -2,95 +2,97 @@
     import DS3Lib
     import SwiftUI
 
-    /// Individual drive card showing status, name, bucket/prefix path, and contextual info.
+    /// Drive row card. Supplies its own brand-bordered container since
+    /// it lives inside a plain `VStack` list, not a system `List`.
     struct DriveCardView: View {
         let drive: DS3Drive
         let status: DS3DriveStatus
         let speed: Double?
-        let onDisconnect: () -> Void
-        let onPauseResume: () -> Void
 
         var body: some View {
-            HStack(spacing: IOSSpacing.md) {
-                // Drive icon with status badge
-                ZStack(alignment: .bottomLeading) {
-                    Image(.rawDriveIcon)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 40, height: 40)
+            HStack(spacing: 14) {
+                driveIcon
 
-                    statusBadgeImage
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 16, height: 16)
-                        .offset(x: -3, y: 3)
-                }
-                .accessibilityLabel(statusLabel)
-
-                VStack(alignment: .leading, spacing: IOSSpacing.xs) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(drive.name)
-                        .font(IOSTypography.headline)
+                        .font(.custom("Figtree-SemiBold", size: 17))
+                        .foregroundStyle(IOSColors.brandTextPrimary)
                         .lineLimit(1)
+                        .truncationMode(.middle)
 
-                    HStack(spacing: IOSSpacing.xs) {
+                    HStack(spacing: 6) {
                         Image(.bucketIcon)
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 12, height: 12)
+                            .frame(width: 14, height: 14)
                         Text(bucketPath)
-                            .font(IOSTypography.caption)
-                            .foregroundStyle(IOSColors.secondaryText)
+                            .font(.custom("Figtree-Regular", size: 13))
+                            .foregroundStyle(IOSColors.brandTextSecondary)
                             .lineLimit(1)
+                            .truncationMode(.middle)
                     }
 
-                    // Status row
                     statusRow
                 }
 
-                Spacer(minLength: 0)
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(IOSColors.brandTextSecondary.opacity(0.7))
             }
-            .padding(.vertical, IOSSpacing.xs)
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.white.opacity(0.04))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(IOSColors.brandBorderSubtle, lineWidth: 1)
+            )
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Drive \(drive.name), status \(statusLabel), bucket \(drive.syncAnchor.bucket.name)")
-            .swipeActions(edge: .leading) {
-                Button {
-                    onPauseResume()
-                } label: {
-                    if status == .paused {
-                        Label("Resume", systemImage: "play.circle")
-                    } else {
-                        Label("Pause", systemImage: "pause.circle")
-                    }
-                }
-                .tint(status == .paused ? .green : .orange)
+        }
+
+        // MARK: - Icon with status badge
+
+        private var driveIcon: some View {
+            ZStack(alignment: .bottomLeading) {
+                Image(.rawDriveIcon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 52, height: 52)
+
+                statusBadgeImage
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 18, height: 18)
+                    .offset(x: -3, y: 3)
             }
-            .swipeActions(edge: .trailing) {
-                Button(role: .destructive) {
-                    onDisconnect()
-                } label: {
-                    Label("Disconnect", systemImage: "xmark.circle")
-                }
-            }
+            .accessibilityLabel(statusLabel)
         }
 
         // MARK: - Status Row
 
         private var statusRow: some View {
-            HStack(spacing: IOSSpacing.xs) {
+            let color = IOSDriveViewModel.statusColor(for: status)
+            return HStack(spacing: 6) {
                 Circle()
-                    .fill(IOSDriveViewModel.statusColor(for: status))
+                    .fill(color)
                     .frame(width: 7, height: 7)
 
-                if status == .sync, let speed, speed > 0 {
-                    Text("\(statusLabel) — \(IOSDriveViewModel.formatSpeed(speed))")
-                        .font(IOSTypography.caption)
-                        .foregroundStyle(IOSDriveViewModel.statusColor(for: status))
-                } else {
-                    Text(statusLabel)
-                        .font(IOSTypography.caption)
-                        .foregroundStyle(IOSDriveViewModel.statusColor(for: status))
-                }
+                Text(statusRowText)
+                    .font(.custom("Figtree-Medium", size: 12))
+                    .foregroundStyle(color)
             }
+        }
+
+        private var statusRowText: String {
+            if status == .sync, let speed, speed > 0 {
+                return "\(statusLabel) — \(IOSDriveViewModel.formatSpeed(speed))"
+            }
+            return statusLabel
         }
 
         // MARK: - Helpers

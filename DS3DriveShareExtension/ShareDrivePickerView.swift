@@ -38,6 +38,7 @@
                     }
                 } header: {
                     Text("FILES")
+                        .font(ShareTypography.caption)
                 }
             }
             .listStyle(.insetGrouped)

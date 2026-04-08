@@ -2,8 +2,11 @@
     import DS3Lib
     import SwiftUI
 
-    /// Prefix folder drill-down view for browsing S3 folder structure within a bucket.
-    /// Users can navigate deeper into folders or select the current location as the drive root.
+    /// Prefix/folder drill-down view — third step of the drive setup
+    /// wizard. Matches the brand design language used by `BucketListView`
+    /// and `ProjectListView`: gradient backdrop, Figtree typography,
+    /// branded rows with folder glyphs, and a pinned "Select This
+    /// Location" CTA at the bottom.
     struct PrefixListView: View {
         let selection: BucketSelection
         var setupViewModel: SyncSetupViewModel
@@ -16,19 +19,25 @@
         @State private var error: Error?
 
         var body: some View {
-            Group {
-                if loading {
-                    shimmerPlaceholder
-                } else if let error {
-                    errorView(error)
-                } else if subfolders.isEmpty {
-                    emptyView
-                } else {
-                    folderList
+            ZStack {
+                IOSGradients.brandVerticalBackground
+                    .ignoresSafeArea()
+
+                Group {
+                    if loading {
+                        shimmerPlaceholder
+                    } else if let error {
+                        errorView(error)
+                    } else if subfolders.isEmpty {
+                        emptyView
+                    } else {
+                        folderContent
+                    }
                 }
             }
             .navigationTitle(displayTitle)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .task {
                 await loadFolders()
             }
@@ -42,40 +51,189 @@
             return selection.bucket.name
         }
 
+        // MARK: - Folder Content (list + pinned CTA)
+
+        private var folderContent: some View {
+            VStack(spacing: 0) {
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        ForEach(subfolders, id: \.self) { subfolder in
+                            Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                navigationPath.append(
+                                    BucketSelection(
+                                        project: selection.project,
+                                        bucket: selection.bucket,
+                                        prefix: subfolder
+                                    )
+                                )
+                            } label: {
+                                folderRow(subfolder)
+                            }
+                            .buttonStyle(PrefixRowPressStyle())
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 16)
+                }
+
+                selectLocationCTA
+            }
+        }
+
+        private func folderRow(_ prefix: String) -> some View {
+            HStack(spacing: 14) {
+                Image(systemName: "folder.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(IOSColors.brandPrimary)
+                    .frame(width: 32, height: 32)
+
+                Text(folderDisplayName(prefix))
+                    .font(.custom("Figtree-SemiBold", size: 16))
+                    .foregroundStyle(IOSColors.brandTextPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(IOSColors.brandTextSecondary.opacity(0.7))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.white.opacity(0.04))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(IOSColors.brandBorderSubtle, lineWidth: 1)
+            )
+        }
+
+        private var selectLocationCTA: some View {
+            VStack(spacing: 0) {
+                Divider()
+                    .background(IOSColors.brandBorderSubtle)
+
+                Button {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    selectCurrentLocation()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 17, weight: .semibold))
+                        Text("Select This Location")
+                            .font(.custom("Figtree-SemiBold", size: 17))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(IOSColors.brandPrimary)
+                    )
+                }
+                .buttonStyle(PrefixRowPressStyle())
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 12)
+            }
+            .background(.ultraThinMaterial)
+        }
+
+        // MARK: - Helpers
+
+        private func folderDisplayName(_ prefix: String) -> String {
+            let trimmed = prefix.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            return trimmed.components(separatedBy: "/").last ?? prefix
+        }
+
         // MARK: - Shimmer Loading
 
         private var shimmerPlaceholder: some View {
-            List {
-                ForEach(0 ..< 5, id: \.self) { _ in
-                    HStack(spacing: IOSSpacing.sm) {
-                        Image(systemName: "folder")
-                            .foregroundStyle(IOSColors.secondaryText)
-                        Text("Loading folder name")
-                            .font(IOSTypography.body)
+            ScrollView {
+                LazyVStack(spacing: 10) {
+                    ForEach(0 ..< 5, id: \.self) { _ in
+                        HStack(spacing: 14) {
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(IOSColors.brandBorderSubtle)
+                                .frame(width: 32, height: 32)
+
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(IOSColors.brandBorderSubtle)
+                                .frame(width: 160, height: 14)
+
+                            Spacer()
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color.white.opacity(0.03))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(IOSColors.brandBorderSubtle, lineWidth: 1)
+                        )
+                        .iosShimmering()
                     }
-                    .iosShimmering()
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
             }
-            .listStyle(.insetGrouped)
         }
 
         // MARK: - Error State
 
-        private func errorView(_ error: Error) -> some View {
-            VStack(spacing: IOSSpacing.md) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.title)
-                    .foregroundStyle(Color.red)
-                Text("Could not load folders. Check your connection and try again.")
-                    .font(IOSTypography.body)
-                    .foregroundStyle(Color.red)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, IOSSpacing.lg)
-                Button("Retry") {
-                    Task { await loadFolders() }
+        private func errorView(_: Error) -> some View {
+            VStack(spacing: 20) {
+                Spacer()
+
+                ZStack {
+                    Circle()
+                        .fill(IOSColors.statusError.opacity(0.12))
+                        .frame(width: 96, height: 96)
+
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 40))
+                        .foregroundStyle(IOSColors.statusError)
                 }
-                .buttonStyle(IOSPrimaryButtonStyle())
-                .padding(.horizontal, IOSSpacing.xl)
+
+                VStack(spacing: 8) {
+                    Text("Couldn't Load Folders")
+                        .font(.custom("Figtree-SemiBold", size: 20))
+                        .foregroundStyle(IOSColors.brandTextPrimary)
+
+                    Text("Check your connection and try again.")
+                        .font(.custom("Figtree-Regular", size: 15))
+                        .foregroundStyle(IOSColors.brandTextSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
+
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    Task { await loadFolders() }
+                } label: {
+                    Text("Retry")
+                        .font(.custom("Figtree-SemiBold", size: 17))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(IOSColors.brandPrimary)
+                        )
+                }
+                .buttonStyle(PrefixRowPressStyle())
+                .frame(maxWidth: 320)
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+
+                Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -83,87 +241,76 @@
         // MARK: - Empty State
 
         private var emptyView: some View {
-            VStack(spacing: IOSSpacing.md) {
-                Image(systemName: "folder")
-                    .font(.largeTitle)
-                    .foregroundStyle(IOSColors.secondaryText)
-                Text("This bucket is empty. You can select it as your drive root.")
-                    .font(IOSTypography.body)
-                    .foregroundStyle(IOSColors.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, IOSSpacing.lg)
+            VStack(spacing: 24) {
+                Spacer()
+
+                ZStack {
+                    Circle()
+                        .fill(IOSColors.brandPrimary.opacity(0.12))
+                        .frame(width: 96, height: 96)
+
+                    Image(systemName: "folder")
+                        .font(.system(size: 40))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(IOSColors.brandPrimary)
+                }
+
+                VStack(spacing: 8) {
+                    Text("No Subfolders")
+                        .font(.custom("Figtree-SemiBold", size: 20))
+                        .foregroundStyle(IOSColors.brandTextPrimary)
+
+                    Text("Select this location as your drive root.")
+                        .font(.custom("Figtree-Regular", size: 15))
+                        .foregroundStyle(IOSColors.brandTextSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
 
                 Button {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     selectCurrentLocation()
                 } label: {
-                    Text("Select This Location")
-                        .frame(maxWidth: .infinity)
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 17, weight: .semibold))
+                        Text("Select This Location")
+                            .font(.custom("Figtree-SemiBold", size: 17))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(IOSColors.brandPrimary)
+                    )
                 }
-                .buttonStyle(IOSPrimaryButtonStyle())
-                .padding(.horizontal, IOSSpacing.xl)
+                .buttonStyle(PrefixRowPressStyle())
+                .frame(maxWidth: 320)
+                .padding(.horizontal, 24)
+
+                Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-
-        // MARK: - Folder List
-
-        private var folderList: some View {
-            List {
-                ForEach(subfolders, id: \.self) { subfolder in
-                    Button {
-                        navigationPath.append(
-                            BucketSelection(
-                                project: selection.project,
-                                bucket: selection.bucket,
-                                prefix: subfolder
-                            )
-                        )
-                    } label: {
-                        HStack(spacing: IOSSpacing.sm) {
-                            Image(systemName: "folder")
-                                .foregroundStyle(IOSColors.accent)
-                            Text(folderDisplayName(subfolder))
-                                .font(IOSTypography.body)
-                                .foregroundStyle(IOSColors.primaryText)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(IOSTypography.caption)
-                                .foregroundStyle(IOSColors.secondaryText)
-                        }
-                    }
-                }
-
-                Section {
-                    Button {
-                        selectCurrentLocation()
-                    } label: {
-                        Text("Select This Location")
-                            .font(IOSTypography.headline)
-                            .foregroundStyle(IOSColors.accent)
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-            }
-            .listStyle(.insetGrouped)
-        }
-
-        // MARK: - Helpers
-
-        /// Extracts just the folder name from a full prefix path for display.
-        private func folderDisplayName(_ prefix: String) -> String {
-            let trimmed = prefix.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-            return trimmed.components(separatedBy: "/").last ?? prefix
         }
 
         // MARK: - Data Loading
 
         private func loadFolders() async {
+            // Back-navigation re-fires `.task`, which would re-run
+            // listObjects and stomp on the shared anchor VM's folder
+            // cache for siblings at other prefix depths. Return early if
+            // we already loaded this view's subfolders successfully.
+            if !subfolders.isEmpty { return }
+
             loading = true
             error = nil
             defer { loading = false }
 
-            let vm = SyncAnchorSelectionViewModel(
-                project: selection.project,
+            // Reuse the shared anchor VM from the wizard so we don't forge
+            // a new IAM token on every push (root cause of S3 SlowDown).
+            let vm = setupViewModel.ensureAnchorViewModel(
+                for: selection.project,
                 authentication: ds3Authentication
             )
             anchorVM = vm
@@ -191,6 +338,17 @@
             guard let anchor = vm.getSelectedSyncAnchor() else { return }
             setupViewModel.selectSyncAnchor(anchor: anchor)
             navigationPath.append(WizardConfirmStep())
+        }
+    }
+
+    // MARK: - Row Press Style
+
+    private struct PrefixRowPressStyle: ButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+                .opacity(configuration.isPressed ? 0.92 : 1.0)
+                .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
         }
     }
 #endif

@@ -247,20 +247,25 @@
         }
 
         /// Uploads a single file at the given index using either putObject or multipart upload.
+        /// For small files (< 5MB), loads into memory. For large files, reads parts from
+        /// the file handle to avoid loading the entire file into memory at once (Rule 2:
+        /// memory safety in ~120MB extension limit).
         private func uploadSingleFile(at index: Int, client: DS3S3Client, bucket: String, basePrefix: String) async {
             let file = files[index]
             files[index].status = .uploading(progress: 0)
             let s3Key = basePrefix + file.filename
 
             do {
-                let fileData = try Data(contentsOf: file.url)
-                let fileSize = Int64(fileData.count)
+                let fileSize = file.fileSize
 
                 if fileSize < DefaultSettings.S3.multipartThreshold {
+                    // Small files: load into memory (safe under 5MB)
+                    let fileData = try Data(contentsOf: file.url)
                     try await uploadSmallFile(fileData, bucket: bucket, key: s3Key, client: client)
                 } else {
-                    try await uploadLargeFile(
-                        fileData, fileSize: fileSize, bucket: bucket, key: s3Key,
+                    // Large files: read parts from file handle to conserve memory
+                    try await uploadLargeFileStreaming(
+                        fileURL: file.url, fileSize: fileSize, bucket: bucket, key: s3Key,
                         client: client, fileIndex: index
                     )
                 }
@@ -283,12 +288,14 @@
             _ = try await client.putObjectData(bucket: bucket, key: key, data: data)
         }
 
-        /// Uploads a large file (>= 5MB) via multipart upload with per-part progress updates.
-        private func uploadLargeFile(
-            _ data: Data, fileSize: Int64, bucket: String, key: String,
+        /// Uploads a large file (>= 5MB) via multipart upload, reading each part from disk
+        /// instead of loading the entire file into memory. This keeps peak memory usage at
+        /// ~partSize (5MB) rather than fileSize, which is critical for the ~120MB extension limit.
+        private func uploadLargeFileStreaming(
+            fileURL: URL, fileSize: Int64, bucket: String, key: String,
             client: DS3S3Client, fileIndex: Int
         ) async throws {
-            logger.info("Uploading via multipart (\(fileSize) bytes)")
+            logger.info("Uploading via streaming multipart (\(fileSize) bytes)")
 
             let uploadId = try await client.createMultipartUpload(bucket: bucket, key: key)
 
@@ -297,10 +304,30 @@
                 let totalParts = Int(ceil(Double(fileSize) / Double(partSize)))
                 var completedParts: [(partNumber: Int, etag: String)] = []
 
+                let accessing = fileURL.startAccessingSecurityScopedResource()
+                defer {
+                    if accessing { fileURL.stopAccessingSecurityScopedResource() }
+                }
+
+                guard let fileHandle = try? FileHandle(forReadingFrom: fileURL) else {
+                    throw NSError(
+                        domain: NSCocoaErrorDomain, code: NSFileReadNoPermissionError,
+                        userInfo: [NSLocalizedDescriptionKey: "Cannot open file for reading"]
+                    )
+                }
+                defer { try? fileHandle.close() }
+
                 for partNumber in 1 ... totalParts {
-                    let offset = (partNumber - 1) * partSize
-                    let length = min(partSize, Int(fileSize) - offset)
-                    let partData = Data(data[offset ..< (offset + length)])
+                    let offset = UInt64((partNumber - 1) * partSize)
+                    let length = min(partSize, Int(fileSize) - Int(offset))
+
+                    try fileHandle.seek(toOffset: offset)
+                    guard let partData = try fileHandle.read(upToCount: length), !partData.isEmpty else {
+                        throw NSError(
+                            domain: NSCocoaErrorDomain, code: NSFileReadCorruptFileError,
+                            userInfo: [NSLocalizedDescriptionKey: "Failed to read file part \(partNumber)"]
+                        )
+                    }
 
                     let result = try await client.uploadPart(
                         bucket: bucket, key: key, uploadId: uploadId,

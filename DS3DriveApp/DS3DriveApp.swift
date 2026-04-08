@@ -19,6 +19,7 @@ struct DS3DriveApp: App {
                 .environment(ds3DriveManager)
                 .environment(appStatusManager)
                 .environment(updateChecker)
+                .font(IOSTypography.body)
                 .onChange(of: scenePhase) { _, newPhase in
                     guard ds3Authentication.isLogged else { return }
                     if newPhase == .active {

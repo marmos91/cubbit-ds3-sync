@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>DS3 Drive</string>
+	<string>Cubbit DS3 Drive</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleName</key>
@@ -16,6 +16,13 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Figtree-Regular.ttf</string>
+		<string>Figtree-Medium.ttf</string>
+		<string>Figtree-SemiBold.ttf</string>
+		<string>Figtree-Bold.ttf</string>
+	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
