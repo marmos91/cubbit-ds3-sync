@@ -39,14 +39,14 @@ struct SpeedSummaryView: View {
 
                 Text(NSLocalizedString("Syncing files…", comment: "Speed summary syncing"))
                     .font(DS3Typography.caption)
-                    .foregroundStyle(DS3Colors.secondaryText)
+                    .foregroundStyle(DS3Colors.brandTextSecondary)
             } else if isIndexing {
                 ProgressView()
                     .controlSize(.mini)
 
                 Text(NSLocalizedString("Indexing files…", comment: "Speed summary indexing"))
                     .font(DS3Typography.caption)
-                    .foregroundStyle(DS3Colors.secondaryText)
+                    .foregroundStyle(DS3Colors.brandTextSecondary)
             } else if allPaused {
                 Image(.statusPauseBadge)
                     .resizable()
@@ -56,43 +56,42 @@ struct SpeedSummaryView: View {
 
                 Text(NSLocalizedString("All drives paused", comment: "Speed summary all paused"))
                     .font(DS3Typography.caption)
-                    .foregroundStyle(DS3Colors.secondaryText)
-            } else {
-                Image(.statusIdleBadge)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 12, height: 12)
-
-                Text(NSLocalizedString("All drives up to date", comment: "Speed summary idle"))
-                    .font(DS3Typography.caption)
-                    .foregroundStyle(DS3Colors.secondaryText)
+                    .foregroundStyle(DS3Colors.brandTextSecondary)
             }
+            // Idle case intentionally renders nothing — the tray footer
+            // already shows "Idle" with the green pill, so repeating
+            // "All drives up to date" here is redundant.
 
             Spacer()
         }
         .padding(.horizontal, DS3Spacing.lg)
-        .padding(.vertical, DS3Spacing.sm)
+        .padding(.vertical, isIdle ? 0 : DS3Spacing.sm)
+        .frame(height: isIdle ? 0 : nil)
+    }
+
+    private var isIdle: Bool {
+        !isTransferring && !isSyncing && !isIndexing && !allPaused
     }
 
     @ViewBuilder private var speedIndicators: some View {
         if totalUploadSpeed > 0 {
             Image(systemName: "arrow.up")
                 .font(DS3Typography.caption)
-                .foregroundStyle(DS3Colors.accent)
+                .foregroundStyle(DS3Colors.brandPrimary)
 
             Text(formatSpeed(totalUploadSpeed))
-                .font(DS3Typography.caption)
-                .foregroundStyle(DS3Colors.secondaryText)
+                .font(DS3Typography.caption.bold())
+                .foregroundStyle(DS3Colors.brandPrimary)
         }
 
         if totalDownloadSpeed > 0 {
             Image(systemName: "arrow.down")
                 .font(DS3Typography.caption)
-                .foregroundStyle(DS3Colors.accent)
+                .foregroundStyle(DS3Colors.brandPrimary)
 
             Text(formatSpeed(totalDownloadSpeed))
-                .font(DS3Typography.caption)
-                .foregroundStyle(DS3Colors.secondaryText)
+                .font(DS3Typography.caption.bold())
+                .foregroundStyle(DS3Colors.brandPrimary)
         }
     }
 

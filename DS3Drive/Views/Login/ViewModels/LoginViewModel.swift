@@ -27,6 +27,16 @@ class LoginViewModel {
         tenant: String? = nil,
         coordinatorURL: String? = nil
     ) async throws {
+        // Clear any stale error from the previous attempt so the banner
+        // disappears as soon as the user retries. Route to `tfaError` when
+        // this is a 2FA verification attempt so the MFA sheet surfaces it,
+        // otherwise to `loginError` for the main login form.
+        let isTfaAttempt = tfaCode != nil
+        if isTfaAttempt {
+            self.tfaError = nil
+        } else {
+            self.loginError = nil
+        }
         self.isLoading = true
         defer { isLoading = false }
 
@@ -54,7 +64,11 @@ class LoginViewModel {
             self.need2FA = true
         } catch {
             self.logger.error("An error occurred during login \(error)")
-            self.loginError = error
+            if isTfaAttempt {
+                self.tfaError = error
+            } else {
+                self.loginError = error
+            }
         }
     }
 }

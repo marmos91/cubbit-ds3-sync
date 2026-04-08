@@ -3,11 +3,11 @@
 [![Xcode - Build and Analyze](https://github.com/marmos91/cubbit-ds3-drive/actions/workflows/build.yml/badge.svg)](https://github.com/marmos91/cubbit-ds3-drive/actions/workflows/build.yml)
 [![Release — Homebrew Cask](https://github.com/marmos91/cubbit-ds3-drive/actions/workflows/release-homebrew.yml/badge.svg)](https://github.com/marmos91/cubbit-ds3-drive/actions/workflows/release-homebrew.yml)
 [![Release — TestFlight](https://github.com/marmos91/cubbit-ds3-drive/actions/workflows/release-testflight.yml/badge.svg)](https://github.com/marmos91/cubbit-ds3-drive/actions/workflows/release-testflight.yml)
-![Platform](https://img.shields.io/badge/platform-macOS%2015%2B-blue)
+![Platform](https://img.shields.io/badge/platform-macOS%2015%2B%20%7C%20iOS%2017%2B-blue)
 ![Swift](https://img.shields.io/badge/swift-5.9%2B-orange)
 [![License: GPL](https://img.shields.io/badge/license-GPL-green)](LICENSE)
 
-Cubbit DS3 Drive is a macOS desktop application that syncs your local files with [Cubbit DS3](https://www.cubbit.io) cloud storage. It uses Apple's File Provider framework to integrate directly with Finder, presenting remote S3 buckets as native macOS drives.
+Cubbit DS3 Drive syncs your files with [Cubbit DS3](https://www.cubbit.io) cloud storage on both **macOS** and **iOS**. It uses Apple's File Provider framework to present remote S3 buckets as native drives — in Finder on the Mac and in the Files app on iPhone and iPad.
 
 <p align="center">
   <img alt="Finder Integration" src="/Assets/FinderIntegration.png?raw=true" width="700">
@@ -15,16 +15,22 @@ Cubbit DS3 Drive is a macOS desktop application that syncs your local files with
 
 ## Installation
 
-### Homebrew
+### macOS
+
+**Homebrew**
 
 ```bash
 brew tap marmos91/tap
 brew install --cask marmos91/tap/cubbit-ds3-drive
 ```
 
-### Manual Download
+**Manual download**
 
-Download the latest `.dmg` from the [Releases](https://github.com/marmos91/cubbit-ds3-drive/releases) page.
+Grab the latest `.dmg` from the [Releases](https://github.com/marmos91/cubbit-ds3-drive/releases) page.
+
+### iOS
+
+The iOS app is distributed through TestFlight (beta). The public invite link will be added here once it's published — in the meantime, request access by opening an issue. Requires iOS 17 or later.
 
 ## How It Works
 
@@ -61,6 +67,23 @@ Your DS3 storage appears as a native drive in Finder. Open, edit, and organize y
 <p align="center">
   <img alt="Finder Integration" src="/Assets/FinderIntegration.png?raw=true" width="600">
 </p>
+
+## On iOS
+
+The iOS app brings the same experience to iPhone and iPad. Sign in with your Cubbit account, create a drive, and it shows up under **Locations** in the Files app alongside iCloud Drive.
+
+<p align="center">
+  <img alt="Sign in" src="/Assets/ios/Login.png?raw=true" width="240">
+  <img alt="Drives dashboard" src="/Assets/ios/Drives.png?raw=true" width="240">
+  <img alt="Create drive" src="/Assets/ios/CreateDrive.png?raw=true" width="240">
+</p>
+
+<p align="center">
+  <img alt="Drive settings" src="/Assets/ios/DriveSettings.png?raw=true" width="240">
+  <img alt="Files app integration" src="/Assets/ios/FilesApp.png?raw=true" width="240">
+</p>
+
+Your synced buckets appear directly in the system Files app, so you can browse, preview, and download without leaving iOS.
 
 ## Features
 
@@ -102,13 +125,14 @@ Your DS3 storage appears as a native drive in Finder. Open, edit, and organize y
 
 ## Architecture
 
-The project has two targets plus a shared library:
+The repository ships two apps plus a shared library:
 
 | Target | Description |
 |--------|-------------|
-| **DS3Drive** | SwiftUI menu bar app. Handles login, onboarding, drive setup, preferences, and tray menu |
-| **DS3DriveProvider** | File Provider extension (`NSFileProviderReplicatedExtension`). Runs as a separate process and handles all S3 file operations |
-| **DS3Lib** | Local Swift Package shared between both targets. Contains authentication, API client, drive manager, and shared models |
+| **DS3Drive** | macOS SwiftUI menu bar app. Login, onboarding, drive setup wizard, preferences, tray menu |
+| **DS3DriveApp** | iOS SwiftUI app. Login, tutorial, Drives dashboard, setup wizard, settings, Files-app integration |
+| **DS3DriveProvider** | File Provider extension (`NSFileProviderReplicatedExtension`) shared by both apps. Handles all S3 file operations as a separate process |
+| **DS3Lib** | Local Swift Package shared across every target. Contains authentication, API client, drive manager, design tokens (`DS3Colors`, `DS3Typography`, `DS3Gradients`), and shared models |
 
 The main app and extension communicate via an App Group shared container (persisted state) and `DistributedNotificationCenter` (real-time status updates).
 
@@ -118,6 +142,7 @@ The main app and extension communicate via an App Group shared container (persis
 
 - macOS 15 or later
 - Xcode 16.0 or later
+- iOS 17+ device or simulator (to build the iOS target)
 
 ### Assets
 

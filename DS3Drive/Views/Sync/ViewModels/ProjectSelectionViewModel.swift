@@ -3,7 +3,7 @@ import Foundation
 import os.log
 import SwiftUI
 
-@Observable
+@MainActor @Observable
 class ProjectSelectionViewModel {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
 
@@ -30,6 +30,9 @@ class ProjectSelectionViewModel {
         defer { self.loading = false }
 
         do {
+            // Gap 1: refresh access token before the projects API call so
+            // an expired token recovers transparently via the refresh cookie.
+            try? await authentication.refreshIfNeeded()
             // NOTE: Slow it down a little to improve UX
             try await Task.sleep(for: .seconds(0.5))
             self.projects = try await self.ds3Client.getRemoteProjects()

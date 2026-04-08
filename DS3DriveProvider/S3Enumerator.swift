@@ -78,6 +78,32 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
         // No resources to release
     }
 
+    /// Schedules a delayed re-enumeration of this folder after a throttling error.
+    /// The File Provider system will retry on its own schedule too, but this
+    /// nudges Finder to attempt a refresh sooner once the server-side backpressure
+    /// should have cleared.
+    private func scheduleDelayedReEnumeration() async {
+        #if os(macOS)
+            let driveId = self.drive.id
+            let driveName = self.drive.name
+            let container: NSFileProviderItemIdentifier = self.parent == .rootContainer
+                ? .rootContainer : self.parent
+            let targetPrefix = self.prefix ?? "<root>"
+            self.logger
+                .info(
+                    "Scheduling delayed re-enumeration in 30s for prefix \(targetPrefix, privacy: .public)"
+                )
+            Task.detached {
+                try? await Task.sleep(for: .seconds(30))
+                let domain = NSFileProviderDomain(
+                    identifier: NSFileProviderDomainIdentifier(rawValue: driveId.uuidString),
+                    displayName: driveName
+                )
+                try? await NSFileProviderManager(for: domain)?.signalEnumerator(for: container)
+            }
+        #endif
+    }
+
     /// Fetches cached children from MetadataStore and sends them to the observer.
     /// Returns `true` if cached items were found and sent, `false` otherwise.
     private func serveCachedItems(to observer: NSFileProviderEnumerationObserver) async throws -> Bool {
@@ -332,6 +358,18 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                             }
                         }
                     } catch {
+                        // After `listWithRetries` exhausts 5 retries on SlowDown, surface the
+                        // error instead of falling back to a potentially incomplete
+                        // MetadataStore — Gap 28 root cause was a silent partial enumeration.
+                        if let awsErr = error as? AWSErrorType, awsErr.isThrottling {
+                            self.logger
+                                .error(
+                                    "S3 listing throttled after retries for folder \(self.prefix ?? "nil", privacy: .public): \(awsErr.errorCode, privacy: .public) — surfacing error, skipping cache fallback"
+                                )
+                            await self.scheduleDelayedReEnumeration()
+                            throw error
+                        }
+
                         self.logger
                             .warning(
                                 "S3 listing failed for folder \(self.prefix ?? "nil", privacy: .public), trying cache fallback: \(error.localizedDescription, privacy: .public)"
@@ -399,6 +437,18 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                         }
                     }
                 } catch {
+                    // Throttle errors reaching here mean `listWithRetries` already burned 5
+                    // retries — do NOT mask with a potentially partial MetadataStore snapshot
+                    // (Gap 28). Surface the error so the system retries the whole enumeration.
+                    if let awsErr = error as? AWSErrorType, awsErr.isThrottling {
+                        self.logger
+                            .error(
+                                "S3 listing throttled after retries for prefix \(self.prefix ?? "nil", privacy: .public): \(awsErr.errorCode, privacy: .public) — surfacing error, skipping cache fallback"
+                            )
+                        await self.scheduleDelayedReEnumeration()
+                        throw error
+                    }
+
                     self.logger
                         .warning(
                             "S3 listing failed, trying MetadataStore fallback for prefix \(self.prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)"

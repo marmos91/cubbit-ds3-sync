@@ -4,7 +4,7 @@ import SwiftData
 /// Schema version 1 for the SyncedItem metadata model.
 /// Uses VersionedSchema from day one for explicit migration management.
 public enum SyncedItemSchemaV1: VersionedSchema {
-    public nonisolated(unsafe) static let versionIdentifier = Schema.Version(1, 0, 0)
+    public nonisolated static let versionIdentifier = Schema.Version(1, 0, 0)
     public static var models: [any PersistentModel.Type] {
         [SyncedItem.self]
     }
@@ -62,7 +62,7 @@ public enum SyncedItemSchemaV1: VersionedSchema {
 /// Schema version 2 for the SyncedItem metadata model.
 /// Adds isMaterialized field to SyncedItem and introduces SyncAnchorRecord entity.
 public enum SyncedItemSchemaV2: VersionedSchema {
-    public nonisolated(unsafe) static let versionIdentifier = Schema.Version(2, 0, 0)
+    public nonisolated static let versionIdentifier = Schema.Version(2, 0, 0)
     public static var models: [any PersistentModel.Type] {
         [SyncedItem.self, SyncAnchorRecord.self]
     }
@@ -190,7 +190,7 @@ public enum SyncedItemMigrationPlan: SchemaMigrationPlan {
     /// - Adds isMaterialized (Bool, default false) to SyncedItem
     /// - Adds SyncAnchorRecord as a new entity
     /// - Adds originalKey (String?, default nil) to SyncedItem
-    nonisolated(unsafe) static let migrateV1toV2 = MigrationStage.lightweight(
+    nonisolated static let migrateV1toV2 = MigrationStage.lightweight(
         fromVersion: SyncedItemSchemaV1.self,
         toVersion: SyncedItemSchemaV2.self
     )

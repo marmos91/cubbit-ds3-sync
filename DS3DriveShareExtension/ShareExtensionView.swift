@@ -8,20 +8,37 @@
     /// The Share Extension runs as a separate target and cannot directly import
     /// files from DS3DriveApp. These tokens mirror the values exactly.
     enum ShareColors {
-        static let accent = Color.accentColor
-        static let background = Color(uiColor: .systemBackground)
-        static let secondaryBackground = Color(uiColor: .secondarySystemBackground)
-        static let primaryText = Color.primary
-        static let secondaryText = Color.secondary
+        // Brand tokens (sourced from DS3Lib so the Share Extension matches
+        // the macOS app and iOS companion app visually).
+        static let brandPrimary = DS3Lib.DS3Colors.brandPrimary
+        static let brandSecondary = DS3Lib.DS3Colors.brandSecondary
+        static let brandAccent = DS3Lib.DS3Colors.brandAccent
+        static let brandBackground = DS3Lib.DS3Colors.brandBackground
+        static let brandSurface = DS3Lib.DS3Colors.brandSurface
+        static let brandTextPrimary = DS3Lib.DS3Colors.brandTextPrimary
+        static let brandTextSecondary = DS3Lib.DS3Colors.brandTextSecondary
+        static let brandBorder = DS3Lib.DS3Colors.brandBorder
+
+        // Legacy aliases — now wired to brand tokens for visual parity.
+        static let accent = DS3Lib.DS3Colors.brandPrimary
+        static let background = DS3Lib.DS3Colors.brandBackground
+        static let secondaryBackground = DS3Lib.DS3Colors.brandSurface
+        static let primaryText = DS3Lib.DS3Colors.brandTextPrimary
+        static let secondaryText = DS3Lib.DS3Colors.brandTextSecondary
         static let statusSynced = Color.green
         static let statusError = Color.red
     }
 
+    /// Figtree-based typography mirroring `IOSTypography` — sourced from
+    /// `DS3Lib.DS3Typography` so the Share Extension renders with the same
+    /// font family as the iOS companion app and the macOS app.
     enum ShareTypography {
-        static let title = Font.title2.bold()
-        static let headline = Font.headline
-        static let body = Font.body
-        static let caption = Font.caption
+        static let title = DS3Lib.DS3Typography.title2
+        static let headline = DS3Lib.DS3Typography.headline
+        static let body = DS3Lib.DS3Typography.body
+        static let caption = DS3Lib.DS3Typography.caption
+        static let captionBold = DS3Lib.DS3Typography.captionBold
+        static let button = DS3Lib.DS3Typography.button
     }
 
     enum ShareSpacing {
@@ -45,8 +62,10 @@
                     RoundedRectangle(cornerRadius: 12)
                         .fill(
                             isEnabled
-                                ? (configuration.isPressed ? Color.accentColor.opacity(0.8) : Color.accentColor)
-                                : Color.secondary
+                                ?
+                                (configuration.isPressed ? ShareColors.brandPrimary.opacity(0.8) : ShareColors
+                                    .brandPrimary)
+                                : ShareColors.brandTextSecondary
                         )
                 )
         }
@@ -112,6 +131,7 @@
                     }
                 }
             }
+            .font(ShareTypography.body)
             .animation(.spring(duration: 0.3), value: viewModel.state)
             .task {
                 await viewModel.loadSharedItems(from: extensionContext)

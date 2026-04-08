@@ -42,11 +42,9 @@
                                 .foregroundStyle(DS3Colors.primaryText)
                         }
 
-                        if let lastCheck = updateManager.lastCheckDate {
-                            Text("Last checked: \(lastCheck.formatted(date: .abbreviated, time: .shortened))")
-                                .font(DS3Typography.caption)
-                                .foregroundStyle(DS3Colors.secondaryText)
-                        }
+                        Text(GeneralTab.lastCheckedSubtitle(for: updateManager.lastCheckDate))
+                            .font(DS3Typography.caption)
+                            .foregroundStyle(DS3Colors.secondaryText)
                     }
 
                     Spacer()

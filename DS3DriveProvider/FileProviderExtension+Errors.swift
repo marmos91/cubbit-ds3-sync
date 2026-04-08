@@ -51,6 +51,19 @@ extension AWSErrorType {
         errorCode == "NoSuchKey" || errorCode == "NotFound"
     }
 
+    /// True if this error is a transient S3 throttling / unavailability signal.
+    /// Reaching this point after `listWithRetries` means retries are exhausted,
+    /// so the enumerator should surface the error instead of silently falling
+    /// back to a potentially stale MetadataStore (Gap 28).
+    var isThrottling: Bool {
+        switch errorCode {
+        case "SlowDown", "ServiceUnavailable", "RequestTimeout", "InternalError":
+            true
+        default:
+            false
+        }
+    }
+
     /// Maps S3/AWS error codes to NSFileProviderError codes for correct system retry behavior.
     /// Handles all Soto error types (S3ErrorType, AWSClientError, AWSServerError, AWSResponseError).
     /// - .notAuthenticated: system throttles domain, shows re-auth UI, waits for signalErrorResolved()

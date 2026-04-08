@@ -1,6 +1,22 @@
 import Foundation
 import os.log
 
+/// The result of an update check, surfaced to the UI so it can give the user feedback.
+public enum UpdateCheckResult: Equatable, Sendable {
+    case upToDate(version: String)
+    case updateAvailable(version: String)
+    case failed(message: String)
+
+    public static func == (lhs: UpdateCheckResult, rhs: UpdateCheckResult) -> Bool {
+        switch (lhs, rhs) {
+        case let (.upToDate(lhsVersion), .upToDate(rhsVersion)): lhsVersion == rhsVersion
+        case let (.updateAvailable(lhsVersion), .updateAvailable(rhsVersion)): lhsVersion == rhsVersion
+        case let (.failed(lhsMessage), .failed(rhsMessage)): lhsMessage == rhsMessage
+        default: false
+        }
+    }
+}
+
 /// Cross-platform version checker that polls GitHub Releases for newer versions.
 /// Does NOT depend on Sparkle — pure version checking only.
 /// The macOS `UpdateManager` wraps this and adds channel-specific update actions.
@@ -21,11 +37,16 @@ public final class UpdateChecker {
     public let channel: DistributionChannel
     /// Whether a check is currently in progress.
     public private(set) var isChecking: Bool = false
-    /// Timestamp of the last successful check.
+    /// Timestamp of the last completed check (success or failure).
     public private(set) var lastCheckDate: Date?
+    /// The result of the most recent check, or `nil` if no check has run yet.
+    /// UI surfaces observe this to present "up to date", "available", or error feedback.
+    public private(set) var lastResult: UpdateCheckResult?
 
-    /// nonisolated(unsafe) because `deinit` is nonisolated in Swift 6 but Task.cancel() is thread-safe.
-    private nonisolated(unsafe) var periodicTask: Task<Void, Never>?
+    /// nonisolated because `deinit` is nonisolated in Swift 6 but Task.cancel() is thread-safe.
+    /// @ObservationIgnored because @Observable macro generates tracked property wrappers
+    /// that conflict with `nonisolated` on stored vars.
+    @ObservationIgnored private nonisolated(unsafe) var periodicTask: Task<Void, Never>?
     private let userDefaults: UserDefaults?
 
     public init(channel: DistributionChannel = .detect()) {
@@ -79,12 +100,18 @@ public final class UpdateChecker {
                     .info(
                         "Update available: \(remoteVersion, privacy: .public) (current: \(currentVersion, privacy: .public))"
                     )
+                lastResult = .updateAvailable(version: remoteVersion)
+            } else {
+                lastResult = .upToDate(version: currentVersion)
             }
 
             lastCheckDate = Date()
             userDefaults?.set(lastCheckDate, forKey: DefaultSettings.UserDefaultsKeys.lastUpdateCheck)
         } catch {
             logger.error("Update check failed: \(error.localizedDescription, privacy: .public)")
+            lastResult = .failed(message: error.localizedDescription)
+            lastCheckDate = Date()
+            userDefaults?.set(lastCheckDate, forKey: DefaultSettings.UserDefaultsKeys.lastUpdateCheck)
         }
     }
 

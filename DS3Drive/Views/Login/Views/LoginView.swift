@@ -26,41 +26,63 @@ struct LoginView: View {
                 .environment(loginViewModel)
                 .environment(ds3Authentication)
         } else {
-            VStack(spacing: 0) {
-                Spacer()
+            ZStack {
+                // Single unified window backdrop — Cubbit brand vertical gradient
+                // (Plan 05-18a: collapse the old four-layer stack into one)
+                DS3Gradients.brandVerticalBackground
+                    .ignoresSafeArea()
 
-                // Card content
+                // Force the hosting window to the screen center on appear.
+                // `.defaultPosition(.center)` in DS3DriveApp.swift only
+                // applies on first launch; macOS restores the last saved
+                // position on subsequent launches, which left the login
+                // window stuck wherever it was last dragged.
+                WindowCenterer()
+                    .frame(width: 0, height: 0)
+
                 VStack(alignment: .center, spacing: DS3Spacing.lg) {
-                    // Logo
+                    Spacer(minLength: 0)
+
+                    // Logo — sits directly on the gradient, no radial glow, no card
                     Image(.cubbitLogo)
                         .resizable()
-                        .frame(width: 120, height: 44)
+                        .frame(width: 96, height: 36)
 
-                    Text("Cubbit DS3 Drive")
+                    Text("DS3 Drive")
                         .font(DS3Typography.caption)
-                        .foregroundStyle(DS3Colors.secondaryText)
+                        .foregroundStyle(DS3Colors.brandTextSecondary)
 
                     // Title
                     Text("Log in to your account")
-                        .font(DS3Typography.headline)
-                        .foregroundStyle(DS3Colors.primaryText)
+                        .font(DS3Typography.title)
+                        .foregroundStyle(DS3Colors.brandTextPrimary)
                         .padding(.bottom, DS3Spacing.xs)
 
-                    // Email field with SF Symbol
+                    // Email field
                     HStack(spacing: DS3Spacing.sm) {
                         Image(systemName: "envelope")
-                            .foregroundStyle(DS3Colors.secondaryText)
+                            .foregroundStyle(DS3Colors.brandTextSecondary)
                             .frame(width: 20)
                         TextField("Email", text: $email)
                             .textContentType(.emailAddress)
                             .textFieldStyle(.plain)
                             .font(DS3Typography.body)
                             .textContentType(.username)
+                            .onChange(of: email) {
+                                // Clear stale server error as soon as the
+                                // user starts correcting their input.
+                                loginViewModel.loginError = nil
+                            }
                     }
                     .padding(DS3Spacing.md)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(DS3Colors.separator, lineWidth: 1)
+                            .stroke(
+                                focusedField == .email
+                                    ? DS3Colors.brandPrimary
+                                    : DS3Colors.brandBorderSubtle,
+                                lineWidth: 1
+                            )
                     )
                     .focused(self.$focusedField, equals: .email)
                     .onAppear {
@@ -72,22 +94,31 @@ struct LoginView: View {
                         focusedField = .password
                     }
 
-                    // Password field with SF Symbol
+                    // Password field
                     HStack(spacing: DS3Spacing.sm) {
                         Image(systemName: "lock")
-                            .foregroundStyle(DS3Colors.secondaryText)
+                            .foregroundStyle(DS3Colors.brandTextSecondary)
                             .frame(width: 20)
                         SecureField("Password", text: $password)
                             .textContentType(.password)
                             .textFieldStyle(.plain)
                             .font(DS3Typography.body)
                             .textContentType(.password)
+                            .onChange(of: password) {
+                                loginViewModel.loginError = nil
+                            }
                     }
                     .padding(DS3Spacing.md)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(DS3Colors.separator, lineWidth: 1)
+                            .stroke(
+                                focusedField == .password
+                                    ? DS3Colors.brandPrimary
+                                    : DS3Colors.brandBorderSubtle,
+                                lineWidth: 1
+                            )
                     )
+                    .focused(self.$focusedField, equals: .password)
                     .onSubmit {
                         self.login()
                     }
@@ -103,7 +134,7 @@ struct LoginView: View {
                                 Text("Advanced")
                                     .font(DS3Typography.caption)
                             }
-                            .foregroundStyle(DS3Colors.secondaryText)
+                            .foregroundStyle(DS3Colors.brandTextSecondary)
                         }
                         .buttonStyle(.plain)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -111,7 +142,7 @@ struct LoginView: View {
                         if showAdvanced {
                             HStack(spacing: DS3Spacing.sm) {
                                 Image(systemName: "person")
-                                    .foregroundStyle(DS3Colors.secondaryText)
+                                    .foregroundStyle(DS3Colors.brandTextSecondary)
                                     .frame(width: 20)
                                 TextField("Tenant name", text: $tenant)
                                     .textFieldStyle(.plain)
@@ -120,12 +151,12 @@ struct LoginView: View {
                             .padding(DS3Spacing.md)
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .stroke(DS3Colors.separator, lineWidth: 1)
+                                    .stroke(DS3Colors.brandBorderSubtle, lineWidth: 1)
                             )
 
                             HStack(spacing: DS3Spacing.sm) {
                                 Image(systemName: "globe")
-                                    .foregroundStyle(DS3Colors.secondaryText)
+                                    .foregroundStyle(DS3Colors.brandTextSecondary)
                                     .frame(width: 20)
                                 TextField("Coordinator URL", text: $coordinatorURL)
                                     .textFieldStyle(.plain)
@@ -134,18 +165,18 @@ struct LoginView: View {
                             .padding(DS3Spacing.md)
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .stroke(DS3Colors.separator, lineWidth: 1)
+                                    .stroke(DS3Colors.brandBorderSubtle, lineWidth: 1)
                             )
                         }
                     }
 
-                    // Login button
+                    // Login button — shared brand primary style
                     Button(loginViewModel.isLoading ? "Loading..." : "Log in") {
                         self.login()
                     }
-                    .buttonStyle(PrimaryButtonStyle())
+                    .buttonStyle(BrandPrimaryButtonStyle(fillWidth: true))
                     .disabled(loginDisabled)
-                    .frame(maxWidth: .infinity, maxHeight: 36)
+                    .keyboardShortcut(.defaultAction)
 
                     // Error message
                     if let error = loginViewModel.loginError {
@@ -159,23 +190,22 @@ struct LoginView: View {
                     if let url = URL(string: ConsoleURLs.recoveryURL) {
                         Link("Forgot your password?", destination: url)
                             .font(DS3Typography.caption)
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(DS3Colors.brandPrimary)
                     }
 
                     if let url = URL(string: ConsoleURLs.signupURL) {
                         Link("Sign up", destination: url)
                             .font(DS3Typography.caption)
-                            .foregroundStyle(Color.accentColor)
-                            .padding(.bottom, DS3Spacing.sm)
+                            .foregroundStyle(DS3Colors.brandPrimary)
                     }
+
+                    Spacer(minLength: 0)
                 }
                 .padding(.horizontal, DS3Spacing.xxl)
                 .padding(.vertical, DS3Spacing.xl)
-                .frame(maxWidth: 340)
-
-                Spacer()
+                .frame(maxWidth: 360, maxHeight: .infinity)
             }
-            .frame(width: 400, height: 500)
+            .frame(width: 540, height: 680)
         }
     }
 
@@ -211,4 +241,31 @@ struct LoginView: View {
 #Preview {
     LoginView()
         .environment(DS3Authentication())
+}
+
+// MARK: - WindowCenterer
+
+/// Tiny `NSViewRepresentable` that centers its hosting window once when
+/// the SwiftUI host is created. `.defaultPosition(.center)` in
+/// `DS3DriveApp.swift` only applies on first launch — macOS restores the
+/// last saved window position on subsequent launches, which would leave
+/// the login window wherever the user last dragged it unless it is
+/// explicitly re-centered when `LoginView` is constructed.
+///
+/// Uses `NSWindow.center()` so the positioning follows Apple's HIG
+/// (slightly above geometric center, matching every native macOS modal).
+private struct WindowCenterer: NSViewRepresentable {
+    func makeNSView(context _: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            view.window?.center()
+        }
+        return view
+    }
+
+    func updateNSView(_: NSView, context _: Context) {
+        // No-op — centering only happens once when the SwiftUI host is
+        // created (matches the doc above; SwiftUI re-creates the host
+        // whenever `LoginView` is reinstantiated, e.g. after sign-out).
+    }
 }

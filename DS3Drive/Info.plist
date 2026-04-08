@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDisplayName</key>
+	<string>DS3 Drive</string>
+	<key>CFBundleName</key>
+	<string>DS3 Drive</string>
 	<key>CFBundleGetInfoString</key>
 	<false/>
 	<key>ITSAppUsesNonExemptEncryption</key>
@@ -10,6 +14,12 @@
 	<array>
 		<string>Assets/Fonts/Nunito-Regular.ttf</string>
 		<string>Assets/Fonts/Nunito-Bold.ttf</string>
+		<string>Assets/Fonts/Figtree-Regular.ttf</string>
+		<string>Assets/Fonts/Figtree-Medium.ttf</string>
+		<string>Assets/Fonts/Figtree-SemiBold.ttf</string>
+		<string>Assets/Fonts/Figtree-Bold.ttf</string>
 	</array>
+	<key>ATSApplicationFontsPath</key>
+	<string>.</string>
 </dict>
 </plist>

@@ -26,8 +26,37 @@ public final class DS3DriveManager: @unchecked Sendable {
     /// The set of currently syncing drive IDs
     public var syncingDrives: Set<UUID> = []
 
-    /// Per-drive last-known status for aggregation
-    @ObservationIgnored private var driveStatuses: [UUID: DS3DriveStatus] = [:]
+    /// Per-drive last-known status for aggregation. Observed by SwiftUI through
+    /// `aggregateStatus` so the menu bar icon and tray footer recompute when
+    /// any drive transitions. `private(set)` so external observers can read
+    /// but only the manager itself mutates the map — invariants like the
+    /// allPaused/clamp logic in `togglePause` rely on this.
+    public private(set) var driveStatuses: [UUID: DS3DriveStatus] = [:]
+
+    /// Single source of truth for the tray aggregate state (Gaps 15 + 27).
+    ///
+    /// Derived purely from `driveStatuses` via `AggregateStatus.from(statuses:)`
+    /// so the tray header, footer, drive rows, and menu bar icon can never
+    /// disagree with the per-drive rows. Replaces the previous
+    /// `AppStatusManager` counter-driven model that was prone to leaks.
+    ///
+    /// `AggregateStatusTests` exhaustively covers the reducer.
+    public var aggregateStatus: AggregateStatus {
+        let statuses = drives.compactMap { driveStatuses[$0.id] }
+        // Drives that have never reported a status yet are assumed idle so
+        // they don't bias the aggregate toward an error / pause state before
+        // the extension has had a chance to run. This keeps a freshly-added
+        // drive visually "healthy" until it genuinely sends us something.
+        let padded = statuses + Array(repeating: DS3DriveStatus.idle, count: drives.count - statuses.count)
+        return AggregateStatus.from(statuses: padded)
+    }
+
+    /// Legacy bridge for existing call sites that consume `AppStatus`
+    /// (menu bar icon, footer, etc.). New code should prefer `aggregateStatus`
+    /// directly so it can distinguish `.mixed` and `.noDrives`.
+    public var aggregateAppStatus: AppStatus {
+        aggregateStatus.appStatus
+    }
 
     public init(appStatusManager: AppStatusManager, ipcService: (any IPCService)? = nil) {
         self.ipcService = ipcService ?? makeDefaultIPCService()

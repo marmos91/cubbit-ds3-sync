@@ -69,7 +69,7 @@
 
         private func postNotification(version: String) {
             let content = UNMutableNotificationContent()
-            content.title = NSLocalizedString("Cubbit DS3 Drive", comment: "Update notification title")
+            content.title = NSLocalizedString("DS3 Drive", comment: "Update notification title")
             content.body = String(
                 format: NSLocalizedString(
                     "Version %@ is available. Click to update.",

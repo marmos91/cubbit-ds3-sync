@@ -480,6 +480,9 @@ extension FileProviderExtension {
                     complete(fileURL, s3Item, alignedRange, [], nil)
                 } catch let s3Error as AWSErrorType {
                     self.logger.error("Partial download failed with S3 error \(s3Error.errorCode, privacy: .public)")
+                    await self.markItemAndParentAsError(
+                        itemKey: itemIdentifier.rawValue, driveId: drive.id, metadataStore: self.metadataStore
+                    )
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     complete(nil, nil, NSRange(location: 0, length: 0), [], s3Error.toFileProviderError())
                 } catch {
@@ -487,6 +490,9 @@ extension FileProviderExtension {
                         .error(
                             "Partial download failed for \(itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
                         )
+                    await self.markItemAndParentAsError(
+                        itemKey: itemIdentifier.rawValue, driveId: drive.id, metadataStore: self.metadataStore
+                    )
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     complete(
                         nil,

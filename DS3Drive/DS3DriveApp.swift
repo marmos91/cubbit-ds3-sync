@@ -1,3 +1,5 @@
+import AppKit
+import CoreText
 import DS3Lib
 @preconcurrency import FileProvider
 import os.log
@@ -48,6 +50,7 @@ struct DS3DriveApp: App {
                         .environment(ds3Authentication)
                 }
             }
+            .font(DS3Typography.body)
             .task {
                 refreshTask?.cancel()
                 refreshTask = ds3Authentication.startProactiveRefreshTimer()
@@ -60,26 +63,36 @@ struct DS3DriveApp: App {
         // MARK: - Preferences
 
         Window("Preferences", id: "io.cubbit.DS3Drive.preferences") {
-            if let account = ds3Authentication.account {
-                PreferencesView(
-                    preferencesViewModel: PreferencesViewModel(
-                        account: account
+            Group {
+                if let account = ds3Authentication.account {
+                    PreferencesView(
+                        preferencesViewModel: PreferencesViewModel(
+                            account: account
+                        )
                     )
-                )
-                .environment(ds3DriveManager)
-                .environment(updateManager)
-            } else {
-                VStack {
-                    ProgressView()
-                    Text(NSLocalizedString("Loading preferences…", comment: "Preferences loading state"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    .environment(ds3Authentication)
+                    .environment(ds3DriveManager)
+                    .environment(updateManager)
+                    .frame(minWidth: 720, idealWidth: 760, minHeight: 560, idealHeight: 600)
+                } else {
+                    VStack {
+                        ProgressView()
+                        Text(NSLocalizedString("Loading preferences…", comment: "Preferences loading state"))
+                            .font(DS3Typography.caption)
+                            .foregroundStyle(DS3Colors.brandTextSecondary)
+                    }
+                    .frame(width: 300, height: 200)
                 }
-                .frame(width: 300, height: 200)
             }
+            // Plan 05-18b Gap 24: brand backdrop for the whole Preferences
+            // scene (including any chrome the SwiftUI Window host draws
+            // behind the content) and dark color scheme so the tab bar and
+            // form controls inherit the brand palette.
+            .background(DS3Colors.brandBackground.ignoresSafeArea())
+            .preferredColorScheme(.dark)
+            .font(DS3Typography.body)
         }
-        .windowResizability(.contentSize)
-        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentMinSize)
         .defaultPosition(.center)
 
         // MARK: - Add new drive
@@ -88,6 +101,7 @@ struct DS3DriveApp: App {
             SetupSyncView()
                 .environment(ds3Authentication)
                 .environment(ds3DriveManager)
+                .font(DS3Typography.body)
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
@@ -103,9 +117,15 @@ struct DS3DriveApp: App {
                     .environment(ds3DriveManager)
                     .environment(appStatusManager)
                     .environment(updateManager)
+                    .font(DS3Typography.body)
             } label: {
+                // Single source of truth: derive the menu bar icon from
+                // `ds3DriveManager.aggregateStatus`, which is computed from
+                // per-drive states (Gap 15). Replaces the previous binding to
+                // `AppStatusManager.status`, which could leak into a stuck
+                // .indexing state when the operation counter diverged.
                 Group {
-                    switch appStatusManager.status {
+                    switch ds3DriveManager.aggregateAppStatus {
                     case .idle:
                         if updateManager.updateAvailable {
                             Image(.trayIconInfo)
@@ -130,7 +150,44 @@ struct DS3DriveApp: App {
         #endif
     }
 
+    /// Plan 05-17 Gap 31: explicit runtime registration of Figtree font files.
+    /// `ATSApplicationFontsPath` in Info.plist is unreliable — registering via
+    /// `CTFontManagerRegisterFontsForURL` guarantees the font loads regardless
+    /// of Info.plist interpretation.
+    private static func registerBrandFonts() {
+        // The macOS bundle keeps fonts under `Assets/Fonts/` (mirroring
+        // the source tree). Try the bundle root first for forward
+        // compatibility, then fall back to the subdirectory — without
+        // this lookup, registration silently no-ops on builds where the
+        // resources aren't flattened.
+        for name in ["Figtree-Regular", "Figtree-Medium", "Figtree-SemiBold", "Figtree-Bold"] {
+            let url = Bundle.main.url(forResource: name, withExtension: "ttf")
+                ?? Bundle.main.url(forResource: name, withExtension: "ttf", subdirectory: "Assets/Fonts")
+            guard let url else {
+                NSLog("[DS3DriveApp] WARNING: \(name).ttf not found in bundle Resources or Assets/Fonts")
+                continue
+            }
+            var error: Unmanaged<CFError>?
+            if !CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error),
+               let err = error?.takeRetainedValue(),
+               CFErrorGetCode(err) != 105 { // 105 = kCTFontManagerErrorAlreadyRegistered
+                NSLog("[DS3DriveApp] WARNING: Failed to register \(name): \(err)")
+            }
+        }
+        if NSFontManager.shared.availableFontFamilies.contains("Figtree") {
+            // Dump every font name in the family so DS3Typography uses the
+            // exact name SwiftUI can resolve via Font.custom(_:size:).
+            let members = NSFontManager.shared.availableMembers(ofFontFamily: "Figtree") ?? []
+            let names = members.compactMap { $0.first as? String }
+            NSLog("[DS3DriveApp] Figtree registered. PostScript names available: \(names)")
+        } else {
+            NSLog("[DS3DriveApp] WARNING: Figtree not in availableFontFamilies after registration")
+        }
+    }
+
     init() {
+        Self.registerBrandFonts()
+
         // Load saved coordinator URL and construct auth with it
         let coordinatorURL = (try? SharedData.default().loadCoordinatorURLFromPersistence()) ?? CubbitAPIURLs
             .defaultCoordinatorURL
@@ -234,7 +291,7 @@ struct DS3DriveApp: App {
 
     private static func showSessionExpiredNotification(logger: Logger) {
         let content = UNMutableNotificationContent()
-        content.title = NSLocalizedString("Cubbit DS3 Drive", comment: "Auth failure notification title")
+        content.title = NSLocalizedString("DS3 Drive", comment: "Auth failure notification title")
         content.body = NSLocalizedString(
             "Session expired -- sign in to resume syncing",
             comment: "Auth failure notification body"

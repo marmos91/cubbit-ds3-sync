@@ -106,8 +106,8 @@ Plans:
 - [x] 05-01-PLAN.md -- Design system foundation (colors, typography, spacing, shimmer) and Finder sync badges via NSFileProviderItemDecorating
 - [x] 05-02-PLAN.md -- Pause state data layer (SharedData persistence, extension gate) and recent files ring buffer tracker
 - [x] 05-03-PLAN.md -- Drive setup wizard 2-step refactor, login centered card redesign, preferences tabbed redesign
-- [ ] 05-04-PLAN.md -- Menu bar tray overhaul: colored indicators, speed display, side panels, gear menu, tray icon animation
-- [ ] 05-05-PLAN.md -- Common component design system sweep, copy audit, Italian localization, final human verification
+- [x] 05-04-PLAN.md -- Menu bar tray overhaul: colored indicators, speed display, side panels, gear menu, tray icon animation
+- [x] 05-05-PLAN.md -- Common component design system sweep, copy audit, Italian localization, final human verification
 
 </details>
 
@@ -135,7 +135,7 @@ See `.planning/milestones/v2.0-ROADMAP.md` for full details.
 | 2. Sync Engine | v1.0 | 3/3 | Complete | 2026-03-12 |
 | 3. Conflict Resolution | v1.0 | 3/3 | Complete | - |
 | 4. Auth & Platform | v1.0 | 4/4 | Complete | 2026-03-13 |
-| 5. UX Polish | v1.0 | 3/5 | In Progress | - |
+| 5. UX Polish | v1.0 | 12/14 | In Progress|  |
 | 6. Platform Abstraction | v2.0 | 4/4 | Complete | 2026-03-18 |
 | 7. iOS File Provider Extension | v2.0 | 4/4 | Complete | 2026-03-18 |
 | 8. iOS Companion App | v2.0 | 6/6 | Complete | 2026-03-18 |

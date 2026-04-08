@@ -14,42 +14,55 @@ struct MFAView: View {
     @FocusState var focused: Bool?
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
+        ZStack {
+            // Unified brand backdrop — matches LoginView
+            DS3Gradients.brandVerticalBackground
+                .ignoresSafeArea()
 
-            // Card content
             VStack(alignment: .center, spacing: DS3Spacing.lg) {
+                Spacer(minLength: 0)
+
                 if loginViewModel.isLoading {
                     LoadingView()
                 } else {
                     // Icon
                     Image(systemName: "lock.shield")
                         .font(.system(size: 40))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(DS3Colors.brandPrimary)
 
                     Text("Two-factor authentication")
                         .font(DS3Typography.title)
-                        .foregroundStyle(DS3Colors.primaryText)
+                        .foregroundStyle(DS3Colors.brandTextPrimary)
 
                     Text("Enter the code from your authenticator app")
                         .font(DS3Typography.body)
-                        .foregroundStyle(DS3Colors.secondaryText)
+                        .foregroundStyle(DS3Colors.brandTextSecondary)
                         .multilineTextAlignment(.center)
 
                     // Code input
                     HStack(spacing: DS3Spacing.sm) {
                         Image(systemName: "number")
-                            .foregroundStyle(DS3Colors.secondaryText)
+                            .foregroundStyle(DS3Colors.brandTextSecondary)
                             .frame(width: 20)
                         TextField("6-digit code", text: $tfaCode)
                             .textFieldStyle(.plain)
                             .font(DS3Typography.body)
                             .textContentType(.oneTimeCode)
+                            .onChange(of: tfaCode) {
+                                // Clear stale server error as soon as the
+                                // user starts correcting their input.
+                                loginViewModel.loginError = nil
+                            }
                     }
                     .padding(DS3Spacing.md)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(DS3Colors.separator, lineWidth: 1)
+                            .stroke(
+                                focused == true
+                                    ? DS3Colors.brandPrimary
+                                    : DS3Colors.brandBorderSubtle,
+                                lineWidth: 1
+                            )
                     )
                     .focused($focused, equals: true)
                     .onAppear {
@@ -61,13 +74,13 @@ struct MFAView: View {
                         self.loginWithMFA()
                     }
 
-                    // Login button
+                    // Login button — shared brand primary style
                     Button("Log in") {
                         self.loginWithMFA()
                     }
-                    .buttonStyle(PrimaryButtonStyle())
+                    .buttonStyle(BrandPrimaryButtonStyle(fillWidth: true))
                     .disabled(tfaCode.isEmpty)
-                    .frame(maxWidth: .infinity, maxHeight: 36)
+                    .keyboardShortcut(.defaultAction)
 
                     // Error
                     if let loginError = loginViewModel.loginError {
@@ -77,14 +90,14 @@ struct MFAView: View {
                             .multilineTextAlignment(.center)
                     }
                 }
+
+                Spacer(minLength: 0)
             }
             .padding(.horizontal, DS3Spacing.xxl)
             .padding(.vertical, DS3Spacing.xl)
-            .frame(maxWidth: 340)
-
-            Spacer()
+            .frame(maxWidth: 360, maxHeight: .infinity)
         }
-        .frame(width: 400, height: 500)
+        .frame(width: 540, height: 680)
     }
 
     func loginWithMFA() {

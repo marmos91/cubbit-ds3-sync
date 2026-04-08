@@ -6,7 +6,6 @@ import SwiftUI
 /// Represents which side panel is currently displayed.
 enum SidePanel: Equatable {
     case recentFiles(driveId: UUID)
-    case connectionInfo
 }
 
 // MARK: - FloatingPanel

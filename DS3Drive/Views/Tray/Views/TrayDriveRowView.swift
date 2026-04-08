@@ -5,15 +5,19 @@ import SwiftUI
 
 struct TrayDriveRowView: View {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
-    @Environment(\.openWindow) var openWindow
     @Environment(\.openURL) var openURL
     @Environment(DS3DriveManager.self) var ds3DriveManager: DS3DriveManager
 
     @State private var driveViewModel: DS3DriveViewModel
 
-    init(driveViewModel: DS3DriveViewModel, onHoverDrive: ((UUID, Bool, NSRect) -> Void)? = nil) {
+    init(
+        driveViewModel: DS3DriveViewModel,
+        onHoverDrive: ((UUID, Bool, NSRect) -> Void)? = nil,
+        onRequestPanelDismiss: (() -> Void)? = nil
+    ) {
         self._driveViewModel = State(initialValue: driveViewModel)
         self.onHoverDrive = onHoverDrive
+        self.onRequestPanelDismiss = onRequestPanelDismiss
     }
 
     @State private var isHover: Bool = false
@@ -23,41 +27,92 @@ struct TrayDriveRowView: View {
     /// Parameters: driveId, isHovering, row screen frame.
     var onHoverDrive: ((UUID, Bool, NSRect) -> Void)?
 
+    /// Synchronous panel-dismiss callback. Used by the gear menu to clear
+    /// the floating Recent Files panel BEFORE its 150ms scheduled-dismiss
+    /// timer fires — otherwise the panel sits at `.statusBar` level next to
+    /// the tray and AppKit's hit-test routes the gear click to the wrong
+    /// window, causing the SwiftUI Menu to never present.
+    var onRequestPanelDismiss: (() -> Void)?
+
     var body: some View {
-        HStack(spacing: DS3Spacing.sm) {
-            // Drive icon with status badge
-            driveStatusIcon
-                .frame(width: 28, height: 28)
+        // Card-style drive row (Plan 05-12, Sync Share 2.0 layout):
+        // brandSurface rounded card + leading accent stripe coloured by
+        // the per-drive sync state. See 05-12-FIGMA-LAYOUT.md.
+        HStack(spacing: 0) {
+            // Leading accent stripe — colour reflects current drive status
+            Rectangle()
+                .fill(stripeColor)
+                .frame(width: 3)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(driveViewModel.drive.name)
-                    .font(DS3Typography.body)
-                    .lineLimit(1)
+            HStack(spacing: DS3Spacing.sm) {
+                driveStatusIcon
+                    .frame(width: 28, height: 28)
 
-                Text(driveViewModel.syncAnchorString())
-                    .font(DS3Typography.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(driveViewModel.drive.name)
+                        .font(DS3Typography.headline)
+                        .foregroundStyle(DS3Colors.brandTextPrimary)
+                        .lineLimit(1)
 
-                // Metrics row
-                metricsRow
+                    Text(driveViewModel.syncAnchorString())
+                        .font(DS3Typography.caption)
+                        .foregroundStyle(DS3Colors.brandTextSecondary)
+                        .lineLimit(1)
+
+                    metricsRow
+                }
+
+                Spacer()
+
+                gearMenu
             }
-
-            Spacer()
-
-            // Gear menu
-            gearMenu
+            .padding(.horizontal, DS3Spacing.md)
+            .padding(.vertical, DS3Spacing.sm)
         }
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(DS3Colors.brandSurface)
+        )
+        .overlay(
+            // Hover-tint overlay. MUST disable hit testing — SwiftUI filled
+            // shapes capture clicks even at opacity 0, which was eating
+            // taps on the gear `NSButton` underneath and preventing the
+            // NSMenu from popping. Took an hour to find. Don't remove.
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(DS3Colors.brandPrimary.opacity(isHover ? 0.08 : 0))
+                .allowsHitTesting(false)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(.horizontal, DS3Spacing.lg)
-        .padding(.vertical, DS3Spacing.sm)
-        .background(isHover ? Color(nsColor: .selectedContentBackgroundColor).opacity(0.15) : Color.clear)
+        .padding(.vertical, DS3Spacing.xs)
         .background(ScreenFrameReader { screenFrame = $0 })
         .onHover { hovering in
             isHover = hovering
+            // When the user hovers a row, the side panel takes ownership of the
+            // popover slot — any open gear menu must dismiss (Gap 10).
+            if hovering {
+                driveViewModel.activePopover = .sidePanel(driveID: driveViewModel.drive.id)
+            } else if case let .sidePanel(id) = driveViewModel.activePopover,
+                      id == driveViewModel.drive.id {
+                driveViewModel.activePopover = .none
+            }
             onHoverDrive?(driveViewModel.drive.id, hovering, screenFrame)
         }
         .contextMenu {
             driveContextMenuItems
+        }
+    }
+
+    // MARK: - Accent Stripe
+
+    /// Per-drive accent stripe colour mapped from the current sync state.
+    /// See `05-12-FIGMA-LAYOUT.md` (Drive Row section).
+    private var stripeColor: Color {
+        switch driveViewModel.driveStatus {
+        case .idle: DS3Colors.statusSynced
+        case .sync, .indexing: DS3Colors.statusSyncing
+        case .error: DS3Colors.statusError
+        case .paused: DS3Colors.statusPaused
         }
     }
 
@@ -99,6 +154,7 @@ struct TrayDriveRowView: View {
                     Text(NSLocalizedString("Paused", comment: "Drive row paused status"))
                 } icon: {
                     Image(systemName: "pause.circle")
+                        .symbolRenderingMode(.hierarchical)
                 }
                 .font(DS3Typography.footnote)
                 .foregroundStyle(DS3Colors.statusPaused)
@@ -106,63 +162,81 @@ struct TrayDriveRowView: View {
                 if let uploadSpeed = driveViewModel.driveStats.uploadSpeedBs {
                     Label {
                         Text(formatSpeed(uploadSpeed))
+                            .monospacedDigit()
                     } icon: {
                         Image(systemName: "arrow.up")
                     }
                     .font(DS3Typography.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DS3Colors.brandTextSecondary)
                 }
                 if let downloadSpeed = driveViewModel.driveStats.downloadSpeedBs {
                     Label {
                         Text(formatSpeed(downloadSpeed))
+                            .monospacedDigit()
                     } icon: {
                         Image(systemName: "arrow.down")
                     }
                     .font(DS3Typography.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DS3Colors.brandTextSecondary)
                 }
             } else if driveViewModel.driveStatus == .indexing {
                 Label {
                     Text(NSLocalizedString("Indexing…", comment: "Drive row indexing status"))
                 } icon: {
                     Image(systemName: "magnifyingglass")
+                        .symbolEffect(.pulse, options: .repeating)
                 }
                 .font(DS3Typography.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DS3Colors.brandTextSecondary)
             } else if driveViewModel.driveStatus == .sync {
                 Label {
                     Text(NSLocalizedString("Syncing…", comment: "Drive row syncing status"))
                 } icon: {
                     Image(systemName: "arrow.triangle.2.circlepath")
+                        .symbolEffect(.pulse, options: .repeating)
                 }
                 .font(DS3Typography.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DS3Colors.brandTextSecondary)
             }
 
             // Last update time
             Label {
                 Text(formatRelativeTime(driveViewModel.driveStats.lastUpdate))
+                    .monospacedDigit()
             } icon: {
                 Image(systemName: "clock")
             }
             .font(DS3Typography.footnote)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(DS3Colors.brandTextSecondary)
         }
     }
 
     // MARK: - Gear Menu
 
+    /// Bulletproof gear menu: a real `NSButton` (see `GearMenuButton` in
+    /// `TrayDriveGearMenu.swift`) that pops a real `NSMenu` on click.
+    /// Replaces the previous SwiftUI `Menu` which suffered intermittent
+    /// hit-test failures on macOS Sequoia inside `MenuBarExtra`. Going
+    /// through AppKit primitives sidesteps every SwiftUI Menu quirk.
     private var gearMenu: some View {
-        Menu {
-            driveContextMenuItems
-        } label: {
-            Image(systemName: "gearshape")
-                .font(.system(size: 14))
-                .foregroundStyle(.secondary)
-        }
-        .menuStyle(BorderlessButtonMenuStyle())
-        .menuIndicator(.hidden)
-        .fixedSize()
+        GearMenuButton(
+            menuBuilder: {
+                TrayDriveGearMenu.build(
+                    driveViewModel: driveViewModel,
+                    ds3DriveManager: ds3DriveManager,
+                    openURL: openURL,
+                    logger: logger
+                )
+            },
+            onClick: {
+                // Synchronously dismiss the floating Recent Files panel
+                // before the menu pops so its window stops competing for
+                // clicks at `.statusBar` level next to the tray.
+                onRequestPanelDismiss?()
+                driveViewModel.activePopover = .gearMenu(driveID: driveViewModel.drive.id)
+            }
+        )
+        .frame(width: 22, height: 22)
     }
 
     // MARK: - Shared Context Menu Items
@@ -203,12 +277,12 @@ struct TrayDriveRowView: View {
             Label(NSLocalizedString("View in web console", comment: "Drive menu view in console"), systemImage: "globe")
         }
 
-        Button {
-            openWindow(id: "io.cubbit.CubbitDS3Sync.drive.manage", value: driveViewModel.drive.id)
-        } label: {
-            Label(NSLocalizedString("Manage", comment: "Drive menu manage"), systemImage: "slider.horizontal.3")
-        }
-
+        // Gap 16: the legacy per-drive gear action that opened a window scene
+        // from the old bundle prefix has been removed — the scene no longer
+        // existed and the call raised a SwiftUI runtime error. The remaining
+        // gear entries (Disconnect, View in Finder, View in web console,
+        // Refresh, Reset Sync, Empty Trash, Pause, Copy S3 Path) cover the
+        // per-drive management surface.
         Button {
             let viewModel = driveViewModel
             Task {

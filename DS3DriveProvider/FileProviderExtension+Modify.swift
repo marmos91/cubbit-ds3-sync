@@ -178,6 +178,11 @@ extension FileProviderExtension {
                         completionHandler(s3Item, remainingFields, false, nil)
                     } catch let s3Error as AWSErrorType {
                         self.logger.error("Upload failed with S3 error \(s3Error.errorCode, privacy: .public)")
+                        // Mark item and parent folder as error so Finder shows error badge
+                        await self.markItemAndParentAsError(
+                            itemKey: s3Item.itemIdentifier.rawValue, driveId: drive.id,
+                            metadataStore: self.metadataStore
+                        )
                         await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
                     } catch is CancellationError {
@@ -195,6 +200,11 @@ extension FileProviderExtension {
                             .error(
                                 "Modify upload failed for \(s3Item.itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
                             )
+                        // Mark item and parent folder as error so Finder shows error badge
+                        await self.markItemAndParentAsError(
+                            itemKey: s3Item.itemIdentifier.rawValue, driveId: drive.id,
+                            metadataStore: self.metadataStore
+                        )
                         await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(
                             nil,

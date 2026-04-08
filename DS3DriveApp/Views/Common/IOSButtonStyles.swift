@@ -15,8 +15,10 @@
                     RoundedRectangle(cornerRadius: 12)
                         .fill(
                             isEnabled
-                                ? (configuration.isPressed ? Color.accentColor.opacity(0.8) : Color.accentColor)
-                                : Color.secondary
+                                ?
+                                (configuration.isPressed ? IOSColors.brandPrimary.opacity(0.8) : IOSColors
+                                    .brandPrimary)
+                                : IOSColors.brandTextSecondary
                         )
                 )
                 .hoverEffect(.highlight)
