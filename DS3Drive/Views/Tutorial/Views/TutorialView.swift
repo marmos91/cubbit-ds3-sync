@@ -7,12 +7,14 @@ struct TutorialProgress: View {
     @Binding var currentSlideIndex: Int
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DS3Spacing.sm) {
             ForEach(0 ..< totalSlides, id: \.self) { index in
-                Circle()
-                    .fill(index == currentSlideIndex ? Color(nsColor: .separatorColor) :
-                        Color(nsColor: .controlBackgroundColor))
-                    .frame(width: 8, height: 8)
+                Capsule()
+                    .fill(index == currentSlideIndex
+                        ? DS3Colors.brandPrimary
+                        : DS3Colors.brandBorder.opacity(0.6))
+                    .frame(width: index == currentSlideIndex ? 20 : 8, height: 8)
+                    .animation(.easeInOut(duration: 0.25), value: currentSlideIndex)
                     .onHover { hovering in
                         if hovering {
                             NSCursor.pointingHand.push()
@@ -31,30 +33,7 @@ struct TutorialProgress: View {
 }
 
 struct TutorialView: View {
-    @StateObject private var vm = TutorialViewModel(
-        slides: [
-            Slide(
-                imageName: .tutorial1,
-                title: "Select a project and bucket",
-                paragraph: "Navigate your projects and buckets in the sidebar. Expand a project to browse its buckets and pick the one you want to sync"
-            ),
-            Slide(
-                imageName: .tutorial2,
-                title: "Name your drive",
-                paragraph: "Choose a name for your drive. This is how it will appear in Finder's sidebar"
-            ),
-            Slide(
-                imageName: .tutorial3,
-                title: "Control your drives from the menu bar",
-                paragraph: "Monitor sync status, add more drives, and access preferences — all from the tray menu"
-            ),
-            Slide(
-                imageName: .tutorial4,
-                title: "Access your files from Finder",
-                paragraph: "Your DS3 storage appears as a native drive in Finder. Open, edit, and organize your cloud files like any local folder"
-            )
-        ]
-    )
+    @StateObject private var vm = TutorialViewModel()
 
     @AppStorage(DefaultSettings.UserDefaultsKeys.tutorial) var tutorialShown: Bool = DefaultSettings.tutorialShown
 
@@ -63,52 +42,73 @@ struct TutorialView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Image(currentSlide.imageName)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
-                .padding(.horizontal, 32)
-                .padding(.top, 24)
-                .id(vm.currentSlideIndex)
-                .transition(.opacity)
+        ZStack {
+            // Unified brand backdrop across ALL tutorial slides — no
+            // per-slide variation so the tutorial reads as one coherent
+            // Cubbit-branded surface.
+            DS3Gradients.brandVerticalBackground
+                .ignoresSafeArea()
 
-            Spacer()
+            VStack(spacing: 0) {
+                Spacer(minLength: DS3Spacing.lg)
 
-            VStack(spacing: 12) {
-                Text(currentSlide.title)
-                    .font(DS3Typography.headline)
-                    .fontWeight(.bold)
-                    .multilineTextAlignment(.center)
+                VStack(alignment: .center, spacing: DS3Spacing.lg) {
+                    // Hero screenshot, bordered with the brand primary tint.
+                    Image(currentSlide.imageName)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: 560, maxHeight: 280)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(
+                                    DS3Colors.brandPrimary.opacity(0.2),
+                                    lineWidth: 1
+                                )
+                        )
+                        .shadow(color: .black.opacity(0.18), radius: 10, x: 0, y: 4)
+                        .id(vm.currentSlideIndex)
+                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
 
-                Text(currentSlide.paragraph)
-                    .font(DS3Typography.body)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    VStack(spacing: DS3Spacing.md) {
+                        Text(currentSlide.titleKey)
+                            .font(DS3Typography.title)
+                            .fontWeight(.bold)
+                            .foregroundStyle(DS3Colors.brandTextPrimary)
+                            .multilineTextAlignment(.center)
 
-                Button(vm.isLastSlide ? "Get Started" : "Next") {
-                    if vm.isLastSlide {
-                        tutorialShown = true
-                    } else {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            vm.nextSlide()
+                        Text(currentSlide.descriptionKey)
+                            .font(DS3Typography.body)
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(DS3Colors.brandTextSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: 520)
+                    }
+
+                    Button(vm.isLastSlide ? "Get Started" : "Next") {
+                        if vm.isLastSlide {
+                            tutorialShown = true
+                        } else {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                vm.nextSlide()
+                            }
                         }
                     }
-                }
-                .padding(.top, 4)
-                .buttonStyle(PrimaryButtonStyle())
+                    .padding(.top, DS3Spacing.xs)
+                    .buttonStyle(PrimaryButtonStyle())
 
-                TutorialProgress(
-                    totalSlides: vm.slides.count,
-                    currentSlideIndex: $vm.currentSlideIndex
-                )
+                    TutorialProgress(
+                        totalSlides: vm.slides.count,
+                        currentSlideIndex: $vm.currentSlideIndex
+                    )
+                }
+                .padding(.horizontal, DS3Spacing.xxl)
+                .padding(.vertical, DS3Spacing.xl)
+
+                Spacer(minLength: DS3Spacing.lg)
             }
-            .padding(.horizontal, 40)
-            .padding(.bottom, 24)
         }
-        .frame(width: 700, height: 520)
+        .frame(width: 720, height: 580)
         .animation(.easeInOut(duration: 0.3), value: vm.currentSlideIndex)
     }
 }
