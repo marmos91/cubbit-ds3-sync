@@ -39,14 +39,8 @@ actor BucketListingLimiter {
     /// running `body`.
     func withLimit<T>(bucket: String, _ body: () async throws -> T) async throws -> T {
         try await acquire(bucket: bucket)
-        do {
-            let result = try await body()
-            release(bucket: bucket)
-            return result
-        } catch {
-            release(bucket: bucket)
-            throw error
-        }
+        defer { release(bucket: bucket) }
+        return try await body()
     }
 
     private func acquire(bucket: String) async throws {

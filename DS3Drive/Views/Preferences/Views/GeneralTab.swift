@@ -10,6 +10,16 @@ struct GeneralTab: View {
 
     var preferencesViewModel: PreferencesViewModel
 
+    /// Cached `RelativeDateTimeFormatter`. The class is comparatively
+    /// expensive to construct (CFCalendar / CFLocale lookups) and this
+    /// helper is invoked from SwiftUI body re-evaluations, so reuse a
+    /// single instance instead of allocating per call.
+    private static let lastCheckedFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter
+    }()
+
     /// Shared "Last checked: …" subtitle used by the updates section.
     /// Renders a relative timestamp (e.g. "2 minutes ago") when a check has happened,
     /// or "Never" when there is no `lastCheckDate` yet.
@@ -17,9 +27,7 @@ struct GeneralTab: View {
         guard let lastCheckDate else {
             return NSLocalizedString("updates.never", value: "Last checked: Never", comment: "Never checked")
         }
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-        let relative = formatter.localizedString(for: lastCheckDate, relativeTo: Date())
+        let relative = lastCheckedFormatter.localizedString(for: lastCheckDate, relativeTo: Date())
         return String(
             format: NSLocalizedString(
                 "updates.lastChecked",

@@ -319,7 +319,10 @@
                 guard let fileHandle = try? FileHandle(forReadingFrom: fileURL) else {
                     throw NSError(
                         domain: NSCocoaErrorDomain, code: NSFileReadNoPermissionError,
-                        userInfo: [NSLocalizedDescriptionKey: "Cannot open file for reading"]
+                        userInfo: [
+                            NSLocalizedDescriptionKey:
+                                "Cannot open file for reading: \(fileURL.lastPathComponent)"
+                        ]
                     )
                 }
                 defer { try? fileHandle.close() }
