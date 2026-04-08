@@ -33,8 +33,11 @@ actor NotificationManager {
     /// activity, the watchdog clamps it back to 0 and logs a warning.
     private var lastCounterMutationTime: ContinuousClock.Instant = .now
 
-    /// Repeating watchdog task spawned at init. Cancelled in `shutdown` (best
-    /// effort — actor isolation guarantees the task observes the latest state).
+    /// Repeating watchdog task spawned at init. Cancelled in `shutdown()`
+    /// when the owning extension invalidates so the task does not outlive
+    /// its manager — `deinit` is not enough on its own because the task's
+    /// `[weak self]` capture would keep the actor live until the next
+    /// sleep tick.
     private var counterWatchdogTask: Task<Void, Never>?
 
     init(drive: DS3Drive, ipcService: (any IPCService)? = nil) {
@@ -42,6 +45,18 @@ actor NotificationManager {
         self.driveStatus = .idle
         self.ipcService = ipcService ?? makeDefaultIPCService()
         Task { [weak self] in await self?.startCounterWatchdog() }
+    }
+
+    /// Cancels the counter-watchdog and any in-flight debounce/throttle
+    /// tasks. Call from the owning extension's `invalidate()` so this
+    /// actor does not leak background work after teardown.
+    func shutdown() {
+        counterWatchdogTask?.cancel()
+        counterWatchdogTask = nil
+        debounceTask?.cancel()
+        debounceTask = nil
+        transferThrottleTask?.cancel()
+        transferThrottleTask = nil
     }
 
     /// Sends a notification to the app with the current status of the drive debounced. If you want to send the

@@ -259,7 +259,14 @@
                 let fileSize = file.fileSize
 
                 if fileSize < DefaultSettings.S3.multipartThreshold {
-                    // Small files: load into memory (safe under 5MB)
+                    // Small files: load into memory (safe under 5MB).
+                    // Share Extension URLs are routinely security-scoped
+                    // regardless of file size, so claim access here too
+                    // — the large-file branch has always done this.
+                    let accessing = file.url.startAccessingSecurityScopedResource()
+                    defer {
+                        if accessing { file.url.stopAccessingSecurityScopedResource() }
+                    }
                     let fileData = try Data(contentsOf: file.url)
                     try await uploadSmallFile(fileData, bucket: bucket, key: s3Key, client: client)
                 } else {
@@ -322,11 +329,26 @@
                     let length = min(partSize, Int(fileSize) - Int(offset))
 
                     try fileHandle.seek(toOffset: offset)
-                    guard let partData = try fileHandle.read(upToCount: length), !partData.isEmpty else {
-                        throw NSError(
-                            domain: NSCocoaErrorDomain, code: NSFileReadCorruptFileError,
-                            userInfo: [NSLocalizedDescriptionKey: "Failed to read file part \(partNumber)"]
-                        )
+
+                    // `read(upToCount:)` may legally return fewer bytes
+                    // than requested on a short read — uploading a short
+                    // non-final part would corrupt the S3 multipart
+                    // assembly, so loop until we have the full length or
+                    // hit EOF unexpectedly.
+                    var partData = Data()
+                    partData.reserveCapacity(length)
+                    while partData.count < length {
+                        let remaining = length - partData.count
+                        guard let chunk = try fileHandle.read(upToCount: remaining), !chunk.isEmpty else {
+                            throw NSError(
+                                domain: NSCocoaErrorDomain, code: NSFileReadCorruptFileError,
+                                userInfo: [
+                                    NSLocalizedDescriptionKey:
+                                        "Unexpected EOF reading part \(partNumber) (got \(partData.count)/\(length))"
+                                ]
+                            )
+                        }
+                        partData.append(chunk)
                     }
 
                     let result = try await client.uploadPart(

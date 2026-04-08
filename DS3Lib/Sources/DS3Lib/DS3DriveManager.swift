@@ -28,8 +28,10 @@ public final class DS3DriveManager: @unchecked Sendable {
 
     /// Per-drive last-known status for aggregation. Observed by SwiftUI through
     /// `aggregateStatus` so the menu bar icon and tray footer recompute when
-    /// any drive transitions.
-    public var driveStatuses: [UUID: DS3DriveStatus] = [:]
+    /// any drive transitions. `private(set)` so external observers can read
+    /// but only the manager itself mutates the map — invariants like the
+    /// allPaused/clamp logic in `togglePause` rely on this.
+    public private(set) var driveStatuses: [UUID: DS3DriveStatus] = [:]
 
     /// Single source of truth for the tray aggregate state (Gaps 15 + 27).
     ///

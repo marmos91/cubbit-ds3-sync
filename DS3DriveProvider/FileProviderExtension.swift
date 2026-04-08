@@ -163,6 +163,10 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         self.breadthFirstIndexer?.stop()
         self.breadthFirstIndexer = nil
 
+        if let nm = self.notificationManager {
+            Task { await nm.shutdown() }
+        }
+
         if let s3Lib = self.s3Lib {
             Task { try? await s3Lib.shutdown() }
         }

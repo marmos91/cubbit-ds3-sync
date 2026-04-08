@@ -30,7 +30,7 @@ Grab the latest `.dmg` from the [Releases](https://github.com/marmos91/cubbit-ds
 
 ### iOS
 
-The iOS app is distributed through TestFlight — see the [Releases](https://github.com/marmos91/cubbit-ds3-drive/releases) page for the current invite link. Requires iOS 17 or later.
+The iOS app is distributed through TestFlight (beta). The public invite link will be added here once it's published — in the meantime, request access by opening an issue. Requires iOS 17 or later.
 
 ## How It Works
 

@@ -155,9 +155,16 @@ struct DS3DriveApp: App {
     /// `CTFontManagerRegisterFontsForURL` guarantees the font loads regardless
     /// of Info.plist interpretation.
     private static func registerBrandFonts() {
+        // The macOS bundle keeps fonts under `Assets/Fonts/` (mirroring
+        // the source tree). Try the bundle root first for forward
+        // compatibility, then fall back to the subdirectory — without
+        // this lookup, registration silently no-ops on builds where the
+        // resources aren't flattened.
         for name in ["Figtree-Regular", "Figtree-Medium", "Figtree-SemiBold", "Figtree-Bold"] {
-            guard let url = Bundle.main.url(forResource: name, withExtension: "ttf") else {
-                NSLog("[DS3DriveApp] WARNING: \(name).ttf not found in bundle Resources")
+            let url = Bundle.main.url(forResource: name, withExtension: "ttf")
+                ?? Bundle.main.url(forResource: name, withExtension: "ttf", subdirectory: "Assets/Fonts")
+            guard let url else {
+                NSLog("[DS3DriveApp] WARNING: \(name).ttf not found in bundle Resources or Assets/Fonts")
                 continue
             }
             var error: Unmanaged<CFError>?

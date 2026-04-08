@@ -245,16 +245,17 @@ struct LoginView: View {
 
 // MARK: - WindowCenterer
 
-/// Tiny `NSViewRepresentable` that re-centers its hosting window every
-/// time `LoginView` appears. `.defaultPosition(.center)` in
+/// Tiny `NSViewRepresentable` that centers its hosting window once when
+/// the SwiftUI host is created. `.defaultPosition(.center)` in
 /// `DS3DriveApp.swift` only applies on first launch — macOS restores the
-/// last saved window position on subsequent launches, which leaves the
-/// login window wherever the user last dragged it.
+/// last saved window position on subsequent launches, which would leave
+/// the login window wherever the user last dragged it unless it is
+/// explicitly re-centered when `LoginView` is constructed.
 ///
 /// Uses `NSWindow.center()` so the positioning follows Apple's HIG
 /// (slightly above geometric center, matching every native macOS modal).
 private struct WindowCenterer: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView {
+    func makeNSView(context _: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
             view.window?.center()
@@ -262,7 +263,9 @@ private struct WindowCenterer: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
-        // No-op — centering runs once in makeNSView.
+    func updateNSView(_: NSView, context _: Context) {
+        // No-op — centering only happens once when the SwiftUI host is
+        // created (matches the doc above; SwiftUI re-creates the host
+        // whenever `LoginView` is reinstantiated, e.g. after sign-out).
     }
 }

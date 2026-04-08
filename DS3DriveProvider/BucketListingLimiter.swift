@@ -18,9 +18,14 @@ actor BucketListingLimiter {
     private let maxConcurrent: Int
     private var perBucket: [String: SlotState] = [:]
 
+    private struct Waiter {
+        let id: UUID
+        let cont: CheckedContinuation<Void, any Error>
+    }
+
     private struct SlotState {
         var inFlight: Int = 0
-        var waiters: [CheckedContinuation<Void, Never>] = []
+        var waiters: [Waiter] = []
     }
 
     init(maxConcurrent: Int = 4) {
@@ -28,9 +33,12 @@ actor BucketListingLimiter {
     }
 
     /// Runs the supplied body while holding a slot for the given bucket. The
-    /// slot is released automatically on both success and throw paths.
-    func withLimit<T>(bucket: String, _ body: () async throws -> T) async rethrows -> T {
-        await acquire(bucket: bucket)
+    /// slot is released automatically on both success and throw paths, and
+    /// the wait is cancellation-aware: a task cancelled while queued is
+    /// removed from the waiter list and throws `CancellationError` without
+    /// running `body`.
+    func withLimit<T>(bucket: String, _ body: () async throws -> T) async throws -> T {
+        try await acquire(bucket: bucket)
         do {
             let result = try await body()
             release(bucket: bucket)
@@ -41,7 +49,7 @@ actor BucketListingLimiter {
         }
     }
 
-    private func acquire(bucket: String) async {
+    private func acquire(bucket: String) async throws {
         var state = perBucket[bucket] ?? SlotState()
 
         if state.inFlight < maxConcurrent {
@@ -50,12 +58,41 @@ actor BucketListingLimiter {
             return
         }
 
-        // Enqueue as waiter; when resumed, the releaser has already incremented
-        // inFlight on our behalf so we are safe to proceed.
-        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-            state.waiters.append(cont)
-            perBucket[bucket] = state
+        let waiterId = UUID()
+
+        // Wrap the wait in `withTaskCancellationHandler` so cancellation
+        // mid-wait removes the waiter from the queue and throws, instead
+        // of leaking a slot (see Copilot review on `withCheckedContinuation`).
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, any Error>) in
+                state.waiters.append(Waiter(id: waiterId, cont: cont))
+                perBucket[bucket] = state
+            }
+        } onCancel: {
+            Task { [weak self] in
+                await self?.cancelWaiter(bucket: bucket, id: waiterId)
+            }
         }
+
+        // If a releaser handed us the slot just as this task was cancelled,
+        // release it back into the pool and propagate the cancellation so
+        // `body` never runs with a cancelled parent task.
+        if Task.isCancelled {
+            release(bucket: bucket)
+            throw CancellationError()
+        }
+    }
+
+    private func cancelWaiter(bucket: String, id: UUID) {
+        guard var state = perBucket[bucket] else { return }
+        guard let index = state.waiters.firstIndex(where: { $0.id == id }) else {
+            // Already handed the slot; the post-resume cancellation check
+            // in `acquire` will release it.
+            return
+        }
+        let waiter = state.waiters.remove(at: index)
+        perBucket[bucket] = state
+        waiter.cont.resume(throwing: CancellationError())
     }
 
     private func release(bucket: String) {
@@ -74,6 +111,6 @@ actor BucketListingLimiter {
         // Hand the slot directly to the next waiter — keeps inFlight stable.
         let next = state.waiters.removeFirst()
         perBucket[bucket] = state
-        next.resume()
+        next.cont.resume()
     }
 }
