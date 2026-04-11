@@ -5,10 +5,12 @@ class TutorialViewModel: ObservableObject {
     @Published var currentSlideIndex: Int
     @Published var slides: [Slide]
 
-    /// Five-slide tutorial, one slide per distinct feature. IDs are
-    /// non-sequential (`slide-1`, `-2`, `-3`, `-5`, `-7`) because they
-    /// key into `Localizable.xcstrings` entries preserved from an earlier
-    /// seven-slide revision — do not renumber. Images live under
+    static let loginItemSlideID = "slide-login-item"
+
+    /// Five feature slides plus one trailing consent slide. Feature IDs
+    /// are non-sequential (`slide-1`, `-2`, `-3`, `-5`, `-7`) because
+    /// they key into `Localizable.xcstrings` entries preserved from an
+    /// earlier seven-slide revision — do not renumber. Images live under
     /// `DS3Drive/Assets/Assets.xcassets/tutorial/`.
     static let defaultSlides: [Slide] = [
         Slide(
@@ -40,6 +42,12 @@ class TutorialViewModel: ObservableObject {
             imageName: "tutorial-slide-7",
             titleKey: "tutorial.slide7.title",
             descriptionKey: "tutorial.slide7.description"
+        ),
+        Slide(
+            id: TutorialViewModel.loginItemSlideID,
+            imageName: nil,
+            titleKey: "tutorial.loginItem.title",
+            descriptionKey: "tutorial.loginItem.description"
         )
     ]
 
