@@ -89,6 +89,8 @@
 		ADDE1D3663E34D3A2797278B /* FileProviderExtension+CustomActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4F9E4F14F282A0BEC87664A /* FileProviderExtension+CustomActions.swift */; };
 		AED31D6C586582649FEA832B /* CacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFBD730F5BCDD36A139A43B6 /* CacheManager.swift */; };
 		B03E8C628FEC4EBC314BB8B0 /* BreadthFirstIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1BF5A002F6800000042AD93 /* BreadthFirstIndexer.swift */; };
+		B0A1F2E3C4D5678901234567 /* PresignNotificationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F2A3B4C5D6E7F809ABCDEF /* PresignNotificationHelper.swift */; };
+		B0A1F2E3C4D5678901234568 /* PresignNotificationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F2A3B4C5D6E7F809ABCDEF /* PresignNotificationHelper.swift */; };
 		B1BF5A012F6800000042AD93 /* BreadthFirstIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1BF5A002F6800000042AD93 /* BreadthFirstIndexer.swift */; };
 		B511A0010511A00100000511 /* DS3Gradients.swift in Sources */ = {isa = PBXBuildFile; fileRef = B511A0000511A00000000511 /* DS3Gradients.swift */; };
 		BC79CBA66DC892F716F27F12 /* IOSDriveViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 909BB02752B9D019AB353BDB /* IOSDriveViewModelTests.swift */; };
@@ -350,6 +352,7 @@
 		D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsManager.swift; sourceTree = "<group>"; };
 		D5D734F02B666C7700C6B11C /* DS3DriveViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3DriveViewModel.swift; sourceTree = "<group>"; };
 		D5FB2DE62F6BF36700D25CE6 /* DS3DriveShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DS3DriveShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		E1F2A3B4C5D6E7F809ABCDEF /* PresignNotificationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresignNotificationHelper.swift; sourceTree = "<group>"; };
 		EBE0314DB442F6F77DE807D7 /* DS3DriveTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DS3DriveTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EDEAF7AABE07055FC3332FD3 /* EmptyDrivesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EmptyDrivesView.swift; sourceTree = "<group>"; };
 		F1A2B3C400010000000A0001 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
@@ -361,7 +364,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		D5FB2DF32F6BF36700D25CE6 /* Exceptions for "DS3DriveShareExtension" folder in "DS3DriveShareExtension" target */ = {
+		D5FB2DF32F6BF36700D25CE6 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -371,18 +374,7 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		D5FB2DE72F6BF36700D25CE6 /* DS3DriveShareExtension */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				D5FB2DF32F6BF36700D25CE6 /* Exceptions for "DS3DriveShareExtension" folder in "DS3DriveShareExtension" target */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = DS3DriveShareExtension;
-			sourceTree = "<group>";
-		};
+		D5FB2DE72F6BF36700D25CE6 /* DS3DriveShareExtension */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (D5FB2DF32F6BF36700D25CE6 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = DS3DriveShareExtension; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -452,7 +444,6 @@
 			children = (
 				A69738FF6A70E5B341151D76 /* IOSTutorialView.swift */,
 			);
-			name = Tutorial;
 			path = Tutorial;
 			sourceTree = "<group>";
 		};
@@ -462,7 +453,6 @@
 				420401FFEA5E38593186CAEA /* PreferencesViewModelTests.swift */,
 				2C71C4FFADB8DDE9EC58F5E2 /* SyncSetupViewModelTests.swift */,
 			);
-			name = DS3DriveTests;
 			path = DS3DriveTests;
 			sourceTree = "<group>";
 		};
@@ -485,7 +475,6 @@
 			children = (
 				909BB02752B9D019AB353BDB /* IOSDriveViewModelTests.swift */,
 			);
-			name = DS3DriveAppTests;
 			path = DS3DriveAppTests;
 			sourceTree = "<group>";
 		};
@@ -600,7 +589,6 @@
 				154C907172E95FD06C8615BD /* S3ItemTests.swift */,
 				D4EF1EC6AFC859E3FA549C6D /* TestFixtures.swift */,
 			);
-			name = DS3DriveProviderTests;
 			path = DS3DriveProviderTests;
 			sourceTree = "<group>";
 		};
@@ -897,6 +885,7 @@
 				D540029D2B5EAEB000B54E97 /* S3Lib.swift */,
 				A10203032F6300000042AD93 /* S3LibListingAdapter.swift */,
 				D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */,
+				E1F2A3B4C5D6E7F809ABCDEF /* PresignNotificationHelper.swift */,
 				D5A222832B5721CC00F1413B /* DS3DriveProvider.xcassets */,
 				D5A2227E2B5721CC00F1413B /* DS3DriveProvider.entitlements */,
 				D5A2224E2B57211500F1413B /* Info.plist */,
@@ -1252,6 +1241,7 @@
 				ADDE1D3663E34D3A2797278B /* FileProviderExtension+CustomActions.swift in Sources */,
 				37FF0E6BEF0FCD66E7FE33B2 /* FileProviderExtension+Delete.swift in Sources */,
 				940CBDCF75DFEF60358EC4C9 /* FileProviderExtension+Errors.swift in Sources */,
+				B0A1F2E3C4D5678901234567 /* PresignNotificationHelper.swift in Sources */,
 				6CF01D385F9585BD7C7C9677 /* FileProviderExtension+Lifecycle.swift in Sources */,
 				6C1C5915A722C1FDFB578251 /* FileProviderExtension+Modify.swift in Sources */,
 				22EF54FD35B9124C826EA850 /* FileProviderExtension+Thumbnails.swift in Sources */,
@@ -1350,6 +1340,7 @@
 				A10203042F6300000042AD93 /* S3LibListingAdapter.swift in Sources */,
 				D5A222492B57211500F1413B /* FileProviderExtension.swift in Sources */,
 				CE070E323BF098B9EFD808B7 /* FileProviderExtension+CustomActions.swift in Sources */,
+				B0A1F2E3C4D5678901234568 /* PresignNotificationHelper.swift in Sources */,
 				EA386D36D3094AAD861680EF /* FileProviderExtension+Create.swift in Sources */,
 				AA5925C80F664603A033C348 /* FileProviderExtension+Credentials.swift in Sources */,
 				A578B1B62D014D6E9BE6EA75 /* FileProviderExtension+Delete.swift in Sources */,
@@ -1444,8 +1435,10 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = DS3DriveApp/DS3DriveApp.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = X889956QSM;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DS3DriveApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "DS3 Drive";
@@ -1691,6 +1684,7 @@
 				CURRENT_PROJECT_VERSION = 4;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"DS3Drive/Preview Content\"";
+				DEVELOPMENT_TEAM = X889956QSM;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -1742,6 +1736,7 @@
 				CURRENT_PROJECT_VERSION = 4;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"DS3Drive/Preview Content\"";
+				DEVELOPMENT_TEAM = X889956QSM;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -1790,6 +1785,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
 				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = X889956QSM;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -1829,6 +1825,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
 				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = X889956QSM;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -1864,8 +1861,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = DS3DriveShareExtension/DS3DriveShareExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = X889956QSM;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DS3DriveShareExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "DS3 Drive";
@@ -1894,8 +1893,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = DS3DriveShareExtension/DS3DriveShareExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = X889956QSM;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DS3DriveShareExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "DS3 Drive";
@@ -1928,8 +1929,10 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = DS3DriveApp/DS3DriveApp.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = X889956QSM;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DS3DriveApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "DS3 Drive";
