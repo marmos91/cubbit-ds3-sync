@@ -36,12 +36,26 @@ Files sync reliably and transparently between the user's Mac, iPhone, iPad and C
 
 ### Active
 
+- [ ] Thumbnails for image files (macOS extension + iOS main app generation, `.thumbnails/` S3 prefix)
 - [ ] OAuth login (Google, Microsoft) based on tenant configuration
 - [ ] v3 organization-based authentication (username + organization_name)
 - [ ] Versioned bucket support (browse/restore previous versions)
 - [ ] Bandwidth throttling (user-configurable upload/download limits)
 - [ ] iOS home screen widgets for drive status (WidgetKit)
 - [ ] PushKit server-push sync for instant iOS remote change detection
+
+## Current Milestone: v3.1 Thumbnails
+
+**Goal:** Image files in Finder (macOS) and the Files app (iOS) show real thumbnail previews, backed by a `.thumbnails/` prefix on S3 that is transparent to the user. Both platforms can independently generate thumbnails — no platform is a required peer.
+
+**Target features:**
+- `.thumbnails/` S3 prefix with mirrored key layout (`.thumbnails/<original-key>.jpg`), single fixed size JPEG
+- macOS File Provider extension generates thumbnails at upload time and during opportunistic backfill enumeration
+- iOS main app generates thumbnails (extension is consume-only due to 20MB jetsam limit) while app is foregrounded and via `BGProcessingTask` for overnight backfill (charging + idle, ~10 min slots)
+- Thumbnail lifecycle tracks original: delete/rename cascade
+- `.thumbnails/` prefix filtered out of enumeration (same treatment as `.trash`)
+- ImageIO raster formats only: jpg/jpeg, png, heic/heif, webp, gif, tiff (PDFs/videos/RAW deferred)
+- Closes GitHub issue #109
 
 ### Out of Scope
 
@@ -117,5 +131,22 @@ Shipped v2.0 with full macOS and iOS/iPadOS support.
 | Share Extension with mirrored tokens | Target isolation prevents cross-target file sharing issues | ✓ Good |
 | Sequential uploads in Share Extension | Conserve memory in ~120MB extension limit | ✓ Good |
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-03-20 after v2.0 milestone*
+*Last updated: 2026-04-11 — v3.1 Thumbnails milestone started*
