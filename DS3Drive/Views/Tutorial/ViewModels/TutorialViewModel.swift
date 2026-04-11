@@ -45,7 +45,7 @@ class TutorialViewModel: ObservableObject {
         ),
         Slide(
             id: TutorialViewModel.loginItemSlideID,
-            imageName: "",
+            imageName: nil,
             titleKey: "tutorial.loginItem.title",
             descriptionKey: "tutorial.loginItem.description"
         )

@@ -57,8 +57,8 @@ struct TutorialView: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 120, height: 120)
                 .foregroundStyle(DS3Colors.brandPrimary)
-        } else {
-            Image(currentSlide.imageName)
+        } else if let imageName = currentSlide.imageName {
+            Image(imageName)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(maxWidth: 560, maxHeight: 280)
@@ -146,7 +146,8 @@ struct TutorialView: View {
 
     /// Explicit consent gate for App Store Guideline 2.4.5(iii): the app
     /// must not register as a login item without a user action. This is
-    /// the only path that calls `setLoginItem`.
+    /// the only place the tutorial updates the login item via `setLoginItem`.
+    /// The Preferences toggle is the other intentional entry point.
     private func applyLoginItemPreference() {
         let alreadyRegistered = DefaultSettings.appIsLoginItem
         guard startAtLoginEnabled != alreadyRegistered else { return }

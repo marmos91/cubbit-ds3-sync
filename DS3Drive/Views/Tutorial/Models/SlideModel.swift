@@ -14,7 +14,10 @@ import SwiftUI
 /// human reviewer at the human-verify checkpoint.
 struct Slide: Identifiable {
     let id: String
-    let imageName: String
+    /// Asset-catalog name for the hero screenshot. `nil` for slides
+    /// that render a different hero (e.g. the login-item consent slide
+    /// uses an SF Symbol instead of a screenshot).
+    let imageName: String?
     let titleKey: LocalizedStringKey
     let descriptionKey: LocalizedStringKey
 }
