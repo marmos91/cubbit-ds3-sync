@@ -114,6 +114,8 @@ struct TutorialView: View {
                         .toggleStyle(.switch)
                         .tint(DS3Colors.brandPrimary)
                         .frame(maxWidth: 360)
+                        .padding(.top, DS3Spacing.md)
+                        .padding(.bottom, DS3Spacing.xs)
                     }
 
                     Button(vm.isLastSlide ? "Get Started" : "Next") {
