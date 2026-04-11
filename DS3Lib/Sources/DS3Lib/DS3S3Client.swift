@@ -179,6 +179,9 @@ public final class DS3S3Client: Sendable {
     /// The underlying AWSClient, exposed for lifecycle management (shutdown).
     public let awsClient: AWSClient
 
+    /// The custom S3 endpoint URL, if provided at init. Nil when using AWS defaults.
+    public let customEndpoint: String?
+
     /// Creates a new DS3S3Client with the given credentials and endpoint.
     /// - Parameters:
     ///   - accessKeyId: The AWS access key ID
@@ -199,6 +202,7 @@ public final class DS3S3Client: Sendable {
             httpClientProvider: .createNew
         )
         self.awsClient = client
+        self.customEndpoint = endpoint
         self.s3 = S3(client: client, endpoint: endpoint, timeout: .seconds(timeout))
     }
 
