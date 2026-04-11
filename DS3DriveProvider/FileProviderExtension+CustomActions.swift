@@ -6,6 +6,9 @@ enum CustomActionIdentifier {
     static let copyS3URL = "io.cubbit.DS3Drive.DS3DriveProvider.action.copyS3URL"
     static let evictItem = "io.cubbit.DS3Drive.DS3DriveProvider.action.evictItem"
     static let restoreFromTrash = "io.cubbit.DS3Drive.DS3DriveProvider.action.restoreFromTrash"
+    static let presignURL1h = "io.cubbit.DS3Drive.DS3DriveProvider.action.presignURL1h"
+    static let presignURL1d = "io.cubbit.DS3Drive.DS3DriveProvider.action.presignURL1d"
+    static let presignURL7d = "io.cubbit.DS3Drive.DS3DriveProvider.action.presignURL7d"
 }
 
 private extension NSFileProviderItemIdentifier {
@@ -32,17 +35,15 @@ extension FileProviderExtension {
             let bucket = drive.syncAnchor.bucket.name
             let validIdentifiers = itemIdentifiers.filter { !$0.isSystemContainer }
 
-            if validIdentifiers.isEmpty {
+            guard !validIdentifiers.isEmpty else {
                 completionHandler(NSFileProviderError(.noSuchItem) as NSError)
                 return progress
             }
 
             let urls = validIdentifiers.map { "s3://\(bucket)/\($0.rawValue)" }
-            let joined = urls.joined(separator: "\n")
-
-            self.systemService.copyToClipboard(joined)
+            self.systemService.copyToClipboard(urls.joined(separator: "\n"))
             self.logger.info("Copied \(urls.count) S3 URL(s) to clipboard")
-            progress.completedUnitCount = Int64(itemIdentifiers.count)
+            progress.completedUnitCount = progress.totalUnitCount
             completionHandler(nil)
 
         case CustomActionIdentifier.evictItem:
@@ -61,12 +62,96 @@ extension FileProviderExtension {
                 completionHandler: completionHandler
             )
 
+        case CustomActionIdentifier.presignURL1h:
+            performPresignURL(
+                expiresIn: 3600, label: "1 hour",
+                itemIdentifiers: itemIdentifiers, drive: drive,
+                progress: progress, completionHandler: completionHandler
+            )
+
+        case CustomActionIdentifier.presignURL1d:
+            performPresignURL(
+                expiresIn: 86400, label: "1 day",
+                itemIdentifiers: itemIdentifiers, drive: drive,
+                progress: progress, completionHandler: completionHandler
+            )
+
+        case CustomActionIdentifier.presignURL7d:
+            performPresignURL(
+                expiresIn: 604_800, label: "7 days",
+                itemIdentifiers: itemIdentifiers, drive: drive,
+                progress: progress, completionHandler: completionHandler
+            )
+
         default:
             self.logger.warning("Unknown custom action: \(actionIdentifier.rawValue, privacy: .public)")
             completionHandler(NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError))
         }
 
         return progress
+    }
+
+    private func performPresignURL(
+        expiresIn: Int,
+        label: String,
+        itemIdentifiers: [NSFileProviderItemIdentifier],
+        drive: DS3Drive,
+        progress: Progress,
+        completionHandler: @escaping (Error?) -> Void
+    ) {
+        // Skip folders — presigning only makes sense for concrete objects.
+        let validIdentifiers = itemIdentifiers.filter {
+            !$0.isSystemContainer && !$0.rawValue.hasSuffix("/")
+        }
+
+        // Rescope progress to the items we'll actually process. Without this,
+        // mixed file+folder selections leave the Progress permanently below
+        // totalUnitCount because folders are filtered out before iteration.
+        progress.totalUnitCount = Int64(validIdentifiers.count)
+
+        // All-folder selection: notify user and return success so Finder doesn't
+        // show its generic "file doesn't exist" alert (which is what .noSuchItem triggers).
+        guard !validIdentifiers.isEmpty else {
+            self.logger.info("Presign skipped: selection contains only folders")
+            PresignNotificationHelper.postFoldersNotSupported()
+            completionHandler(nil)
+            return
+        }
+
+        guard let s3Client = self.s3Client else {
+            PresignNotificationHelper.postError()
+            progress.completedUnitCount = progress.totalUnitCount
+            completionHandler(NSFileProviderError(.cannotSynchronize) as NSError)
+            return
+        }
+
+        let bucket = drive.syncAnchor.bucket.name
+        let boxedCb = UncheckedBox(value: completionHandler)
+        Task {
+            do {
+                var urls: [String] = []
+                for id in validIdentifiers {
+                    let url = try await s3Client.presignedGetURL(
+                        bucket: bucket, key: id.rawValue, expiresIn: expiresIn
+                    )
+                    urls.append(url.absoluteString)
+                    progress.completedUnitCount += 1
+                }
+                self.systemService.copyToClipboard(urls.joined(separator: "\n"))
+                self.logger.info(
+                    "Copied \(urls.count) presigned URL(s) to clipboard (expires: \(label))"
+                )
+                PresignNotificationHelper.postSuccess(expiryLabel: label)
+                boxedCb.value(nil)
+            } catch {
+                self.logger.error(
+                    "Presign URL failed: \(error.localizedDescription, privacy: .public)"
+                )
+                PresignNotificationHelper.postError()
+                progress.completedUnitCount = progress.totalUnitCount
+                boxedCb.value(NSFileProviderError(.cannotSynchronize) as NSError)
+            }
+        }
     }
 
     private func performRestoreFromTrash(

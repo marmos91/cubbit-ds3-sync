@@ -38,6 +38,30 @@
 				<key>NSExtensionFileProviderActionActivationRule</key>
 				<string>TRUEPREDICATE</string>
 			</dict>
+			<dict>
+				<key>NSExtensionFileProviderActionIdentifier</key>
+				<string>io.cubbit.DS3Drive.DS3DriveProvider.action.presignURL1h</string>
+				<key>NSExtensionFileProviderActionName</key>
+				<string>Copy presigned URL (1 hour)</string>
+				<key>NSExtensionFileProviderActionActivationRule</key>
+				<string>TRUEPREDICATE</string>
+			</dict>
+			<dict>
+				<key>NSExtensionFileProviderActionIdentifier</key>
+				<string>io.cubbit.DS3Drive.DS3DriveProvider.action.presignURL1d</string>
+				<key>NSExtensionFileProviderActionName</key>
+				<string>Copy presigned URL (1 day)</string>
+				<key>NSExtensionFileProviderActionActivationRule</key>
+				<string>TRUEPREDICATE</string>
+			</dict>
+			<dict>
+				<key>NSExtensionFileProviderActionIdentifier</key>
+				<string>io.cubbit.DS3Drive.DS3DriveProvider.action.presignURL7d</string>
+				<key>NSExtensionFileProviderActionName</key>
+				<string>Copy presigned URL (7 days)</string>
+				<key>NSExtensionFileProviderActionActivationRule</key>
+				<string>TRUEPREDICATE</string>
+			</dict>
 		</array>
 		<key>NSFileProviderDecorations</key>
 		<array>

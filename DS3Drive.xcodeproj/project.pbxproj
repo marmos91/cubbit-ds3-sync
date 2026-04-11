@@ -87,6 +87,8 @@
 		A945CD1DA2F9F225B525AEFB /* BucketListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9DC46A798E1E6ECDB179292 /* BucketListView.swift */; };
 		AA5925C80F664603A033C348 /* FileProviderExtension+Credentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E21FF0F44044957917AEE00 /* FileProviderExtension+Credentials.swift */; };
 		ADDE1D3663E34D3A2797278B /* FileProviderExtension+CustomActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4F9E4F14F282A0BEC87664A /* FileProviderExtension+CustomActions.swift */; };
+		B0A1F2E3C4D5678901234567 /* PresignNotificationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F2A3B4C5D6E7F809ABCDEF /* PresignNotificationHelper.swift */; };
+		B0A1F2E3C4D5678901234568 /* PresignNotificationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F2A3B4C5D6E7F809ABCDEF /* PresignNotificationHelper.swift */; };
 		AED31D6C586582649FEA832B /* CacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFBD730F5BCDD36A139A43B6 /* CacheManager.swift */; };
 		B03E8C628FEC4EBC314BB8B0 /* BreadthFirstIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1BF5A002F6800000042AD93 /* BreadthFirstIndexer.swift */; };
 		B1BF5A012F6800000042AD93 /* BreadthFirstIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1BF5A002F6800000042AD93 /* BreadthFirstIndexer.swift */; };
@@ -295,6 +297,7 @@
 		B511A0000511A00000000511 /* DS3Gradients.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3Gradients.swift; sourceTree = "<group>"; };
 		C26ED37797692E9DBD42FF25 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		C4F9E4F14F282A0BEC87664A /* FileProviderExtension+CustomActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+CustomActions.swift"; sourceTree = "<group>"; };
+		E1F2A3B4C5D6E7F809ABCDEF /* PresignNotificationHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresignNotificationHelper.swift; sourceTree = "<group>"; };
 		C5B119CD500B58810896D4B2 /* DS3DriveApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DS3DriveApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C608BDFB9ECDC1DAADE777A4 /* IOSButtonStyles.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSButtonStyles.swift; sourceTree = "<group>"; };
 		C84698ABE8DE4D9EA3ABC216 /* TrashTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrashTab.swift; sourceTree = "<group>"; };
@@ -878,6 +881,7 @@
 			children = (
 				D5A222482B57211500F1413B /* FileProviderExtension.swift */,
 				C4F9E4F14F282A0BEC87664A /* FileProviderExtension+CustomActions.swift */,
+				E1F2A3B4C5D6E7F809ABCDEF /* PresignNotificationHelper.swift */,
 				F66BD30E628644A982F26AC3 /* FileProviderExtension+Create.swift */,
 				3E21FF0F44044957917AEE00 /* FileProviderExtension+Credentials.swift */,
 				FD7153F422094AE4AEAD7923 /* FileProviderExtension+Delete.swift */,
@@ -1250,6 +1254,7 @@
 				347AA53C0831D587C66D0445 /* FileProviderExtension+Create.swift in Sources */,
 				00A29005A29C16FC0B76EE84 /* FileProviderExtension+Credentials.swift in Sources */,
 				ADDE1D3663E34D3A2797278B /* FileProviderExtension+CustomActions.swift in Sources */,
+				B0A1F2E3C4D5678901234567 /* PresignNotificationHelper.swift in Sources */,
 				37FF0E6BEF0FCD66E7FE33B2 /* FileProviderExtension+Delete.swift in Sources */,
 				940CBDCF75DFEF60358EC4C9 /* FileProviderExtension+Errors.swift in Sources */,
 				6CF01D385F9585BD7C7C9677 /* FileProviderExtension+Lifecycle.swift in Sources */,
@@ -1350,6 +1355,7 @@
 				A10203042F6300000042AD93 /* S3LibListingAdapter.swift in Sources */,
 				D5A222492B57211500F1413B /* FileProviderExtension.swift in Sources */,
 				CE070E323BF098B9EFD808B7 /* FileProviderExtension+CustomActions.swift in Sources */,
+				B0A1F2E3C4D5678901234568 /* PresignNotificationHelper.swift in Sources */,
 				EA386D36D3094AAD861680EF /* FileProviderExtension+Create.swift in Sources */,
 				AA5925C80F664603A033C348 /* FileProviderExtension+Credentials.swift in Sources */,
 				A578B1B62D014D6E9BE6EA75 /* FileProviderExtension+Delete.swift in Sources */,
