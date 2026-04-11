@@ -14,7 +14,6 @@ struct DS3DriveApp: App {
     private let metadataContainer: ModelContainer?
 
     @AppStorage(DefaultSettings.UserDefaultsKeys.tutorial) var tutorialShown: Bool = DefaultSettings.tutorialShown
-    @AppStorage(DefaultSettings.UserDefaultsKeys.loginItemSet) var loginItemSet: Bool = DefaultSettings.loginItemSet
 
     @State private var ds3Authentication: DS3Authentication
     @State private var appStatusManager: AppStatusManager = .default()
@@ -200,14 +199,6 @@ struct DS3DriveApp: App {
         } catch {
             self.metadataContainer = nil
             logger.error("Failed to initialize MetadataStore container: \(error.localizedDescription)")
-        }
-
-        if !loginItemSet {
-            do {
-                try setLoginItem(true)
-            } catch {
-                self.logger.error("An error occurred while setting the app as login item: \(error)")
-            }
         }
 
         // Request notification permission for conflict alerts (best-effort)

@@ -1424,6 +1424,60 @@
         }
       }
     },
+    "tutorial.loginItem.description" : {
+      "comment" : "Tutorial login-item slide description — consent copy",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DS3 Drive only syncs while it's running. Turn this on to have it start automatically when you log in. You can change this anytime in Preferences."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DS3 Drive sincronizza i file solo mentre è in esecuzione. Attiva questa opzione per avviarlo automaticamente all'accesso. Puoi cambiarla in qualsiasi momento nelle Preferenze."
+          }
+        }
+      }
+    },
+    "tutorial.loginItem.title" : {
+      "comment" : "Tutorial login-item slide title — consent prompt",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Launch DS3 Drive at login?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avviare DS3 Drive all'accesso?"
+          }
+        }
+      }
+    },
+    "tutorial.loginItem.toggle" : {
+      "comment" : "Tutorial login-item slide toggle label",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start DS3 Drive at login"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvia DS3 Drive all'accesso"
+          }
+        }
+      }
+    },
     "tutorial.slide7.description" : {
       "comment" : "Tutorial slide 7 description — Drive limit (UX-07)",
       "extractionState" : "manual",

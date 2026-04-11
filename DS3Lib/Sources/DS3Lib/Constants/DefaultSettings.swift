@@ -84,14 +84,17 @@ public enum DefaultSettings {
     /// The application build number as string. It is retrieved from the app bundle.
     public static let appBuild: String = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
 
-    /// Whether the app is set to start at login or not.
-    public static let appIsLoginItem: Bool = {
+    /// Whether the app is currently registered as a login item. Evaluated
+    /// on each access so Preferences and tutorial replay reflect changes
+    /// made within the same process (e.g. the user enables launch-at-login
+    /// from the tutorial and immediately opens Preferences).
+    public static var appIsLoginItem: Bool {
         #if os(macOS)
             return SMAppService().status == .enabled
         #else
             return false
         #endif
-    }()
+    }
 
     /// Settings related to the tray menu.
     public enum Tray {
