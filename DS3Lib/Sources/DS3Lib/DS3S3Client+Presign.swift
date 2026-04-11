@@ -19,8 +19,9 @@ public extension DS3S3Client {
     /// - Returns: A valid URL in path-style format: endpoint/bucket/key
     /// - Throws: `PresignError.invalidObjectURL` if the resulting string is not a valid URL
     static func buildObjectURL(endpoint: String, bucket: String, key: String) throws -> URL {
+        let encodedBucket = bucket.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? bucket
         let encodedKey = key.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? key
-        let urlString = "\(endpoint)/\(bucket)/\(encodedKey)"
+        let urlString = "\(endpoint)/\(encodedBucket)/\(encodedKey)"
         guard let url = URL(string: urlString) else {
             throw PresignError.invalidObjectURL
         }
