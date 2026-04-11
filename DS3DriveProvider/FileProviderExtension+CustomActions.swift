@@ -104,12 +104,16 @@ extension FileProviderExtension {
             !$0.isSystemContainer && !$0.rawValue.hasSuffix("/")
         }
 
+        // Rescope progress to the items we'll actually process. Without this,
+        // mixed file+folder selections leave the Progress permanently below
+        // totalUnitCount because folders are filtered out before iteration.
+        progress.totalUnitCount = Int64(validIdentifiers.count)
+
         // All-folder selection: notify user and return success so Finder doesn't
         // show its generic "file doesn't exist" alert (which is what .noSuchItem triggers).
         guard !validIdentifiers.isEmpty else {
             self.logger.info("Presign skipped: selection contains only folders")
             PresignNotificationHelper.postFoldersNotSupported()
-            progress.completedUnitCount = progress.totalUnitCount
             completionHandler(nil)
             return
         }
