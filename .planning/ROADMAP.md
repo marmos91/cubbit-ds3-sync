@@ -126,17 +126,17 @@ See `.planning/milestones/v2.0-ROADMAP.md` for full details.
 
 ## v3.0 Sharing & Collaboration
 
-- [ ] **Phase 10: Presigned URL sharing (issue #104)** - Right-click context menu action to generate and copy presigned S3 URLs with three duration presets
+- [x] **Phase 10: Presigned URL sharing (issue #104)** - Right-click context menu action to generate and copy presigned S3 URLs with three duration presets (completed 2026-04-10)
 
 ### Phase 10: Presigned URL sharing (issue #104)
 **Goal:** Users can right-click any file in Finder or the iOS Files app and copy a time-limited presigned S3 URL to their clipboard, with three duration presets (1h / 1d / 7d) and a system notification confirming the expiry
 **Depends on:** Phase 5, Phase 9
 **Requirements**: SHARE-01
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 10-01-PLAN.md -- TDD: DS3S3Client+Presign.swift presignedGetURL method with unit tests
-- [ ] 10-02-PLAN.md -- Info.plist entries, notification helper, custom action handler, human verification
+- [x] 10-01-PLAN.md -- TDD: DS3S3Client+Presign.swift presignedGetURL method with unit tests
+- [x] 10-02-PLAN.md -- Info.plist entries, notification helper, custom action handler, human verification
 
 ## Progress
 
@@ -156,7 +156,7 @@ Plans:
 | 7. iOS File Provider Extension | v2.0 | 4/4 | Complete | 2026-03-18 |
 | 8. iOS Companion App | v2.0 | 6/6 | Complete | 2026-03-18 |
 | 9. iOS Polish & Distribution | v2.0 | 3/3 | Complete | 2026-03-20 |
-| 10. Presigned URL sharing | v3.0 | 0/2 | Planned | - |
+| 10. Presigned URL sharing | v3.0 | 2/2 | Complete    | 2026-04-11 |
 
 ---
 *Roadmap created: 2026-03-11*
