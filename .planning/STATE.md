@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: macOS App
 status: executing
 stopped_at: Awaiting 1Password unlock to commit 05-18c Task 2
-last_updated: "2026-04-08T07:54:33.437Z"
+last_updated: "2026-04-09T21:59:56.981Z"
 progress:
-  total_phases: 5
-  completed_phases: 4
-  total_plans: 37
-  completed_plans: 35
-  percent: 95
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 2
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -20,7 +20,7 @@ progress:
 Phase: 05 (ux-polish) — EXECUTING
 Plan: 1 of 23
 **Milestone:** v2.0 iOS & iPadOS Universal App — SHIPPED
-**Status:** Executing Phase 05
+**Status:** Ready to execute
 
 ## Progress
 
@@ -55,6 +55,12 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - [Phase 05-ux-polish]: Gap closure round 2: AggregateStatus enum as single source of truth; Task-based debouncers replacing Timer+weakSelf; terminal-state upsert in RecentFilesTracker; UNUserNotification for update check results
 - [Phase 05-ux-polish]: Plan 05-17 redo adopts Composer canary tokens (bg #0E0E15, primary #005CE8, Figtree font); supersedes Plan 05-11 marketing-CSS values; legacy symbols kept as compatibility shims
 - [Phase 05-ux-polish]: [Phase 05-ux-polish]: iOS brand sweep (Plan 05-19) — Figtree actually bundled in iOS targets (was missing Copy Bundle Resources membership), IOSColors/IOSTypography expanded with Composer canary tokens, iOS Login Gap 19 mirror fixed, project emblems use brandPrimary
+
+## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 10 added: Presigned URL sharing (issue #104) — v3.0 milestone
 
 ## Blockers
 

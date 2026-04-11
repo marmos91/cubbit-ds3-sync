@@ -4,6 +4,7 @@
 
 - 🚧 **v1.0 macOS App** - Phases 1-5 (in progress, 95% complete)
 - ✅ **v2.0 iOS & iPadOS Universal App** - Phases 6-9 (shipped 2026-03-20)
+- 📋 **v3.0 Sharing & Collaboration** - Phase 10 (planned)
 
 ## Phases
 
@@ -112,22 +113,37 @@ Plans:
 </details>
 
 <details>
-<summary>✅ v2.0 iOS & iPadOS Universal App (Phases 6-9) — SHIPPED 2026-03-20</summary>
+<summary>v2.0 iOS & iPadOS Universal App (Phases 6-9) -- SHIPPED 2026-03-20</summary>
 
-- [x] Phase 6: Platform Abstraction (4/4 plans) — completed 2026-03-18
-- [x] Phase 7: iOS File Provider Extension (4/4 plans) — completed 2026-03-18
-- [x] Phase 8: iOS Companion App (6/6 plans) — completed 2026-03-18
-- [x] Phase 9: iOS Polish & Distribution (3/3 plans) — completed 2026-03-20
+- [x] Phase 6: Platform Abstraction (4/4 plans) -- completed 2026-03-18
+- [x] Phase 7: iOS File Provider Extension (4/4 plans) -- completed 2026-03-18
+- [x] Phase 8: iOS Companion App (6/6 plans) -- completed 2026-03-18
+- [x] Phase 9: iOS Polish & Distribution (3/3 plans) -- completed 2026-03-20
 
 See `.planning/milestones/v2.0-ROADMAP.md` for full details.
 
 </details>
+
+## v3.0 Sharing & Collaboration
+
+- [ ] **Phase 10: Presigned URL sharing (issue #104)** - Right-click context menu action to generate and copy presigned S3 URLs with three duration presets
+
+### Phase 10: Presigned URL sharing (issue #104)
+**Goal:** Users can right-click any file in Finder or the iOS Files app and copy a time-limited presigned S3 URL to their clipboard, with three duration presets (1h / 1d / 7d) and a system notification confirming the expiry
+**Depends on:** Phase 5, Phase 9
+**Requirements**: SHARE-01
+**Plans:** 2 plans
+
+Plans:
+- [ ] 10-01-PLAN.md -- TDD: DS3S3Client+Presign.swift presignedGetURL method with unit tests
+- [ ] 10-02-PLAN.md -- Info.plist entries, notification helper, custom action handler, human verification
 
 ## Progress
 
 **Execution Order:**
 - v1.0: 1 -> 2 -> 3 -> 4 -> 5
 - v2.0: 6 -> 7 -> 8 -> 9
+- v3.0: 10
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -140,8 +156,10 @@ See `.planning/milestones/v2.0-ROADMAP.md` for full details.
 | 7. iOS File Provider Extension | v2.0 | 4/4 | Complete | 2026-03-18 |
 | 8. iOS Companion App | v2.0 | 6/6 | Complete | 2026-03-18 |
 | 9. iOS Polish & Distribution | v2.0 | 3/3 | Complete | 2026-03-20 |
+| 10. Presigned URL sharing | v3.0 | 0/2 | Planned | - |
 
 ---
 *Roadmap created: 2026-03-11*
 *v2.0 milestone added: 2026-03-17*
 *v2.0 milestone shipped: 2026-03-20*
+*v3.0 milestone added: 2026-04-09*
