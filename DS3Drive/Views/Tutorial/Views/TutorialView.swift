@@ -147,9 +147,10 @@ struct TutorialView: View {
     }
 
     /// Explicit consent gate for App Store Guideline 2.4.5(iii): the app
-    /// must not register as a login item without a user action. This is
-    /// the only place the tutorial updates the login item via `setLoginItem`.
-    /// The Preferences toggle is the other intentional entry point.
+    /// must not register as a login item at startup or without an explicit
+    /// user action. This is the tutorial's entry point; the Preferences
+    /// toggle is the other intentional, user-initiated entry point. No
+    /// other call site in the app invokes `setLoginItem`.
     private func applyLoginItemPreference() {
         let alreadyRegistered = DefaultSettings.appIsLoginItem
         guard startAtLoginEnabled != alreadyRegistered else { return }
