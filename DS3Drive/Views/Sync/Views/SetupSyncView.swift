@@ -9,6 +9,8 @@ struct SetupSyncView: View {
     @Environment(\.dismiss) var dismiss
 
     @State private var syncSetupViewModel = SyncSetupViewModel()
+    @State private var isCreating = false
+    @State private var creationError: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -17,16 +19,7 @@ struct SetupSyncView: View {
                     onChooseDifferentPrefix: { syncSetupViewModel.goBackToPrefix() },
                     onUseAnyway: {
                         if let drive = syncSetupViewModel.proceedDespiteConflict() {
-                            let manager = ds3DriveManager
-                            let dismiss = dismiss
-                            Task {
-                                do {
-                                    try await manager.add(drive: drive)
-                                } catch {
-                                    logger.error("Error adding drive: \(error.localizedDescription)")
-                                }
-                                dismiss()
-                            }
+                            addDrive(drive)
                         }
                     }
                 )
@@ -48,21 +41,13 @@ struct SetupSyncView: View {
                         }
                         .onComplete { ds3Drive in
                             let vm = syncSetupViewModel
-                            let manager = ds3DriveManager
-                            let dismiss = dismiss
                             Task {
-                                // Thumbnail collision check before drive creation
                                 let conflictDetected = await vm.checkThumbnailConflict(drive: ds3Drive)
                                 if conflictDetected { return }
-
-                                do {
-                                    try await manager.add(drive: ds3Drive)
-                                } catch {
-                                    logger.error("Error adding drive: \(error.localizedDescription)")
-                                }
-                                dismiss()
+                                addDrive(ds3Drive)
                             }
                         }
+                        .disabled(isCreating)
                     }
                 }
             }
@@ -75,6 +60,24 @@ struct SetupSyncView: View {
         )
         .onWillDisappear {
             self.syncSetupViewModel.reset()
+        }
+    }
+
+    private func addDrive(_ drive: DS3Drive) {
+        guard !isCreating else { return }
+        isCreating = true
+        creationError = nil
+        let manager = ds3DriveManager
+        let dismiss = dismiss
+        Task {
+            defer { isCreating = false }
+            do {
+                try await manager.add(drive: drive)
+                dismiss()
+            } catch {
+                logger.error("Error adding drive: \(error.localizedDescription)")
+                creationError = error.localizedDescription
+            }
         }
     }
 }

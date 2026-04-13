@@ -22,8 +22,6 @@
                             hero
                                 .padding(.top, 16)
 
-                            warningBanner
-
                             Spacer(minLength: 16)
                         }
                         .padding(.horizontal, 20)
@@ -71,32 +69,6 @@
             .padding(.bottom, 8)
         }
 
-        // MARK: - Warning Banner
-
-        private var warningBanner: some View {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(IOSColors.statusWarning)
-
-                Text(String(localized: "thumbnail_conflict_body"))
-                    .font(.custom("Figtree-Regular", size: 13))
-                    .foregroundStyle(IOSColors.statusWarning)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .accessibilityElement(children: .combine)
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(IOSColors.statusWarning.opacity(0.1))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(IOSColors.statusWarning.opacity(0.3), lineWidth: 1)
-            )
-        }
-
         // MARK: - Pinned CTA
 
         private var pinnedCTA: some View {
@@ -120,8 +92,7 @@
                     )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "thumbnail_conflict_change_prefix"))
-                .accessibilityHint("Returns to prefix selection")
+                .accessibilityHint(String(localized: "thumbnail_conflict_hint_change_prefix"))
 
                 Button(action: onUseAnyway) {
                     Text(String(localized: "thumbnail_conflict_use_anyway"))
@@ -129,8 +100,7 @@
                         .foregroundStyle(IOSColors.brandTextSecondary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "thumbnail_conflict_use_anyway"))
-                .accessibilityHint("Creates the drive despite the conflict")
+                .accessibilityHint(String(localized: "thumbnail_conflict_hint_use_anyway"))
                 .padding(.bottom, 4)
             }
             .padding(.horizontal, 20)

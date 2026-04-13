@@ -36,6 +36,13 @@ final class S3KeyFilterTests: XCTestCase {
         )
     }
 
+    func testIsUserVisibleUserThumbnailFolder() {
+        XCTAssertTrue(
+            S3KeyFilter.isUserVisible(key: "prefix/my.thumbnails/photo.jpg", drivePrefix: "prefix/"),
+            "A user folder named 'my.thumbnails' should be visible — only '.thumbnails/' as a path segment is hidden"
+        )
+    }
+
     func testIsUserVisibleNilPrefix() {
         XCTAssertFalse(S3KeyFilter.isUserVisible(key: ".thumbnails/a.jpg", drivePrefix: nil))
     }

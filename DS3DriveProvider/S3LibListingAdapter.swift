@@ -41,7 +41,6 @@ final class S3LibListingAdapter: S3ListingProvider, Sendable {
         for item in items {
             let key = item.itemIdentifier.rawValue
 
-            // Centralized hidden-prefix filter (Phase 11): skip .trash/ and .thumbnails/
             if !S3Lib.isUserVisible(key, drive: self.drive) { continue }
 
             pageItems[key] = S3ObjectInfo(

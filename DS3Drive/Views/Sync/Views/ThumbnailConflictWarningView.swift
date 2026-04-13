@@ -54,8 +54,7 @@ struct ThumbnailConflictWarningView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(DS3Colors.brandPrimary)
-            .accessibilityLabel(String(localized: "thumbnail_conflict_change_prefix"))
-            .accessibilityHint("Returns to prefix selection")
+            .accessibilityHint(String(localized: "thumbnail_conflict_hint_change_prefix"))
 
             // Secondary CTA
             Button(action: onUseAnyway) {
@@ -64,8 +63,7 @@ struct ThumbnailConflictWarningView: View {
                     .foregroundStyle(DS3Colors.brandTextSecondary)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(String(localized: "thumbnail_conflict_use_anyway"))
-            .accessibilityHint("Creates the drive despite the conflict")
+            .accessibilityHint(String(localized: "thumbnail_conflict_hint_use_anyway"))
         }
         .padding(DS3Spacing.xxl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

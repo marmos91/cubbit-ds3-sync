@@ -114,7 +114,6 @@ final class BreadthFirstIndexer: @unchecked Sendable {
                     for item in items {
                         let key = item.itemIdentifier.rawValue
 
-                        // Centralized hidden-prefix filter (Phase 11): skip .trash/ and .thumbnails/
                         if !S3Lib.isUserVisible(key, drive: self.drive) { continue }
 
                         upsertBatch.append(MetadataStore.ItemUpsertData(from: item))

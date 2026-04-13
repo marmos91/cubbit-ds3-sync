@@ -112,12 +112,13 @@ public enum S3PathUtils {
     /// - Returns: true if the key is a thumbnail
     public static func isThumbnailKey(_ key: String, drivePrefix: String?) -> Bool {
         let prefix = drivePrefix ?? ""
-        let relativePath = key.hasPrefix(prefix) ? String(key.dropFirst(prefix.count)) : key
-        return relativePath.contains(DefaultSettings.S3.thumbnailsPrefix)
+        let relative = key.hasPrefix(prefix) ? key.dropFirst(prefix.count) : key[...]
+        return relative.hasPrefix(DefaultSettings.S3.thumbnailsPrefix)
+            || relative.contains("/\(DefaultSettings.S3.thumbnailsPrefix)")
     }
 
     /// Computes the thumbnail key for an original key.
-    /// Rule (THUMB-03 / D-15): `.thumbnails/` folder is placed in the SAME directory as the original,
+    /// `.thumbnails/` folder is placed in the SAME directory as the original,
     /// and `.jpg` is appended to the full filename (not substituted).
     /// Example: "prefix/photos/a.heic" -> "prefix/photos/.thumbnails/a.heic.jpg"
     /// - Parameters:
@@ -127,11 +128,11 @@ public enum S3PathUtils {
     public static func thumbnailKey(forOriginalKey key: String, drivePrefix: String?) -> String {
         let delimiter = DefaultSettings.S3.delimiter
         let components = key.split(separator: delimiter, omittingEmptySubsequences: false)
-        guard !components.isEmpty else { return key }
+        guard let filename = components.last else { return key }
 
-        let filename = String(components.last!)
         let parentComponents = components.dropLast()
-        let parent = parentComponents.isEmpty ? "" : parentComponents.joined(separator: String(delimiter)) + String(delimiter)
+        let parent = parentComponents.isEmpty ? "" : parentComponents
+            .joined(separator: String(delimiter)) + String(delimiter)
 
         return parent + DefaultSettings.S3.thumbnailsPrefix + filename + ".jpg"
     }
@@ -147,7 +148,7 @@ public enum S3PathUtils {
         let thumbPrefix = DefaultSettings.S3.thumbnailsPrefix
         // Find the last occurrence of ".thumbnails/" in the key
         guard let range = key.range(of: thumbPrefix, options: .backwards) else { return key }
-        let parent = String(key[key.startIndex..<range.lowerBound])
+        let parent = String(key[key.startIndex ..< range.lowerBound])
         var filename = String(key[range.upperBound...])
         // Strip the trailing ".jpg" that was appended
         if filename.hasSuffix(".jpg") {

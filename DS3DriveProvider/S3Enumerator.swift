@@ -303,8 +303,10 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                             withContinuationToken: page.toContinuationToken()
                         )
 
-                        // Filter .thumbnails/ and .trash/ — centralized hidden-prefix filter (Phase 11)
-                        let visibleItems = items.filter { S3Lib.isUserVisible($0.itemIdentifier.rawValue, drive: self.drive) }
+                        let visibleItems = items.filter { S3Lib.isUserVisible(
+                            $0.itemIdentifier.rawValue,
+                            drive: self.drive
+                        ) }
 
                         self.logger
                             .info(
@@ -413,12 +415,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                         withContinuationToken: page.toContinuationToken()
                     )
 
-                    // Filter .trash/ and .thumbnails/ from the working set — centralized
-                    // hidden-prefix filter (Phase 11). Trashed items are enumerated
-                    // exclusively by TrashS3Enumerator.
-                    let allItems = items.filter { item in
-                        S3Lib.isUserVisible(item.itemIdentifier.rawValue, drive: self.drive)
-                    }
+                    let allItems = items.filter { S3Lib.isUserVisible($0.itemIdentifier.rawValue, drive: self.drive) }
 
                     // Signal observer FIRST so Finder shows items immediately
                     self.logger
@@ -554,8 +551,10 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                             fromDate: anchor.toDate()
                         )
 
-                        // Filter .trash/ and .thumbnails/ — centralized hidden-prefix filter (Phase 11)
-                        let visibleChanges = changedItems.filter { S3Lib.isUserVisible($0.itemIdentifier.rawValue, drive: self.drive) }
+                        let visibleChanges = changedItems.filter { S3Lib.isUserVisible(
+                            $0.itemIdentifier.rawValue,
+                            drive: self.drive
+                        ) }
 
                         if !visibleChanges.isEmpty {
                             observer.didUpdate(visibleChanges)

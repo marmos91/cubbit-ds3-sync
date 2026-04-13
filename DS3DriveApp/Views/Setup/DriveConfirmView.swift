@@ -306,49 +306,41 @@
         // MARK: - Duplicate Warning
 
         private var duplicateWarning: some View {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(IOSColors.statusWarning)
-
-                Text("A drive with this bucket and prefix already exists. You can still create another.")
-                    .font(.custom("Figtree-Regular", size: 13))
-                    .foregroundStyle(IOSColors.statusWarning)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(IOSColors.statusWarning.opacity(0.1))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(IOSColors.statusWarning.opacity(0.3), lineWidth: 1)
+            statusBanner(
+                message: "A drive with this bucket and prefix already exists. You can still create another.",
+                color: IOSColors.statusWarning
             )
         }
 
         // MARK: - Error Section
 
         private var errorSection: some View {
-            HStack(spacing: 10) {
+            statusBanner(
+                message: "Failed to create drive. Please try again.",
+                color: IOSColors.statusError
+            )
+        }
+
+        private func statusBanner(message: String, color: Color) -> some View {
+            HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 14))
-                    .foregroundStyle(IOSColors.statusError)
+                    .foregroundStyle(color)
 
-                Text("Failed to create drive. Please try again.")
+                Text(message)
                     .font(.custom("Figtree-Regular", size: 13))
-                    .foregroundStyle(IOSColors.statusError)
+                    .foregroundStyle(color)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(IOSColors.statusError.opacity(0.1))
+                    .fill(color.opacity(0.1))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(IOSColors.statusError.opacity(0.3), lineWidth: 1)
+                    .stroke(color.opacity(0.3), lineWidth: 1)
             )
         }
 
@@ -361,7 +353,7 @@
 
                 Button {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    Task { await createDrive() }
+                    Task { await createDrive(skipThumbnailCheck: false) }
                 } label: {
                     ZStack {
                         if isCreating {
@@ -422,52 +414,37 @@
             }
         }
 
+        /// Builds a DS3Drive from the current form state. Returns nil if no anchor is selected.
+        private func buildDrive() -> DS3Drive? {
+            guard let anchor = setupViewModel.selectedSyncAnchor else { return nil }
+            return DS3Drive(
+                id: UUID(),
+                name: driveName.trimmingCharacters(in: .whitespaces),
+                syncAnchor: anchor
+            )
+        }
+
         @MainActor
-        private func createDrive() async {
+        private func createDrive(skipThumbnailCheck: Bool) async {
             isCreating = true
             creationError = nil
-            // Ensure the CTA always re-enables on any exit path — the
-            // previous `isCreating = false` sat inside `catch` only, so an
-            // early `return` (no anchor) would wedge the button forever.
             defer { isCreating = false }
 
             do {
-                guard let anchor = setupViewModel.selectedSyncAnchor else { return }
-                let drive = DS3Drive(
-                    id: UUID(),
-                    name: driveName.trimmingCharacters(in: .whitespaces),
-                    syncAnchor: anchor
-                )
+                guard let drive = buildDrive() else { return }
 
-                // Thumbnail collision check before drive creation
-                if let s3Client = setupViewModel.anchorViewModel?.s3Client {
-                    do {
-                        let state = try await withThrowingTaskGroup(of: ThumbnailPrefixState.self) { group in
-                            group.addTask {
-                                try await s3Client.inspectThumbnailPrefix(
-                                    bucket: anchor.bucket.name,
-                                    prefix: anchor.prefix
-                                )
-                            }
-                            group.addTask {
-                                try await Task.sleep(for: .seconds(10))
-                                throw CancellationError()
-                            }
-                            let result = try await group.next()!
-                            group.cancelAll()
-                            return result
-                        }
-                        if case .conflicting = state {
-                            showThumbnailConflict = true
-                            return
-                        }
-                    } catch {
-                        // Network error or timeout -- proceed silently (D-07, Pitfall 5)
-                        logger.error("Thumbnail prefix inspection failed, proceeding: \(error.localizedDescription, privacy: .public)")
+                if !skipThumbnailCheck, let s3Client = setupViewModel.anchorViewModel?.s3Client {
+                    let state = await s3Client.inspectThumbnailPrefixWithTimeout(
+                        bucket: drive.syncAnchor.bucket.name,
+                        prefix: drive.syncAnchor.prefix
+                    )
+                    if case .conflicting = state {
+                        showThumbnailConflict = true
+                        return
                     }
                 }
 
-                try await finalizeDriveCreation(drive: drive, anchor: anchor)
+                try await finalizeDriveCreation(drive: drive)
             } catch {
                 creationError = error
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
@@ -475,11 +452,11 @@
         }
 
         @MainActor
-        private func finalizeDriveCreation(drive: DS3Drive, anchor: SyncAnchor) async throws {
+        private func finalizeDriveCreation(drive: DS3Drive) async throws {
             let sdk = DS3SDK(withAuthentication: ds3Authentication)
             _ = try await sdk.loadOrCreateDS3APIKeys(
-                forIAMUser: anchor.IAMUser,
-                ds3ProjectName: anchor.project.name
+                forIAMUser: drive.syncAnchor.IAMUser,
+                ds3ProjectName: drive.syncAnchor.project.name
             )
 
             try await ds3DriveManager.add(drive: drive)
@@ -491,22 +468,8 @@
         @MainActor
         private func proceedDespiteConflict() {
             showThumbnailConflict = false
-            Task {
-                isCreating = true
-                defer { isCreating = false }
-                do {
-                    guard let anchor = setupViewModel.selectedSyncAnchor else { return }
-                    let drive = DS3Drive(
-                        id: UUID(),
-                        name: driveName.trimmingCharacters(in: .whitespaces),
-                        syncAnchor: anchor
-                    )
-                    try await finalizeDriveCreation(drive: drive, anchor: anchor)
-                } catch {
-                    creationError = error
-                    UINotificationFeedbackGenerator().notificationOccurred(.error)
-                }
-            }
+            isCreating = true
+            Task { await createDrive(skipThumbnailCheck: true) }
         }
     }
 

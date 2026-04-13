@@ -55,14 +55,7 @@ class SyncSetupViewModel {
 
     var suggestedDriveName: String {
         guard let bucket = selectedBucket else { return "" }
-
-        if let prefix = selectedPrefix, !prefix.isEmpty {
-            let trimmed = prefix.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-            let lastComponent = trimmed.components(separatedBy: "/").last ?? trimmed
-            return "\(bucket.name)/\(lastComponent)"
-        }
-
-        return bucket.name
+        return S3PathUtils.suggestedDriveName(bucketName: bucket.name, prefix: selectedPrefix)
     }
 
     func selectProject(project: Project) {
@@ -108,30 +101,15 @@ class SyncSetupViewModel {
     func checkThumbnailConflict(drive: DS3Drive) async -> Bool {
         guard let s3Client = anchorViewModel?.s3Client else { return false }
 
-        do {
-            let state = try await withThrowingTaskGroup(of: ThumbnailPrefixState.self) { group in
-                group.addTask {
-                    try await s3Client.inspectThumbnailPrefix(
-                        bucket: drive.syncAnchor.bucket.name,
-                        prefix: drive.syncAnchor.prefix
-                    )
-                }
-                group.addTask {
-                    try await Task.sleep(for: .seconds(10))
-                    throw CancellationError()
-                }
-                let result = try await group.next()!
-                group.cancelAll()
-                return result
-            }
-            if case .conflicting = state {
-                pendingDrive = drive
-                thumbnailConflictDetected = true
-                return true
-            }
-        } catch {
-            // Network error or timeout -- proceed silently (D-07, Pitfall 5)
-            logger.error("Thumbnail prefix inspection failed, proceeding: \(error.localizedDescription, privacy: .public)")
+        let state = await s3Client.inspectThumbnailPrefixWithTimeout(
+            bucket: drive.syncAnchor.bucket.name,
+            prefix: drive.syncAnchor.prefix
+        )
+
+        if case .conflicting = state {
+            pendingDrive = drive
+            thumbnailConflictDetected = true
+            return true
         }
 
         return false

@@ -7,8 +7,8 @@ import UniformTypeIdentifiers
 // MARK: - Thumbnail Generators
 
 extension FileProviderExtension {
-    /// Raster formats supported for thumbnail generation (D-19 step 3).
-    /// Phase 12 will lift this into ThumbnailRenderer. Video/PDF intentionally excluded (D-20).
+    /// Raster formats supported for thumbnail generation.
+    /// Video/PDF intentionally excluded -- handled by dedicated generators below.
     private static let allowedRasterUTIs: Set<CFString> = [
         "public.jpeg" as CFString,
         "public.png" as CFString,
@@ -26,14 +26,14 @@ extension FileProviderExtension {
 
     /// Generates a JPEG thumbnail from an image file using ImageIO.
     static func generateImageThumbnail(from fileURL: URL, fitting maxSize: CGSize) -> Data? {
-        // D-19 step 4: Pre-flight memory guard. Return nil silently — never throw.
+        // Pre-flight memory guard. Return nil silently — never throw.
         if os_proc_available_memory() < minAvailableMemoryBytes {
             return nil
         }
 
-        // D-19 step 2: Entire pipeline in autoreleasepool to drain ImageIO buffers.
+        // Entire pipeline in autoreleasepool to drain ImageIO buffers.
         return autoreleasepool {
-            // D-19 step 1: Pass kCGImageSourceShouldCache: false on source creation
+            // Pass kCGImageSourceShouldCache: false on source creation
             // to prevent ImageIO from caching the full decoded image in process memory.
             let sourceOptions: [CFString: Any] = [
                 kCGImageSourceShouldCache: false
@@ -41,9 +41,10 @@ extension FileProviderExtension {
             guard let source = CGImageSourceCreateWithURL(
                 fileURL as CFURL,
                 sourceOptions as CFDictionary
-            ) else { return nil }
+            )
+            else { return nil }
 
-            // D-19 step 3: Format allow-list via CGImageSourceGetType (not file extension).
+            // Format allow-list via CGImageSourceGetType (not file extension).
             // Rejects RAW, PDF, and other unsupported formats before any decode work.
             guard let sourceType = CGImageSourceGetType(source),
                   allowedRasterUTIs.contains(sourceType)
@@ -54,12 +55,13 @@ extension FileProviderExtension {
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceThumbnailMaxPixelSize: maxDimension,
                 kCGImageSourceCreateThumbnailWithTransform: true, // MANDATORY — EXIF orientation fix
-                kCGImageSourceShouldCacheImmediately: true // D-19 step 1: decode immediately, then release
+                kCGImageSourceShouldCacheImmediately: true // Decode immediately, then release
             ]
 
             guard let cgImage = CGImageSourceCreateThumbnailAtIndex(
                 source, 0, options as CFDictionary
-            ) else { return nil }
+            )
+            else { return nil }
 
             return jpegData(from: cgImage)
         }
@@ -135,7 +137,12 @@ extension FileProviderExtension {
             nil
         )
         else { return nil }
-        CGImageDestinationAddImage(dest, cgImage, [kCGImageDestinationLossyCompressionQuality: 0.7] as CFDictionary)
+        CGImageDestinationAddImage(
+            dest,
+            cgImage,
+            [kCGImageDestinationLossyCompressionQuality: Double(DefaultSettings.S3
+                    .thumbnailJPEGQuality)] as CFDictionary
+        )
         guard CGImageDestinationFinalize(dest) else { return nil }
         return data as Data
     }

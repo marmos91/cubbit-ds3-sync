@@ -12,17 +12,35 @@ public enum ThumbnailPrefixState: Sendable, Equatable {
 }
 
 public extension DS3S3ClientProtocol {
+    /// Inspects the `.thumbnails/` prefix with a timeout (default 10 seconds).
+    /// Returns `.empty` on timeout or network error (fail-open per D-07, Pitfall 5).
+    /// Convenience wrapper used by both macOS and iOS drive-setup wizards.
+    func inspectThumbnailPrefixWithTimeout(
+        bucket: String,
+        prefix: String?,
+        timeoutSeconds: Int = 10
+    ) async -> ThumbnailPrefixState {
+        do {
+            return try await withThrowingTaskGroup(of: ThumbnailPrefixState.self) { group in
+                group.addTask {
+                    try await self.inspectThumbnailPrefix(bucket: bucket, prefix: prefix)
+                }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(timeoutSeconds))
+                    throw CancellationError()
+                }
+                guard let result = try await group.next() else { return .empty }
+                group.cancelAll()
+                return result
+            }
+        } catch {
+            return .empty
+        }
+    }
+
     /// Inspects the `.thumbnails/` prefix under a drive's S3 path to detect pre-existing
     /// content that may conflict with DS3Drive's thumbnail layout.
-    ///
-    /// Makes a single ListObjectsV2 call with MaxKeys=10 (per D-03).
-    /// Does NOT self-rate-limit -- callers that invoke this for multiple drives in batch
-    /// should add their own throttling.
-    ///
-    /// - Parameters:
-    ///   - bucket: The S3 bucket name
-    ///   - prefix: The drive's S3 prefix (e.g., "photos/"), or nil for root
-    /// - Returns: The detected state of the `.thumbnails/` prefix
+    /// Makes a single ListObjectsV2 call with MaxKeys=10.
     func inspectThumbnailPrefix(bucket: String, prefix: String?) async throws -> ThumbnailPrefixState {
         let thumbPrefix = S3PathUtils.thumbnailsPrefix(forDrivePrefix: prefix)
 
@@ -39,8 +57,8 @@ public extension DS3S3ClientProtocol {
         }
 
         // Raster allow-list for the stripped original extension (D-02c)
-        let rasterExtensions: Set<String> = [
-            "jpg", "jpeg", "png", "heic", "heif", "webp", "gif", "tiff",
+        let rasterExtensions: Set = [
+            "jpg", "jpeg", "png", "heic", "heif", "webp", "gif", "tiff"
         ]
 
         for object in result.objects {
