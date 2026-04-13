@@ -16,28 +16,29 @@ struct TrayMenuFooterView: View {
     /// the footer is the single live status surface (no redundant rows).
     var driveViewModels: [DS3DriveViewModel] = []
 
-    @State private var isRotating = false
+    @State private var rotationAngle: Double = 0
 
     var body: some View {
         HStack(spacing: DS3Spacing.xs) {
-            // Plan 05-18b Gap 30: replace `.symbolEffect(.pulse)` with a
-            // continuous rotation animation so the syncing state reads as
-            // real motion.
+            // Continuous rotation for the syncing/indexing state. Driving
+            // a Double angle via `withAnimation(...repeatForever)` inside
+            // onAppear/onChange is the reliable SwiftUI pattern — the
+            // previous Bool + `.animation(value:)` approach stalled when
+            // the MenuBarExtra window dismissed and reopened, because the
+            // flag was already `true` and nothing re-triggered the repeat.
             Image(systemName: statusIcon.name)
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(statusIcon.color)
-                .rotationEffect(.degrees(statusIcon.animated && isRotating ? 360 : 0))
-                .animation(
-                    statusIcon.animated
-                        ? .linear(duration: 1.5).repeatForever(autoreverses: false)
-                        : .default,
-                    value: isRotating
-                )
+                .rotationEffect(.degrees(rotationAngle))
                 .onAppear {
-                    if statusIcon.animated { isRotating = true }
+                    if statusIcon.animated { startContinuousRotation() }
                 }
                 .onChange(of: statusIcon.animated) { _, newValue in
-                    isRotating = newValue
+                    if newValue {
+                        startContinuousRotation()
+                    } else {
+                        stopRotation()
+                    }
                 }
 
             Text(status)
@@ -85,6 +86,21 @@ struct TrayMenuFooterView: View {
             Rectangle()
                 .fill(DS3Colors.brandBorder.opacity(0.4))
                 .frame(height: 1)
+        }
+    }
+
+    private func startContinuousRotation() {
+        rotationAngle = 0
+        withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
+            rotationAngle = 360
+        }
+    }
+
+    private func stopRotation() {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            rotationAngle = 0
         }
     }
 
