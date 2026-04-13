@@ -1,24 +1,68 @@
 import AVFoundation
 import CoreGraphics
 import ImageIO
+import os
 import UniformTypeIdentifiers
 
 // MARK: - Thumbnail Generators
 
 extension FileProviderExtension {
+    /// Raster formats supported for thumbnail generation (D-19 step 3).
+    /// Phase 12 will lift this into ThumbnailRenderer. Video/PDF intentionally excluded (D-20).
+    private static let allowedRasterUTIs: Set<CFString> = [
+        "public.jpeg" as CFString,
+        "public.png" as CFString,
+        "public.heic" as CFString,
+        "public.heif" as CFString,
+        "org.webmproject.webp" as CFString,
+        "com.compuserve.gif" as CFString,
+        "public.tiff" as CFString
+    ]
+
+    /// Minimum available memory before refusing to decode (64 MB headroom).
+    /// Empirical threshold — macOS extension has ample memory, but this prevents
+    /// runaway allocation when multiple thumbnails decode concurrently.
+    private static let minAvailableMemoryBytes: Int = 64 * 1024 * 1024
+
     /// Generates a JPEG thumbnail from an image file using ImageIO.
     static func generateImageThumbnail(from fileURL: URL, fitting maxSize: CGSize) -> Data? {
-        guard let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil) else { return nil }
+        // D-19 step 4: Pre-flight memory guard. Return nil silently — never throw.
+        if os_proc_available_memory() < minAvailableMemoryBytes {
+            return nil
+        }
 
-        let maxDimension = max(maxSize.width, maxSize.height)
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxDimension,
-            kCGImageSourceCreateThumbnailWithTransform: true
-        ]
+        // D-19 step 2: Entire pipeline in autoreleasepool to drain ImageIO buffers.
+        return autoreleasepool {
+            // D-19 step 1: Pass kCGImageSourceShouldCache: false on source creation
+            // to prevent ImageIO from caching the full decoded image in process memory.
+            let sourceOptions: [CFString: Any] = [
+                kCGImageSourceShouldCache: false
+            ]
+            guard let source = CGImageSourceCreateWithURL(
+                fileURL as CFURL,
+                sourceOptions as CFDictionary
+            ) else { return nil }
 
-        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
-        return jpegData(from: cgImage)
+            // D-19 step 3: Format allow-list via CGImageSourceGetType (not file extension).
+            // Rejects RAW, PDF, and other unsupported formats before any decode work.
+            guard let sourceType = CGImageSourceGetType(source),
+                  allowedRasterUTIs.contains(sourceType)
+            else { return nil }
+
+            let maxDimension = max(maxSize.width, maxSize.height)
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxDimension,
+                kCGImageSourceCreateThumbnailWithTransform: true, // MANDATORY — EXIF orientation fix
+                kCGImageSourceShouldCacheImmediately: true // D-19 step 1: decode immediately, then release
+            ]
+
+            guard let cgImage = CGImageSourceCreateThumbnailAtIndex(
+                source, 0, options as CFDictionary
+            ) else { return nil }
+
+            return jpegData(from: cgImage)
+        }
     }
 
     /// Generates a JPEG thumbnail from a video file by extracting a frame near the start.
