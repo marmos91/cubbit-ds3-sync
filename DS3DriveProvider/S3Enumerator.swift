@@ -303,12 +303,15 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                             withContinuationToken: page.toContinuationToken()
                         )
 
+                        // Filter .thumbnails/ and .trash/ — centralized hidden-prefix filter (Phase 11)
+                        let visibleItems = items.filter { S3Lib.isUserVisible($0.itemIdentifier.rawValue, drive: self.drive) }
+
                         self.logger
                             .info(
-                                "enumerateItems S3-first: \(items.count) items for prefix \(self.prefix ?? "nil", privacy: .public)"
+                                "enumerateItems S3-first: \(visibleItems.count) visible items (\(items.count) from S3) for prefix \(self.prefix ?? "nil", privacy: .public)"
                             )
-                        if !items.isEmpty {
-                            observer.didEnumerate(items)
+                        if !visibleItems.isEmpty {
+                            observer.didEnumerate(visibleItems)
                         }
 
                         let nextPage = continuationToken.map { NSFileProviderPage($0) }
@@ -319,7 +322,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                         )
                         observer.finishEnumerating(upTo: nextPage)
                         if let metadataStore = self.metadataStore {
-                            let upsertData = items.map { MetadataStore.ItemUpsertData(from: $0) }
+                            let upsertData = visibleItems.map { MetadataStore.ItemUpsertData(from: $0) }
                             let parentKey = self.parentKey
                             let driveId = self.drive.id
                             let isFirstPage = page.toContinuationToken() == nil
@@ -410,11 +413,11 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                         withContinuationToken: page.toContinuationToken()
                     )
 
-                    // Filter out .trash/ items from the working set — trashed items
-                    // are enumerated exclusively by TrashS3Enumerator to avoid
-                    // identity conflicts with the system's trash tracking.
+                    // Filter .trash/ and .thumbnails/ from the working set — centralized
+                    // hidden-prefix filter (Phase 11). Trashed items are enumerated
+                    // exclusively by TrashS3Enumerator.
                     let allItems = items.filter { item in
-                        !S3Lib.isTrashedKey(item.itemIdentifier.rawValue, drive: self.drive)
+                        S3Lib.isUserVisible(item.itemIdentifier.rawValue, drive: self.drive)
                     }
 
                     // Signal observer FIRST so Finder shows items immediately
@@ -551,8 +554,11 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                             fromDate: anchor.toDate()
                         )
 
-                        if !changedItems.isEmpty {
-                            observer.didUpdate(changedItems)
+                        // Filter .trash/ and .thumbnails/ — centralized hidden-prefix filter (Phase 11)
+                        let visibleChanges = changedItems.filter { S3Lib.isUserVisible($0.itemIdentifier.rawValue, drive: self.drive) }
+
+                        if !visibleChanges.isEmpty {
+                            observer.didUpdate(visibleChanges)
                         }
 
                         await self.notificationManager.sendDriveChangedNotificationWithDebounce(

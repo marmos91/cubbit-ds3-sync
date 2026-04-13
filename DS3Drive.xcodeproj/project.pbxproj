@@ -98,6 +98,7 @@
 		C263EF6921D364A74C3AA7AC /* IOSSetupWizardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A375DFBF89652E19F13BE1 /* IOSSetupWizardView.swift */; };
 		C88C0F9CEEBBFAFEBBBCF326 /* S3Lib.swift in Sources */ = {isa = PBXBuildFile; fileRef = D540029D2B5EAEB000B54E97 /* S3Lib.swift */; };
 		CBC4B9775BD14315A22AA731 /* S3Lib+Trash.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD84A687F1EB4A8F9C45AEAA /* S3Lib+Trash.swift */; };
+		D11103010000000000000001 /* S3Lib+Thumbnails.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11103000000000000000001 /* S3Lib+Thumbnails.swift */; };
 		CE070E323BF098B9EFD808B7 /* FileProviderExtension+CustomActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4F9E4F14F282A0BEC87664A /* FileProviderExtension+CustomActions.swift */; };
 		D512EEBC2B59631400F550EC /* MFAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D512EEBB2B59631400F550EC /* MFAView.swift */; };
 		D51672A12F7A00000042AD93 /* BucketListingLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51672A02F7A00000042AD93 /* BucketListingLimiter.swift */; };
@@ -155,6 +156,7 @@
 		EA386D36D3094AAD861680EF /* FileProviderExtension+Create.swift in Sources */ = {isa = PBXBuildFile; fileRef = F66BD30E628644A982F26AC3 /* FileProviderExtension+Create.swift */; };
 		EB1A3C539D02741B0F43A0EB /* S3Enumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222812B5721CC00F1413B /* S3Enumerator.swift */; };
 		EB7A49C3C1A9D4025EB53173 /* S3Lib+Trash.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD84A687F1EB4A8F9C45AEAA /* S3Lib+Trash.swift */; };
+		D11103020000000000000001 /* S3Lib+Thumbnails.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11103000000000000000001 /* S3Lib+Thumbnails.swift */; };
 		F1A2B3C400040000000A0001 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C400010000000A0001 /* UpdateManager.swift */; };
 		F1A2B3C400050000000A0001 /* UpdateNotificationHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C400020000000A0001 /* UpdateNotificationHandler.swift */; };
 		F1A2B3C400060000000A0001 /* UpdateSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C400030000000A0001 /* UpdateSection.swift */; };
@@ -290,6 +292,7 @@
 		A140E4372F6500000042AD93 /* FloatingPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingPanel.swift; sourceTree = "<group>"; };
 		A69738FF6A70E5B341151D76 /* IOSTutorialView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSTutorialView.swift; sourceTree = "<group>"; };
 		AD84A687F1EB4A8F9C45AEAA /* S3Lib+Trash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "S3Lib+Trash.swift"; sourceTree = "<group>"; };
+		D11103000000000000000001 /* S3Lib+Thumbnails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "S3Lib+Thumbnails.swift"; sourceTree = "<group>"; };
 		AFBD730F5BCDD36A139A43B6 /* CacheManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CacheManager.swift; sourceTree = "<group>"; };
 		B1BF5A002F6800000042AD93 /* BreadthFirstIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreadthFirstIndexer.swift; sourceTree = "<group>"; };
 		B200454116D3DE5033A9FC01 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
@@ -891,6 +894,7 @@
 				D1E2F3A4B5C647D8E9F0A1B2 /* FileProviderExtension+ThumbnailGenerators.swift */,
 				593F2D8CD4BF43B084F95A95 /* S3Lib+Transfers.swift */,
 				AD84A687F1EB4A8F9C45AEAA /* S3Lib+Trash.swift */,
+				D11103000000000000000001 /* S3Lib+Thumbnails.swift */,
 				D5A2227C2B5721CC00F1413B /* FileProviderExtension+Errors.swift */,
 				D5A222802B5721CC00F1413B /* S3Item.swift */,
 				D5A222822B5721CC00F1413B /* S3Item+Metadata.swift */,
@@ -1267,6 +1271,7 @@
 				98DDAFC1510A4C63AD7FCDBE /* S3Item.swift in Sources */,
 				A7171EE1329EDE8AC553E168 /* S3Lib+Transfers.swift in Sources */,
 				EB7A49C3C1A9D4025EB53173 /* S3Lib+Trash.swift in Sources */,
+				D11103020000000000000001 /* S3Lib+Thumbnails.swift in Sources */,
 				C88C0F9CEEBBFAFEBBBCF326 /* S3Lib.swift in Sources */,
 				DF13DC37A8F31CF039B59BDB /* S3LibListingAdapter.swift in Sources */,
 				DF9BD918ADDC4D8FA46F2445 /* TrashS3Enumerator.swift in Sources */,
@@ -1365,6 +1370,7 @@
 				A1B2C3D4E5F647A8B9C0D1E2 /* FileProviderExtension+ThumbnailGenerators.swift in Sources */,
 				016234D433404D56AD1E6417 /* S3Lib+Transfers.swift in Sources */,
 				CBC4B9775BD14315A22AA731 /* S3Lib+Trash.swift in Sources */,
+				D11103010000000000000001 /* S3Lib+Thumbnails.swift in Sources */,
 				D5A222862B5721CC00F1413B /* FileProviderExtension+Errors.swift in Sources */,
 				D5A222892B5721CC00F1413B /* S3Item.swift in Sources */,
 				D5A2228A2B5721CC00F1413B /* S3Enumerator.swift in Sources */,

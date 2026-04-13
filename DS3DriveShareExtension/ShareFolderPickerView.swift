@@ -236,7 +236,8 @@
                     prefix: currentPrefix,
                     delimiter: String(DefaultSettings.S3.delimiter)
                 )
-                subfolders = result.commonPrefixes
+                // Filter .thumbnails/ and .trash/ from folder picker (Phase 11)
+                subfolders = result.commonPrefixes.filter { S3KeyFilter.isUserVisible(key: $0, drivePrefix: currentPrefix) }
             } catch {
                 self.error = error
             }

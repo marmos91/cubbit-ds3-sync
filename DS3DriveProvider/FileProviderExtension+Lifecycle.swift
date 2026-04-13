@@ -50,13 +50,16 @@ extension FileProviderExtension {
                         )
                         continuationToken = nextToken
 
-                        for item in items {
+                        // Filter .trash/ and .thumbnails/ — centralized hidden-prefix filter (Phase 11)
+                        let visibleItems = items.filter { S3Lib.isUserVisible($0.itemIdentifier.rawValue, drive: drive) }
+
+                        for item in visibleItems {
                             allKeys.insert(item.itemIdentifier.rawValue)
                         }
 
                         // Upsert each page incrementally so enumerateItems can
                         // start serving partial results while we're still listing.
-                        let upsertData = items.map { MetadataStore.ItemUpsertData(from: $0) }
+                        let upsertData = visibleItems.map { MetadataStore.ItemUpsertData(from: $0) }
                         try await metadataStore.batchUpsertItems(upsertData)
                     } while continuationToken != nil
 

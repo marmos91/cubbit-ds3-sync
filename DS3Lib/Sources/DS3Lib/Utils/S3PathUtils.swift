@@ -38,13 +38,6 @@ public enum S3PathUtils {
         return parentIdentifier + String(delimiter)
     }
 
-    /// Computes the thumbnails prefix for a drive (e.g., "prefix/.thumbnails/").
-    /// - Parameter drivePrefix: The drive's S3 prefix (e.g., "photos/"), or nil for root
-    /// - Returns: The full thumbnails prefix (e.g., "photos/.thumbnails/")
-    public static func thumbnailsPrefix(forDrivePrefix drivePrefix: String?) -> String {
-        (drivePrefix ?? "") + ".thumbnails/"
-    }
-
     /// Computes the trash prefix for a drive (e.g., "prefix/.trash/").
     /// - Parameter drivePrefix: The drive's S3 prefix (e.g., "photos/"), or nil for root
     /// - Returns: The full trash prefix (e.g., "photos/.trash/")
