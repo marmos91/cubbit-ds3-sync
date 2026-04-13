@@ -97,7 +97,9 @@ struct TrayMenuFooterView: View {
     }
 
     private func stopRotation() {
-        withAnimation(.linear(duration: 0)) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
             rotationAngle = 0
         }
     }
