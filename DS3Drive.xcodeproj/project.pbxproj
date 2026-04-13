@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		00A29005A29C16FC0B76EE84 /* FileProviderExtension+Credentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E21FF0F44044957917AEE00 /* FileProviderExtension+Credentials.swift */; };
+		B11104001100040000000001 /* ThumbnailConflictWarningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B11104001100040000000002 /* ThumbnailConflictWarningView.swift */; };
+		B11104001100040000000003 /* IOSThumbnailConflictWarningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B11104001100040000000004 /* IOSThumbnailConflictWarningView.swift */; };
 		016234D433404D56AD1E6417 /* S3Lib+Transfers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 593F2D8CD4BF43B084F95A95 /* S3Lib+Transfers.swift */; };
 		01EFC3F9CFF6BC02DC4E1291 /* IOSDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = D228D94AEB9D8D80132CF316 /* IOSDesignSystem.swift */; };
 		0D90EFF30F1E07F00CA4CCF4 /* SyncAnchorSelectionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221D52B571FED00F1413B /* SyncAnchorSelectionViewModel.swift */; };
@@ -240,6 +242,8 @@
 
 /* Begin PBXFileReference section */
 		0EFDB9DD618CCBAF1879D46E /* DS3DriveProviderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DS3DriveProviderTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B11104001100040000000002 /* ThumbnailConflictWarningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailConflictWarningView.swift; sourceTree = "<group>"; };
+		B11104001100040000000004 /* IOSThumbnailConflictWarningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSThumbnailConflictWarningView.swift; sourceTree = "<group>"; };
 		154C907172E95FD06C8615BD /* S3ItemTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = S3ItemTests.swift; sourceTree = "<group>"; };
 		1823D7B17115B90E2FD9181D /* IOSSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSSettingsView.swift; sourceTree = "<group>"; };
 		2C71C4FFADB8DDE9EC58F5E2 /* SyncSetupViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncSetupViewModelTests.swift; sourceTree = "<group>"; };
@@ -807,6 +811,7 @@
 				D5A221F62B571FED00F1413B /* SetupSyncView.swift */,
 				A10503002F6500000042AD93 /* TreeNavigationView.swift */,
 				A10503022F6500000042AD93 /* DriveConfirmView.swift */,
+				B11104001100040000000002 /* ThumbnailConflictWarningView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -936,6 +941,7 @@
 				C9DC46A798E1E6ECDB179292 /* BucketListView.swift */,
 				6E7F7F8B3758C1478B04E17F /* PrefixListView.swift */,
 				B5113DDDA0BF251D4D70D3D0 /* DriveConfirmView.swift */,
+				B11104001100040000000004 /* IOSThumbnailConflictWarningView.swift */,
 			);
 			path = Setup;
 			sourceTree = "<group>";
@@ -1236,6 +1242,7 @@
 				A945CD1DA2F9F225B525AEFB /* BucketListView.swift in Sources */,
 				41A6207DA1FD0EECAA1D984C /* PrefixListView.swift in Sources */,
 				4799FF43493438BDA352F280 /* DriveConfirmView.swift in Sources */,
+				B11104001100040000000003 /* IOSThumbnailConflictWarningView.swift in Sources */,
 				BCEEF72CA17699E9AE656942 /* IOSSettingsView.swift in Sources */,
 				9783D898595F0FCD77B116E6 /* IOSDriveViewModel.swift in Sources */,
 				4A20FD708E0B4A54CD5FCC70 /* OrientationLock.swift in Sources */,
@@ -1317,6 +1324,7 @@
 				D5A222342B571FEE00F1413B /* SetupSyncView.swift in Sources */,
 				A10503012F6500000042AD93 /* TreeNavigationView.swift in Sources */,
 				A10503032F6500000042AD93 /* DriveConfirmView.swift in Sources */,
+				B11104001100040000000001 /* ThumbnailConflictWarningView.swift in Sources */,
 				A10503052F6500000042AD93 /* GeneralTab.swift in Sources */,
 				A10503072F6500000042AD93 /* AccountTab.swift in Sources */,
 				A10503092F6500000042AD93 /* SyncTab.swift in Sources */,

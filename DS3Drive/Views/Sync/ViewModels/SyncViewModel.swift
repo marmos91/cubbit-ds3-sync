@@ -1,4 +1,5 @@
 import DS3Lib
+import os.log
 import SwiftUI
 
 enum SyncSetupStep {
@@ -8,11 +9,20 @@ enum SyncSetupStep {
 
 @MainActor @Observable
 class SyncSetupViewModel {
+    private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
+
     var selectedProject: Project?
     var selectedSyncAnchor: SyncAnchor?
     var selectedBucket: Bucket?
     var selectedPrefix: String?
     var setupStep: SyncSetupStep = .treeNavigation
+
+    /// Set to `true` when `inspectThumbnailPrefix` returns `.conflicting`.
+    /// The wizard shows `ThumbnailConflictWarningView` instead of proceeding.
+    var thumbnailConflictDetected = false
+
+    /// The drive pending creation while the conflict warning is shown.
+    var pendingDrive: DS3Drive?
 
     /// Shared anchor-selection VM for the wizard session. Hoisted here so
     /// `BucketListView` and `PrefixListView` reuse the same `s3Client` and
@@ -74,12 +84,67 @@ class SyncSetupViewModel {
         self.setupStep = .treeNavigation
     }
 
+    // MARK: - Thumbnail conflict handling
+
+    /// Navigate back to prefix selection, clearing the conflict state.
+    func goBackToPrefix() {
+        thumbnailConflictDetected = false
+        pendingDrive = nil
+        setupStep = .treeNavigation
+    }
+
+    /// Proceed with drive creation despite the thumbnail conflict.
+    /// Returns the pending drive so the caller can add it via DS3DriveManager.
+    func proceedDespiteConflict() -> DS3Drive? {
+        thumbnailConflictDetected = false
+        let drive = pendingDrive
+        pendingDrive = nil
+        return drive
+    }
+
+    /// Checks the thumbnail prefix state for the selected bucket/prefix.
+    /// Returns `true` if a conflict was detected (caller should NOT proceed).
+    /// Returns `false` on `.empty`, `.matchesOurs`, or any error (caller proceeds).
+    func checkThumbnailConflict(drive: DS3Drive) async -> Bool {
+        guard let s3Client = anchorViewModel?.s3Client else { return false }
+
+        do {
+            let state = try await withThrowingTaskGroup(of: ThumbnailPrefixState.self) { group in
+                group.addTask {
+                    try await s3Client.inspectThumbnailPrefix(
+                        bucket: drive.syncAnchor.bucket.name,
+                        prefix: drive.syncAnchor.prefix
+                    )
+                }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(10))
+                    throw CancellationError()
+                }
+                let result = try await group.next()!
+                group.cancelAll()
+                return result
+            }
+            if case .conflicting = state {
+                pendingDrive = drive
+                thumbnailConflictDetected = true
+                return true
+            }
+        } catch {
+            // Network error or timeout -- proceed silently (D-07, Pitfall 5)
+            logger.error("Thumbnail prefix inspection failed, proceeding: \(error.localizedDescription, privacy: .public)")
+        }
+
+        return false
+    }
+
     func reset() {
         self.selectedProject = nil
         self.selectedSyncAnchor = nil
         self.selectedBucket = nil
         self.selectedPrefix = nil
         self.setupStep = .treeNavigation
+        self.thumbnailConflictDetected = false
+        self.pendingDrive = nil
         self.anchorViewModel?.shutdownClient()
         self.anchorViewModel = nil
     }

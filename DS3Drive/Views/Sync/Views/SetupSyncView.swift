@@ -12,32 +12,56 @@ struct SetupSyncView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            switch syncSetupViewModel.setupStep {
-            case .treeNavigation:
-                TreeNavigationView(authentication: ds3Authentication)
-                    .onSyncAnchorSelected { anchor in
-                        syncSetupViewModel.selectSyncAnchor(anchor: anchor)
-                    }
-            case .driveConfirm:
-                if let syncAnchor = syncSetupViewModel.selectedSyncAnchor {
-                    DriveConfirmView(
-                        syncAnchor: syncAnchor,
-                        suggestedName: syncSetupViewModel.suggestedDriveName
-                    )
-                    .onBack {
-                        syncSetupViewModel.goBack()
-                    }
-                    .onComplete { ds3Drive in
-                        let manager = ds3DriveManager
-                        let dismiss = dismiss
-                        Task {
-                            do {
-                                try await manager.add(drive: ds3Drive)
-                            } catch {
-                                logger.error("Error adding drive: \(error.localizedDescription)")
+            if syncSetupViewModel.thumbnailConflictDetected {
+                ThumbnailConflictWarningView(
+                    onChooseDifferentPrefix: { syncSetupViewModel.goBackToPrefix() },
+                    onUseAnyway: {
+                        if let drive = syncSetupViewModel.proceedDespiteConflict() {
+                            let manager = ds3DriveManager
+                            let dismiss = dismiss
+                            Task {
+                                do {
+                                    try await manager.add(drive: drive)
+                                } catch {
+                                    logger.error("Error adding drive: \(error.localizedDescription)")
+                                }
+                                dismiss()
                             }
+                        }
+                    }
+                )
+            } else {
+                switch syncSetupViewModel.setupStep {
+                case .treeNavigation:
+                    TreeNavigationView(authentication: ds3Authentication)
+                        .onSyncAnchorSelected { anchor in
+                            syncSetupViewModel.selectSyncAnchor(anchor: anchor)
+                        }
+                case .driveConfirm:
+                    if let syncAnchor = syncSetupViewModel.selectedSyncAnchor {
+                        DriveConfirmView(
+                            syncAnchor: syncAnchor,
+                            suggestedName: syncSetupViewModel.suggestedDriveName
+                        )
+                        .onBack {
+                            syncSetupViewModel.goBack()
+                        }
+                        .onComplete { ds3Drive in
+                            let vm = syncSetupViewModel
+                            let manager = ds3DriveManager
+                            let dismiss = dismiss
+                            Task {
+                                // Thumbnail collision check before drive creation
+                                let conflictDetected = await vm.checkThumbnailConflict(drive: ds3Drive)
+                                if conflictDetected { return }
 
-                            dismiss()
+                                do {
+                                    try await manager.add(drive: ds3Drive)
+                                } catch {
+                                    logger.error("Error adding drive: \(error.localizedDescription)")
+                                }
+                                dismiss()
+                            }
                         }
                     }
                 }

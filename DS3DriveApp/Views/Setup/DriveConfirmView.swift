@@ -1,5 +1,6 @@
 #if os(iOS)
     import DS3Lib
+    import os.log
     import SwiftUI
 
     /// Final wizard step — summary hero + editable drive name + pinned
@@ -18,6 +19,9 @@
         @State private var isCreating = false
         @State private var creationError: Error?
         @State private var showDuplicateWarning = false
+        @State private var showThumbnailConflict = false
+
+        private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.sync.rawValue)
 
         private let buttonHeight: CGFloat = 54
 
@@ -60,6 +64,31 @@
             .onAppear {
                 driveName = setupViewModel.suggestedDriveName
                 checkForDuplicate()
+            }
+            .fullScreenCover(isPresented: $showThumbnailConflict) {
+                NavigationStack {
+                    IOSThumbnailConflictWarningView(
+                        onChooseDifferentPrefix: {
+                            showThumbnailConflict = false
+                            // Pop back to prefix selection by dismissing the wizard
+                            // and letting the user re-enter
+                            onDismiss()
+                        },
+                        onUseAnyway: {
+                            proceedDespiteConflict()
+                        }
+                    )
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button {
+                                showThumbnailConflict = false
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .foregroundStyle(IOSColors.primaryText)
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -410,19 +439,73 @@
                     syncAnchor: anchor
                 )
 
-                let sdk = DS3SDK(withAuthentication: ds3Authentication)
-                _ = try await sdk.loadOrCreateDS3APIKeys(
-                    forIAMUser: anchor.IAMUser,
-                    ds3ProjectName: anchor.project.name
-                )
+                // Thumbnail collision check before drive creation
+                if let s3Client = setupViewModel.anchorViewModel?.s3Client {
+                    do {
+                        let state = try await withThrowingTaskGroup(of: ThumbnailPrefixState.self) { group in
+                            group.addTask {
+                                try await s3Client.inspectThumbnailPrefix(
+                                    bucket: anchor.bucket.name,
+                                    prefix: anchor.prefix
+                                )
+                            }
+                            group.addTask {
+                                try await Task.sleep(for: .seconds(10))
+                                throw CancellationError()
+                            }
+                            let result = try await group.next()!
+                            group.cancelAll()
+                            return result
+                        }
+                        if case .conflicting = state {
+                            showThumbnailConflict = true
+                            return
+                        }
+                    } catch {
+                        // Network error or timeout -- proceed silently (D-07, Pitfall 5)
+                        logger.error("Thumbnail prefix inspection failed, proceeding: \(error.localizedDescription, privacy: .public)")
+                    }
+                }
 
-                try await ds3DriveManager.add(drive: drive)
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-                setupViewModel.reset()
-                onDismiss()
+                try await finalizeDriveCreation(drive: drive, anchor: anchor)
             } catch {
                 creationError = error
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
+            }
+        }
+
+        @MainActor
+        private func finalizeDriveCreation(drive: DS3Drive, anchor: SyncAnchor) async throws {
+            let sdk = DS3SDK(withAuthentication: ds3Authentication)
+            _ = try await sdk.loadOrCreateDS3APIKeys(
+                forIAMUser: anchor.IAMUser,
+                ds3ProjectName: anchor.project.name
+            )
+
+            try await ds3DriveManager.add(drive: drive)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            setupViewModel.reset()
+            onDismiss()
+        }
+
+        @MainActor
+        private func proceedDespiteConflict() {
+            showThumbnailConflict = false
+            Task {
+                isCreating = true
+                defer { isCreating = false }
+                do {
+                    guard let anchor = setupViewModel.selectedSyncAnchor else { return }
+                    let drive = DS3Drive(
+                        id: UUID(),
+                        name: driveName.trimmingCharacters(in: .whitespaces),
+                        syncAnchor: anchor
+                    )
+                    try await finalizeDriveCreation(drive: drive, anchor: anchor)
+                } catch {
+                    creationError = error
+                    UINotificationFeedbackGenerator().notificationOccurred(.error)
+                }
             }
         }
     }
