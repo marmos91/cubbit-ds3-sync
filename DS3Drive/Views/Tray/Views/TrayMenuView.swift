@@ -232,7 +232,9 @@ struct TrayMenuView: View {
 
             driveListSection
 
-            addDriveItem
+            if canAddMoreDrives {
+                addDriveItem
+            }
 
             quickActionsSection
 
@@ -286,17 +288,10 @@ struct TrayMenuView: View {
     }
 
     private var addDriveItem: some View {
-        let title = canAddMoreDrives
-            ? NSLocalizedString("Add a new Drive", comment: "Tray menu add new drive")
-            : NSLocalizedString(
-                "You have reached the maximum number of Drives",
-                comment: "Tray menu add new drive disabled"
-            )
-
-        return TrayMenuItem(
-            title: title,
+        TrayMenuItem(
+            title: NSLocalizedString("Add a new Drive", comment: "Tray menu add new drive"),
             systemImage: "plus.circle",
-            enabled: canAddMoreDrives
+            enabled: true
         ) {
             openWindow(id: "io.cubbit.DS3Drive.drive.new")
             NSApp.activate(ignoringOtherApps: true)
