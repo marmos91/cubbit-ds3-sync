@@ -1,5 +1,6 @@
 import AVFoundation
 import CoreGraphics
+import DS3Lib
 import ImageIO
 import os
 import UniformTypeIdentifiers
@@ -26,10 +27,11 @@ extension FileProviderExtension {
 
     /// Generates a JPEG thumbnail from an image file using ImageIO.
     static func generateImageThumbnail(from fileURL: URL, fitting maxSize: CGSize) -> Data? {
-        // Pre-flight memory guard. Return nil silently — never throw.
-        if os_proc_available_memory() < minAvailableMemoryBytes {
-            return nil
-        }
+        #if canImport(UIKit)
+            if os_proc_available_memory() < minAvailableMemoryBytes {
+                return nil
+            }
+        #endif
 
         // Entire pipeline in autoreleasepool to drain ImageIO buffers.
         return autoreleasepool {
