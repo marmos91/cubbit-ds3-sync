@@ -125,7 +125,7 @@ public enum S3PathUtils {
     ///   - key: The original S3 key
     ///   - drivePrefix: The drive's S3 prefix
     /// - Returns: The thumbnail key
-    public static func thumbnailKey(forOriginalKey key: String, drivePrefix: String?) -> String {
+    public static func thumbnailKey(forOriginalKey key: String, drivePrefix _: String? = nil) -> String {
         let delimiter = DefaultSettings.S3.delimiter
         let components = key.split(separator: delimiter, omittingEmptySubsequences: false)
         guard let filename = components.last else { return key }
@@ -144,7 +144,7 @@ public enum S3PathUtils {
     ///   - key: The thumbnail key
     ///   - drivePrefix: The drive's S3 prefix
     /// - Returns: The original key
-    public static func originalKey(fromThumbnailKey key: String, drivePrefix: String?) -> String {
+    public static func originalKey(fromThumbnailKey key: String, drivePrefix _: String? = nil) -> String {
         let thumbPrefix = DefaultSettings.S3.thumbnailsPrefix
         // Find the last occurrence of ".thumbnails/" in the key
         guard let range = key.range(of: thumbPrefix, options: .backwards) else { return key }

@@ -106,7 +106,8 @@ class SyncSetupViewModel {
             prefix: drive.syncAnchor.prefix
         )
 
-        if case .conflicting = state {
+        if case let .conflicting(sampleKey) = state {
+            logger.warning("Thumbnail prefix conflict detected (sample: \(sampleKey, privacy: .public))")
             pendingDrive = drive
             thumbnailConflictDetected = true
             return true

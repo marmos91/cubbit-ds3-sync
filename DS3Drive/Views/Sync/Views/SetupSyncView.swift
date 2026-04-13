@@ -63,13 +63,14 @@ struct SetupSyncView: View {
         }
     }
 
+    @MainActor
     private func addDrive(_ drive: DS3Drive) {
         guard !isCreating else { return }
         isCreating = true
         creationError = nil
         let manager = ds3DriveManager
         let dismiss = dismiss
-        Task {
+        Task { @MainActor in
             defer { isCreating = false }
             do {
                 try await manager.add(drive: drive)

@@ -9,7 +9,7 @@ import UniformTypeIdentifiers
 extension FileProviderExtension {
     /// Raster formats supported for thumbnail generation.
     /// Video/PDF intentionally excluded -- handled by dedicated generators below.
-    private static let allowedRasterUTIs: Set<CFString> = [
+    private nonisolated(unsafe) static let allowedRasterUTIs: Set<CFString> = [
         "public.jpeg" as CFString,
         "public.png" as CFString,
         "public.heic" as CFString,

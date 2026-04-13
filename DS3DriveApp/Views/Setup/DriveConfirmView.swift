@@ -438,7 +438,8 @@
                         bucket: drive.syncAnchor.bucket.name,
                         prefix: drive.syncAnchor.prefix
                     )
-                    if case .conflicting = state {
+                    if case let .conflicting(sampleKey) = state {
+                        logger.warning("Thumbnail prefix conflict detected (sample: \(sampleKey, privacy: .public))")
                         showThumbnailConflict = true
                         return
                     }
