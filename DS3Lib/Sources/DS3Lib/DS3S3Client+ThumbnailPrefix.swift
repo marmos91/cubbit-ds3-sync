@@ -13,7 +13,7 @@ public enum ThumbnailPrefixState: Sendable, Equatable {
 
 public extension DS3S3ClientProtocol {
     /// Inspects the `.thumbnails/` prefix with a timeout (default 10 seconds).
-    /// Returns `.empty` on timeout or network error (fail-open per D-07, Pitfall 5).
+    /// Returns `.empty` on timeout or network error (fail-open — never block drive creation).
     /// Convenience wrapper used by both macOS and iOS drive-setup wizards.
     func inspectThumbnailPrefixWithTimeout(
         bucket: String,
@@ -56,9 +56,9 @@ public extension DS3S3ClientProtocol {
             return .empty
         }
 
-        // Raster allow-list for the stripped original extension (D-02c)
+        // Raster allow-list for the stripped original extension
         let rasterExtensions: Set = [
-            "jpg", "jpeg", "png", "heic", "heif", "webp", "gif", "tiff"
+            "jpg", "jpeg", "png", "heic", "heif", "webp", "gif", "tif", "tiff"
         ]
 
         for object in result.objects {
