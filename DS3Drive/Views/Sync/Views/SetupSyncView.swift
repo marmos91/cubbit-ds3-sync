@@ -76,7 +76,7 @@ struct SetupSyncView: View {
                 try await manager.add(drive: drive)
                 dismiss()
             } catch {
-                logger.error("Error adding drive: \(error.localizedDescription)")
+                logger.error("Error adding drive: \(error.localizedDescription, privacy: .public)")
                 creationError = error.localizedDescription
             }
         }

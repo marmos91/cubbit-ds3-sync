@@ -148,6 +148,7 @@ actor NotificationManager {
     /// Unconditionally posts the current status, bypassing the dedup guard.
     /// Used on init to clear stale app-side state after an extension crash/respawn.
     private func forcePostCurrentStatus() {
+        guard driveStatus == .idle else { return }
         let driveStatusChange = DS3DriveStatusChange(
             driveId: drive.id,
             status: driveStatus
