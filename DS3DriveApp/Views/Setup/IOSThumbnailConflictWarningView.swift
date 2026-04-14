@@ -53,17 +53,19 @@
                 .accessibilityHidden(true)
 
                 VStack(spacing: 8) {
-                    Text(String(localized: "thumbnail_conflict_title"))
+                    Text("Thumbnail prefix conflict detected")
                         .font(.custom("Figtree-SemiBold", size: 26))
                         .foregroundStyle(IOSColors.brandTextPrimary)
                         .multilineTextAlignment(.center)
 
-                    Text(String(localized: "thumbnail_conflict_body"))
-                        .font(.custom("Figtree-Regular", size: 16))
-                        .foregroundStyle(IOSColors.brandTextSecondary)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(2)
-                        .padding(.horizontal, 8)
+                    Text(
+                        "The selected prefix already contains a .thumbnails/ folder that may conflict with DS3 Drive's thumbnail system."
+                    )
+                    .font(.custom("Figtree-Regular", size: 16))
+                    .foregroundStyle(IOSColors.brandTextSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(2)
+                    .padding(.horizontal, 8)
                 }
             }
             .padding(.bottom, 8)
@@ -80,7 +82,7 @@
                     HStack(spacing: 8) {
                         Image(systemName: "arrow.uturn.backward")
                             .font(.system(size: 17, weight: .semibold))
-                        Text(String(localized: "thumbnail_conflict_change_prefix"))
+                        Text("Choose a different prefix")
                             .font(.custom("Figtree-SemiBold", size: 17))
                     }
                     .foregroundStyle(.white)
@@ -92,15 +94,15 @@
                     )
                 }
                 .buttonStyle(.plain)
-                .accessibilityHint(String(localized: "thumbnail_conflict_hint_change_prefix"))
+                .accessibilityHint("Returns to prefix selection")
 
                 Button(action: onUseAnyway) {
-                    Text(String(localized: "thumbnail_conflict_use_anyway"))
+                    Text("Use anyway")
                         .font(.custom("Figtree-Regular", size: 14))
                         .foregroundStyle(IOSColors.brandTextSecondary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityHint(String(localized: "thumbnail_conflict_hint_use_anyway"))
+                .accessibilityHint("Creates the drive despite the conflict")
                 .padding(.bottom, 4)
             }
             .padding(.horizontal, 20)
