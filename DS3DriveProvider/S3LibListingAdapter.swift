@@ -1,4 +1,5 @@
 import DS3Lib
+@preconcurrency import FileProvider
 import Foundation
 
 /// Adapts the existing S3Lib to conform to SyncEngine's S3ListingProvider protocol.
@@ -48,7 +49,7 @@ final class S3LibListingAdapter: S3ListingProvider, Sendable {
                 lastModified: item.metadata.lastModified,
                 size: Int64(truncating: item.metadata.size),
                 contentType: item.metadata.contentType,
-                parentKey: item.parentItemIdentifier == .rootContainer ? nil : item.parentItemIdentifier.rawValue,
+                parentKey: NSFileProviderItemIdentifier.safeParentKey(from: item.parentItemIdentifier),
                 isFolder: item.isFolder
             )
         }

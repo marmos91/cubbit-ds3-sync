@@ -37,6 +37,25 @@ extension FileProviderExtension {
                         "Cache warm-up: starting recursive listing for prefix \(prefix ?? "<root>", privacy: .public)"
                     )
 
+                // Purge any rows whose s3Key/parentKey contains an Apple sentinel
+                // raw value. This is one-shot residue cleanup from a pre-fix bug
+                // where createItem/modifyItem concatenated `parentItemIdentifier.rawValue`
+                // (which can be a sentinel like `NSFileProviderTrashContainerItemIdentifier`)
+                // directly into S3 keys. Safe to run on every warm-up: legitimate
+                // S3 keys never contain these substrings.
+                let sentinels: [String] = [
+                    NSFileProviderItemIdentifier.rootContainer.rawValue,
+                    NSFileProviderItemIdentifier.trashContainer.rawValue,
+                    NSFileProviderItemIdentifier.workingSet.rawValue
+                ]
+                if let purged = try? await metadataStore.purgeRowsContainingSentinels(
+                    driveId: drive.id, sentinels: sentinels
+                ), purged > 0 {
+                    self?.logger
+                        .info("Cache warm-up: purged \(purged, privacy: .public) sentinel-poisoned rows")
+                    self?.signalChanges()
+                }
+
                 do {
                     var continuationToken: String?
                     var allKeys: Set<String> = []
@@ -50,8 +69,8 @@ extension FileProviderExtension {
                         )
                         continuationToken = nextToken
 
-                        // Filter .trash/ and .thumbnails/ — centralized hidden-prefix filter (Phase 11)
-                        let visibleItems = items.filter { S3Lib.isUserVisible($0.itemIdentifier.rawValue, drive: drive) }
+                        let visibleItems = items
+                            .filter { S3Lib.isUserVisible($0.itemIdentifier.rawValue, drive: drive) }
 
                         for item in visibleItems {
                             allKeys.insert(item.itemIdentifier.rawValue)

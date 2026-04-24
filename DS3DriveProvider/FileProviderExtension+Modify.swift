@@ -109,8 +109,9 @@ extension FileProviderExtension {
                                             "Modify conflict for \(s3Item.itemIdentifier.rawValue, privacy: .public): remote ETag \(remoteETag, privacy: .public) differs from stored"
                                         )
 
-                                    let parentKey = s3Item.parentItemIdentifier == .rootContainer ? nil : s3Item
-                                        .parentItemIdentifier.rawValue
+                                    let parentKey = NSFileProviderItemIdentifier.safeParentKey(
+                                        from: s3Item.parentItemIdentifier
+                                    )
                                     let conflictS3Item = try await self.uploadConflictCopy(
                                         for: s3Item,
                                         fileURL: contents,
@@ -257,8 +258,9 @@ extension FileProviderExtension {
         } else if changedFields.contains(.filename), changedFields.contains(.parentItemIdentifier) {
             // Renamed + moved
             let newName = item.filename
-            let destinationParent = item.parentItemIdentifier == .rootContainer ? "" : item.parentItemIdentifier
-                .rawValue
+            let destinationParent = NSFileProviderItemIdentifier.safeParentKey(
+                from: item.parentItemIdentifier
+            ) ?? ""
             self.logger
                 .debug(
                     "Rename+move detected for \(s3Item.itemIdentifier.rawValue, privacy: .public) to \(destinationParent, privacy: .public)\(newName, privacy: .public)"
@@ -377,8 +379,9 @@ extension FileProviderExtension {
             }
         } else if changedFields.contains(.parentItemIdentifier) {
             // Move file/folder (or restore from trash if the item's data is in .trash/)
-            let destinationParent = item.parentItemIdentifier == .rootContainer ? "" : item.parentItemIdentifier
-                .rawValue
+            let destinationParent = NSFileProviderItemIdentifier.safeParentKey(
+                from: item.parentItemIdentifier
+            ) ?? ""
             self.logger
                 .info(
                     "Move detected for key \(s3Item.itemIdentifier.rawValue, privacy: .public) from \(s3Item.parentItemIdentifier.rawValue, privacy: .public) to \(destinationParent, privacy: .public)"

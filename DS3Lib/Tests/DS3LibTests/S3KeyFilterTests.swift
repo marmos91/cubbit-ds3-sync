@@ -58,4 +58,39 @@ final class S3KeyFilterTests: XCTestCase {
     func testIsUserVisibleRootFolder() {
         XCTAssertTrue(S3KeyFilter.isUserVisible(key: "prefix/photos/", drivePrefix: "prefix/"))
     }
+
+    // MARK: - Sentinel-Poisoned Keys
+
+    func testIsUserVisibleRejectsTrashSentinelKeyAtRoot() {
+        XCTAssertFalse(S3KeyFilter.isUserVisible(
+            key: "NSFileProviderTrashContainerItemIdentifierIMG_4172.MOV", drivePrefix: nil
+        ))
+    }
+
+    func testIsUserVisibleRejectsTrashSentinelKeyUnderPrefix() {
+        XCTAssertFalse(S3KeyFilter.isUserVisible(
+            key: "prefix/NSFileProviderTrashContainerItemIdentifierIMG_4172.MOV",
+            drivePrefix: "prefix/"
+        ))
+    }
+
+    func testIsUserVisibleRejectsRootSentinelKey() {
+        XCTAssertFalse(S3KeyFilter.isUserVisible(
+            key: "NSFileProviderRootContainerItemIdentifierfoo.txt", drivePrefix: nil
+        ))
+    }
+
+    func testIsUserVisibleRejectsWorkingSetSentinelKey() {
+        XCTAssertFalse(S3KeyFilter.isUserVisible(
+            key: "NSFileProviderWorkingSetContainerItemIdentifierx.dat", drivePrefix: nil
+        ))
+    }
+
+    func testIsUserVisibleAllowsLegitimateSimilarKey() {
+        // A user could legitimately name a folder/file that contains "NSFile" as a substring;
+        // only EXACT sentinel-prefix matches at the relative-key start should be rejected.
+        XCTAssertTrue(S3KeyFilter.isUserVisible(
+            key: "NSFileProviderTrashFooBar.txt", drivePrefix: nil
+        ))
+    }
 }
