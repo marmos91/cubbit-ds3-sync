@@ -270,6 +270,10 @@ struct DS3DriveApp: App {
                         NSFileProviderError(.notAuthenticated) as NSError
                     )
                     logger.info("signalErrorResolved sent for domain \(domainId, privacy: .public)")
+                } catch DS3AuthenticationError.tokenExpired {
+                    logger.error("Refresh token rejected during auth recovery — forcing logout")
+                    auth.logout()
+                    Self.showSessionExpiredNotification(logger: logger)
                 } catch {
                     logger.error("Failed to recover S3 credentials: \(error.localizedDescription, privacy: .public)")
                     Self.showSessionExpiredNotification(logger: logger)

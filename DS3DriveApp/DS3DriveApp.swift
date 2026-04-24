@@ -39,6 +39,10 @@ struct DS3DriveApp: App {
                     if isLogged, !hasStartedRefreshTimer {
                         _ = ds3Authentication.startProactiveRefreshTimer()
                         hasStartedRefreshTimer = true
+                    } else if !isLogged {
+                        // Timer exits on its own when the refresh token is rejected;
+                        // reset the latch so re-login spins up a fresh timer.
+                        hasStartedRefreshTimer = false
                     }
                 }
         }

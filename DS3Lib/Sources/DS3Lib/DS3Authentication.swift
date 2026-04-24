@@ -203,6 +203,13 @@ public final class DS3Authentication: @unchecked Sendable {
                     do {
                         try await self.refreshIfNeeded(force: true)
                         self.logger.info("Proactive token refresh successful")
+                    } catch DS3AuthenticationError.tokenExpired {
+                        // Refresh token itself is no longer valid — the server will never
+                        // return a new access token. Clear local session so the UI routes
+                        // the user back to login, then exit the timer.
+                        self.logger.error("Refresh token rejected by server — forcing logout")
+                        self.logout()
+                        return
                     } catch {
                         self.logger.error("Proactive token refresh failed: \(error.localizedDescription)")
                     }
