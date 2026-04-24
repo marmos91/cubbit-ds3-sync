@@ -4,7 +4,8 @@
 
 - 🚧 **v1.0 macOS App** - Phases 1-5 (in progress, 95% complete)
 - ✅ **v2.0 iOS & iPadOS Universal App** - Phases 6-9 (shipped 2026-03-20)
-- 📋 **v3.0 Sharing & Collaboration** - Phase 10 (planned)
+- ✅ **v3.0 Sharing & Collaboration** - Phase 10 (shipped 2026-04-10)
+- 📋 **v3.1 Thumbnails** - Phases 11-14 (planned)
 
 ## Phases
 
@@ -138,12 +139,78 @@ Plans:
 - [x] 10-01-PLAN.md -- TDD: DS3S3Client+Presign.swift presignedGetURL method with unit tests
 - [x] 10-02-PLAN.md -- Info.plist entries, notification helper, custom action handler, human verification
 
+## v3.1 Thumbnails (issue #109)
+
+Closes GitHub issue #109. Image files in Finder (macOS) and the iOS Files app show real thumbnail previews, backed by a `.thumbnails/` S3 prefix that is transparent to the user. Both macOS and iOS can independently generate thumbnails — no platform is a required peer.
+
+- [ ] **Phase 11: Foundation & Filtering** - DS3Lib primitives, centralized `.thumbnails/` filter, drive-setup collision check, fix latent ImageIO memory bug. Zero user-visible change.
+- [ ] **Phase 12: Renderer, Storage & Schema** - `ThumbnailRenderer` (macOS-gated), `ThumbnailS3Service`, Schema V3 with `thumbnailStatus`, `SharedData+thumbnailSettings`, `ThumbnailBackfillCoordinator` scaffolded. Zero user-visible change.
+- [ ] **Phase 13: macOS Generation, Consumption & Lifecycle** - Upload-path hook, cache-first `fetchThumbnails` rewrite, delete/rename cascade, BFS backfill, orphan sweep, tray progress. **First user-visible thumbnails.**
+- [ ] **Phase 14: iOS Generation & Polish** - `BGProcessingTask` + `ForegroundBackfillDriver`, cellular gating, manual "Generate now" action, iOS settings UI with progress + force-quit caveat copy.
+
+### Phase 11: Foundation & Filtering
+**Goal**: The `.thumbnails/` S3 prefix becomes a first-class, user-invisible namespace across every list-S3 code path, and drive setup refuses to enable the feature on buckets whose `.thumbnails/` content would collide with ours — all shipped as a silent no-op payload before any byte is written.
+**Depends on**: Phase 9 (iOS File Provider extension), Phase 10 (active v3 work)
+**Requirements**: THUMB-01, THUMB-02, THUMB-03, THUMB-05
+**Success Criteria** (what must be TRUE):
+  1. Users browsing any drive in Finder or the iOS Files app never see a `.thumbnails/` folder in any enumeration surface — regular listing, search, changes delta, or BFS indexer — even if `.thumbnails/` objects exist in the bucket
+  2. Attempting drive setup against a bucket that already contains non-DS3Drive `.thumbnails/` content is refused with a clear, actionable error message; setup succeeds on clean buckets and on buckets that only contain DS3Drive-generated thumbnails
+  3. The `ThumbnailKey` mapping for any original key is unambiguous and collision-free (an `a.jpg` original and an `a.png` original at the same folder map to distinct thumbnail keys because the original extension is appended, not substituted)
+  4. All subsequent phases import a single canonical `S3KeyFilter.isUserVisible(key:)` from DS3Lib and a single canonical `DefaultSettings.S3.thumbnailsPrefix` / size / quality constant — no scattered literals, no parallel filters
+  5. The latent `kCGImageSourceShouldCache: false` bug in `+ThumbnailGenerators.swift:11` is fixed and covered by regression test, eliminating the v2.0 memory footgun before any new generation code is added on top
+**Plans:** 5 plans
+
+Plans:
+- [ ] 11-01-PLAN.md -- DS3Lib primitives: DefaultSettings constants, S3PathUtils thumbnail helpers, S3KeyFilter (TDD)
+- [ ] 11-02-PLAN.md -- Collision detection: ThumbnailPrefixState enum, inspectThumbnailPrefix function (TDD)
+- [ ] 11-03-PLAN.md -- Filter routing: S3Lib+Thumbnails wrapper, ListObjectsV2 call-site audit, all 9 sites filtered
+- [ ] 11-04-PLAN.md -- Wizard integration: macOS + iOS conflict warning UI, EN + IT localization
+- [ ] 11-05-PLAN.md -- Generator hardening: ImageIO memory safety, format allow-list, Git LFS test fixtures
+
+### Phase 12: Renderer, Storage & Schema
+**Goal**: DS3Lib exposes a platform-gated, memory-safe thumbnail renderer, an S3 put/get/delete service with staleness metadata, a Schema V3 migration that tracks per-item thumbnail status, and a scaffolded backfill coordinator — all wired into unit tests but not yet invoked from any user-facing code path.
+**Depends on**: Phase 11
+**Requirements**: THUMB-04, THUMB-07, THUMB-08, THUMB-09, THUMB-10
+**Success Criteria** (what must be TRUE):
+  1. The MetadataStore can answer "which items in this drive still need a thumbnail?" and persists per-item thumbnail state (`.notApplicable` / `.pending` / `.uploaded` / `.failed`) across extension and app restarts, with Schema V2→V3 migration succeeding on existing installs
+  2. Importing `ThumbnailRenderer` from the iOS File Provider extension target fails to compile — the type is hard-gated with `#if os(macOS)` around every ImageIO / CoreImage call site, making accidental iOS-extension decode unrepresentable
+  3. Unit tests on Git LFS fixtures prove the renderer produces right-side-up JPEGs for portrait iPhone photos (EXIF orientation 6 HEIC + JPEG fixtures) and silently returns nil for unsupported formats without throwing
+  4. `ThumbnailS3Service.put` writes every thumbnail as a single-part PUT carrying both `x-amz-meta-source-etag` (for stale-thumbnail detection) and `x-amz-meta-ds3drive-thumb-version` (for future format migrations) — verified via mock S3 tests
+  5. `SharedData+thumbnailSettings` round-trips the feature-enabled flag across the App Group boundary, and the `ThumbnailBackfillCoordinator` actor exists with a runnable (though unused) batch entry point, ready for Phase 13 to call into
+**Plans**: TBD
+
+### Phase 13: macOS Generation, Consumption & Lifecycle
+**Goal**: Finder shows real thumbnails for image files on every macOS drive — instantly for newly uploaded files, opportunistically backfilled for existing content — and the thumbnail lifecycle tracks the original through deletes, renames, moves, and pause/resume without ever breaking the user-visible upload contract or poisoning the system with stuck progress or custom error domains. iOS Files automatically benefits because iOS consumes the same `.thumbnails/` prefix macOS writes.
+**Depends on**: Phase 12
+**Requirements**: THUMB-06, THUMB-11, THUMB-12, THUMB-13, THUMB-14, THUMB-15, THUMB-17, THUMB-18, THUMB-19, THUMB-20, THUMB-21, THUMB-23, THUMB-24
+**Success Criteria** (what must be TRUE):
+  1. A user dragging an image into a DS3 Drive folder in Finder sees the file appear instantly with a real thumbnail (within a few seconds), while a corrupt or unsupported image file uploads successfully with no error and falls back to the default UTType icon — the upload contract is never blocked, broken, or flickered by thumbnail work
+  2. A user browsing a folder of cloud-only images uploaded from another device sees thumbnails appear progressively as the macOS extension opportunistically backfills them during BFS enumeration passes, with existing sync status badges (cloud / synced / syncing / error) still rendering correctly on top — and the same folder viewed on iOS Files also shows those thumbnails without the iOS extension ever decoding anything
+  3. Deleting, renaming, or moving an image in Finder correctly cascades to its thumbnail within one sync cycle, and a periodic orphan sweep guarantees that `.thumbnails/` entries whose originals have disappeared (due to failed cascades or external bucket edits) are eventually reclaimed
+  4. Pausing a drive halts thumbnail backfill for that drive immediately; resuming continues from where it left off; backfill never eager-scans the full bucket on feature launch and never triggers a full-file download on the consumption path
+  5. The macOS menu bar tray shows an honest "Thumbnails: N / M" progress readout per drive while backfill is running, the counter reaches 100% even when the bucket contains permanently unprocessable files (they count as "N skipped", never leaving the UI stuck at 99% forever), and concurrent thumbnail fetches from Finder never trigger S3 `SlowDown` thanks to the bounded `ThumbnailFetchLimiter`, while every failure path funnels through `NSFileProviderErrorDomain` / `NSCocoaErrorDomain` — never a custom domain
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 14: iOS Generation & Polish
+**Goal**: iPhone and iPad users can contribute thumbnails for images uploaded from their iOS devices (and for any bucket content that macOS hasn't already processed) via a foreground-primary backfill driver with an opportunistic `BGProcessingTask` overnight supplement, with clear UI copy about the force-quit caveat and a manual "Generate now" escape valve on both platforms.
+**Depends on**: Phase 13
+**Requirements**: THUMB-16, THUMB-22, THUMB-25, THUMB-26
+**Success Criteria** (what must be TRUE):
+  1. While the iOS main app is foregrounded on Wi-Fi, the `ForegroundBackfillDriver` processes pending thumbnails at a rate the user can see in the Settings progress view — without jetsam kills, cellular data usage, or UI stalls — and the same code path runs inside `BGProcessingTask` overnight when the device is charging and idle
+  2. A user on cellular sees backfill paused by default with an explicit opt-in toggle; flipping the toggle immediately resumes generation; disabling it immediately suspends generation — both on the current connection and on future cellular connections
+  3. A power user on either platform can tap "Generate thumbnails now" in settings and see backfill kick off for the selected drive, with a first-use bandwidth / cost warning that never fires again once acknowledged
+  4. iOS Settings shows a user-facing progress readout ("123 of 456 thumbnails generated") together with a plain-English explanation that force-quitting the app disables overnight background generation until next manual launch — closing the single most common "thumbnails are broken" support question from v2.0 iOS
+**Plans**: TBD
+**UI hint**: yes
+
 ## Progress
 
 **Execution Order:**
 - v1.0: 1 -> 2 -> 3 -> 4 -> 5
 - v2.0: 6 -> 7 -> 8 -> 9
 - v3.0: 10
+- v3.1: 11 -> 12 -> 13 -> 14
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -157,9 +224,14 @@ Plans:
 | 8. iOS Companion App | v2.0 | 6/6 | Complete | 2026-03-18 |
 | 9. iOS Polish & Distribution | v2.0 | 3/3 | Complete | 2026-03-20 |
 | 10. Presigned URL sharing | v3.0 | 2/2 | Complete    | 2026-04-11 |
+| 11. Foundation & Filtering | v3.1 | 0/5 | In Progress | - |
+| 12. Renderer, Storage & Schema | v3.1 | 0/0 | Not started | - |
+| 13. macOS Generation, Consumption & Lifecycle | v3.1 | 0/0 | Not started | - |
+| 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-11*
 *v2.0 milestone added: 2026-03-17*
 *v2.0 milestone shipped: 2026-03-20*
 *v3.0 milestone added: 2026-04-09*
+*v3.1 Thumbnails milestone added: 2026-04-11*

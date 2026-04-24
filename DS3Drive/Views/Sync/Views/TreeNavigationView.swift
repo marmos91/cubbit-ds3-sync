@@ -211,7 +211,9 @@ class TreeNavigationViewModel {
                 delimiter: String(DefaultSettings.S3.delimiter)
             )
 
-            node.children = result.commonPrefixes.compactMap { decoded -> TreeNode? in
+            // Filter .thumbnails/ and .trash/ from wizard folder browser (Phase 11)
+            let visiblePrefixes = result.commonPrefixes.filter { S3KeyFilter.isUserVisible(key: $0, drivePrefix: nil) }
+            node.children = visiblePrefixes.compactMap { decoded -> TreeNode? in
                 let displayName = folderDisplayName(fullPrefix: decoded, parentPrefix: nil)
                 return TreeNode(
                     id: "\(project.id)/\(bucket.name)/\(decoded)",
@@ -257,7 +259,9 @@ class TreeNavigationViewModel {
                 delimiter: String(DefaultSettings.S3.delimiter)
             )
 
-            node.children = result.commonPrefixes.map { decoded -> TreeNode in
+            // Filter .thumbnails/ and .trash/ from wizard folder browser (Phase 11)
+            let visibleFolderPrefixes = result.commonPrefixes.filter { S3KeyFilter.isUserVisible(key: $0, drivePrefix: prefix) }
+            node.children = visibleFolderPrefixes.map { decoded -> TreeNode in
                 let displayName = folderDisplayName(fullPrefix: decoded, parentPrefix: prefix)
                 return TreeNode(
                     id: "\(project.id)/\(bucket.name)/\(decoded)",

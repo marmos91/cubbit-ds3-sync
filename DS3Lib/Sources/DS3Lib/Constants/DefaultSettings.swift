@@ -194,6 +194,15 @@ public enum DefaultSettings {
 
         /// S3 key prefix used for the trash folder inside each drive's prefix.
         public static let trashPrefix = ".trash/"
+
+        /// S3 key prefix used for the thumbnails folder inside each drive's prefix.
+        public static let thumbnailsPrefix = ".thumbnails/"
+
+        /// Maximum long-edge dimension for generated thumbnails (pixels).
+        public static let thumbnailMaxDimension = 512
+
+        /// JPEG compression quality for generated thumbnails (0.0 to 1.0).
+        public static let thumbnailJPEGQuality: Float = 0.7
     }
 
     /// Settings related to the trash feature.

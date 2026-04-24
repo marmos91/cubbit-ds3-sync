@@ -135,7 +135,9 @@ class SyncAnchorSelectionViewModel {
 
             self.cleanFoldersIfNeeded()
 
-            for prefix in result.commonPrefixes {
+            // Filter .thumbnails/ and .trash/ from wizard folder browser (Phase 11)
+            let visiblePrefixes = result.commonPrefixes.filter { S3KeyFilter.isUserVisible(key: $0, drivePrefix: self.selectedPrefix) }
+            for prefix in visiblePrefixes {
                 self.folders[self.selectedPrefix ?? ""]?.append(prefix)
             }
 

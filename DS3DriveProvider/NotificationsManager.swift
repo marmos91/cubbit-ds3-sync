@@ -45,6 +45,11 @@ actor NotificationManager {
         self.driveStatus = .idle
         self.ipcService = ipcService ?? makeDefaultIPCService()
         Task { [weak self] in await self?.startCounterWatchdog() }
+        // Force-post .idle on startup so the app clears any stale .error
+        // left over from a prior extension crash. The dedup guard in
+        // postStatusNotification would suppress this (status == driveStatus),
+        // so we post directly via IPC.
+        Task { [weak self] in await self?.forcePostCurrentStatus() }
     }
 
     /// Cancels the counter-watchdog and any in-flight debounce/throttle
@@ -138,6 +143,19 @@ actor NotificationManager {
         }
 
         postStatusNotification(status: status)
+    }
+
+    /// Unconditionally posts the current status, bypassing the dedup guard.
+    /// Used on init to clear stale app-side state after an extension crash/respawn.
+    private func forcePostCurrentStatus() {
+        guard driveStatus == .idle else { return }
+        let driveStatusChange = DS3DriveStatusChange(
+            driveId: drive.id,
+            status: driveStatus
+        )
+        Task { [ipcService] in
+            await ipcService.postStatusChange(driveStatusChange)
+        }
     }
 
     /// Posts the status change notification if the status actually changed.

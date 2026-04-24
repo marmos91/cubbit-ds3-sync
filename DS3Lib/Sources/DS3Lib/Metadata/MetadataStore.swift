@@ -247,6 +247,37 @@ public actor MetadataStore {
         }
     }
 
+    /// Delete rows whose `s3Key` contains, or whose `parentKey` equals, any of the
+    /// supplied sentinel strings. Defends against bug residue where an Apple
+    /// sentinel raw value (e.g. `NSFileProviderTrashContainerItemIdentifier`) was
+    /// concatenated into an S3 key by an earlier write path. Legitimate S3 keys
+    /// never contain these substrings.
+    /// - Returns: The number of rows deleted.
+    @discardableResult
+    public func purgeRowsContainingSentinels(driveId: UUID, sentinels: [String]) throws -> Int {
+        guard !sentinels.isEmpty else { return 0 }
+        let context = modelExecutor.modelContext
+        // Fetch all rows for this drive and filter in Swift. The set of poisoned
+        // rows is tiny in practice and Predicate macros don't compose well over
+        // a dynamic list of substrings.
+        let predicate = #Predicate<SyncedItem> { $0.driveId == driveId }
+        let rows = try context.fetch(FetchDescriptor<SyncedItem>(predicate: predicate))
+        let poisoned = rows.filter { row in
+            for sentinel in sentinels {
+                if row.s3Key.contains(sentinel) { return true }
+                if let parent = row.parentKey, parent == sentinel { return true }
+            }
+            return false
+        }
+        for row in poisoned {
+            context.delete(row)
+        }
+        if !poisoned.isEmpty {
+            try context.save()
+        }
+        return poisoned.count
+    }
+
     /// Fetch items by drive and sync status (e.g., all items in error state).
     public func fetchItems(driveId: UUID, status: SyncStatus) throws -> [SyncedItem] {
         let statusRaw = status.rawValue

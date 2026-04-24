@@ -289,7 +289,7 @@ extension MetadataStore.ItemUpsertData {
             etag: ETagUtils.normalize(item.metadata.etag),
             lastModified: item.metadata.lastModified,
             syncStatus: status,
-            parentKey: item.parentItemIdentifier == .rootContainer ? nil : item.parentItemIdentifier.rawValue,
+            parentKey: NSFileProviderItemIdentifier.safeParentKey(from: item.parentItemIdentifier),
             contentType: item.metadata.contentType,
             size: Int64(truncating: item.metadata.size)
         )

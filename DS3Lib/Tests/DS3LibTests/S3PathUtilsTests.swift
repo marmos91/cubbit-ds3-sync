@@ -247,4 +247,101 @@ final class S3PathUtilsTests: XCTestCase {
         let name = S3PathUtils.suggestedDriveName(bucketName: "my-bucket", prefix: "docs")
         XCTAssertEqual(name, "my-bucket/docs")
     }
+
+    // MARK: - Thumbnail Constants
+
+    func testThumbnailsPrefixConstant() {
+        XCTAssertEqual(DefaultSettings.S3.thumbnailsPrefix, ".thumbnails/")
+    }
+
+    func testThumbnailMaxDimensionConstant() {
+        XCTAssertEqual(DefaultSettings.S3.thumbnailMaxDimension, 512)
+    }
+
+    func testThumbnailJPEGQualityConstant() {
+        XCTAssertEqual(DefaultSettings.S3.thumbnailJPEGQuality, 0.7, accuracy: 0.001)
+    }
+
+    // MARK: - Thumbnail Prefix
+
+    func testThumbnailPrefixWithDrivePrefix() {
+        let prefix = S3PathUtils.thumbnailsPrefix(forDrivePrefix: "photos/")
+        XCTAssertEqual(prefix, "photos/.thumbnails/")
+    }
+
+    func testThumbnailPrefixNilPrefix() {
+        let prefix = S3PathUtils.thumbnailsPrefix(forDrivePrefix: nil)
+        XCTAssertEqual(prefix, ".thumbnails/")
+    }
+
+    func testThumbnailPrefixEmptyPrefix() {
+        let prefix = S3PathUtils.thumbnailsPrefix(forDrivePrefix: "")
+        XCTAssertEqual(prefix, ".thumbnails/")
+    }
+
+    // MARK: - Is Thumbnail Key
+
+    func testIsThumbnailKeyTrue() {
+        XCTAssertTrue(S3PathUtils.isThumbnailKey("prefix/.thumbnails/a.heic.jpg", drivePrefix: "prefix/"))
+    }
+
+    func testIsThumbnailKeyFalse() {
+        XCTAssertFalse(S3PathUtils.isThumbnailKey("prefix/docs/file.txt", drivePrefix: "prefix/"))
+    }
+
+    func testIsThumbnailKeyNilPrefix() {
+        XCTAssertTrue(S3PathUtils.isThumbnailKey(".thumbnails/a.jpg.jpg", drivePrefix: nil))
+    }
+
+    // MARK: - Thumbnail Key Computation
+
+    func testThumbnailKeyForFile() {
+        let key = S3PathUtils.thumbnailKey(forOriginalKey: "prefix/photos/a.heic", drivePrefix: "prefix/")
+        XCTAssertEqual(key, "prefix/photos/.thumbnails/a.heic.jpg")
+    }
+
+    func testThumbnailKeyAppendNotSubstitute() {
+        let key = S3PathUtils.thumbnailKey(forOriginalKey: "prefix/a.jpg", drivePrefix: "prefix/")
+        XCTAssertEqual(key, "prefix/.thumbnails/a.jpg.jpg")
+    }
+
+    func testThumbnailKeyCollisionFree() {
+        let jpgKey = S3PathUtils.thumbnailKey(forOriginalKey: "prefix/a.jpg", drivePrefix: "prefix/")
+        let pngKey = S3PathUtils.thumbnailKey(forOriginalKey: "prefix/a.png", drivePrefix: "prefix/")
+        XCTAssertNotEqual(jpgKey, pngKey, "Thumbnails for different extensions must have distinct keys")
+    }
+
+    func testThumbnailKeyNilPrefix() {
+        let key = S3PathUtils.thumbnailKey(forOriginalKey: "a.heic", drivePrefix: nil)
+        XCTAssertEqual(key, ".thumbnails/a.heic.jpg")
+    }
+
+    func testThumbnailKeyForFolder() {
+        let key = S3PathUtils.thumbnailKey(forOriginalKey: "prefix/photos/vacation/beach.jpg", drivePrefix: "prefix/")
+        XCTAssertEqual(key, "prefix/photos/vacation/.thumbnails/beach.jpg.jpg")
+    }
+
+    // MARK: - Original Key from Thumbnail Key
+
+    func testOriginalKeyFromThumbnailKey() {
+        let original = S3PathUtils.originalKey(fromThumbnailKey: "prefix/photos/.thumbnails/a.heic.jpg", drivePrefix: "prefix/")
+        XCTAssertEqual(original, "prefix/photos/a.heic")
+    }
+
+    // MARK: - Thumbnail Key Round Trip
+
+    func testThumbnailKeyRoundTrip() {
+        let inputs = [
+            ("prefix/photos/vacation/beach.jpg", "prefix/"),
+            ("prefix/a.heic", "prefix/"),
+            ("docs/report.pdf", nil as String?),
+            ("prefix/sub/deep/file.png", "prefix/"),
+        ]
+
+        for (originalKey, drivePrefix) in inputs {
+            let thumbKey = S3PathUtils.thumbnailKey(forOriginalKey: originalKey, drivePrefix: drivePrefix)
+            let restored = S3PathUtils.originalKey(fromThumbnailKey: thumbKey, drivePrefix: drivePrefix)
+            XCTAssertEqual(restored, originalKey, "Round-trip failed for key: \(originalKey)")
+        }
+    }
 }

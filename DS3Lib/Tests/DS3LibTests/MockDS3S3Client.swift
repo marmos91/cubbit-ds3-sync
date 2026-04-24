@@ -21,6 +21,11 @@ final class MockDS3S3Client: DS3S3ClientProtocol, @unchecked Sendable {
     var completeMultipartResult: MultipartCompleteResult = MultipartCompleteResult(etag: "mock-final-etag")
     var shouldThrow: Error?
 
+    // MARK: - Recorded Parameters
+
+    var lastListObjectsMaxKeys: Int?
+    var lastListObjectsPrefix: String?
+
     // MARK: - Call Recording
 
     private let lock = NSLock()
@@ -60,6 +65,8 @@ final class MockDS3S3Client: DS3S3ClientProtocol, @unchecked Sendable {
         continuationToken: String?
     ) async throws -> S3ListingResult {
         record("listObjects(bucket:\(bucket),prefix:\(prefix ?? "nil"))")
+        lastListObjectsMaxKeys = maxKeys
+        lastListObjectsPrefix = prefix
         if let error = shouldThrow { throw error }
         return listObjectsResult
     }

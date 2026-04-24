@@ -17,6 +17,28 @@ private extension NSFileProviderItemIdentifier {
     }
 }
 
+extension NSFileProviderItemIdentifier {
+    /// Returns a safe S3 parent-key string for this identifier, or `nil` for any
+    /// Apple sentinel identifier (`.rootContainer`, `.trashContainer`, `.workingSet`)
+    /// or any non-folder identifier (one whose raw value does not end in `/`).
+    ///
+    /// Use this in place of `parentItemIdentifier.rawValue` whenever constructing
+    /// an S3 key or a `MetadataStore.parentKey` value. Concatenating a sentinel raw
+    /// value (e.g. `"NSFileProviderTrashContainerItemIdentifier"`) into an S3 key
+    /// produces poisoned rows that later resurface at the drive root.
+    static func safeParentKey(from identifier: NSFileProviderItemIdentifier) -> String? {
+        switch identifier {
+        case .rootContainer, .trashContainer, .workingSet:
+            return nil
+        default:
+            guard identifier.rawValue.hasSuffix(String(DefaultSettings.S3.delimiter)) else {
+                return nil
+            }
+            return identifier.rawValue
+        }
+    }
+}
+
 extension FileProviderExtension {
     func performAction(
         identifier actionIdentifier: NSFileProviderExtensionActionIdentifier,

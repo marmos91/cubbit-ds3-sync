@@ -26,7 +26,8 @@ let package = Package(
             dependencies: [
                 "DS3Lib",
                 .product(name: "NIOCore", package: "swift-nio")
-            ]
+            ],
+            resources: [.process("Fixtures")]
         )
     ]
 )

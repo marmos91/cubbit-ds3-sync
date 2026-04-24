@@ -302,6 +302,7 @@ class DS3DriveViewModel {
 
                 let previousStatus = self.driveStatus
                 self.driveStatus = .idle
+                self.driveStats.lastUpdate = Date()
 
                 // When transitioning from sync to idle, mark all syncing entries as completed
                 if previousStatus == .sync {

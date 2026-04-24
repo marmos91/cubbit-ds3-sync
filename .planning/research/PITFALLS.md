@@ -1,520 +1,317 @@
-# Domain Pitfalls: macOS File Provider + S3 Sync
+# Pitfalls Research: v3.1 Thumbnails
 
-**Domain:** macOS File Provider (NSFileProviderReplicatedExtension) with S3 backend
-**Researched:** 2026-03-11
-**Confidence:** HIGH (based on Apple documentation, developer community patterns, existing codebase analysis)
+**Domain:** Thumbnails in File Provider + S3 sync app (macOS 14+ / iOS 17+)
+**Researched:** 2026-04-11
+**Confidence:** HIGH
 
 ## Critical Pitfalls
 
-These mistakes cause data loss, sync failures, or require architectural rewrites.
+### Pitfall 1: Generating thumbnails inside the iOS File Provider extension (20 MB jetsam kill)
+
+**What goes wrong:** Decoding a 12MP HEIC via UIImage, CIImage, or `CGImageSourceCreateImageAtIndex` allocates 40–150MB transient memory — instantly over the iOS File Provider extension's ~20 MB jetsam budget. Extension killed mid-upload → crash loop → `fileproviderd` disables the extension.
+
+Even `CGImageSourceCreateThumbnailAtIndex` with `kCGImageSourceCreateThumbnailFromImageAlways: true` can exceed the budget when the source is a 4:3 48MP iPhone HEIC — no embedded thumbnail matches the requested size, so ImageIO decodes the full image.
+
+**Why it happens:** Symmetric intuition: "macOS does it at upload, so iOS should too." Teams miss that iOS File Provider extensions get the tightest memory class of any extension type (smaller than Share Extensions' ~120MB).
+
+**Prevention:**
+- **Architectural rule: iOS extension = consume-only.** Never call ImageIO/CoreImage/UIImage/CGImageSource in DS3DriveProvider on iOS. Enforce with `#if os(macOS)` gate around the generator type. Import check in the iOS extension target.
+- iOS thumbnail generation lives in `DS3DriveApp` (main app, ~unconstrained memory).
+- iOS extension only *reads* `.thumbnails/<key>.jpg` from S3 — ~30KB JPEG, memory-safe.
+- Memory-budget guard before any ImageIO call: `os_proc_available_memory()` check, bail on low.
+
+**Phase mapping:** Phase A (Foundation) — design-time decision, hard to retrofit.
 
 ---
 
-### Pitfall 1: Missing Local Metadata Database Causes Sync State Corruption
+### Pitfall 2: `.thumbnails/` prefix leaks into enumeration → phantom folder in Finder
 
-**What goes wrong:**
-Without a local database tracking sync state (ETag, LastModified, sync status, version identifiers), the extension cannot detect conflicts, track remote deletions, or recover from interrupted uploads. Every enumeration becomes a full comparison against S3, causing:
-- Files thought to be synced get re-downloaded
-- Modified local files overwrite newer remote versions (data loss)
-- Deleted remote files reappear locally
-- Multipart uploads fail mid-stream with no recovery path
+**What goes wrong:** Filter added to `S3Enumerator.listObjects()` but missed in other paths: `enumerateChanges`, conflict-detection sibling lookup, drive setup wizard "is prefix empty" check, future versioned browsing. User sees `.thumbnails` folder, opens it, either deletes it (catastrophic cascade) or files a bug.
 
-**Why it happens:**
-Developers assume File Provider's internal state is sufficient, or rely solely on S3 metadata. File Provider only tracks item hierarchy, not sync state. S3 is eventually consistent (despite strong consistency in AWS, S3-compatible implementations vary).
-
-**Consequences:**
-- Users lose work from blind overwrites
-- Sync appears to work but silently drops changes
-- No conflict detection → data loss
-- Performance degrades (every change enumeration requires full S3 listing)
+This is the most common "hidden prefix" regression. Dropbox, iCloud, and OneDrive have all shipped this publicly.
 
 **Prevention:**
-- Implement SwiftData schema with: `itemIdentifier`, `etag`, `lastModified`, `localHash`, `syncStatus` (enum: synced/uploading/downloading/conflict), `versionIdentifier`
-- Update database atomically with File Provider operations
-- Use database as source of truth for `enumerateChanges()` and `currentSyncAnchor()`
-- Store sync anchors persistently (don't regenerate on each enumeration)
+- Centralize filter in `S3KeyFilter.isUserVisible(key:)` in DS3Lib. Every S3 list consumer MUST go through it — no direct `.objects` iteration.
+- Apply at source (the `listObjects` wrapper), not at each call site. Opt-out, not opt-in.
+- Mirror every `.trash` filter site — grep the codebase.
+- Unit test: list a bucket containing `.thumbnails/`, `.trash/`, and user keys; assert every code path returns only user keys.
+- Reject user-created top-level `.thumbnails/` via `NSFileProviderError.filenameCollision`.
 
-**Detection:**
-- Same files repeatedly appear in `enumerateChanges()` output
-- Users report "file reverted to old version"
-- Extension logs show full S3 bucket listings on every sync
-- Multipart uploads restart from scratch after app relaunch
-
-**Phase mapping:** Phase 1 (Foundation) — metadata database is prerequisite for all sync operations
+**Phase mapping:** Phase A — filter must land **before** first thumbnail write, or prefix appears in dev builds and poisons dogfood.
 
 ---
 
-### Pitfall 2: Force-Unwrapped Optionals in Extension Initialization Cause Silent Crashes
+### Pitfall 3: Thumbnail upload blocks / breaks the user-visible file upload
 
-**What goes wrong:**
-File Provider extensions run in a separate process. If initialization fails (missing App Group data, corrupted JSON, invalid drive configuration), force-unwrapped optionals (`!`, `as!`) crash the extension process. macOS silently restarts it, creating an infinite crash loop. Users see Finder freeze or "unavailable" status with no error message.
+**What goes wrong:** Naive `try await uploadThumbnail(for: item)` in `createItem`/`modifyItem` critical path:
+1. Thumbnail generation fails (corrupt EXIF) → upload throws → file marked failed → synced-then-error flicker
+2. Thumbnail upload is slow → user's `createItem` appears stalled even though original is on S3
+3. Thumbnail PUT returns `SlowDown` → whole upload retried → doubled bandwidth
 
-**Why it happens:**
-Extensions are harder to debug than main apps (no visible crash logs in Xcode, separate process lifecycle). Developers use force-unwraps during prototyping and forget to add error handling before production.
-
-**Consequences:**
-- Extension never initializes → drives don't appear in Finder
-- Infinite crash loops drain battery and CPU
-- No user-visible error (extension crash logs are buried in Console.app)
-- Support requests with "sync doesn't work" and no actionable info
+**User contract:** uploading a file must succeed as soon as the original bytes are durably on S3. Anything else is a regression vs. v2.0.
 
 **Prevention:**
-- Replace all force-unwraps in `init()` with `guard let ... else { logger.fault(...); return }`
-- Return early from init if critical data is missing (don't crash)
-- Add structured logging to extension (OSLog with subsystem identifier)
-- Validate App Group data on main app launch, not in extension
-- Use `Logger` with `.fault` level for initialization failures
+- **Decouple lifecycles.** `createItem`/`modifyItem` returns `.success` the moment the original is confirmed. Thumbnail generation is fire-and-forget on a separate queue with its own retry, NEVER propagates back.
+- Wrap in `do { try await ... } catch { logger.error(...) }` — catch-all, log, never rethrow.
+- Bounded `OperationQueue` (macOS: `maxConcurrentOperationCount = 2`, iOS: `1`), separate from upload queue.
+- On failure, mark in "thumbnail pending" table. Backfill retries later. No loop-retry on upload path.
+- Telemetry: track `upload_success` and `thumbnail_success` as independent metrics.
 
-**Detection:**
-- Extension process appears/disappears rapidly in Activity Monitor
-- Console.app shows repeated "FileProviderExtension terminated unexpectedly"
-- Finder shows drive but files never appear
-- Memory usage spikes then drops repeatedly
-
-**Phase mapping:** Phase 1 (Foundation) — fix existing force-unwraps in Provider/FileProviderExtension.swift lines 32-53 before adding features
-
-**Existing code example (CRITICAL BUG):**
-```swift
-// Provider/FileProviderExtension.swift:32-53
-let drive = sharedData.loadDriveOrCreate(for: domain.identifier.rawValue)!
-let project = sharedData.loadProjectOrCreate(for: drive.projectId)!
-```
+**Phase mapping:** Phase C (Upload integration) — the integration boundary that determines whether thumbnails ship as a delight or regression.
 
 ---
 
-### Pitfall 3: Sync Anchor State Management Errors Break Change Enumeration
+### Pitfall 4: Returning custom error domains from `fetchThumbnails`
 
-**What goes wrong:**
-Sync anchors represent points-in-time in your backend. Common mistakes:
-- **Stale anchors**: Loading anchor once at init, never refreshing (existing bug in S3Enumerator.swift:17)
-- **Non-advancing anchors**: Returning same anchor after `finishEnumeratingChanges()`, causing infinite loops
-- **Oversized anchors**: Exceeding 500-byte limit causes enumeration failure (Apple enforces this)
-- **No persistence**: Regenerating anchors on each enumeration instead of storing them
+**What goes wrong:** `NSFileProviderThumbnailing` expects `NSFileProviderErrorDomain` or `NSCocoaErrorDomain`. Returning `ThumbnailError.generationFailed` or a Soto `S3ErrorType` causes `Provider returned error 0 from domain ... unsupported`. Entire thumbnail subsystem wedges, **all thumbnails stop loading**, not just the broken one.
 
-**Why it happens:**
-Anchor semantics are poorly documented. Developers treat anchors like timestamps instead of opaque state markers. The 500-byte limit is undocumented in most guides.
-
-**Consequences:**
-- System repeatedly enumerates same changes (infinite loop)
-- Remote changes never detected (anchor doesn't advance)
-- Enumeration fails silently (oversized anchor)
-- High CPU usage from redundant S3 listings
+MEMORY.md already documents this footgun: "NEVER return custom error types to the File Provider system."
 
 **Prevention:**
-- Store sync anchors in metadata database (not just in-memory)
-- Anchor should encode: last enumeration timestamp, continuation token, highest processed modification time
-- Keep anchor data under 500 bytes (use timestamps + S3 continuation token, not full file lists)
-- Refresh anchor from database on each `enumerateChanges()` call, not just at init
-- Advance anchor after every `finishEnumeratingChanges()` call
-- Implement `currentSyncAnchor()` to return latest state before `enumerateChanges()` is called
+- Dedicated `NSError.fileProviderThumbnailError(from:)` mapper. Funnels every thrown error into `NSFileProviderError.noSuchItem`, `.serverUnreachable`, `.notAuthenticated`, or `NSCocoaErrorDomain/NSFileReadUnknownError`.
+- Apply at **outermost** boundary of `fetchThumbnails` — single `do/catch` wraps everything.
+- Per-item errors through `perThumbnailCompletionHandler(id, nil, error)` with mapped error only.
+- Unit test: every `throws` path has a mapping test verifying `NSError.domain` is one of the two allowed.
+- SwiftLint rule / CI grep: `fetchThumbnails.*catch` must be followed by the mapper.
 
-**Detection:**
-- Same files appear in multiple consecutive `enumerateChanges()` batches
-- Logs show identical S3 ListObjectsV2 requests repeatedly
-- System never calls `enumerateChanges()` again after first batch
-- Extension CPU usage remains high during "idle" state
-
-**Phase mapping:** Phase 2 (Sync Engine Revamp) — implement persistent anchor storage with database
-
-**Existing code warning:**
-```swift
-// Provider/S3Enumerator.swift:17
-let syncAnchor = SharedData.default().loadSyncAnchorOrCreate(for: drive, project: project)
-// ⚠️ Never refreshed after init — stale anchor bug
-```
+**Phase mapping:** Phase C (File Provider integration) — lands with first `fetchThumbnails` modification.
 
 ---
 
-### Pitfall 4: Remote Deletion Tracking Not Implemented (Silent Data Reappearance)
+### Pitfall 5: EXIF orientation ignored → rotated / sideways thumbnails
 
-**What goes wrong:**
-When files are deleted remotely (via web UI, API, or another device), `enumerateChanges()` only sees items that currently exist in S3. Locally cached files deleted remotely are never reported as deletions. Result: deleted files reappear in Finder, user deletes again, they reappear again (infinite loop).
-
-**Why it happens:**
-S3 ListObjectsV2 only returns existing objects. To detect deletions, you must compare current S3 listing against your local database of previously synced items. This is not obvious from Apple's File Provider documentation.
-
-**Consequences:**
-- Users cannot permanently delete files (they keep coming back)
-- Storage quota inflates (deleted files still count as "synced")
-- Confusion: "I deleted this file 5 times, why is it still here?"
-- Breaks user trust in sync reliability
+**What goes wrong:** `CGImageSourceCreateThumbnailAtIndex` does NOT apply EXIF orientation by default. Forgetting `kCGImageSourceCreateThumbnailWithTransform: true` ships sideways thumbnails for every portrait iPhone photo. Viewer applies orientation, so desktop-shot QA images never see the bug — only real phone photos.
 
 **Prevention:**
-- In `enumerateChanges()`, load previous sync state from database
-- Compare S3 listing against database: items in DB but not in S3 = deleted remotely
-- Report deletions via `observer.didDelete(with: [itemIdentifier])`
-- Update database to remove deleted items after reporting
-- Handle deletion conflicts: if item modified locally but deleted remotely, create conflict copy
+- Thumbnail options MUST include all four keys:
+  ```swift
+  [
+    kCGImageSourceCreateThumbnailFromImageAlways: true,
+    kCGImageSourceCreateThumbnailWithTransform: true,   // ← critical
+    kCGImageSourceShouldCacheImmediately: true,
+    kCGImageSourceThumbnailMaxPixelSize: 512
+  ]
+  ```
+- Test fixture: at least one JPEG + one HEIC with EXIF orientation 6 (rotated 90° CW). Assert generated dimensions match *oriented* aspect ratio.
+- Visual diff test against known-good PNG.
 
-**Detection:**
-- Users report "deleted files keep reappearing"
-- Database shows items with old sync status that no longer exist in S3
-- `enumerateChanges()` never calls `observer.didDelete()`
-- Finder shows files that don't exist in S3 bucket
-
-**Phase mapping:** Phase 2 (Sync Engine Revamp) — required for production-quality sync
-
-**Existing code warning:**
-```swift
-// Provider/S3Enumerator.swift
-// ⚠️ No deletion tracking implemented
-// Only enumerates items returned by S3 ListObjectsV2
-```
+**Phase mapping:** Phase A (Generator) — table-stakes correctness, catch in unit tests.
 
 ---
 
-### Pitfall 5: Multipart Upload ETag Validation Missing (Silent Upload Failures)
+### Pitfall 6: HEIC decoding performance cliffs on older hardware
 
 **What goes wrong:**
-After completing a multipart upload, the response includes an ETag representing the combined object. If you don't validate this ETag or compare it against local expectations, corrupted uploads succeed silently. S3 may return 200 OK even if parts were assembled incorrectly.
-
-For multipart uploads, ETag format is `<combined-MD5>-<part-count>` (e.g., `33a01f6c513ec334bbdfbc606ad2cbe1-3`). If you discard the CompleteMultipartUpload response (existing bug in S3Lib.swift:631), you never verify the upload succeeded.
-
-**Why it happens:**
-Developers assume HTTP 200 = success. S3 can return 200 but include error details in XML response body. Multipart upload completion is asynchronous on some S3 implementations—response arrives before final assembly completes.
-
-**Consequences:**
-- Corrupted files uploaded successfully (user doesn't know)
-- File size mismatch between local and remote
-- Future downloads fail with data corruption
-- No way to detect partial upload success
+- Older Intel Macs without HEVC hardware decode: HEIC decode works but is 5–10× slower. Bulk backfill of 10,000 HEICs pins a core for an hour.
+- HEIC *output* via `CGImageDestinationCreateWithData` can return `nil` on unusual configs (solution: **always output JPEG** — already the spec).
+- iOS 17 on A9/A10: HEIC decode works but full-image path notably slower than JPEG.
+- Animated WebP/GIF: first frame only, silently drops animation.
 
 **Prevention:**
-- Parse CompleteMultipartUpload response, don't discard it
-- Extract and validate ETag from response
-- Store ETag in metadata database for future conflict detection
-- Compare remote ETag format: single-part = MD5 hash, multipart = `<hash>-<partCount>`
-- If ETag validation fails, delete incomplete object and retry upload
-- Log ETag mismatches at error level for monitoring
+- Output format: **JPEG always**, Q0.7, max 512 px. Defend this.
+- Input format allow-list: check `CGImageSourceGetType(source)` against `public.jpeg, public.png, public.heic, public.heif, com.google.webp, com.compuserve.gif, public.tiff`. Skip unknown types.
+- On iOS, defer heavy formats (HEIC) to `BGProcessingTask` backfill, not foreground.
+- Check `ProcessInfo.thermalState` — suspend on `.serious`/`.critical`, yield BG task.
+- Animated formats: document as "first frame only," not a bug.
 
-**Detection:**
-- File uploads succeed but downloads are corrupted
-- S3 object size differs from local file size
-- Users report "file won't open after upload"
-- Database shows no ETag for uploaded items
-
-**Phase mapping:** Phase 1 (Foundation) — fix existing S3Lib.swift response handling before adding new features
-
-**Existing code example (CRITICAL BUG):**
-```swift
-// Provider/S3Lib.swift:631
-_ = try await s3.completeMultipartUpload(...)
-// ⚠️ Response discarded — no ETag validation
-```
+**Phase mapping:** Phase C (macOS Backfill) + Phase D (iOS Backfill).
 
 ---
 
-### Pitfall 6: Conflict Resolution Without Version Comparison (Data Loss)
+### Pitfall 7: `BGProcessingTask` silently disabled after force-quit
 
-**What goes wrong:**
-Before uploading local modifications, you must compare `versionIdentifier` (or ETag) against current remote state. If versions don't match (concurrent edits), blindly uploading overwrites remote changes. No conflict copy is created. Last write wins = data loss.
-
-**Why it happens:**
-Developers assume S3 object locking or server-side conflict detection exists. S3 has no built-in locking for standard buckets (only versioned buckets with conditional writes). File Provider expects *your* extension to handle conflicts.
-
-**Consequences:**
-- Users lose work from concurrent edits
-- "My changes disappeared" support tickets
-- No recovery path (no conflict copies generated)
-- Breaks collaboration use cases (multiple devices syncing)
+**What goes wrong:** When user force-quits from app switcher, **ALL `BGTaskScheduler` tasks are disabled** until manual re-launch. Apple documented behavior. User opens app, sees empty queue, swipes to close, expects thumbnails overnight — doesn't happen. "Thumbnails are broken."
 
 **Prevention:**
-- Before `modifyItem()`, fetch current S3 object metadata (HeadObject to get ETag)
-- Compare remote ETag against database `versionIdentifier`
-- If mismatch: create conflict copy with naming pattern `<filename> (Conflict <timestamp>).<ext>`
-- Upload conflict copy as new object, preserve both versions
-- Signal `enumerateChanges()` to report both items
-- Update UI to show conflict icon (future: Finder overlays)
+- Treat **foreground generation as primary** iOS path. BG task is opportunistic supplement.
+- UX: show "X photos still generating. Keep the app open or plug in overnight to finish." Be explicit.
+- After every successful `BGProcessingTask` run, schedule next from within handler. `submit` failure → log `.fault`, surface in settings.
+- Do NOT block feature delivery on BG task success. Foreground generation + macOS extension (via shared `.thumbnails/` prefix) is the guaranteed completion path.
+- PushKit remote-change detection is a v3.2+ improvement (already on roadmap) — survives force-quit for *sync notifications*, though still not for *generation*.
 
-**Detection:**
-- Users report "my edits vanished"
-- Database shows mismatched ETags vs S3 reality
-- No conflict copies in S3 bucket despite concurrent edits
-- Sync appears to work but changes are lost
-
-**Phase mapping:** Phase 2 (Sync Engine Revamp) — conflict resolution is table-stakes for production
+**Phase mapping:** Phase D (iOS Backfill) — affects UX copy + "is backfill done?" messaging.
 
 ---
 
-### Pitfall 7: Synchronous App Group File I/O Blocks Extension Thread (UI Freezes)
+### Pitfall 8: Rename / delete cascade races → orphaned thumbnails accumulate
 
 **What goes wrong:**
-File Provider extensions share data with the main app via App Group containers. If you perform synchronous JSON serialization/deserialization on the extension's main thread (existing pattern in SharedData), heavy I/O (large drive lists, slow disk) blocks enumeration callbacks. System timeouts trigger, extension is killed, Finder shows "unavailable".
+1. Delete original succeeds, delete thumbnail fails (network) → no retry → orphan forever
+2. Rename: copy succeeds, delete old thumbnail fails → two thumbnails → stale one attaches to future upload at same key (ghost thumbnail)
+3. Cross-prefix move: 1000-image move → 1000 generation jobs → iOS BGProcessingTask explodes
+4. Trash cascade decision: does thumbnail also go to trash? Either answer has trade-offs.
 
-**Why it happens:**
-App Group containers are convenience APIs. Easy to use synchronously. No obvious async alternative. Developers don't test with slow storage or large datasets.
-
-**Consequences:**
-- Finder freezes when opening drive folders
-- Extension killed by watchdog timeout (system expects enumeration within seconds)
-- Poor UX on spinning disks or network-mounted home directories
-- Scales poorly with number of drives (3+ drives = noticeable lag)
+Orphans invisible until someone asks "why is the bucket 2× visible content?"
 
 **Prevention:**
-- Move all App Group file I/O to background queues
-- Use async/await for SharedData load/save operations
-- Implement in-memory caching with invalidation strategy (don't reload on every access)
-- Batch writes (don't save on every change)
-- Consider Protocol Buffers or other binary formats instead of JSON for large data
-- Test with 10+ drives and slow storage (external HDD)
+- **Always delete thumbnail AFTER original.** Failed original delete → thumbnail stays → next retry both go. Thumbnail without original is benign; original without thumbnail is missing-feature not bug.
+- Rename: copy to new key FIRST, rename original, delete old thumb. Overlap window has *two* thumbnails (degrades gracefully).
+- Move across prefixes: treat as delete + regenerate from thumbnail perspective. Document trade-off.
+- `thumbnail_pending_deletion` table with exponential backoff retry. Never silently drop.
+- Periodic orphan reconciler: list `.thumbnails/` batches, HEAD original, delete orphans. **Cap at N per run.**
+- Trash: hard-delete thumbnails on trash (not mirror to trash). Restore regenerates on next backfill.
 
-**Detection:**
-- Finder "beach ball" when expanding drive folders
-- Console.app shows "FileProviderExtension timeout" errors
-- Extension process CPU spikes during idle state
-- Latency increases linearly with number of configured drives
+**Phase mapping:** Phase C (Lifecycle cascade) — must land with upload path.
 
-**Phase mapping:** Phase 3 (Performance) — optimize after core sync is working
+---
+
+### Pitfall 9: `fetchThumbnails` fanout → unbounded S3 GETs → rate limiting
+
+**What goes wrong:** 500-image folder → Finder asks for all 500 thumbnails in one batch → naive impl fires 500 parallel GETs → `SlowDown` 503s → network saturation → timeouts → Finder shows generic icons indefinitely.
+
+**Prevention:**
+- Mirror existing `BucketListingLimiter` pattern with `ThumbnailFetchLimiter` — capped concurrency (macOS: 4, iOS: 2), queue the rest.
+- Respect `progress.isCancelled` — abort pending fetches if Finder scrolls away.
+- **Cache aggressively.** Write generated thumbnails to `NSFileProviderManager.temporaryDirectoryURL` — subsequent calls for same `itemIdentifier` return cached without S3 refetch.
+- Return `NSFileProviderError.serverUnreachable` (not `.noSuchItem`) on S3 `SlowDown` so system retries later.
+
+**Phase mapping:** Phase C (File Provider integration) — same pattern as existing `BucketListingLimiter`.
+
+---
+
+### Pitfall 10: Reconciliation loop that never terminates
+
+**What goes wrong:** "Find items missing thumbnail, generate them" loop terminates when nothing missing. But if any item can't be processed (corrupt JPEG, unsupported variant, permission error), every pass rediscovers and re-attempts. Backfill says "99% forever." iOS BGProcessingTask slots burned on unproductive work.
+
+**Prevention:**
+- **Negative cache.** `thumbnail_unprocessable` set for items that failed N times with permanent-looking error. Skip future passes. Retry only on manual "rebuild" or app version bump.
+- Attempt counter per item; after 3 consecutive failures → mark unprocessable.
+- Distinguish permanent (`CGImageSourceStatusInvalidData`) from transient (`NSURLErrorNotConnectedToInternet`). Only permanent → unprocessable.
+- Termination: `pending.isEmpty || allPendingAreUnprocessable`.
+- **UI counts unprocessable as "done."** Show "100% — 3 unsupported files skipped" not "99%".
+- Cap iterations per run (`maxIterationsPerBackgroundRun = 1000`). Yield after cap.
+- Telemetry: "made progress" metric per run. Zero new thumbnails + zero new unprocessables → wedged → log `.fault`.
+
+**Phase mapping:** Phase C + D (Backfill) — termination condition is load-bearing for UX.
+
+---
+
+### Pitfall 11: Naive bulk backfill on existing bucket → cost spike + rate limiting
+
+**What goes wrong:** User enables v3.1 on 50,000-image bucket. First reconciler run = 50,000 GET + 50,000 PUT = 100,000 S3 ops. Cubbit bills per-request → bill doubles. `SlowDown` throttles. iOS: ~8 hours of BGProcessingTask slots, realistically never completes. On cellular, downloading originals to generate burns data cap.
+
+**Prevention:**
+- **Opportunistic, not eager.** Do NOT full-bucket-scan on feature launch.
+  1. Generate for new uploads (proportional to usage)
+  2. Generate as items are enumerated by Finder/Files (user already looking)
+  3. User-triggered "Generate thumbnails for existing files" in Settings, with bandwidth/cost warning
+- Rate-limit reconciler: target <N requests/minute. Config-tunable.
+- Respect `NWPathMonitor.currentPath.isExpensive` on iOS — skip on cellular default, opt-in.
+- On macOS, gate on `isConstrained` (hotspot/metered Wi-Fi).
+- Range-GET first ~256KB of large images if ImageIO can work with truncated source (safe for JPEG, unsafe for progressive PNG — format-gated).
+- **Persist progress across app launches.** Don't restart from zero.
+
+**Phase mapping:** Phase C + D (Backfill) — most cost-sensitive decision of the milestone.
 
 ---
 
 ## Moderate Pitfalls
 
-These cause degraded UX or reliability issues but don't result in data loss.
+### Pitfall 12: Stale thumbnail on overwrite at same key
+**What:** User uploads `photo.jpg`, thumbnail generated. User overwrites with different content at same name. Reconciler sees "thumbnail exists," skips regen. Old thumbnail forever.
+**Prevention:** On `modifyItem`, ALWAYS regenerate. Include source ETag in thumbnail metadata (`x-amz-meta-source-etag`). Reconciler compares, detects stale.
+**Phase:** C (Lifecycle)
 
----
+### Pitfall 13: `autoreleasepool` alone doesn't prevent iOS memory spikes
+**What:** Peak allocation during `CGImageSourceCreateImageAtIndex` happens *inside* the call. Pool drains only on return. By then jetsam has fired.
+**Prevention:** Belt-and-suspenders — pool + `os_proc_available_memory()` check + format allow-list + thumbnail-only decode path first. On iOS extension: **don't decode at all** (Pitfall 1).
+**Phase:** A (Generator)
 
-### Pitfall 8: Working Set Container Not Signaled for Remote Changes
+### Pitfall 14: `fetchThumbnails` called for undownloaded on-demand items
+**What:** Item contents not yet local. Impl tries to read local file → fails → returns `.noSuchItem` → Finder thinks item doesn't exist.
+**Prevention:** Thumbnail path reads `.thumbnails/<key>.jpg` directly from S3 — **never attempts to download original from within `fetchThumbnails`**. Thumbnailing must be independent of content path.
+**Phase:** C (File Provider integration)
 
-**What goes wrong:**
-When remote changes occur, you must call `NSFileProviderManager.signalEnumerator(for: .workingSet)` to trigger `enumerateChanges()`. If you signal specific folder containers instead, the system may not detect changes in other folders. Remote edits appear stale until manual refresh.
+### Pitfall 15: `.thumbnails/` prefix collides with user's legacy folder
+**What:** User has existing `.thumbnails` folder from another tool. v3.1 reads/writes there, corrupts user data.
+**Prevention:** Detect existing `.thumbnails/` at drive setup. If present with objects that don't match our naming/format, refuse to enable OR use more uncollidable prefix (`.ds3drive/thumbs/` — two levels deep, very unlikely).
+**Phase:** A (Foundation) — prefix name decision is irreversible after first ship.
 
-**Why it happens:**
-Intuition says "signal the folder that changed". File Provider documentation is unclear about working set semantics.
+### Pitfall 16: iOS main app suspended mid-generation
+**What:** Main app running in background with extension active → ~30s window before suspend → mid-operation JPEG write corrupted.
+**Prevention:** All thumbnail PUTs must be **single-part** (never multipart a 30KB JPEG). Use `UIApplication.beginBackgroundTask(withName:)` around individual generate+upload. On `willResignActive`, drain current + stop queue.
+**Phase:** D (iOS Backfill)
 
-**Prevention:**
-- Always signal `.workingSet` for remote changes, not specific folders
-- Only signal specific folders for UI-driven operations (user browsed a folder)
-- Implement periodic background working set refresh (every 5-15 minutes)
-
-**Detection:**
-- Remote changes appear only after user manually refreshes Finder
-- Logs show signaling for specific `NSFileProviderItemIdentifier` instead of `.workingSet`
-
-**Phase mapping:** Phase 2 (Sync Engine Revamp)
-
----
-
-### Pitfall 9: Pagination Size Ignored (Performance Degradation with Large Buckets)
-
-**What goes wrong:**
-Apple provides `suggestedPageSize` in enumeration callbacks. Returning 10,000+ items in a single batch causes:
-- Memory spikes (all items materialized in extension process)
-- Slow UI updates (Finder waits for entire batch)
-- Extension timeout (system expects results within seconds)
-
-System enforces maximum of 100x suggested size, but you should respect the suggestion.
-
-**Why it happens:**
-Developers want to "finish quickly" and return everything at once. S3 ListObjectsV2 supports 1000 items per request—tempting to return all in one batch.
-
-**Prevention:**
-- Respect `suggestedPageSize` (typically 200-500 items)
-- Use S3 continuation tokens to implement pagination
-- Return batches with `moreComing: true` until enumeration complete
-- Test with buckets containing 50,000+ objects
-
-**Detection:**
-- Extension memory usage spikes during enumeration
-- Finder slow to populate large folders
-- System kills extension with "memory exceeded" errors
-
-**Phase mapping:** Phase 3 (Performance)
-
----
-
-### Pitfall 10: No Progress Reporting During Long Operations (User Confusion)
-
-**What goes wrong:**
-File Provider provides `NSProgress` objects for downloads/uploads. If you don't update `progress.completedUnitCount` during multipart uploads or large downloads, users see:
-- Indeterminate progress spinners (no ETA)
-- No indication if operation stalled vs progressing slowly
-- Cannot cancel stalled operations (progress not observed for cancellation)
-
-**Prevention:**
-- Update `Progress.completedUnitCount` after each multipart upload part
-- Monitor `progress.isCancelled` and abort early if true
-- Report realistic `totalUnitCount` based on file size and part size
-- Use Finder's native progress UI (automatically wired if Progress updated correctly)
-
-**Detection:**
-- Users report "can't tell if upload is stuck or working"
-- Activity Monitor shows network activity but Finder shows no progress
-- Canceling operations doesn't stop network requests
-
-**Phase mapping:** Phase 3 (Performance)
-
----
-
-### Pitfall 11: Bundle Files Treated as Atomic (Fails for .app, .bundle, etc.)
-
-**What goes wrong:**
-macOS bundles (`.app`, `.bundle`, `.xcodeproj`) appear as single files in Finder but are directories internally. If you upload them as single objects via `fetchContents()`, internal structure is lost. Downloads fail to reconstruct bundle.
-
-**Why it happens:**
-File Provider calls `fetchContents()` for bundles (system sees them as files). You must detect bundle type and recursively enumerate internal structure.
-
-**Prevention:**
-- Detect bundle types via UTType checking
-- Recursively iterate internal files/subdirectories
-- Upload each component as separate S3 object with path prefix
-- On download, reconstruct directory structure locally
-
-**Detection:**
-- Users report ".app files won't run after download"
-- Xcode projects appear as single file instead of directory structure
-
-**Phase mapping:** Phase 4 (Robustness) — edge case but critical for developer workflows
-
----
-
-### Pitfall 12: Error Code Misuse Breaks System Retry Logic
-
-**What goes wrong:**
-File Provider error codes influence system behavior:
-- `.notAuthenticated` → system prompts for re-authentication
-- `.serverUnreachable` → system retries automatically
-- `.noSuchItem` → system assumes permanent failure, no retry
-- `.insufficientQuota` → system shows storage full UI
-
-Returning wrong error codes:
-- Breaks automatic retry (transient network error as `.noSuchItem`)
-- Causes incorrect UI (authentication prompt for network timeout)
-- Prevents user recovery (quota error with no remediation path)
-
-**Prevention:**
-- Map S3 errors correctly:
-  - 401/403 → `.notAuthenticated`
-  - 404 → `.noSuchItem` (only if item truly doesn't exist)
-  - Network timeout → `.serverUnreachable`
-  - 503 → `.serverUnreachable`
-  - 507 → `.insufficientQuota`
-- Use helper functions: `NSError.fileProviderErrorForCollision(with:)`
-- Log error mapping decisions for debugging
-
-**Detection:**
-- System never retries transient failures
-- Authentication prompts appear during network outages
-- Users report "no way to fix sync errors"
-
-**Phase mapping:** Phase 1 (Foundation) — fix existing error handling in FileProviderExtension+Errors.swift
-
-**Existing code warning:**
-```swift
-// Provider/FileProviderExtension+Errors.swift:38-42
-// ⚠️ Generic mapping loses S3 error context
-case .s3Error: return NSError(domain: NSCocoaErrorDomain, code: NSFileReadUnknownError)
-```
+### Pitfall 17: Thumbnail format metadata missing → regeneration loop
+**What:** Can't tell if `.thumbnails/photo.jpg.jpg` was written by v3.1 or future v3.2 with different dimensions.
+**Prevention:** Write `x-amz-meta-ds3drive-thumb-version: 1` + `x-amz-meta-ds3drive-thumb-size: 512` on every PUT. On read, version mismatch → pending regen (bounded — not whole bucket on every update).
+**Phase:** C (Lifecycle)
 
 ---
 
 ## Minor Pitfalls
 
----
+### Pitfall 18: JPEG Q0.7 too aggressive for line-art/screenshots
+Ringing artifacts on text. Document as known limitation; defer PNG-fallback heuristic to v3.2.
 
-### Pitfall 13: Continuation Token Pagination Not Tested at Scale
+### Pitfall 19: Pixel vs point confusion
+`NSFileProviderThumbnailing.requestedSize` is in pixels. Pass directly into `kCGImageSourceThumbnailMaxPixelSize`. Don't convert via UIKit/AppKit point.
 
-**What goes wrong:**
-S3 ListObjectsV2 returns max 1000 objects per request. For larger buckets, continuation tokens paginate results. If pagination logic has off-by-one errors or doesn't handle final page correctly, items are silently lost.
-
-**Prevention:**
-- Integration tests with 10,000+ object buckets
-- Validate all continuation token branches
-- Log total enumerated count vs expected S3 object count
-
-**Detection:**
-- File counts don't match between S3 and Finder
-- Some files never appear locally despite existing in S3
-
-**Phase mapping:** Phase 5 (Testing/Validation)
+### Pitfall 20: Missing `signalEnumerator(.workingSet)` after backfill
+Generates 1000 thumbnails but never signals → Finder shows generic icons until manual refresh. Debounced signal at batch boundaries (max once per 2s, not per-item).
 
 ---
 
-### Pitfall 14: Hardcoded Multipart Upload Part Size Suboptimal
+## Phase-Specific Warning Matrix
 
-**What goes wrong:**
-Fixed 5MB part size (existing code in DefaultSettings.S3.multipartUploadPartSize) is suboptimal for:
-- Fast networks (larger parts = fewer S3 requests)
-- Slow networks (smaller parts = better retry granularity)
-- Large files (10,000 part limit → max 50GB file with 5MB parts)
-
-**Prevention:**
-- Make part size configurable (user preference or adaptive)
-- Auto-adjust based on file size: 5MB for <100MB, 10MB for <1GB, 50MB for >1GB
-- Stay within S3 limits: 5MB min, 5GB max, 10,000 parts max
-
-**Detection:**
-- Uploads fail for files >50GB
-- Slow upload throughput on fast networks (overhead from many small parts)
-
-**Phase mapping:** Phase 4 (Robustness)
-
----
-
-### Pitfall 15: Move Operations Fail with NoSuchKey (Intermittent Race Condition)
-
-**What goes wrong:**
-Existing bug comment in FileProviderExtension.swift:362 indicates intermittent NoSuchKey errors during move operations. Likely cause: S3 CopyObject completes but source object not yet fully replicated before DeleteObject is called (eventual consistency on S3-compatible storage).
-
-**Prevention:**
-- After CopyObject, validate destination object exists (HeadObject) before deleting source
-- Add retry logic with exponential backoff for move operations
-- Use S3 conditional writes (If-Match with ETag) to detect race conditions
-- Consider implementing moves as metadata-only operations in database until both copy and delete confirmed
-
-**Detection:**
-- Users report "move failed" errors intermittently
-- Logs show NoSuchKey during DeleteObject after successful CopyObject
-
-**Phase mapping:** Phase 2 (Sync Engine Revamp) — existing bug, needs root cause analysis
+| Phase | Likely Pitfall | Mitigation |
+|-------|---------------|------------|
+| **A: Foundation + Generator** | #1 iOS imports generator | `#if os(macOS)` gate + target exclusion |
+| | #5 EXIF orientation | All four ImageIO options + HEIC rotation fixture |
+| | #2 `.thumbnails/` single-site filter | Centralize in `S3KeyFilter` in DS3Lib |
+| | #15 User prefix collision | Check at drive setup |
+| **B: Storage & Renderer** | #13 Memory spike during decode | `os_proc_available_memory()` guard, format allow-list |
+| **C: macOS Integration** | #3 Thumbnail failure breaks upload | Fire-and-forget + catch-all |
+| | #4 Custom error domain | Mandatory `NSError.fileProviderThumbnailError` mapper |
+| | #12 Stale thumbnail on overwrite | Always regenerate on modify + ETag metadata |
+| | #8 Orphaned thumbnails | Delete-after-original, rename = copy-before-delete |
+| | #9 Fetch fanout | `ThumbnailFetchLimiter` mirroring `BucketListingLimiter` |
+| | #14 Thumbnailing undownloaded items | Read `.thumbnails/` from S3 directly, never download original |
+| | #11 Bulk backfill cost spike | Opportunistic default, user-triggered for existing |
+| | #6 HEIC performance cliff | Format allow-list + thermal-state gating |
+| | #10 Reconciler never terminates | Negative cache + iteration cap + progress telemetry |
+| **D: iOS Backfill** | #7 Force-quit disables BG | Foreground-primary UX; BG is supplemental |
+| | #16 Main-app suspend mid-generation | Single-part PUT + `beginBackgroundTask` per op |
+| | #6 HEIC on A9/A10 | Thermal-state gating, defer heavy to BG slots |
+| **Polish** | #17 Format versioning | `x-amz-meta-ds3drive-thumb-version` |
+| | #20 Missing enumerator signal | Debounced `.workingSet` signal at batch boundaries |
 
 ---
 
-## Phase-Specific Warnings
+## Key Findings
 
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| Phase 1: Foundation & Metadata DB | Force-unwraps crash extension silently | Replace all `!` with `guard let` + logging |
-| Phase 1: Foundation & Metadata DB | Multipart upload response discarded | Parse and validate ETag from CompleteMultipartUpload |
-| Phase 2: Sync Engine Revamp | No remote deletion tracking | Compare S3 listings against database state |
-| Phase 2: Sync Engine Revamp | Sync anchors never advance | Store anchors persistently, update after finishEnumeratingChanges |
-| Phase 2: Sync Engine Revamp | No conflict resolution | Compare ETags before modifyItem, create conflict copies on mismatch |
-| Phase 2: Sync Engine Revamp | Working set not signaled | Always signal .workingSet for remote changes |
-| Phase 3: Performance Optimization | Synchronous App Group I/O blocks threads | Move SharedData to async/await, add caching |
-| Phase 3: Performance Optimization | Pagination ignored for large buckets | Respect suggestedPageSize, implement continuation token pagination |
-| Phase 3: Performance Optimization | No progress reporting | Update NSProgress during multipart uploads |
-| Phase 4: Robustness & Edge Cases | Bundle files uploaded as single objects | Detect bundles, recursively upload internal structure |
-| Phase 4: Robustness & Edge Cases | Hardcoded multipart part size | Make adaptive based on file size and network speed |
-| Phase 5: Error Handling & Logging | Wrong error codes break retry logic | Map S3 errors to correct NSFileProviderError codes |
-| Phase 5: Error Handling & Logging | No structured logging in extension | Implement OSLog with subsystem, log all errors at appropriate levels |
+1. **iOS extension = consume-only is the single load-bearing architectural decision.** Any generation on iOS extension is a ticking jetsam bomb. Enforce via `#if os(macOS)` from day one — not retrofittable.
 
----
+2. **Three regression multipliers must land together in Phase C:** (a) centralized `.thumbnails/` filter via `S3KeyFilter`, (b) fire-and-forget decoupling of thumbnail from upload lifecycle, (c) mandatory `NSError` domain mapper at `fetchThumbnails` boundary. Missing any one causes user-visible breakage.
+
+3. **`BGProcessingTask` is unreliable by design** (force-quit disables). Treat as bonus, not primary. Foreground iOS main app + macOS extension via shared `.thumbnails/` prefix is the guaranteed completion path.
+
+4. **Bulk backfill on existing buckets is the highest-cost-risk scenario.** Default to opportunistic; never eager-scan on feature launch.
+
+5. **EXIF orientation** is the highest-probability "invisible in QA, visible in prod" bug. `kCGImageSourceCreateThumbnailWithTransform: true` is mandatory, needs fixture-backed test.
+
+## Open Questions for Codebase Audit
+
+- Exact list of S3 `ListObjectsV2` call sites (for filter centralization audit) — needs codebase-research before Phase A scoping.
+- Actual iOS File Provider extension jetsam budget on A9/A10 vs A14+ — v2.0 says "tight," Apple doesn't publish. Empirical measurement recommended before finalizing generator's memory guard.
+- Whether Cubbit DS3 supports S3 `Range` requests on HEIC (for truncated-decode optimization in Pitfall 11).
+- Whether existing `BucketListingLimiter` can be generalized to reusable `S3RequestLimiter`.
 
 ## Sources
 
-### File Provider Best Practices
-- [Build your own cloud sync on iOS and macOS using Apple FileProvider APIs](https://claudiocambra.com/posts/build-file-provider-sync/) — Comprehensive implementation guide with pitfall warnings
-- [NSFileProviderReplicatedExtension Documentation](https://developer.apple.com/documentation/fileprovider/nsfileproviderreplicatedextension?language=objc) — Official Apple documentation
-- [How to Work with the File Provider API on macOS](https://www.apriorit.com/dev-blog/730-mac-how-to-work-with-the-file-provider-for-macos) — Implementation challenges and solutions
-- [macOS File Provider extension debugging example](https://github.com/neXenio/macosfileproviderexample) — Example project with debugging setup
+### Apple Documentation
+- [`NSFileProviderThumbnailing.fetchThumbnails`](https://developer.apple.com/documentation/fileprovider/nsfileproviderthumbnailing/fetchthumbnails(for:requestedsize:perthumbnailcompletionhandler:completionhandler:))
+- [`kCGImageSourceCreateThumbnailWithTransform`](https://developer.apple.com/documentation/imageio/kcgimagesourcecreatethumbnailwithtransform)
+- [`CGImageSourceCreateThumbnailAtIndex`](https://developer.apple.com/documentation/imageio/cgimagesourcecreatethumbnailatindex(_:_:_:))
 
-### S3 Conflict Detection & ETags
-- [Tracking File Changes in S3 Using ETags](https://geeklogbook.com/tracking-file-changes-in-s3-using-etags/) — ETag behavior for conflict detection
-- [Understanding AWS S3 ETag](https://www.artofcode.org/blog/aws-s3-etag/) — Multipart upload ETag format
-- [How to prevent object overwrites with conditional writes](https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-writes.html) — AWS S3 conflict resolution mechanisms
-- [Debugging S3 Multipart Upload Failures](https://medium.com/@Adekola_Olawale/debugging-s3-multipart-upload-failures-271fdfd21244) — Common multipart upload issues
-
-### S3 Consistency & Best Practices
-- [How to handle eventual consistency with S3](https://markdboyd.medium.com/how-to-handle-eventual-consistency-with-s3-5cfbe97d1f18) — Eventual consistency patterns
-- [Best practices: managing multipart uploads](https://docs.aws.amazon.com/filegateway/latest/files3/best-practices-managing-multi-part-uploads.html) — AWS official best practices
-- [Uploading and copying objects using multipart upload](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html) — Multipart upload reference
-
-### Debugging & Production Issues
-- [File Provider API on macOS](https://www.perfectiongeeks.com/how-to-work-with-the-file-provider-for-macos) — Production deployment challenges
-- [Apple Developer Forums: File Provider](https://developer.apple.com/forums/tags/fileprovider?page=2) — Community-reported issues
-- [macOS 12.3 File Provider challenges](https://9to5mac.com/2022/04/16/macos-12-3s-challenges-with-cloud-file-providers-highlights-the-benefits-of-managing-corporate-files-in-the-browser/) — Platform-level issues affecting all File Provider apps
+### Memory & Background Task Constraints
+- Dealing with memory limits in iOS app extensions — Igor Kulman
+- Background fetch after app is force-quit — Apple Developer Forums
+- BGProcessingTask Terminated Due to... — Apple Developer Forums
+- Common Reasons for Background Tasks to Fail — Andy Ibanez
 
 ### Project-Specific Context
-- `.planning/PROJECT.md` — DS3 Drive project requirements and constraints
-- `.planning/codebase/CONCERNS.md` — Existing bugs and technical debt analysis
-- `.planning/codebase/COMPETITIVE_LANDSCAPE.md` — Apple File Provider best practices from competitors
+- CLAUDE.md — File Provider error-domain rule, 20 MB jetsam context
+- PROJECT.md — v3.1 milestone spec
+- `.planning/milestones/v2.0-research/PITFALLS.md` — Prior v2.0 research (BucketListingLimiter pattern, error-code mapping, sync anchor rules)
+- MEMORY.md — "NEVER return custom error types to the File Provider system"

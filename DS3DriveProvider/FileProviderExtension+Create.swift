@@ -44,8 +44,19 @@ extension FileProviderExtension {
             return Progress()
         }
 
-        let parentKey: String? = itemTemplate.parentItemIdentifier == .rootContainer ? nil : itemTemplate
-            .parentItemIdentifier.rawValue
+        // Trashing flows through modifyItem(parent: .trashContainer) → performMoveToTrash,
+        // never createItem. Reject directly so the system retries the right path
+        // and we never write a sentinel-prefixed key into S3.
+        if itemTemplate.parentItemIdentifier == .trashContainer {
+            self.logger
+                .warning(
+                    "Rejecting createItem with .trashContainer parent for \(itemTemplate.filename, privacy: .public)"
+                )
+            completionHandler(nil, [], false, NSFileProviderError(.noSuchItem) as NSError)
+            return Progress()
+        }
+
+        let parentKey = NSFileProviderItemIdentifier.safeParentKey(from: itemTemplate.parentItemIdentifier)
 
         var key = (parentKey ?? "") + itemTemplate.filename
 

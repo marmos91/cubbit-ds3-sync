@@ -265,4 +265,38 @@ final class S3ItemTests: XCTestCase {
         )
         XCTAssertEqual(item.parentItemIdentifier, .rootContainer)
     }
+
+    // MARK: - safeParentKey
+
+    func testSafeParentKeyRootContainerMapsToNil() {
+        XCTAssertNil(NSFileProviderItemIdentifier.safeParentKey(from: .rootContainer))
+    }
+
+    func testSafeParentKeyTrashContainerMapsToNil() {
+        XCTAssertNil(NSFileProviderItemIdentifier.safeParentKey(from: .trashContainer))
+    }
+
+    func testSafeParentKeyWorkingSetMapsToNil() {
+        XCTAssertNil(NSFileProviderItemIdentifier.safeParentKey(from: .workingSet))
+    }
+
+    func testSafeParentKeyFolderIdentifierReturnsRawValue() {
+        let folder = NSFileProviderItemIdentifier("Cubbit/notes/")
+        XCTAssertEqual(NSFileProviderItemIdentifier.safeParentKey(from: folder), "Cubbit/notes/")
+    }
+
+    func testSafeParentKeyFileIdentifierMapsToNil() {
+        let file = NSFileProviderItemIdentifier("Cubbit/notes/photo.jpg")
+        XCTAssertNil(NSFileProviderItemIdentifier.safeParentKey(from: file))
+    }
+
+    func testSafeParentKeyEmptyIdentifierMapsToNil() {
+        let empty = NSFileProviderItemIdentifier("")
+        XCTAssertNil(NSFileProviderItemIdentifier.safeParentKey(from: empty))
+    }
+
+    func testSafeParentKeyRootLevelFolderReturnsRawValue() {
+        let folder = NSFileProviderItemIdentifier("Personal/")
+        XCTAssertEqual(NSFileProviderItemIdentifier.safeParentKey(from: folder), "Personal/")
+    }
 }

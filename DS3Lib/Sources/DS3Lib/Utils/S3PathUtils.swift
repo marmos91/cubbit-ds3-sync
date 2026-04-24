@@ -95,6 +95,68 @@ public enum S3PathUtils {
         return parentIdentifier + String(delimiter)
     }
 
+    // MARK: - Thumbnail Helpers
+
+    /// Computes the thumbnails prefix for a drive (e.g., "prefix/.thumbnails/").
+    /// - Parameter drivePrefix: The drive's S3 prefix (e.g., "photos/"), or nil for root
+    /// - Returns: The full thumbnails prefix (e.g., "photos/.thumbnails/")
+    public static func thumbnailsPrefix(forDrivePrefix drivePrefix: String?) -> String {
+        (drivePrefix ?? "") + DefaultSettings.S3.thumbnailsPrefix
+    }
+
+    /// Returns true if the key lives inside any `.thumbnails/` segment.
+    /// Handles both root and per-folder placement of `.thumbnails/`.
+    /// - Parameters:
+    ///   - key: The S3 object key
+    ///   - drivePrefix: The drive's S3 prefix
+    /// - Returns: true if the key is a thumbnail
+    public static func isThumbnailKey(_ key: String, drivePrefix: String?) -> Bool {
+        let prefix = drivePrefix ?? ""
+        let relative = key.hasPrefix(prefix) ? key.dropFirst(prefix.count) : key[...]
+        return relative.hasPrefix(DefaultSettings.S3.thumbnailsPrefix)
+            || relative.contains("/\(DefaultSettings.S3.thumbnailsPrefix)")
+    }
+
+    /// Computes the thumbnail key for an original key.
+    /// `.thumbnails/` folder is placed in the SAME directory as the original,
+    /// and `.jpg` is appended to the full filename (not substituted).
+    /// Example: "prefix/photos/a.heic" -> "prefix/photos/.thumbnails/a.heic.jpg"
+    /// - Parameters:
+    ///   - key: The original S3 key
+    ///   - drivePrefix: The drive's S3 prefix
+    /// - Returns: The thumbnail key
+    public static func thumbnailKey(forOriginalKey key: String, drivePrefix _: String? = nil) -> String {
+        let delimiter = DefaultSettings.S3.delimiter
+        let components = key.split(separator: delimiter, omittingEmptySubsequences: false)
+        guard let filename = components.last else { return key }
+
+        let parentComponents = components.dropLast()
+        let parent = parentComponents.isEmpty ? "" : parentComponents
+            .joined(separator: String(delimiter)) + String(delimiter)
+
+        return parent + DefaultSettings.S3.thumbnailsPrefix + filename + ".jpg"
+    }
+
+    /// Derives the original key from a thumbnail key.
+    /// Reverses thumbnailKey: strips the `.thumbnails/` segment from the parent path
+    /// and removes the trailing `.jpg` from the filename.
+    /// - Parameters:
+    ///   - key: The thumbnail key
+    ///   - drivePrefix: The drive's S3 prefix
+    /// - Returns: The original key
+    public static func originalKey(fromThumbnailKey key: String, drivePrefix _: String? = nil) -> String {
+        let thumbPrefix = DefaultSettings.S3.thumbnailsPrefix
+        // Find the last occurrence of ".thumbnails/" in the key
+        guard let range = key.range(of: thumbPrefix, options: .backwards) else { return key }
+        let parent = String(key[key.startIndex ..< range.lowerBound])
+        var filename = String(key[range.upperBound...])
+        // Strip the trailing ".jpg" that was appended
+        if filename.hasSuffix(".jpg") {
+            filename = String(filename.dropLast(4))
+        }
+        return parent + filename
+    }
+
     /// Synthesizes virtual parent folder keys from a list of S3 object keys.
     /// Used by the working set enumerator to build a complete folder hierarchy.
     /// - Parameters:

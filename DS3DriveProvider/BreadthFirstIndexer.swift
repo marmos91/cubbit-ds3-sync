@@ -16,6 +16,7 @@ final class BreadthFirstIndexer: @unchecked Sendable {
     private let metadataStore: MetadataStore?
     private let manager: NSFileProviderManager?
     private let queueManager = QueueManager()
+    private let taskLock = NSLock()
     private var task: Task<Void, Never>?
 
     init(
@@ -33,6 +34,8 @@ final class BreadthFirstIndexer: @unchecked Sendable {
     // MARK: - Lifecycle
 
     func start() {
+        taskLock.lock()
+        defer { taskLock.unlock() }
         guard task == nil else { return }
 
         task = Task.detached(priority: .utility) { [weak self] in
@@ -44,8 +47,11 @@ final class BreadthFirstIndexer: @unchecked Sendable {
     }
 
     func stop() {
-        task?.cancel()
+        taskLock.lock()
+        let running = task
         task = nil
+        taskLock.unlock()
+        running?.cancel()
         logger.info("BFS indexer stopped for drive \(self.drive.id, privacy: .public)")
     }
 
@@ -99,7 +105,6 @@ final class BreadthFirstIndexer: @unchecked Sendable {
                 var continuationToken: String?
                 var discoveredSubfolders: [String] = []
                 var upsertBatch: [MetadataStore.ItemUpsertData] = []
-                let trashPrefix = S3Lib.fullTrashPrefix(forDrive: drive)
 
                 repeat {
                     guard !Task.isCancelled else { return }
@@ -115,7 +120,7 @@ final class BreadthFirstIndexer: @unchecked Sendable {
                     for item in items {
                         let key = item.itemIdentifier.rawValue
 
-                        if key.hasPrefix(trashPrefix) { continue }
+                        if !S3Lib.isUserVisible(key, drive: self.drive) { continue }
 
                         upsertBatch.append(MetadataStore.ItemUpsertData(from: item))
                         allPassKeys.insert(key)

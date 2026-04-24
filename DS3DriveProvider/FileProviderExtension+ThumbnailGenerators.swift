@@ -1,24 +1,77 @@
 import AVFoundation
 import CoreGraphics
+import DS3Lib
 import ImageIO
+import os
 import UniformTypeIdentifiers
 
 // MARK: - Thumbnail Generators
 
 extension FileProviderExtension {
+    /// Raster formats supported for thumbnail generation.
+    /// Video/PDF intentionally excluded -- handled by dedicated generators below.
+    private nonisolated(unsafe) static let allowedRasterUTIs: Set<CFString> = [
+        "public.jpeg" as CFString,
+        "public.png" as CFString,
+        "public.heic" as CFString,
+        "public.heif" as CFString,
+        "org.webmproject.webp" as CFString,
+        "com.compuserve.gif" as CFString,
+        "public.tiff" as CFString
+    ]
+
+    /// Minimum available memory before refusing to decode (64 MB headroom).
+    /// Empirical threshold — macOS extension has ample memory, but this prevents
+    /// runaway allocation when multiple thumbnails decode concurrently.
+    private static let minAvailableMemoryBytes: Int = 64 * 1024 * 1024
+
     /// Generates a JPEG thumbnail from an image file using ImageIO.
     static func generateImageThumbnail(from fileURL: URL, fitting maxSize: CGSize) -> Data? {
-        guard let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil) else { return nil }
+        #if canImport(UIKit)
+            // os_proc_available_memory returns 0 when unavailable (extension hosts,
+            // simulator, certain entitlement contexts). Only trip the guard when we
+            // have a real reading, otherwise the < threshold check would always
+            // return nil and disable thumbnails entirely.
+            let availableMemory = os_proc_available_memory()
+            if availableMemory > 0, availableMemory < minAvailableMemoryBytes {
+                return nil
+            }
+        #endif
 
-        let maxDimension = max(maxSize.width, maxSize.height)
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxDimension,
-            kCGImageSourceCreateThumbnailWithTransform: true
-        ]
+        // Entire pipeline in autoreleasepool to drain ImageIO buffers.
+        return autoreleasepool {
+            // Pass kCGImageSourceShouldCache: false on source creation
+            // to prevent ImageIO from caching the full decoded image in process memory.
+            let sourceOptions: [CFString: Any] = [
+                kCGImageSourceShouldCache: false
+            ]
+            guard let source = CGImageSourceCreateWithURL(
+                fileURL as CFURL,
+                sourceOptions as CFDictionary
+            )
+            else { return nil }
 
-        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
-        return jpegData(from: cgImage)
+            // Format allow-list via CGImageSourceGetType (not file extension).
+            // Rejects RAW, PDF, and other unsupported formats before any decode work.
+            guard let sourceType = CGImageSourceGetType(source),
+                  allowedRasterUTIs.contains(sourceType)
+            else { return nil }
+
+            let maxDimension = max(maxSize.width, maxSize.height)
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxDimension,
+                kCGImageSourceCreateThumbnailWithTransform: true, // MANDATORY — EXIF orientation fix
+                kCGImageSourceShouldCacheImmediately: true // Decode immediately, then release
+            ]
+
+            guard let cgImage = CGImageSourceCreateThumbnailAtIndex(
+                source, 0, options as CFDictionary
+            )
+            else { return nil }
+
+            return jpegData(from: cgImage)
+        }
     }
 
     /// Generates a JPEG thumbnail from a video file by extracting a frame near the start.
@@ -91,7 +144,12 @@ extension FileProviderExtension {
             nil
         )
         else { return nil }
-        CGImageDestinationAddImage(dest, cgImage, [kCGImageDestinationLossyCompressionQuality: 0.7] as CFDictionary)
+        CGImageDestinationAddImage(
+            dest,
+            cgImage,
+            [kCGImageDestinationLossyCompressionQuality: Double(DefaultSettings.S3
+                    .thumbnailJPEGQuality)] as CFDictionary
+        )
         guard CGImageDestinationFinalize(dest) else { return nil }
         return data as Data
     }
