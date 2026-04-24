@@ -2,6 +2,7 @@
 @testable import DS3Lib
 import XCTest
 
+@MainActor
 final class SyncSetupViewModelTests: XCTestCase {
     // MARK: - Helpers
 
