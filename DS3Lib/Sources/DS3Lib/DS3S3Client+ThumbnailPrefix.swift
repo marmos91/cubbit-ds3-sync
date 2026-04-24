@@ -1,4 +1,10 @@
 import Foundation
+import os.log
+
+private let thumbnailPrefixLogger = Logger(
+    subsystem: LogSubsystem.app,
+    category: "ThumbnailPrefixInspection"
+)
 
 /// Result of inspecting a bucket's `.thumbnails/` prefix for pre-existing content.
 public enum ThumbnailPrefixState: Sendable, Equatable {
@@ -33,7 +39,17 @@ public extension DS3S3ClientProtocol {
                 group.cancelAll()
                 return result
             }
+        } catch is CancellationError {
+            // Timeout task won the race — fall back to .empty per the fail-open contract.
+            return .empty
         } catch {
+            // Real error (network, auth, permission). Still fail-open so drive creation
+            // isn't blocked by a transient blip, but log loudly so a conflicting
+            // .thumbnails/ prefix isn't silently masked.
+            thumbnailPrefixLogger
+                .error(
+                    "inspectThumbnailPrefix failed for bucket \(bucket, privacy: .public), prefix \(prefix ?? "<nil>", privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
             return .empty
         }
     }

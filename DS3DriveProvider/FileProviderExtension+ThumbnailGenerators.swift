@@ -28,7 +28,12 @@ extension FileProviderExtension {
     /// Generates a JPEG thumbnail from an image file using ImageIO.
     static func generateImageThumbnail(from fileURL: URL, fitting maxSize: CGSize) -> Data? {
         #if canImport(UIKit)
-            if os_proc_available_memory() < minAvailableMemoryBytes {
+            // os_proc_available_memory returns 0 when unavailable (extension hosts,
+            // simulator, certain entitlement contexts). Only trip the guard when we
+            // have a real reading, otherwise the < threshold check would always
+            // return nil and disable thumbnails entirely.
+            let availableMemory = os_proc_available_memory()
+            if availableMemory > 0, availableMemory < minAvailableMemoryBytes {
                 return nil
             }
         #endif
