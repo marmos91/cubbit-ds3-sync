@@ -136,6 +136,15 @@ public actor ThumbnailBackfillCoordinator {
                 return await markFailed(item)
             }
 
+            // No source ETag means staleness detection is impossible; skip
+            // rather than upload a thumbnail with empty source metadata.
+            guard let sourceETag = item.etag, !sourceETag.isEmpty else {
+                logger.info(
+                    "Backfill: missing source ETag for \(item.s3Key, privacy: .public) — marking failed"
+                )
+                return await markFailed(item)
+            }
+
             let thumbnailKey = S3PathUtils.thumbnailKey(
                 forOriginalKey: item.s3Key, drivePrefix: drivePrefix
             )
@@ -145,7 +154,7 @@ public actor ThumbnailBackfillCoordinator {
                     bucket: bucket,
                     key: thumbnailKey,
                     data: thumbnailData,
-                    sourceETag: item.etag ?? ""
+                    sourceETag: sourceETag
                 )
             } catch {
                 logger.error(

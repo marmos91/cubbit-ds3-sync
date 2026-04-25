@@ -28,10 +28,13 @@ public extension DS3S3ClientProtocol {
             DefaultSettings.Thumbnail.formatVersionMetadataKey: "\(DefaultSettings.Thumbnail.formatVersion)"
         ]
 
-        let etag = try await putObjectData(
+        guard let etag = try await putObjectData(
             bucket: bucket, key: key, data: data, metadata: metadata
         )
-        return etag ?? ""
+        else {
+            throw DS3ClientError.missingETag
+        }
+        return etag
     }
 
     /// Returns nil on 404; throws on other errors.

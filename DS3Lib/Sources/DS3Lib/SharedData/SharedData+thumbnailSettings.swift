@@ -34,12 +34,14 @@ extension SharedData {
         do {
             return try loadAllThumbnailSettings(from: url)
         } catch {
-            // On read/decode failure, log and fall back to an empty dict so a
-            // single corrupt file doesn't silently and permanently disable the
-            // feature. Subsequent saveThumbnailSettings will rewrite from scratch.
-            thumbnailSettingsLogger.error(
-                "thumbnailSettings: load failed (\(error.localizedDescription, privacy: .public)) — defaulting to empty"
-            )
+            // First-run / never-saved is the common case; only log when the
+            // file exists but is unreadable/corrupt so we don't spam logs on
+            // every cold read.
+            if FileManager.default.fileExists(atPath: url.path) {
+                thumbnailSettingsLogger.error(
+                    "thumbnailSettings: load failed (\(error.localizedDescription, privacy: .public)) — defaulting to empty"
+                )
+            }
             return [:]
         }
     }

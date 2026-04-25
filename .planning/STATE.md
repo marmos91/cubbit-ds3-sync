@@ -18,10 +18,10 @@ progress:
 
 ## Current Position
 
-Phase: --phase (12) — EXECUTING
-Plan: 1 of --name
+Phase: 12 — Renderer, Storage & Schema (EXECUTED, awaiting review)
+Plan: 5 of 5
 **Milestone:** v3.1 Thumbnails
-**Status:** Executing Phase --phase
+**Status:** PR #137 open against main
 **Last activity:** 2026-04-25
 
 ## Progress
@@ -35,7 +35,7 @@ Milestone v3.1: [          ] 0/4 phases complete (0%)
 See: .planning/PROJECT.md (updated 2026-04-11)
 
 **Core value:** Files sync reliably and transparently between Mac, iPhone, iPad and Cubbit DS3
-**Current focus:** Phase --phase — 12
+**Current focus:** Phase 12 — Renderer, Storage & Schema
 
 **v3.1 phase shape:**
 

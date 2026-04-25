@@ -102,6 +102,20 @@ final class DS3S3ClientThumbnailsTests: XCTestCase {
         XCTAssertEqual(captured, "abcX-Injected: yes", "CR/LF must be stripped from sourceETag")
     }
 
+    func testPutThumbnailThrowsMissingETagWhenUnderlyingPutReturnsNil() async throws {
+        let mock = makeMock()
+        mock.putObjectDataEtag = nil
+
+        do {
+            _ = try await mock.putThumbnail(
+                bucket: "b", key: "k", data: Data([0x01]), sourceETag: "src"
+            )
+            XCTFail("Expected DS3ClientError.missingETag")
+        } catch DS3ClientError.missingETag {
+            // expected
+        }
+    }
+
     // MARK: - getThumbnailBytes
 
     func testGetThumbnailBytes200ReturnsBytes() async throws {

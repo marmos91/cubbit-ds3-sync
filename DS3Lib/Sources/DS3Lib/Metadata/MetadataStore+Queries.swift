@@ -212,6 +212,8 @@ public extension MetadataStore {
     /// rows encountered during the scan are reclassified to `.notApplicable`
     /// in the same transaction so they can't dominate future fetches.
     func fetchPendingThumbnails(driveId: UUID, limit: Int) throws -> [PendingThumbnail] {
+        guard limit > 0 else { return [] }
+
         let pendingRaw = ThumbnailStatus.pending.rawValue
         let predicate = #Predicate<SyncedItem> {
             $0.driveId == driveId && $0.thumbnailStatus == pendingRaw
