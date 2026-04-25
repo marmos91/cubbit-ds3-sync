@@ -2,11 +2,12 @@ import XCTest
 import SwiftData
 @testable import DS3Lib
 
-/// Tests for SchemaV1 to SchemaV2 migration and MetadataStore actor behavior.
+/// Tests for the current SyncedItem schema and MetadataStore actor behavior.
+/// (V2→V3 migration coverage lives in `SchemaV3MigrationTests`.)
 final class MetadataStoreMigrationTests: XCTestCase {
-    func testSchemaV2HasIsMaterializedField() throws {
-        // Verify SyncedItem in V2 schema has isMaterialized with default false
-        let schema = Schema(versionedSchema: SyncedItemSchemaV2.self)
+    func testCurrentSchemaHasIsMaterializedField() throws {
+        // Verify SyncedItem in the current schema has isMaterialized with default false
+        let schema = Schema(versionedSchema: SyncedItemSchemaV3.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
@@ -21,9 +22,9 @@ final class MetadataStoreMigrationTests: XCTestCase {
         XCTAssertFalse(fetched[0].isMaterialized, "isMaterialized should default to false")
     }
 
-    func testSchemaV2IncludesSyncAnchorRecord() throws {
-        // Verify SyncAnchorRecord can be persisted in V2 schema
-        let schema = Schema(versionedSchema: SyncedItemSchemaV2.self)
+    func testSchemaIncludesSyncAnchorRecord() throws {
+        // Verify SyncAnchorRecord can be persisted in the current schema
+        let schema = Schema(versionedSchema: SyncedItemSchemaV3.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
@@ -45,7 +46,7 @@ final class MetadataStoreMigrationTests: XCTestCase {
         // Verify MetadataStore is usable from async context (not @MainActor).
         // Note: SyncedItem and SyncAnchorRecord are @Model classes (not Sendable),
         // so we test actor isolation via methods that return Sendable types (Void, Int, Date).
-        let schema = Schema(versionedSchema: SyncedItemSchemaV2.self)
+        let schema = Schema(versionedSchema: SyncedItemSchemaV3.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let store = MetadataStore(modelContainer: container)
