@@ -13,18 +13,13 @@ public enum LogSubsystem {
 
 /// Log categories for Console.app filtering
 public enum LogCategory: String, Sendable {
-    /// File sync operations
     case sync
-    /// Authentication flow
     case auth
-    /// Upload/download data transfer
     case transfer
-    /// File Provider extension lifecycle
     case `extension`
-    /// Main app lifecycle
     case app
-    /// Metadata operations
     case metadata
+    case thumbnail
 }
 
 /// Enum used to store default settings for the application
@@ -155,6 +150,9 @@ public enum DefaultSettings {
 
         /// The name of the file used to signal an empty-trash request from the app to the extension.
         public static let emptyTrashFlagFileName = "emptyTrashFlag.json"
+
+        /// The name of the file used to store per-drive thumbnail settings.
+        public static let thumbnailSettingsFileName = "thumbnailSettings.json"
     }
 
     /// Group of settings related to the S3 client.
@@ -212,6 +210,20 @@ public enum DefaultSettings {
 
         /// Interval in seconds between auto-purge cycles (1 hour).
         public static let purgeIntervalSeconds = 3600
+    }
+
+    public enum Thumbnail {
+        public static let formatVersion = 1
+
+        // Soto prepends `x-amz-meta-` automatically; pass bare keys.
+        public static let sourceETagMetadataKey = "source-etag"
+        public static let formatVersionMetadataKey = "ds3drive-thumb-version"
+
+        public static let maxSinglePartBytes = 500_000
+
+        public static let rasterExtensions: Set<String> = [
+            "jpg", "jpeg", "png", "heic", "heif", "webp", "gif", "tiff", "tif"
+        ]
     }
 
     /// Settings related to update checking.
