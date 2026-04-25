@@ -177,7 +177,14 @@ Plans:
   3. Unit tests on Git LFS fixtures prove the renderer produces right-side-up JPEGs for portrait iPhone photos (EXIF orientation 6 HEIC + JPEG fixtures) and silently returns nil for unsupported formats without throwing
   4. `ThumbnailS3Service.put` writes every thumbnail as a single-part PUT carrying both `x-amz-meta-source-etag` (for stale-thumbnail detection) and `x-amz-meta-ds3drive-thumb-version` (for future format migrations) — verified via mock S3 tests
   5. `SharedData+thumbnailSettings` round-trips the feature-enabled flag across the App Group boundary, and the `ThumbnailBackfillCoordinator` actor exists with a runnable (though unused) batch entry point, ready for Phase 13 to call into
-**Plans**: TBD
+**Plans:** 5 plans
+
+Plans:
+- [ ] 12-01-PLAN.md -- Schema V3 + ThumbnailStatus enum + fetchPendingThumbnails/setThumbnailStatus query surface
+- [ ] 12-02-PLAN.md -- DefaultSettings.Thumbnail namespace + SharedData+thumbnailSettings 1:1 mirror
+- [ ] 12-03-PLAN.md -- DS3S3Client+Thumbnails: putThumbnail/getThumbnailBytes/deleteThumbnail on protocol extension
+- [ ] 12-04-PLAN.md -- ThumbnailRenderer extraction (macOS-gated whole type) + test relocation + consumer rewrite
+- [ ] 12-05-PLAN.md -- ThumbnailBackfillCoordinator actor scaffold (cross-platform shell, macOS-only render)
 
 ### Phase 13: macOS Generation, Consumption & Lifecycle
 **Goal**: Finder shows real thumbnails for image files on every macOS drive — instantly for newly uploaded files, opportunistically backfilled for existing content — and the thumbnail lifecycle tracks the original through deletes, renames, moves, and pause/resume without ever breaking the user-visible upload contract or poisoning the system with stuck progress or custom error domains. iOS Files automatically benefits because iOS consumes the same `.thumbnails/` prefix macOS writes.
