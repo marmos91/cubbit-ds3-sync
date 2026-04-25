@@ -1,6 +1,5 @@
 import DS3Lib
 @preconcurrency import FileProvider
-import ImageIO
 import os.log
 import UniformTypeIdentifiers
 
@@ -335,15 +334,17 @@ extension FileProviderExtension {
                 try await s3Lib.getS3Item(s3Item, withTemporaryFolder: temporaryDirectory, withProgress: nil)
             }
 
-            let thumbnailData: Data? = if utType.conforms(to: .image) {
-                Self.generateImageThumbnail(from: fileURL, fitting: size)
-            } else if utType.conforms(to: .movie) {
-                await Self.generateVideoThumbnail(from: fileURL, fitting: size)
-            } else if utType.conforms(to: .pdf) {
-                Self.generatePDFThumbnail(from: fileURL, fitting: size)
-            } else {
-                nil
-            }
+            #if os(macOS)
+                // ThumbnailRenderer is macOS-only at the type level (THUMB-07).
+                let renderer = ThumbnailRenderer(
+                    maxDimension: CGFloat(max(size.width, size.height)),
+                    jpegQuality: DefaultSettings.S3.thumbnailJPEGQuality
+                )
+                let thumbnailData = renderer.renderJPEG(from: fileURL)
+            #else
+                // Unreachable: fetchThumbnails returns early on iOS.
+                let thumbnailData: Data? = nil
+            #endif
 
             perItemHandler(identifier, thumbnailData, nil)
             if thumbnailData != nil {
