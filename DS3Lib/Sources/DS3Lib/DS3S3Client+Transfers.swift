@@ -152,20 +152,32 @@ public extension DS3S3Client {
         return response.eTag
     }
 
-    /// Uploads a file to S3 using a standard PUT request with in-memory Data.
-    /// Useful for small files in the share extension.
+    /// In-memory GET. Throws on missing body; callers wanting 404-as-nil wrap.
+    func getObjectData(bucket: String, key: String) async throws -> Data {
+        let request = S3.GetObjectRequest(bucket: bucket, key: key)
+        let response = try await s3.getObject(request)
+        guard let payload = response.body, let data = payload.asData() else {
+            throw DS3ClientError.parseError
+        }
+        return data
+    }
+
+    /// Single-part PUT from in-memory Data. Pass BARE metadata keys; Soto
+    /// prepends `x-amz-meta-` automatically.
     func putObjectData(
         bucket: String,
         key: String,
-        data: Data
+        data: Data,
+        metadata: [String: String]?
     ) async throws -> String? {
         let request = S3.PutObjectRequest(
             body: .byteBuffer(ByteBuffer(data: data)),
             bucket: bucket,
-            key: key
+            key: key,
+            metadata: metadata
         )
         let response = try await s3.putObject(request)
-        return response.eTag
+        return ETagUtils.normalize(response.eTag)
     }
 
     // MARK: - Multipart Upload

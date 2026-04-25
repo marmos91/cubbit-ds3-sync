@@ -263,7 +263,7 @@ extension S3Lib {
                     Task { await nm.sendTransferSpeedNotification(stats) }
                 }
             )
-        } catch let error as DS3ClientError where error == .missingETag {
+        } catch DS3ClientError.missingETag {
             self.logger.error("Multipart upload returned no ETag for key \(key, privacy: .public)")
             throw FileProviderExtensionError.uploadValidationFailed
         }

@@ -39,6 +39,10 @@ public protocol DS3S3ClientProtocol: Sendable {
         onProgress: TransferProgressHandler?
     ) async throws -> S3DownloadResult
 
+    /// In-memory GET; intended for small payloads where a temp-file round-trip
+    /// would be wasteful (e.g. thumbnails).
+    func getObjectData(bucket: String, key: String) async throws -> Data
+
     // MARK: - Uploads
 
     func putObject(
@@ -48,10 +52,13 @@ public protocol DS3S3ClientProtocol: Sendable {
         onProgress: TransferProgressHandler?
     ) async throws -> String?
 
+    /// Single-part PUT with optional user-metadata. Pass BARE keys; Soto
+    /// prepends `x-amz-meta-` automatically.
     func putObjectData(
         bucket: String,
         key: String,
-        data: Data
+        data: Data,
+        metadata: [String: String]?
     ) async throws -> String?
 
     // MARK: - Multipart Upload
@@ -78,4 +85,18 @@ public protocol DS3S3ClientProtocol: Sendable {
     // MARK: - Lifecycle
 
     func shutdown() throws
+}
+
+// MARK: - Convenience defaults
+
+public extension DS3S3ClientProtocol {
+    /// Backwards-compatible 3-arg overload: forwards to the metadata-aware variant
+    /// with `metadata: nil`. Existing call sites stay green.
+    func putObjectData(
+        bucket: String,
+        key: String,
+        data: Data
+    ) async throws -> String? {
+        try await putObjectData(bucket: bucket, key: key, data: data, metadata: nil)
+    }
 }
