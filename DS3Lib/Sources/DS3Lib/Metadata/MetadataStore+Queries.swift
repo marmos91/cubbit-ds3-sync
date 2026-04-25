@@ -198,4 +198,78 @@ public extension MetadataStore {
             try modelExecutor.modelContext.save()
         }
     }
+
+    // MARK: - Thumbnail Queries
+
+    struct PendingThumbnail: Sendable {
+        public let s3Key: String
+        public let etag: String?
+        public let contentType: String?
+        public let size: Int64
+    }
+
+    /// Returns up to `limit` raster `.pending` rows for `driveId`. Non-raster
+    /// rows encountered during the scan are reclassified to `.notApplicable`
+    /// in the same transaction so they can't dominate future fetches.
+    func fetchPendingThumbnails(driveId: UUID, limit: Int) throws -> [PendingThumbnail] {
+        guard limit > 0 else { return [] }
+
+        let pendingRaw = ThumbnailStatus.pending.rawValue
+        let predicate = #Predicate<SyncedItem> {
+            $0.driveId == driveId && $0.thumbnailStatus == pendingRaw
+        }
+        var descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
+        // Over-fetch so non-raster items don't crowd out raster ones in a
+        // single pass; cap to bound memory.
+        descriptor.fetchLimit = min(limit * 4, 200)
+        let items = try modelExecutor.modelContext.fetch(descriptor)
+
+        var raster: [PendingThumbnail] = []
+        let notApplicable = ThumbnailStatus.notApplicable.rawValue
+        var dirty = false
+
+        for item in items {
+            let ext = (item.s3Key as NSString).pathExtension.lowercased()
+            if DefaultSettings.Thumbnail.rasterExtensions.contains(ext) {
+                guard raster.count < limit else { continue }
+                raster.append(PendingThumbnail(
+                    s3Key: item.s3Key,
+                    etag: item.etag,
+                    contentType: item.contentType,
+                    size: item.size
+                ))
+            } else {
+                item.thumbnailStatus = notApplicable
+                dirty = true
+            }
+        }
+
+        if dirty {
+            try modelExecutor.modelContext.save()
+        }
+        return raster
+    }
+
+    /// Total `.pending` raster rows for `driveId` — denominator for "N of M"
+    /// progress display.
+    func countPendingRasterThumbnails(driveId: UUID) throws -> Int {
+        let pendingRaw = ThumbnailStatus.pending.rawValue
+        let predicate = #Predicate<SyncedItem> {
+            $0.driveId == driveId && $0.thumbnailStatus == pendingRaw
+        }
+        let items = try modelExecutor.modelContext.fetch(
+            FetchDescriptor<SyncedItem>(predicate: predicate)
+        )
+        return items.reduce(0) { count, item in
+            let ext = (item.s3Key as NSString).pathExtension.lowercased()
+            return DefaultSettings.Thumbnail.rasterExtensions.contains(ext) ? count + 1 : count
+        }
+    }
+
+    func setThumbnailStatus(s3Key: String, driveId: UUID, status: ThumbnailStatus) throws {
+        guard let item = try findItem(byKey: s3Key, driveId: driveId) else { return }
+        guard item.thumbnailStatus != status.rawValue else { return }
+        item.thumbnailStatus = status.rawValue
+        try modelExecutor.modelContext.save()
+    }
 }

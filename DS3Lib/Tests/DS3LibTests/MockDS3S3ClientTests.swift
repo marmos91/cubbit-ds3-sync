@@ -113,4 +113,28 @@ final class MockDS3S3ClientTests: XCTestCase {
         try mock.shutdown()
         XCTAssertEqual(mock.calls, ["shutdown"])
     }
+
+    // MARK: - putObjectData(metadata:) — Phase 12-03
+
+    func testPutObjectDataWithMetadataRecordsBareKeys() async throws {
+        let metadata = ["source-etag": "\"abc\"", "ds3drive-thumb-version": "1"]
+        let etag = try await mock.putObjectData(
+            bucket: "b", key: "drive/.thumbnails/x.jpg",
+            data: Data([0x01, 0x02]), metadata: metadata
+        )
+
+        XCTAssertEqual(etag, "mock-etag")
+        XCTAssertEqual(mock.lastPutObjectDataMetadata, metadata)
+        XCTAssertEqual(mock.lastPutObjectDataKey, "drive/.thumbnails/x.jpg")
+        XCTAssertEqual(mock.lastPutObjectDataBucket, "b")
+        XCTAssertEqual(mock.lastPutObjectDataBytes, 2)
+    }
+
+    func testPutObjectDataWithoutMetadataPassesNil() async throws {
+        // Existing 3-arg call site continues to work and records nil metadata.
+        _ = try await mock.putObjectData(bucket: "b", key: "k", data: Data([0x00]))
+
+        XCTAssertNil(mock.lastPutObjectDataMetadata)
+        XCTAssertEqual(mock.lastPutObjectDataKey, "k")
+    }
 }

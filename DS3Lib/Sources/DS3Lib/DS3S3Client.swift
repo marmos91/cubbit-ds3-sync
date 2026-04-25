@@ -118,6 +118,7 @@ public enum DS3ClientError: Error, Sendable {
     case missingETag
     case parseError
     case unableToOpenFile
+    case thumbnailTooLarge(size: Int, limit: Int)
 }
 
 /// Groups the constant parameters shared across all parts of a multipart upload.

@@ -2,4 +2,4 @@ import Foundation
 import SwiftData
 
 /// Type alias for the current schema version's SyncAnchorRecord.
-public typealias SyncAnchorRecord = SyncedItemSchemaV2.SyncAnchorRecord
+public typealias SyncAnchorRecord = SyncedItemSchemaV3.SyncAnchorRecord

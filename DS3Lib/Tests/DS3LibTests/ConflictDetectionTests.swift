@@ -10,7 +10,7 @@ final class ConflictDetectionTests: XCTestCase {
     private let testDriveId = UUID()
 
     override func setUp() async throws {
-        let schema = Schema(versionedSchema: SyncedItemSchemaV2.self)
+        let schema = Schema(versionedSchema: SyncedItemSchemaV3.self)
         let config = ModelConfiguration(
             "TestConflictDetection",
             schema: schema,

@@ -14,6 +14,8 @@ final class MockDS3S3Client: DS3S3ClientProtocol, @unchecked Sendable {
     var deleteObjectsErrorCount: Int = 0
     var copyObjectError: Error?
     var getObjectResult: S3DownloadResult?
+    var getObjectDataResult: Data?
+    var getObjectDataError: Error?
     var putObjectEtag: String? = "mock-etag"
     var putObjectDataEtag: String? = "mock-etag"
     var createMultipartUploadId: String = "mock-upload-id"
@@ -25,6 +27,12 @@ final class MockDS3S3Client: DS3S3ClientProtocol, @unchecked Sendable {
 
     var lastListObjectsMaxKeys: Int?
     var lastListObjectsPrefix: String?
+
+    // putObjectData(metadata:) call observers (Phase 12-03)
+    var lastPutObjectDataMetadata: [String: String]?
+    var lastPutObjectDataKey: String?
+    var lastPutObjectDataBucket: String?
+    var lastPutObjectDataBytes: Int?
 
     // MARK: - Call Recording
 
@@ -112,6 +120,15 @@ final class MockDS3S3Client: DS3S3ClientProtocol, @unchecked Sendable {
         return result
     }
 
+    func getObjectData(bucket: String, key: String) async throws -> Data {
+        record("getObjectData(key:\(key))")
+        if let error = getObjectDataError ?? shouldThrow { throw error }
+        guard let result = getObjectDataResult else {
+            throw DS3ClientError.parseError
+        }
+        return result
+    }
+
     func putObject(
         bucket: String,
         key: String,
@@ -126,9 +143,14 @@ final class MockDS3S3Client: DS3S3ClientProtocol, @unchecked Sendable {
     func putObjectData(
         bucket: String,
         key: String,
-        data: Data
+        data: Data,
+        metadata: [String: String]?
     ) async throws -> String? {
         record("putObjectData(key:\(key),size:\(data.count))")
+        lastPutObjectDataBucket = bucket
+        lastPutObjectDataKey = key
+        lastPutObjectDataBytes = data.count
+        lastPutObjectDataMetadata = metadata
         if let error = shouldThrow { throw error }
         return putObjectDataEtag
     }
