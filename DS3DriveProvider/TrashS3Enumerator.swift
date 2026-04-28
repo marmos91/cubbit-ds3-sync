@@ -78,7 +78,7 @@ class TrashS3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable
                 self.logger.error("TrashS3Enumerator: S3 error \(error.errorCode, privacy: .public)")
                 observer.finishEnumeratingWithError(error.toFileProviderError())
             } catch {
-                self.logger.error("TrashS3Enumerator: error \(error.localizedDescription, privacy: .public)")
+                self.logger.error("TrashS3Enumerator: error \(DS3S3Client.describeSotoError(error), privacy: .public)")
                 observer.finishEnumeratingWithError(NSFileProviderError(.cannotSynchronize) as NSError)
             }
         }

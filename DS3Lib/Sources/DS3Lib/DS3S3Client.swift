@@ -386,4 +386,32 @@ public final class DS3S3Client: Sendable {
         guard let code = s3ErrorCode(from: error) else { return false }
         return S3ErrorRecovery.isRecoverableAuthError(code)
     }
+
+    /// Phase 13.1 Finding 5b (D-06): formats any error so logs surface the
+    /// AWS error code instead of Foundation's opaque "Module.Type error N"
+    /// bridge form. Soto's `AWSErrorType.localizedDescription` is a
+    /// statically-dispatched protocol-extension default that is NOT visible
+    /// when the error is bound as `any Error` in a catch — so
+    /// `error.localizedDescription` yields the Foundation-bridge artifact.
+    /// `String(describing: error)` dispatches via `CustomStringConvertible`
+    /// on the concrete S3ErrorType, yielding the readable form (e.g.,
+    /// "noSuchKey: The specified key does not exist."). When an AWS code is
+    /// present we prefix it for grep-ability.
+    ///
+    /// Use at every Soto-throws catch site that logs the error. Falls back
+    /// gracefully on non-Soto errors (returns plain `String(describing:)`).
+    public static func describeSotoError(_ error: Error) -> String {
+        let described = String(describing: error)
+        if let code = s3ErrorCode(from: error) {
+            // Soto's S3ErrorType conforms to CustomStringConvertible and renders as
+            // "noSuchKey: The specified key does not exist." — i.e. the lowercased
+            // code is already embedded. Avoid double-prefixing in that case.
+            let lcCode = code.prefix(1).lowercased() + code.dropFirst()
+            if described.hasPrefix("\(lcCode):") || described.hasPrefix("\(code):") {
+                return described
+            }
+            return "\(code): \(described)"
+        }
+        return described
+    }
 }

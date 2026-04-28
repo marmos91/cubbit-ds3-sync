@@ -174,6 +174,98 @@ import XCTest
             )
         }
 
+        // MARK: - Phase 13.1 Finding 2 regression suite (D-11)
+
+        /// Bulk-paste fanout: 8 concurrent renderJPEG calls on the same fixture
+        /// within a tight time window. Pins the 2026-04-27 15:14:35 audit
+        /// symptom (6/8 nil under bulk-paste pressure).
+        func testRenderJPEGSurvivesBulkPasteFanout() async throws {
+            let pngURL = try XCTUnwrap(
+                fixtureURL(name: "large-test", ext: "png"),
+                "large-test.png fixture missing"
+            )
+            // Capture only `Sendable` values into the task-group closures —
+            // `ThumbnailRenderer` is a value type but isn't declared `Sendable`,
+            // so we instantiate it inside each task. Strict concurrency safe.
+            let dimension = thumbnailSize
+            let tempDir = FileManager.default.temporaryDirectory
+
+            // 8 concurrent renders on DISTINCT file copies — matches the audit's
+            // bulk-paste scenario where 8 different files are rendered in parallel.
+            // Reading the same URL from multiple tasks would mask URL/page-cache
+            // contention bugs that only surface across distinct backing files.
+            let results = await withTaskGroup(of: Data?.self, returning: [Data?].self) { group in
+                for _ in 0..<8 {
+                    group.addTask {
+                        let copy = tempDir.appendingPathComponent("fanout-\(UUID().uuidString).png")
+                        try? FileManager.default.copyItem(at: pngURL, to: copy)
+                        defer { try? FileManager.default.removeItem(at: copy) }
+                        let renderer = ThumbnailRenderer(maxDimension: dimension)
+                        return renderer.renderJPEG(from: copy)
+                    }
+                }
+                var collected: [Data?] = []
+                for await result in group { collected.append(result) }
+                return collected
+            }
+
+            XCTAssertEqual(results.count, 8)
+            let nonNilCount = results.compactMap { $0 }.count
+            XCTAssertEqual(
+                nonNilCount, 8,
+                "All 8 concurrent renders must succeed (audit baseline: 2/8 — should be 8/8 after Finding 2 fix)"
+            )
+        }
+
+        /// Re-render of identical bytes after a delay. Pins the audit symptom
+        /// where IMG_0015.HEIC succeeded at 15:06:41 but failed at 15:10:13
+        /// despite identical ETag (8cb65f96791c2ce30cb315044f4a0c7b).
+        func testRenderJPEGSucceedsOnRepeatedDecodesOfIdenticalBytes() async throws {
+            let heicURL = try XCTUnwrap(
+                fixtureURL(name: "exif6-portrait", ext: "heic"),
+                "exif6-portrait.heic fixture missing"
+            )
+            let renderer = ThumbnailRenderer(maxDimension: thumbnailSize)
+
+            let firstResult = renderer.renderJPEG(from: heicURL)
+            XCTAssertNotNil(firstResult, "First render of HEIC must succeed")
+
+            // 200ms delay simulates the user re-paste timing in the audit.
+            try await Task.sleep(for: .milliseconds(200))
+
+            let secondResult = renderer.renderJPEG(from: heicURL)
+            XCTAssertNotNil(
+                secondResult,
+                "Second render of identical HEIC bytes must succeed (audit symptom: nil on repeat)"
+            )
+        }
+
+        /// Backfill path: renderer reads from a renderer-owned temp file that the
+        /// coordinator allocated and copied into. Pins the audit's 15:19:03
+        /// backfill-failure on Cubbit retreat photo where the URL came NOT from
+        /// FileProvider but from the coordinator's tempfile API.
+        func testRenderJPEGSucceedsForCoordinatorOwnedTempFile() async throws {
+            let pngURL = try XCTUnwrap(
+                fixtureURL(name: "large-test", ext: "png"),
+                "large-test.png fixture missing"
+            )
+            // Copy fixture to a fresh temp file the way the coordinator would.
+            let tempDir = FileManager.default.temporaryDirectory
+            let tempURL = tempDir.appendingPathComponent(
+                "phase13-1-finding2-\(UUID().uuidString).png"
+            )
+            try FileManager.default.copyItem(at: pngURL, to: tempURL)
+            defer { try? FileManager.default.removeItem(at: tempURL) }
+
+            let renderer = ThumbnailRenderer(maxDimension: thumbnailSize)
+            let result = renderer.renderJPEG(from: tempURL)
+
+            XCTAssertNotNil(
+                result,
+                "Render from coordinator-owned temp file must succeed (audit symptom: nil on backfill path)"
+            )
+        }
+
         // MARK: - EXIF-6 Fixture Synthesis
 
         /// Writes a landscape JPEG with EXIF orientation 6 (value 6 = "rotate 90° CW

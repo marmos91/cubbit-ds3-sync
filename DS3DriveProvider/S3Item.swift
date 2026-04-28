@@ -168,22 +168,30 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
     }
 
     var itemVersion: NSFileProviderItemVersion {
-        let versionData: Data = if isFolder {
-            // Folders MUST use a stable, identifier-based version regardless
-            // of whether an etag is available. Different code paths (per-folder
-            // enumeration, working set, item(for:), materializeFolderItem)
-            // produce folders with or without etags. Inconsistent versions
-            // cause the system to re-process items, breaking folder icons.
-            identifier.rawValue.data(using: .utf8) ?? Data()
-        } else if let etag = self.metadata.etag, let data = etag.data(using: .utf8) {
-            data
-        } else {
-            Data()
-        }
+        let versionData = computeVersionData()
         return NSFileProviderItemVersion(
             contentVersion: versionData,
             metadataVersion: versionData
         )
+    }
+
+    /// Computes the bytes used for both `contentVersion` and `metadataVersion`.
+    /// Folders use the identifier (stable across code paths). Files use the
+    /// source etag, optionally suffixed with the per-drive resume epoch — the
+    /// epoch is only > 0 after the first pause→resume transition and only
+    /// changes on subsequent resumes, so steady-state remains etag-only per
+    /// D-14. Folding it in forces Apple to evict cached "no thumbnail"
+    /// responses for items that returned nil during the pause window.
+    private func computeVersionData() -> Data {
+        if isFolder {
+            return identifier.rawValue.data(using: .utf8) ?? Data()
+        }
+        guard let etag = self.metadata.etag, let etagData = etag.data(using: .utf8) else {
+            return Data()
+        }
+        let epoch = SharedData.default().resumeEpoch(forDrive: drive.id)
+        guard epoch > 0 else { return etagData }
+        return etagData + Data(":\(epoch)".utf8)
     }
 
     var contentType: UTType {

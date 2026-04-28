@@ -31,11 +31,30 @@ import UniformTypeIdentifiers
             #endif
 
             return autoreleasepool {
+                // Phase 13.1 Finding 2 (D-09): eager Data snapshot replaces the
+                // previous lazy URL-backed image source. The lazy form holds a
+                // reference to the URL and reads bytes on demand during
+                // CGImageSourceCreateThumbnailAtIndex — but FileProvider releases
+                // temp URLs after createItem returns, AND under concurrent decode
+                // pressure the URL-backed lazy reader has been observed to
+                // silently return nil from the thumbnail-create call. Mapping the
+                // bytes once at renderer entry decouples the decode from URL
+                // lifetime and removes the concurrent-pressure failure mode.
+                // `.mappedIfSafe` keeps memory bounded — mmap when the filesystem
+                // supports, eager copy when it does not (e.g., FileProvider's
+                // tempdir on some volumes).
+                let data: Data
+                do {
+                    data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
+                } catch {
+                    return nil
+                }
+
                 let sourceOptions: [CFString: Any] = [
                     kCGImageSourceShouldCache: false
                 ]
-                guard let source = CGImageSourceCreateWithURL(
-                    fileURL as CFURL,
+                guard let source = CGImageSourceCreateWithData(
+                    data as CFData,
                     sourceOptions as CFDictionary
                 )
                 else { return nil }

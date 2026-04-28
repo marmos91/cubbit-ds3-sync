@@ -79,7 +79,7 @@ final class LockedArray<T>: @unchecked Sendable {
 
 /// Creates an in-memory ModelContainer for testing (no disk persistence).
 func createTestModelContainer() throws -> ModelContainer {
-    let schema = Schema(versionedSchema: SyncedItemSchemaV3.self)
+    let schema = Schema(versionedSchema: SyncedItemSchemaV6.self)
     let config = ModelConfiguration(
         "TestSyncedItems",
         schema: schema,

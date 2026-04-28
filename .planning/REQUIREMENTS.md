@@ -17,7 +17,7 @@ Closes GitHub issue #109. Image files in Finder (macOS) and the iOS Files app sh
 
 ### Generation
 
-- [ ] **THUMB-06**: macOS File Provider extension generates thumbnails inline during upload in `createItem` / `modifyItem` (fire-and-forget, decoupled from upload lifecycle — failures never propagate to user-visible file upload)
+- [x] **THUMB-06**: macOS File Provider extension generates thumbnails inline during upload in `createItem` / `modifyItem` (fire-and-forget, decoupled from upload lifecycle — failures never propagate to user-visible file upload)
 - [ ] **THUMB-07**: iOS File Provider extension is strictly consume-only — it never calls ImageIO / CoreImage / UIImage; enforced with `#if os(macOS)` gates on the generator type
 - [ ] **THUMB-08**: Generated thumbnails correctly apply EXIF orientation so portrait iPhone photos display right-side up
 - [ ] **THUMB-09**: Generator supports raster formats: jpg, jpeg, png, heic, heif, webp, gif, tiff. Unsupported formats are silently skipped (no error, no user-visible spinner)
@@ -32,21 +32,22 @@ Closes GitHub issue #109. Image files in Finder (macOS) and the iOS Files app sh
 
 ### Backfill & Lifecycle
 
-- [ ] **THUMB-15**: macOS extension backfills existing and externally-added images opportunistically during BFS enumeration passes (budgeted per pass, thermal-state gated)
+- [x] **THUMB-15**: macOS extension backfills existing and externally-added images opportunistically during BFS enumeration passes (budgeted per pass, thermal-state gated)
 - [ ] **THUMB-16**: iOS main app backfills via `BGProcessingTask` (overnight, charging, idle) and via a foreground driver that runs while the app is in `ScenePhase.active`
-- [ ] **THUMB-17**: Deleting an image cascades to delete its thumbnail (delete-after-original ordering; orphan sweep backstops failures)
-- [ ] **THUMB-18**: Renaming or moving an image cascades to the thumbnail (server-side S3 copy to new key, then delete old)
-- [ ] **THUMB-19**: Periodic orphan sweep removes `.thumbnails/` entries whose originals no longer exist
-- [ ] **THUMB-20**: Reconciliation loop terminates — items that fail 3 times with permanent errors enter a negative cache and are counted as "done — N skipped" in UI, not "99%"
-- [ ] **THUMB-21**: Thumbnail backfill respects the existing per-drive pause/resume state
+- [x] **THUMB-17**: Deleting an image cascades to delete its thumbnail (delete-after-original ordering; orphan sweep backstops failures)
+- [x] **THUMB-18**: Renaming or moving an image cascades to the thumbnail (server-side S3 copy to new key, then delete old)
+- [x] **THUMB-19**: Periodic orphan sweep removes `.thumbnails/` entries whose originals no longer exist
+- [x] **THUMB-20**: Reconciliation loop terminates — items that fail 3 times with permanent errors enter a negative cache and are counted as "done — N skipped" in UI, not "99%"
+- [x] **THUMB-21**: Thumbnail backfill respects the existing per-drive pause/resume state
 - [ ] **THUMB-22**: iOS thumbnail backfill is gated off cellular / metered connections by default (opt-in setting required to enable on cellular)
-- [ ] **THUMB-23**: No eager full-bucket scan on feature launch — backfill is opportunistic; existing-content processing runs only when users browse folders or trigger the manual action
+- [x] **THUMB-23**: No eager full-bucket scan on feature launch — backfill is opportunistic; existing-content processing runs only when users browse folders or trigger the manual action
 
 ### UI Feedback & Control
 
-- [ ] **THUMB-24**: macOS menu bar tray shows per-drive "Thumbnails: N/M" progress indicator while backfill is active (hides at 100%)
 - [ ] **THUMB-25**: Settings (macOS and iOS) expose a manual "Generate thumbnails now" action for power users, with an explicit bandwidth / cost warning on first use
 - [ ] **THUMB-26**: iOS settings UI shows backfill progress and user-facing copy explaining the force-quit caveat for background generation
+
+> **THUMB-24 dropped** (2026-04-25 during Phase 13 discuss): macOS ships fully silent end-to-end per user decision. Terminating reconciliation (3-strike) still ships from THUMB-20 for retry-cap reasons, just without a UI surface. See `.planning/phases/13-macos-generation-consumption-lifecycle/13-CONTEXT.md` `<scope_changes>`.
 
 ## Future Requirements (deferred beyond v3.1)
 
@@ -103,7 +104,7 @@ Maps each v3.1 requirement to the phase that will deliver it. 26/26 requirements
 | THUMB-20 | Phase 13: macOS Generation, Consumption & Lifecycle | Backfill & Lifecycle | Pending |
 | THUMB-21 | Phase 13: macOS Generation, Consumption & Lifecycle | Backfill & Lifecycle | Pending |
 | THUMB-23 | Phase 13: macOS Generation, Consumption & Lifecycle | Backfill & Lifecycle | Pending |
-| THUMB-24 | Phase 13: macOS Generation, Consumption & Lifecycle | UI Feedback & Control | Pending |
+| ~~THUMB-24~~ | _Dropped 2026-04-25 (Phase 13 discuss)_ | UI Feedback & Control | Dropped |
 | THUMB-16 | Phase 14: iOS Generation & Polish | Backfill & Lifecycle | Pending |
 | THUMB-22 | Phase 14: iOS Generation & Polish | Backfill & Lifecycle | Pending |
 | THUMB-25 | Phase 14: iOS Generation & Polish | UI Feedback & Control | Pending |
@@ -112,6 +113,6 @@ Maps each v3.1 requirement to the phase that will deliver it. 26/26 requirements
 **Coverage summary:**
 - Phase 11: 4 requirements (THUMB-01, 02, 03, 05)
 - Phase 12: 5 requirements (THUMB-04, 07, 08, 09, 10)
-- Phase 13: 13 requirements (THUMB-06, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 23, 24)
+- Phase 13: 12 requirements (THUMB-06, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 23) — THUMB-24 dropped 2026-04-25
 - Phase 14: 4 requirements (THUMB-16, 22, 25, 26)
-- **Total: 26/26 ✓**
+- **Total: 25/25 ✓** (was 26/26 before THUMB-24 was dropped)

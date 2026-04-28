@@ -3,11 +3,13 @@ import Observation
 
 /// The current status of a DS3 drive
 public enum DS3DriveStatus: String, Codable, Hashable, Sendable {
-    /// The drive is synchronizing (uploading or downloading)
+    /// The drive is synchronizing (uploading or downloading). Also used as the
+    /// busy signal for transient enumeration pulses (Phase 13.2 D-16): the
+    /// previous `.indexing` case was removed and folder-listing pulses now
+    /// collapse to `.sync` via `NotificationManager`'s active-operations
+    /// counter, preserving the "something is happening" UX without a
+    /// dedicated state.
     case sync
-
-    /// The drive is indexing (scanning/listing files)
-    case indexing
 
     /// The drive is idle. It is not performing any operation.
     case idle

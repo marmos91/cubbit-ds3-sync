@@ -168,7 +168,7 @@ public actor SyncEngine {
             let failureCount = try await metadataStore.incrementFailureCount(driveId: driveId)
 
             logger.error(
-                "Reconciliation failed for drive \(driveId.uuidString, privacy: .public) (failure \(failureCount)/\(self.errorStateThreshold)): \(error.localizedDescription, privacy: .public)"
+                "Reconciliation failed for drive \(driveId.uuidString, privacy: .public) (failure \(failureCount)/\(self.errorStateThreshold)): \(DS3S3Client.describeSotoError(error), privacy: .public)"
             )
 
             if failureCount >= errorStateThreshold {

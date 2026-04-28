@@ -5,11 +5,11 @@ public enum AppStatus: String, Sendable {
     /// The app is idle. It is not performing any operation.
     case idle
 
-    /// The app is synchronizing (performing transfers)
+    /// The app is synchronizing (performing transfers). Also used as the busy
+    /// signal for transient enumeration pulses (Phase 13.2 D-16): the previous
+    /// `.indexing` case was removed and listing pulses now collapse to
+    /// `.syncing` via `NotificationManager`'s active-operations counter.
     case syncing
-
-    /// The app is indexing (scanning/listing remote files)
-    case indexing
 
     /// The app is in error state. The user should perform an action to fix the error.
     case error
@@ -27,8 +27,6 @@ public enum AppStatus: String, Sendable {
         switch self {
         case .syncing:
             NSLocalizedString("Synchronizing", comment: "Synchronizing status")
-        case .indexing:
-            NSLocalizedString("Indexing", comment: "Indexing status")
         case .idle:
             NSLocalizedString("Idle", comment: "Idle status")
         case .error:

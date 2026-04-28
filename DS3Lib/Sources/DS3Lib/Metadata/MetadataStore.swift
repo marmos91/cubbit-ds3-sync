@@ -13,7 +13,7 @@ public actor MetadataStore {
     /// previous build that used a different versioned schema), the store is
     /// deleted and recreated — metadata is ephemeral cache, not user data.
     public static func createContainer() throws -> ModelContainer {
-        let schema = Schema(versionedSchema: SyncedItemSchemaV3.self)
+        let schema = Schema(versionedSchema: SyncedItemSchemaV6.self)
         let config = ModelConfiguration(
             "SyncedItems",
             schema: schema,
@@ -112,6 +112,11 @@ public actor MetadataStore {
         size: Int64 = 0
     ) throws {
         if let existing = try findItem(byKey: s3Key, driveId: driveId) {
+            // Phase 13.2 D-05/D-08 (Plan 09 / Schema V6): the thumbnailStatus
+            // field is gone. The "is the thumbnail uploaded?" question is now
+            // answered by S3 itself via `getThumbnailBytes`. ETag-driven
+            // re-arming is no longer needed because the consume-path fallback
+            // re-renders on every miss anyway.
             existing.etag = etag
             existing.lastModified = lastModified
             existing.localFileHash = localFileHash

@@ -12,7 +12,10 @@ public extension DS3S3ClientProtocol {
         sourceETag: String
     ) async throws -> String {
         let maxBytes = DefaultSettings.Thumbnail.maxSinglePartBytes
-        guard data.count < maxBytes else {
+        // Inclusive upper bound: `maxSinglePartBytes` is the largest size we
+        // accept, matching the constant's "max 500KB" semantic. The previous
+        // `<` check rejected payloads exactly at the boundary.
+        guard data.count <= maxBytes else {
             throw DS3ClientError.thumbnailTooLarge(size: data.count, limit: maxBytes)
         }
 
@@ -61,5 +64,28 @@ public extension DS3S3ClientProtocol {
             if DS3S3Client.isNotFoundError(error) { return }
             throw error
         }
+    }
+
+    /// Server-side copy of a thumbnail. Preserves source metadata
+    /// (`x-amz-meta-source-etag`, `x-amz-meta-ds3drive-thumb-version`) by
+    /// passing `metadata: nil` — Soto omits the `x-amz-metadata-directive`
+    /// header and AWS S3's default behavior is COPY.
+    ///
+    /// Throws on `NoSuchKey` and on transient/server errors. The Phase 13
+    /// rename/move cascade (D-22) maps `NoSuchKey` to "mark new key .pending,
+    /// let backfill regenerate", and maps 5xx to the same fallback path.
+    ///
+    /// Per Phase 13 D-22, D-23.
+    func copyThumbnail(
+        bucket: String,
+        fromKey: String,
+        toKey: String
+    ) async throws {
+        try await copyObject(
+            bucket: bucket,
+            sourceKey: fromKey,
+            destinationKey: toKey,
+            metadata: nil
+        )
     }
 }

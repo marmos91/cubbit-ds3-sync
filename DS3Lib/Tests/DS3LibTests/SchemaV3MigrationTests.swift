@@ -88,7 +88,10 @@ final class SchemaV3MigrationTests: XCTestCase {
         let v3Context = ModelContext(v3Container)
 
         // 3. All 3 SyncedItem rows present, all default to .pending thumbnail status.
-        let items = try v3Context.fetch(FetchDescriptor<SyncedItem>())
+        // Use the explicit V3 class for fetch — the `SyncedItem` typealias now
+        // resolves to V4 (Plan 13-04 bumped) which would trigger the Pitfall 3
+        // "Failed to cast model" trap on a V3-bound container.
+        let items = try v3Context.fetch(FetchDescriptor<SyncedItemSchemaV3.SyncedItem>())
         XCTAssertEqual(items.count, 3, "All 3 V2 SyncedItem rows must survive V2→V3 migration")
         for item in items {
             XCTAssertEqual(
@@ -100,26 +103,32 @@ final class SchemaV3MigrationTests: XCTestCase {
         }
 
         // 4. The SyncAnchorRecord row must survive (Pitfall 3 regression test).
-        let anchors = try v3Context.fetch(FetchDescriptor<SyncAnchorRecord>())
+        // SyncAnchorRecord is a typealias to V2's class in V3, so the public
+        // typealias still works here.
+        let anchors = try v3Context.fetch(FetchDescriptor<SyncedItemSchemaV2.SyncAnchorRecord>())
         XCTAssertEqual(anchors.count, 1, "SyncAnchorRecord must survive V2→V3 migration (Pitfall 3)")
         XCTAssertEqual(anchors[0].driveId, anchorDriveId)
         XCTAssertEqual(anchors[0].itemCount, 42)
         XCTAssertEqual(anchors[0].consecutiveFailures, 3)
     }
 
-    /// A freshly-inserted V3 SyncedItem (via designated init) defaults
+    /// A freshly-inserted V3 SyncedItem (via the explicit V3 class) defaults
     /// `thumbnailStatus` to `"pending"` and the @Transient accessor reads `.pending`.
+    /// Uses the explicit `SyncedItemSchemaV3.SyncedItem` class because the
+    /// `SyncedItem` typealias now resolves to V4 (Plan 13-04 bumped) — fetching
+    /// against a V3-bound container with the V4 typealias hits the SwiftData
+    /// "Failed to cast model" trap.
     func testFreshV3SyncedItemDefaultsToPendingThumbnailStatus() throws {
         let schema = Schema(versionedSchema: SyncedItemSchemaV3.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
 
-        let item = SyncedItem(s3Key: "fresh.jpg", driveId: UUID(), size: 1)
+        let item = SyncedItemSchemaV3.SyncedItem(s3Key: "fresh.jpg", driveId: UUID(), size: 1)
         context.insert(item)
         try context.save()
 
-        let fetched = try context.fetch(FetchDescriptor<SyncedItem>())
+        let fetched = try context.fetch(FetchDescriptor<SyncedItemSchemaV3.SyncedItem>())
         XCTAssertEqual(fetched.count, 1)
         XCTAssertEqual(fetched[0].thumbnailStatus, ThumbnailStatus.pending.rawValue)
         XCTAssertEqual(fetched[0].thumbnail, .pending)
@@ -127,7 +136,8 @@ final class SchemaV3MigrationTests: XCTestCase {
 
     /// Round-trip a non-default `ThumbnailStatus` through the @Transient accessor:
     /// set `.uploaded` via accessor, assert raw stored field is `"uploaded"`,
-    /// re-fetch and assert accessor reads `.uploaded` again.
+    /// re-fetch and assert accessor reads `.uploaded` again. Uses explicit V3
+    /// class for the same Pitfall 3 reason as above.
     func testThumbnailStatusAccessorRoundTrip() throws {
         let schema = Schema(versionedSchema: SyncedItemSchemaV3.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -135,12 +145,12 @@ final class SchemaV3MigrationTests: XCTestCase {
         let context = ModelContext(container)
 
         let driveId = UUID()
-        let item = SyncedItem(s3Key: "round-trip.png", driveId: driveId, size: 1)
+        let item = SyncedItemSchemaV3.SyncedItem(s3Key: "round-trip.png", driveId: driveId, size: 1)
         context.insert(item)
         item.thumbnail = .uploaded
         try context.save()
 
-        let fetched = try context.fetch(FetchDescriptor<SyncedItem>())
+        let fetched = try context.fetch(FetchDescriptor<SyncedItemSchemaV3.SyncedItem>())
         XCTAssertEqual(fetched.count, 1)
         XCTAssertEqual(
             fetched[0].thumbnailStatus,

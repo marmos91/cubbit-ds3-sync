@@ -23,6 +23,11 @@ final class MockDS3S3Client: DS3S3ClientProtocol, @unchecked Sendable {
     var completeMultipartResult: MultipartCompleteResult = MultipartCompleteResult(etag: "mock-final-etag")
     var shouldThrow: Error?
 
+    /// Optional artificial delay (nanoseconds) injected at the start of
+    /// `getObject(toFile:)` to give external cancellation a deterministic
+    /// window. Currently unused; retained for future cancellation-window tests.
+    var getObjectDelayNanos: UInt64 = 0
+
     // MARK: - Recorded Parameters
 
     var lastListObjectsMaxKeys: Int?
@@ -33,6 +38,14 @@ final class MockDS3S3Client: DS3S3ClientProtocol, @unchecked Sendable {
     var lastPutObjectDataKey: String?
     var lastPutObjectDataBucket: String?
     var lastPutObjectDataBytes: Int?
+
+    // copyObject(...) call observers (Phase 13-03)
+    var lastCopyObjectBucket: String?
+    var lastCopyObjectSourceKey: String?
+    var lastCopyObjectDestinationKey: String?
+    var lastCopyObjectMetadata: [String: String]?
+    var lastCopyObjectMetadataWasSet: Bool = false
+    var copyObjectCallCount: Int = 0
 
     // MARK: - Call Recording
 
@@ -103,6 +116,12 @@ final class MockDS3S3Client: DS3S3ClientProtocol, @unchecked Sendable {
         bucket: String, sourceKey: String, destinationKey: String, metadata: [String: String]?
     ) async throws {
         record("copyObject(from:\(sourceKey),to:\(destinationKey))")
+        copyObjectCallCount += 1
+        lastCopyObjectBucket = bucket
+        lastCopyObjectSourceKey = sourceKey
+        lastCopyObjectDestinationKey = destinationKey
+        lastCopyObjectMetadata = metadata
+        lastCopyObjectMetadataWasSet = true
         if let error = copyObjectError ?? shouldThrow { throw error }
     }
 
@@ -113,6 +132,9 @@ final class MockDS3S3Client: DS3S3ClientProtocol, @unchecked Sendable {
         onProgress: TransferProgressHandler?
     ) async throws -> S3DownloadResult {
         record("getObject(key:\(key))")
+        if getObjectDelayNanos > 0 {
+            try await Task.sleep(nanoseconds: getObjectDelayNanos)
+        }
         if let error = shouldThrow { throw error }
         guard let result = getObjectResult else {
             throw DS3ClientError.parseError

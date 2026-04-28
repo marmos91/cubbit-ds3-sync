@@ -104,7 +104,6 @@
             switch status {
             case .idle: "Synced"
             case .sync: "Syncing"
-            case .indexing: "Indexing"
             case .error: "Error"
             case .paused: "Paused"
             }
@@ -113,7 +112,7 @@
         static func statusColor(for status: DS3DriveStatus) -> Color {
             switch status {
             case .idle: IOSColors.statusSynced
-            case .sync, .indexing: IOSColors.statusSyncing
+            case .sync: IOSColors.statusSyncing
             case .error: IOSColors.statusError
             case .paused: IOSColors.statusPaused
             }

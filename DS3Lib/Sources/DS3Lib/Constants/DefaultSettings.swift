@@ -153,6 +153,13 @@ public enum DefaultSettings {
 
         /// The name of the file used to store per-drive thumbnail settings.
         public static let thumbnailSettingsFileName = "thumbnailSettings.json"
+
+        /// The name of the file used to store the per-drive resume epoch
+        /// (incremented on every pause→resume transition; folded into
+        /// `S3Item.itemVersion.contentVersion` so Apple evicts cached
+        /// "no thumbnail" responses for items that were nil-cached during
+        /// the pause window).
+        public static let resumeEpochFileName = "resumeEpoch.json"
     }
 
     /// Group of settings related to the S3 client.
@@ -224,6 +231,19 @@ public enum DefaultSettings {
         public static let rasterExtensions: Set<String> = [
             "jpg", "jpeg", "png", "heic", "heif", "webp", "gif", "tiff", "tif"
         ]
+
+        /// Number of pending thumbnails the BFS-tail backfill coordinator processes per pass.
+        /// Per Phase 13 D-18; Phase 14+ may tune this adaptively. Sequential, thermal-gated.
+        public static let backfillBatchSize: Int = 5
+
+        /// Maximum number of orphan thumbnail keys deleted per BFS pass tail.
+        /// Per Phase 13 D-26 — caps cleanup work per pass; natural BFS cadence handles the rest.
+        public static let maxOrphanDeletesPerPass: Int = 50
+
+        /// Maximum render+PUT failures before a SyncedItem transitions thumbnailStatus to .failed.
+        /// Per Phase 13 D-29 — terminates retry loop on permanently unprocessable items.
+        /// ETag change resets count (D-31).
+        public static let maxFailStrikes: Int = 3
     }
 
     /// Settings related to update checking.

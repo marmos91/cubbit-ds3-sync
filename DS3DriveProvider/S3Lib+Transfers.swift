@@ -49,6 +49,10 @@ extension S3Lib {
                 Task { await nm.sendTransferSpeedNotification(stats) }
             }
         } catch {
+            // Phase 13.1-06 / D-13: finalize Progress on the rethrow path so parent-folder
+            // aggregation in Finder releases the spinner. Defense-in-depth: callers that
+            // hold the returned Progress also finalize it on their own catch arms.
+            progress?.completedUnitCount = progress?.totalUnitCount ?? 0
             try? FileManager.default.removeItem(at: fileURL)
             throw error
         }
@@ -104,6 +108,10 @@ extension S3Lib {
 
             return (fileURL, s3Item)
         } catch {
+            // Phase 13.1-06 / D-13: outer catch in fetchContents (FileProviderExtension+Thumbnails.swift)
+            // finalizes Progress for the rethrow path. We deliberately do NOT finalize here, because
+            // the trash-fallback retry's getObject `transferProgress` callback would write partial
+            // values back over a finalized count, reopening the parent spinner.
             try? FileManager.default.removeItem(at: fileURL)
             throw error
         }
@@ -144,6 +152,9 @@ extension S3Lib {
 
             progress.completedUnitCount = progress.totalUnitCount
         } catch {
+            // Phase 13.1-06 / D-13: finalize Progress on the rethrow path so parent-folder
+            // aggregation in Finder releases the spinner.
+            progress.completedUnitCount = progress.totalUnitCount
             try? FileManager.default.removeItem(at: fileURL)
             throw error
         }

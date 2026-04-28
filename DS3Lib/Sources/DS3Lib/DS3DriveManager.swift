@@ -94,12 +94,26 @@ public final class DS3DriveManager: @unchecked Sendable {
     @MainActor
     private func handleDriveStatusChange(_ change: DS3DriveStatusChange) {
         let driveId = change.driveId
+
+        // While the user has the drive paused, ignore extension status pulses
+        // that would overwrite the paused state. Background timers (the 30 s
+        // polling task, working-set enumerateChanges) still emit transient
+        // `.sync` / `.idle` pulses; without this guard the aggregate flaps
+        // between `.allPaused` and `.syncing`/`.allIdle`, which makes the
+        // tray footer icon visibly spin and mis-report state.
+        // `DS3DriveViewModel.driveStatusChanged` already applies the same guard
+        // to its own copy — this anchors the aggregate to the same truth.
+        if (try? SharedData.default().isDrivePaused(driveId)) == true,
+           change.status != .paused {
+            return
+        }
+
         driveStatuses[driveId] = change.status
 
         switch change.status {
-        case .sync, .indexing:
+        case .sync:
             syncingDrives.insert(driveId)
-            AppStatusManager.default().setStatus(change.status == .sync ? .syncing : .indexing)
+            AppStatusManager.default().setStatus(.syncing)
 
         case .paused:
             syncingDrives.remove(driveId)
@@ -132,6 +146,27 @@ public final class DS3DriveManager: @unchecked Sendable {
         driveStatuses[driveId] = .sync
         syncingDrives.insert(driveId)
         AppStatusManager.default().setStatus(.syncing)
+
+        // Bump the per-drive resume epoch BEFORE signaling the extension.
+        // S3Item.itemVersion folds this epoch into contentVersion for files,
+        // so when the extension's signalEnumerator(.workingSet) triggers
+        // Apple's re-enumeration, every item now has a different
+        // contentVersion than what Apple's thumbnail cache holds. That
+        // forces eviction of the nil responses cached during the pause and
+        // a fresh `fetchThumbnails` call → 3-lane fallback runs.
+        // The epoch only changes on explicit resume; steady-state
+        // contentVersion stays sourceETag-derived per D-14.
+        do {
+            try SharedData.default().incrementResumeEpoch(forDrive: driveId)
+        } catch {
+            logger.warning(
+                "Failed to bump resume epoch for drive \(driveId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+        }
+
+        Task { [ipcService] in
+            await ipcService.postCommand(.resumeDrive(driveId: driveId))
+        }
     }
 
     /// Recomputes the global app status from per-drive statuses.

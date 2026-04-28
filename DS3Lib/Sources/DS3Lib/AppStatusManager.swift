@@ -4,7 +4,7 @@ import os.log
 
 /// Manages the global status of the app, displayed in the menu bar tray icon.
 ///
-/// Enforces a minimum active duration: once the status becomes syncing/indexing,
+/// Enforces a minimum active duration: once the status becomes syncing,
 /// it must remain active for at least `minActiveDuration` seconds before
 /// transitioning to idle. This prevents the tray icon from flashing.
 @Observable
@@ -13,11 +13,11 @@ public final class AppStatusManager: @unchecked Sendable {
 
     @ObservationIgnored private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.app.rawValue)
 
-    /// Minimum time (seconds) the status must stay in syncing/indexing before
+    /// Minimum time (seconds) the status must stay in syncing before
     /// it can transition to idle. Prevents rapid icon flashing.
     @ObservationIgnored private let minActiveDuration: TimeInterval = 1.0
 
-    /// When the status last entered an active state (syncing/indexing).
+    /// When the status last entered an active state (syncing).
     @ObservationIgnored private var lastActiveTime: Date?
 
     /// Timer for deferred idle transitions.
@@ -38,7 +38,7 @@ public final class AppStatusManager: @unchecked Sendable {
 
     /// Updates the global app status.
     ///
-    /// Active states (syncing/indexing) are applied immediately and reset the
+    /// Active states (syncing) are applied immediately and reset the
     /// minimum-active timer. Idle transitions are held until `minActiveDuration`
     /// has elapsed since the last active state, preventing tray icon flicker.
     public func setStatus(_ newStatus: AppStatus) {
@@ -46,7 +46,7 @@ public final class AppStatusManager: @unchecked Sendable {
         pendingIdleTimer = nil
 
         switch newStatus {
-        case .syncing, .indexing:
+        case .syncing:
             lastActiveTime = Date()
             status = newStatus
         case .idle:

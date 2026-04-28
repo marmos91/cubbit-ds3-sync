@@ -24,24 +24,10 @@ final class AggregateStatusTests: XCTestCase {
         XCTAssertEqual(AggregateStatus.from(statuses: [.idle, .idle, .idle]), .allIdle)
     }
 
-    // MARK: - Syncing (wins over indexing)
+    // MARK: - Syncing
 
     func testSyncingWinsOverIdle() {
         XCTAssertEqual(AggregateStatus.from(statuses: [.idle, .sync]), .syncing)
-    }
-
-    func testSyncingWinsOverIndexing() {
-        XCTAssertEqual(AggregateStatus.from(statuses: [.indexing, .sync]), .syncing)
-    }
-
-    // MARK: - Indexing
-
-    func testIndexingWithIdle() {
-        XCTAssertEqual(AggregateStatus.from(statuses: [.idle, .indexing]), .indexing)
-    }
-
-    func testIndexingAlone() {
-        XCTAssertEqual(AggregateStatus.from(statuses: [.indexing]), .indexing)
     }
 
     // MARK: - Error
@@ -96,7 +82,6 @@ final class AggregateStatusTests: XCTestCase {
         XCTAssertEqual(AggregateStatus.noDrives.appStatus, .idle)
         XCTAssertEqual(AggregateStatus.allIdle.appStatus, .idle)
         XCTAssertEqual(AggregateStatus.syncing.appStatus, .syncing)
-        XCTAssertEqual(AggregateStatus.indexing.appStatus, .indexing)
         XCTAssertEqual(AggregateStatus.error(count: 3).appStatus, .error)
         XCTAssertEqual(AggregateStatus.mixed.appStatus, .error)
         XCTAssertEqual(AggregateStatus.allPaused.appStatus, .paused)

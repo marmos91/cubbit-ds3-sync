@@ -5,11 +5,12 @@ import os.log
 // MARK: - Cache Warm-up
 
 extension FileProviderExtension {
-    /// Performs a single recursive S3 listing on startup to populate MetadataStore
-    /// before BFS starts. This turns all subsequent enumerateItems calls into
-    /// instant cache hits, avoiding the enumeration waterfall when the user
-    /// downloads a large folder tree.
-    func warmCacheThenStartBFS() {
+    /// Performs a single recursive S3 listing on startup to populate MetadataStore.
+    /// This turns all subsequent enumerateItems calls into instant cache hits,
+    /// avoiding the enumeration waterfall when the user downloads a large folder
+    /// tree. Per-folder discovery beyond the warm-up is driven reactively by
+    /// Apple's `enumerateItems`.
+    func warmCache() {
         #if os(iOS)
             // On iOS, skip warm-up — recursive listings spike memory and burn
             // the networking grace period. Per-folder enumeration handles discovery.
@@ -20,13 +21,11 @@ extension FileProviderExtension {
                   let s3Lib = self.s3Lib,
                   let metadataStore = self.metadataStore
             else {
-                self.startBFSIndexer()
                 return
             }
 
             // Skip warm-up when drive is paused
             if (try? SharedData.default().isDrivePaused(drive.id)) == true {
-                self.startBFSIndexer()
                 return
             }
 
@@ -36,25 +35,6 @@ extension FileProviderExtension {
                     .info(
                         "Cache warm-up: starting recursive listing for prefix \(prefix ?? "<root>", privacy: .public)"
                     )
-
-                // Purge any rows whose s3Key/parentKey contains an Apple sentinel
-                // raw value. This is one-shot residue cleanup from a pre-fix bug
-                // where createItem/modifyItem concatenated `parentItemIdentifier.rawValue`
-                // (which can be a sentinel like `NSFileProviderTrashContainerItemIdentifier`)
-                // directly into S3 keys. Safe to run on every warm-up: legitimate
-                // S3 keys never contain these substrings.
-                let sentinels: [String] = [
-                    NSFileProviderItemIdentifier.rootContainer.rawValue,
-                    NSFileProviderItemIdentifier.trashContainer.rawValue,
-                    NSFileProviderItemIdentifier.workingSet.rawValue
-                ]
-                if let purged = try? await metadataStore.purgeRowsContainingSentinels(
-                    driveId: drive.id, sentinels: sentinels
-                ), purged > 0 {
-                    self?.logger
-                        .info("Cache warm-up: purged \(purged, privacy: .public) sentinel-poisoned rows")
-                    self?.signalChanges()
-                }
 
                 do {
                     var continuationToken: String?
@@ -101,12 +81,9 @@ extension FileProviderExtension {
                 } catch {
                     self?.logger
                         .error(
-                            "Cache warm-up failed: \(error.localizedDescription, privacy: .public). Falling back to BFS."
+                            "Cache warm-up failed: \(DS3S3Client.describeSotoError(error), privacy: .public)."
                         )
                 }
-
-                // Start BFS for ongoing cache maintenance after warm-up completes (or fails)
-                self?.startBFSIndexer()
             }
         #endif
     }
@@ -120,32 +97,6 @@ extension FileProviderExtension {
                 self.logger.error("Failed to signal trash container: \(error.localizedDescription, privacy: .public)")
             }
         }
-    }
-
-    // MARK: - BFS Indexer
-
-    func startBFSIndexer() {
-        #if os(iOS)
-            // BFS disabled on iOS. iOS kills the extension every few seconds,
-            // so BFS never completes a pass and each restart burns the limited
-            // networking grace period. Per-folder enumeration (cache-first with
-            // background S3 refresh) handles content discovery as the user navigates.
-            return
-        #else
-            guard self.enabled,
-                  let drive = self.drive,
-                  let s3Lib = self.s3Lib
-            else { return }
-
-            let indexer = BreadthFirstIndexer(
-                s3Lib: s3Lib,
-                drive: drive,
-                metadataStore: self.metadataStore,
-                manager: NSFileProviderManager(for: self.domain)
-            )
-            indexer.start()
-            self.breadthFirstIndexer = indexer
-        #endif
     }
 
     // MARK: - Periodic Polling
@@ -186,6 +137,39 @@ extension FileProviderExtension {
         #endif
     }
 
+    // MARK: - IPC Command Listener
+
+    /// Listens for `IPCCommand` events from the main app and reacts to ones
+    /// that need extension-side handling. Today this is just `.resumeDrive`,
+    /// which signals the working set so Apple re-issues `fetchThumbnails`
+    /// for items whose previous response was nil under pause. Other commands
+    /// (`.pauseDrive`, `.refreshEnumeration`, `.emptyTrash`) are read from
+    /// `SharedData` flags or handled lazily on the next handler entry.
+    func startCommandListener() {
+        guard let drive = self.drive else { return }
+        let driveId = drive.id
+
+        self.commandListenerTask = Task { [weak self] in
+            guard let ipcService = self?.ipcService else { return }
+            await ipcService.startListening()
+
+            for await command in ipcService.commands {
+                guard !Task.isCancelled, let self else { break }
+                switch command {
+                case let .resumeDrive(id) where id == driveId:
+                    self.logger
+                        .info(
+                            "IPC: resumeDrive received for \(id, privacy: .public) — signaling working set"
+                        )
+                    self.signalChanges()
+                case .pauseDrive, .resumeDrive, .refreshEnumeration, .emptyTrash:
+                    // Other commands handled via SharedData flags or other paths.
+                    continue
+                }
+            }
+        }
+    }
+
     // MARK: - Auto-Purge Expired Trash
 
     /// Starts a periodic background task that purges expired trash items.
@@ -217,7 +201,8 @@ extension FileProviderExtension {
                             self.logger
                                 .info("Empty trash completed via app request for drive \(driveId, privacy: .public)")
                         } catch {
-                            self.logger.error("Empty trash failed: \(error.localizedDescription, privacy: .public)")
+                            self.logger
+                                .error("Empty trash failed: \(DS3S3Client.describeSotoError(error), privacy: .public)")
                         }
                     }
 
@@ -246,7 +231,7 @@ extension FileProviderExtension {
                                 } catch {
                                     self.logger
                                         .warning(
-                                            "Failed to purge \(item.itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                                            "Failed to purge \(item.itemIdentifier.rawValue, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                                         )
                                 }
                             }
@@ -259,7 +244,8 @@ extension FileProviderExtension {
                                 )
                         }
                     } catch {
-                        self.logger.error("Auto-purge check failed: \(error.localizedDescription, privacy: .public)")
+                        self.logger
+                            .error("Auto-purge check failed: \(DS3S3Client.describeSotoError(error), privacy: .public)")
                     }
                 }
             }

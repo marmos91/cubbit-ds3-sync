@@ -167,7 +167,7 @@ extension FileProviderExtension {
                 boxedCb.value(nil)
             } catch {
                 self.logger.error(
-                    "Presign URL failed: \(error.localizedDescription, privacy: .public)"
+                    "Presign URL failed: \(DS3S3Client.describeSotoError(error), privacy: .public)"
                 )
                 PresignNotificationHelper.postError()
                 progress.completedUnitCount = progress.totalUnitCount
@@ -217,7 +217,7 @@ extension FileProviderExtension {
                 } catch {
                     self.logger
                         .error(
-                            "Failed to restore \(actualTrashKey, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                            "Failed to restore \(actualTrashKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                         )
                     if firstError == nil {
                         firstError = (error as? S3ErrorType)?.toFileProviderError()
