@@ -266,14 +266,106 @@ public enum SyncedItemSchemaV3: VersionedSchema {
     }
 }
 
+/// Schema version 4 for the SyncedItem metadata model.
+/// Adds `thumbnailFailCount: Int = 0` to SyncedItem (Phase 13 D-29).
+/// Per Pitfall 10, the strike rule is `count >= maxFailStrikes` (3 strikes →
+/// `.failed`); reset condition is the original ETag changing on upsert (D-31).
+public enum SyncedItemSchemaV4: VersionedSchema {
+    public nonisolated static let versionIdentifier = Schema.Version(4, 0, 0)
+    public static var models: [any PersistentModel.Type] {
+        [SyncedItem.self, SyncAnchorRecord.self]
+    }
+
+    /// SyncAnchorRecord is unchanged from V2/V3; reusing the same @Model class
+    /// avoids SwiftData "failed to cast model" traps (verified V3 pattern).
+    public typealias SyncAnchorRecord = SyncedItemSchemaV2.SyncAnchorRecord
+
+    @Model
+    public final class SyncedItem {
+        /// The full S3 object key (unique per drive, not globally)
+        public var s3Key: String
+
+        /// The drive this item belongs to (explicit, not inferred from bucket/prefix)
+        public var driveId: UUID
+
+        /// Composite unique key: "driveId:s3Key". Ensures uniqueness per drive.
+        @Attribute(.unique) public var uniqueKey: String
+
+        /// S3 ETag for version tracking
+        public var etag: String?
+
+        /// S3 LastModified timestamp
+        public var lastModified: Date?
+
+        /// Local file content hash for change detection
+        public var localFileHash: String?
+
+        /// Current sync status stored as raw string for SwiftData compatibility.
+        /// Use `status` computed property for type-safe access.
+        public var syncStatus: String
+
+        /// Type-safe accessor for `syncStatus`.
+        @Transient public var status: SyncStatus {
+            get { SyncStatus(rawValue: syncStatus) ?? .pending }
+            set { syncStatus = newValue.rawValue }
+        }
+
+        /// Parent S3 key (folder containing this item)
+        public var parentKey: String?
+
+        /// MIME content type
+        public var contentType: String?
+
+        /// File size in bytes
+        public var size: Int64
+
+        /// Whether this item has been downloaded locally (for display purposes only).
+        public var isMaterialized: Bool = false
+
+        /// The original S3 key before the item was trashed. Nil for non-trashed items.
+        public var originalKey: String?
+
+        public var thumbnailStatus: String = ThumbnailStatus.pending.rawValue
+
+        @Transient public var thumbnail: ThumbnailStatus {
+            get { ThumbnailStatus(rawValue: thumbnailStatus) ?? .pending }
+            set { thumbnailStatus = newValue.rawValue }
+        }
+
+        /// Number of consecutive thumbnail render+PUT failures. Incremented by
+        /// `MetadataStore.setThumbnailFailure` on each failure; transitions
+        /// `thumbnailStatus` to `.failed` when `>= DefaultSettings.Thumbnail.maxFailStrikes`
+        /// (3). Reset to 0 by the upsert path when the persisted ETag differs
+        /// from the freshly-listed ETag (D-31). Phase 13 D-29.
+        public var thumbnailFailCount: Int = 0
+
+        public init(
+            s3Key: String,
+            driveId: UUID,
+            size: Int64 = 0,
+            syncStatus: String = SyncStatus.pending.rawValue,
+            thumbnailStatus: String = ThumbnailStatus.pending.rawValue,
+            thumbnailFailCount: Int = 0
+        ) {
+            self.s3Key = s3Key
+            self.driveId = driveId
+            self.uniqueKey = "\(driveId.uuidString):\(s3Key)"
+            self.size = size
+            self.syncStatus = syncStatus
+            self.thumbnailStatus = thumbnailStatus
+            self.thumbnailFailCount = thumbnailFailCount
+        }
+    }
+}
+
 /// Migration plan for SyncedItem schema versions.
 public enum SyncedItemMigrationPlan: SchemaMigrationPlan {
     public static var schemas: [any VersionedSchema.Type] {
-        [SyncedItemSchemaV1.self, SyncedItemSchemaV2.self, SyncedItemSchemaV3.self]
+        [SyncedItemSchemaV1.self, SyncedItemSchemaV2.self, SyncedItemSchemaV3.self, SyncedItemSchemaV4.self]
     }
 
     public static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3]
+        [migrateV1toV2, migrateV2toV3, migrateV3toV4]
     }
 
     /// Lightweight migration from V1 to V2:
@@ -289,8 +381,15 @@ public enum SyncedItemMigrationPlan: SchemaMigrationPlan {
         fromVersion: SyncedItemSchemaV2.self,
         toVersion: SyncedItemSchemaV3.self
     )
+
+    /// Lightweight migration from V3 to V4:
+    /// - Adds thumbnailFailCount (Int, default 0) to SyncedItem (Phase 13 D-29)
+    nonisolated static let migrateV3toV4 = MigrationStage.lightweight(
+        fromVersion: SyncedItemSchemaV3.self,
+        toVersion: SyncedItemSchemaV4.self
+    )
 }
 
 /// Type alias for the current schema version's SyncedItem.
 /// (`SyncAnchorRecord` typealias lives in `SyncAnchorRecord.swift`.)
-public typealias SyncedItem = SyncedItemSchemaV3.SyncedItem
+public typealias SyncedItem = SyncedItemSchemaV4.SyncedItem

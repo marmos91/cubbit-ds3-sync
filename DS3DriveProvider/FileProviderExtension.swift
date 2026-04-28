@@ -72,6 +72,12 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         let fetchSemaphore = AsyncSemaphore(value: 20)
     #endif
 
+    /// Bounds concurrent thumbnail GETs from `fetchThumbnails` (Phase 13 D-12,
+    /// THUMB-14). macOS=4. Mirror of `BucketListingLimiter` for the consume
+    /// path. Upload generator and backfill coordinator do NOT route through
+    /// this limiter (Pitfall 4).
+    let thumbnailFetchLimiter = ThumbnailFetchLimiter(maxSlots: 4)
+
     var drive: DS3Drive?
     let temporaryDirectory: URL?
     let systemService: any SystemService
@@ -134,6 +140,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
 
         super.init()
         self.startPolling()
+        self.runThumbnailRolloutIfNeeded()
         self.warmCacheThenStartBFS()
         self.startAutoPurge()
 

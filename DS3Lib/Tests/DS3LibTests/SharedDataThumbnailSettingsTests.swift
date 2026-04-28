@@ -183,4 +183,82 @@ final class SharedDataThumbnailSettingsTests: XCTestCase {
     func testThumbnailMaxSinglePartBytes() {
         XCTAssertEqual(DefaultSettings.Thumbnail.maxSinglePartBytes, 500_000)
     }
+
+    // MARK: - hasThumbnailSettings (Plan 13-10, D-02 + W3 corrupt-JSON self-heal)
+
+    /// Test 1 — When no settings file exists at all, `hasThumbnailSettings` must
+    /// return false. This is the common first-launch case that triggers the
+    /// rollout's collision re-check (D-02).
+    func testHasThumbnailSettingsFalseWhenNeverWritten() {
+        let driveId = UUID()
+        let url = tempDir.appendingPathComponent(DefaultSettings.FileNames.thumbnailSettingsFileName)
+        XCTAssertFalse(
+            SharedData.hasThumbnailSettings(forDrive: driveId, atURL: url),
+            "No file → never written → false (triggers first-launch rollout)"
+        )
+    }
+
+    /// Test 2 — After a save, `hasThumbnailSettings` must return true so the
+    /// rollout's once-per-drive guard fires and skips the re-check (D-02).
+    func testHasThumbnailSettingsTrueAfterSave() throws {
+        let driveId = UUID()
+        let url = tempDir.appendingPathComponent(DefaultSettings.FileNames.thumbnailSettingsFileName)
+
+        // Simulate a save by writing the same JSON shape used in production.
+        var allSettings: [String: ThumbnailSettings] = [:]
+        allSettings[driveId.uuidString] = ThumbnailSettings(enabled: true)
+        try JSONEncoder().encode(allSettings).write(to: url, options: .atomic)
+
+        XCTAssertTrue(
+            SharedData.hasThumbnailSettings(forDrive: driveId, atURL: url),
+            "Saved entry → has → true (rollout no-ops)"
+        )
+    }
+
+    /// Test 3 — Per-drive isolation. Drive A has settings; querying drive B
+    /// must return false so B's rollout still runs.
+    func testHasThumbnailSettingsIsolatedPerDrive() throws {
+        let driveA = UUID()
+        let driveB = UUID()
+        let url = tempDir.appendingPathComponent(DefaultSettings.FileNames.thumbnailSettingsFileName)
+
+        var allSettings: [String: ThumbnailSettings] = [:]
+        allSettings[driveA.uuidString] = ThumbnailSettings(enabled: true)
+        try JSONEncoder().encode(allSettings).write(to: url, options: .atomic)
+
+        XCTAssertTrue(
+            SharedData.hasThumbnailSettings(forDrive: driveA, atURL: url),
+            "Drive A has saved entry → true"
+        )
+        XCTAssertFalse(
+            SharedData.hasThumbnailSettings(forDrive: driveB, atURL: url),
+            "Drive B never written → false (B's rollout still runs)"
+        )
+    }
+
+    /// Test 3b — Corrupt JSON self-heal (W3 fix; explicit acceptance criterion).
+    /// If the settings file exists but contains undecodable bytes,
+    /// `hasThumbnailSettings` MUST return false. Returning true would lock the
+    /// drive into the persisted-disabled state forever (the rollout's once-per-drive
+    /// guard would skip the re-check, and the corrupt file would never be overwritten).
+    /// Returning false makes the rollout treat the drive as never-written; on the
+    /// next launch it re-runs `inspectThumbnailPrefix` and overwrites the corrupt
+    /// file with a fresh JSON — self-healing the bad state.
+    func testHasThumbnailSettingsFalseWhenFileCorrupt() throws {
+        let driveId = UUID()
+        let url = tempDir.appendingPathComponent(DefaultSettings.FileNames.thumbnailSettingsFileName)
+
+        // Write garbage bytes directly — this is what a partial write or disk
+        // corruption would leave behind.
+        try Data("not json".utf8).write(to: url, options: .atomic)
+
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: url.path),
+            "Sanity: corrupt file exists on disk"
+        )
+        XCTAssertFalse(
+            SharedData.hasThumbnailSettings(forDrive: driveId, atURL: url),
+            "Corrupt file → false (self-heal seam: rollout re-runs and overwrites)"
+        )
+    }
 }

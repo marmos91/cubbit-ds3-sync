@@ -60,30 +60,31 @@ final class DS3S3ClientThumbnailsTests: XCTestCase {
         XCTAssertFalse(etag.isEmpty)
     }
 
-    func testPutThumbnailUnderSizeLimitSucceeds() async throws {
-        // Boundary smoke: 499_999 bytes < maxSinglePartBytes (500_000) succeeds.
+    func testPutThumbnailAtSizeLimitSucceeds() async throws {
+        // Boundary: payloads exactly at `maxSinglePartBytes` are accepted —
+        // the constant denotes the maximum allowed size (inclusive).
         let mock = makeMock()
         mock.putObjectDataEtag = "etag"
 
-        let belowCap = Data(count: DefaultSettings.Thumbnail.maxSinglePartBytes - 1)
+        let atCap = Data(count: DefaultSettings.Thumbnail.maxSinglePartBytes)
 
         _ = try await mock.putThumbnail(
-            bucket: "b", key: "k", data: belowCap, sourceETag: "src"
+            bucket: "b", key: "k", data: atCap, sourceETag: "src"
         )
-        XCTAssertEqual(mock.lastPutObjectDataBytes, belowCap.count)
+        XCTAssertEqual(mock.lastPutObjectDataBytes, atCap.count)
     }
 
-    func testPutThumbnailAtOrAboveSizeLimitThrows() async throws {
+    func testPutThumbnailAboveSizeLimitThrows() async throws {
         let mock = makeMock()
-        let atCap = Data(count: DefaultSettings.Thumbnail.maxSinglePartBytes)
+        let aboveCap = Data(count: DefaultSettings.Thumbnail.maxSinglePartBytes + 1)
 
         do {
             _ = try await mock.putThumbnail(
-                bucket: "b", key: "k", data: atCap, sourceETag: "src"
+                bucket: "b", key: "k", data: aboveCap, sourceETag: "src"
             )
             XCTFail("Expected DS3ClientError.thumbnailTooLarge")
         } catch DS3ClientError.thumbnailTooLarge(let size, let limit) {
-            XCTAssertEqual(size, atCap.count)
+            XCTAssertEqual(size, aboveCap.count)
             XCTAssertEqual(limit, DefaultSettings.Thumbnail.maxSinglePartBytes)
         }
         XCTAssertNil(mock.lastPutObjectDataBytes, "Oversize input must NOT reach the underlying PUT")

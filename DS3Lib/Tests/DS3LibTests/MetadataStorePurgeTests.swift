@@ -19,7 +19,7 @@ final class MetadataStorePurgeTests: XCTestCase {
     private let rootSentinel = "NSFileProviderRootContainerItemIdentifier"
 
     override func setUp() async throws {
-        let schema = Schema(versionedSchema: SyncedItemSchemaV3.self)
+        let schema = Schema(versionedSchema: SyncedItemSchemaV4.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         container = try ModelContainer(for: schema, configurations: [config])
         store = MetadataStore(modelContainer: container)

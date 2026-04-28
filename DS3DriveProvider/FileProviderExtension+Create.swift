@@ -244,6 +244,22 @@ extension FileProviderExtension {
                     size: Int64(itemSize)
                 )
 
+                // Phase 13 D-06 / THUMB-06: post-PUT thumbnail upload hook. Files only (folders
+                // have no contents). Fire-and-forget, decoupled from this completion handler.
+                // Errors logged + swallowed inside the helper's detached Task — they NEVER
+                // surface in `completionHandler(...)` below.
+                if !s3Item.isFolder, let localURL = url, let s3Client = self.s3Client {
+                    enqueueThumbnailUpload(
+                        originalKey: key,
+                        localURL: localURL,
+                        sourceETag: ETagUtils.normalize(createETag) ?? createETag,
+                        drive: drive,
+                        s3Client: s3Client,
+                        metadataStore: self.metadataStore,
+                        logger: self.logger
+                    )
+                }
+
                 // Clear parent error badge if this item was previously in error
                 if let parentCleared = try? await self.metadataStore?.clearParentErrorIfResolved(
                     childKey: key, driveId: drive.id

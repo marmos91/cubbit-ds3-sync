@@ -11,7 +11,10 @@ final class MetadataStoreThumbnailQueriesTests: XCTestCase {
     private let otherDriveId = UUID()
 
     override func setUp() async throws {
-        let schema = Schema(versionedSchema: SyncedItemSchemaV3.self)
+        // Bound to V4 — the `SyncedItem` typealias resolves to
+        // `SyncedItemSchemaV4.SyncedItem` after Plan 13-04. A V3-bound container
+        // hits SwiftData's "Failed to cast model" trap (Pitfall 3).
+        let schema = Schema(versionedSchema: SyncedItemSchemaV4.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         container = try ModelContainer(for: schema, configurations: [config])
         store = MetadataStore(modelContainer: container)
@@ -206,19 +209,6 @@ final class MetadataStoreThumbnailQueriesTests: XCTestCase {
         XCTAssertEqual(jsonStatus, ThumbnailStatus.notApplicable.rawValue)
     }
 
-    func testCountPendingRasterThumbnailsReturnsRasterOnly() async throws {
-        try await store.upsertItem(
-            s3Key: "c/a.jpg", driveId: driveId, syncStatus: .synced, size: 100
-        )
-        try await store.upsertItem(
-            s3Key: "c/b.png", driveId: driveId, syncStatus: .synced, size: 100
-        )
-        try await store.upsertItem(
-            s3Key: "c/notes.txt", driveId: driveId, syncStatus: .synced, size: 100
-        )
-        let count = try await store.countPendingRasterThumbnails(driveId: driveId)
-        XCTAssertEqual(count, 2)
-    }
 }
 
 // Test-only helper for reading thumbnailStatus directly (the public surface

@@ -104,6 +104,29 @@
 		D512EEBC2B59631400F550EC /* MFAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D512EEBB2B59631400F550EC /* MFAView.swift */; };
 		D51672A12F7A00000042AD93 /* BucketListingLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51672A02F7A00000042AD93 /* BucketListingLimiter.swift */; };
 		D51672A22F7A00000042AD93 /* BucketListingLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51672A02F7A00000042AD93 /* BucketListingLimiter.swift */; };
+		A130601101000000A1306011 /* ThumbnailFetchLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130601001000000A1306010 /* ThumbnailFetchLimiter.swift */; };
+		A130601201000000A1306012 /* ThumbnailFetchLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130601001000000A1306010 /* ThumbnailFetchLimiter.swift */; };
+		A130601401000000A1306014 /* ThumbnailFetchLimiterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130601301000000A1306013 /* ThumbnailFetchLimiterTests.swift */; };
+		A130602101000000A1306021 /* FileProviderExtension+ThumbnailConsume.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130602001000000A1306020 /* FileProviderExtension+ThumbnailConsume.swift */; };
+		A130602201000000A1306022 /* FileProviderExtension+ThumbnailConsume.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130602001000000A1306020 /* FileProviderExtension+ThumbnailConsume.swift */; };
+		A130603101000000A1306031 /* FetchThumbnailsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130603001000000A1306030 /* FetchThumbnailsTests.swift */; };
+		A130604101000000A1306041 /* FetchThumbnailsErrorMappingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130604001000000A1306040 /* FetchThumbnailsErrorMappingTests.swift */; };
+		A130607101000000A1306071 /* FileProviderExtension+ThumbnailUploadHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130607001000000A1306070 /* FileProviderExtension+ThumbnailUploadHook.swift */; };
+		A130607201000000A1306072 /* FileProviderExtension+ThumbnailUploadHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130607001000000A1306070 /* FileProviderExtension+ThumbnailUploadHook.swift */; };
+		A130607401000000A1306074 /* UploadHookTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130607301000000A1306073 /* UploadHookTests.swift */; };
+		A130608101000000A1306081 /* FileProviderExtension+ThumbnailCascade.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130608001000000A1306080 /* FileProviderExtension+ThumbnailCascade.swift */; };
+		A130608201000000A1306082 /* FileProviderExtension+ThumbnailCascade.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130608001000000A1306080 /* FileProviderExtension+ThumbnailCascade.swift */; };
+		A130608401000000A1306084 /* CascadeDeleteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130608301000000A1306083 /* CascadeDeleteTests.swift */; };
+		A130608601000000A1306086 /* CascadeRenameTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130608501000000A1306085 /* CascadeRenameTests.swift */; };
+		A130609101000000A1306091 /* OrphanSweeper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130609001000000A1306090 /* OrphanSweeper.swift */; };
+		A130609201000000A1306092 /* OrphanSweeper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130609001000000A1306090 /* OrphanSweeper.swift */; };
+		A130609401000000A1306094 /* OrphanSweepTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130609301000000A1306093 /* OrphanSweepTests.swift */; };
+		A130609601000000A1306096 /* BFSThumbnailHookTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130609501000000A1306095 /* BFSThumbnailHookTests.swift */; };
+		A130609801000000A1306098 /* BFSThumbnailHookRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130609701000000A1306097 /* BFSThumbnailHookRunner.swift */; };
+		A130609901000000A1306099 /* BFSThumbnailHookRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130609701000000A1306097 /* BFSThumbnailHookRunner.swift */; };
+		A131001001000000A1310010 /* ThumbnailRollout.swift in Sources */ = {isa = PBXBuildFile; fileRef = A131001001000000A1310011 /* ThumbnailRollout.swift */; };
+		A131001002000000A1310012 /* ThumbnailRollout.swift in Sources */ = {isa = PBXBuildFile; fileRef = A131001001000000A1310011 /* ThumbnailRollout.swift */; };
+		A131001003000000A1310013 /* ThumbnailRolloutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A131001003000000A1310014 /* ThumbnailRolloutTests.swift */; };
 		D54002A02B5EAEB000B54E97 /* S3Lib.swift in Sources */ = {isa = PBXBuildFile; fileRef = D540029D2B5EAEB000B54E97 /* S3Lib.swift */; };
 		D54775C72B57181D00DABCD4 /* DS3DriveApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54775C62B57181D00DABCD4 /* DS3DriveApp.swift */; };
 		D54775D72B57185100DABCD4 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = D54775D52B57185100DABCD4 /* README.md */; };
@@ -313,6 +336,22 @@
 		D4EF1EC6AFC859E3FA549C6D /* TestFixtures.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
 		D512EEBB2B59631400F550EC /* MFAView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MFAView.swift; sourceTree = "<group>"; };
 		D51672A02F7A00000042AD93 /* BucketListingLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BucketListingLimiter.swift; sourceTree = "<group>"; };
+		A130601001000000A1306010 /* ThumbnailFetchLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailFetchLimiter.swift; sourceTree = "<group>"; };
+		A130601301000000A1306013 /* ThumbnailFetchLimiterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThumbnailFetchLimiterTests.swift; sourceTree = "<group>"; };
+		A130602001000000A1306020 /* FileProviderExtension+ThumbnailConsume.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+ThumbnailConsume.swift"; sourceTree = "<group>"; };
+		A130603001000000A1306030 /* FetchThumbnailsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FetchThumbnailsTests.swift; sourceTree = "<group>"; };
+		A130604001000000A1306040 /* FetchThumbnailsErrorMappingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FetchThumbnailsErrorMappingTests.swift; sourceTree = "<group>"; };
+		A130607001000000A1306070 /* FileProviderExtension+ThumbnailUploadHook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+ThumbnailUploadHook.swift"; sourceTree = "<group>"; };
+		A130607301000000A1306073 /* UploadHookTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UploadHookTests.swift; sourceTree = "<group>"; };
+		A130608001000000A1306080 /* FileProviderExtension+ThumbnailCascade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+ThumbnailCascade.swift"; sourceTree = "<group>"; };
+		A130608301000000A1306083 /* CascadeDeleteTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CascadeDeleteTests.swift; sourceTree = "<group>"; };
+		A130608501000000A1306085 /* CascadeRenameTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CascadeRenameTests.swift; sourceTree = "<group>"; };
+		A130609001000000A1306090 /* OrphanSweeper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrphanSweeper.swift; sourceTree = "<group>"; };
+		A130609301000000A1306093 /* OrphanSweepTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrphanSweepTests.swift; sourceTree = "<group>"; };
+		A130609501000000A1306095 /* BFSThumbnailHookTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BFSThumbnailHookTests.swift; sourceTree = "<group>"; };
+		A130609701000000A1306097 /* BFSThumbnailHookRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BFSThumbnailHookRunner.swift; sourceTree = "<group>"; };
+		A131001001000000A1310011 /* ThumbnailRollout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailRollout.swift; sourceTree = "<group>"; };
+		A131001003000000A1310014 /* ThumbnailRolloutTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThumbnailRolloutTests.swift; sourceTree = "<group>"; };
 		D540029D2B5EAEB000B54E97 /* S3Lib.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3Lib.swift; sourceTree = "<group>"; };
 		D54775C32B57181D00DABCD4 /* Cubbit DS3 Drive.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Cubbit DS3 Drive.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D54775C62B57181D00DABCD4 /* DS3DriveApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3DriveApp.swift; sourceTree = "<group>"; };
@@ -606,6 +645,15 @@
 			children = (
 				496BF81D5E82D003EAE34C62 /* S3EnumeratorTests.swift */,
 				154C907172E95FD06C8615BD /* S3ItemTests.swift */,
+				A130601301000000A1306013 /* ThumbnailFetchLimiterTests.swift */,
+				A130603001000000A1306030 /* FetchThumbnailsTests.swift */,
+				A130604001000000A1306040 /* FetchThumbnailsErrorMappingTests.swift */,
+				A130607301000000A1306073 /* UploadHookTests.swift */,
+				A130608301000000A1306083 /* CascadeDeleteTests.swift */,
+				A130608501000000A1306085 /* CascadeRenameTests.swift */,
+				A130609301000000A1306093 /* OrphanSweepTests.swift */,
+				A130609501000000A1306095 /* BFSThumbnailHookTests.swift */,
+				A131001003000000A1310014 /* ThumbnailRolloutTests.swift */,
 				D4EF1EC6AFC859E3FA549C6D /* TestFixtures.swift */,
 			);
 			name = DS3DriveProviderTests;
@@ -894,6 +942,9 @@
 				95B6FCED725945FD8D8A6CE2 /* FileProviderExtension+Lifecycle.swift */,
 				93BEB14CBD064F639C861742 /* FileProviderExtension+Modify.swift */,
 				7C7CDA6BD01B4B7DA60F34FB /* FileProviderExtension+Thumbnails.swift */,
+				A130602001000000A1306020 /* FileProviderExtension+ThumbnailConsume.swift */,
+				A130607001000000A1306070 /* FileProviderExtension+ThumbnailUploadHook.swift */,
+				A130608001000000A1306080 /* FileProviderExtension+ThumbnailCascade.swift */,
 				593F2D8CD4BF43B084F95A95 /* S3Lib+Transfers.swift */,
 				AD84A687F1EB4A8F9C45AEAA /* S3Lib+Trash.swift */,
 				D11103000000000000000001 /* S3Lib+Thumbnails.swift */,
@@ -903,7 +954,11 @@
 				D5A222812B5721CC00F1413B /* S3Enumerator.swift */,
 				94D57D1D07BC4B58B8C8408C /* TrashS3Enumerator.swift */,
 				B1BF5A002F6800000042AD93 /* BreadthFirstIndexer.swift */,
+				A130609701000000A1306097 /* BFSThumbnailHookRunner.swift */,
+				A131001001000000A1310011 /* ThumbnailRollout.swift */,
+				A130609001000000A1306090 /* OrphanSweeper.swift */,
 				D51672A02F7A00000042AD93 /* BucketListingLimiter.swift */,
+				A130601001000000A1306010 /* ThumbnailFetchLimiter.swift */,
 				D540029D2B5EAEB000B54E97 /* S3Lib.swift */,
 				A10203032F6300000042AD93 /* S3LibListingAdapter.swift */,
 				D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */,
@@ -1259,6 +1314,8 @@
 			files = (
 				B03E8C628FEC4EBC314BB8B0 /* BreadthFirstIndexer.swift in Sources */,
 				D51672A12F7A00000042AD93 /* BucketListingLimiter.swift in Sources */,
+				A130601201000000A1306012 /* ThumbnailFetchLimiter.swift in Sources */,
+				A130601401000000A1306014 /* ThumbnailFetchLimiterTests.swift in Sources */,
 				347AA53C0831D587C66D0445 /* FileProviderExtension+Create.swift in Sources */,
 				00A29005A29C16FC0B76EE84 /* FileProviderExtension+Credentials.swift in Sources */,
 				ADDE1D3663E34D3A2797278B /* FileProviderExtension+CustomActions.swift in Sources */,
@@ -1268,6 +1325,20 @@
 				6CF01D385F9585BD7C7C9677 /* FileProviderExtension+Lifecycle.swift in Sources */,
 				6C1C5915A722C1FDFB578251 /* FileProviderExtension+Modify.swift in Sources */,
 				22EF54FD35B9124C826EA850 /* FileProviderExtension+Thumbnails.swift in Sources */,
+				A130602201000000A1306022 /* FileProviderExtension+ThumbnailConsume.swift in Sources */,
+				A130607201000000A1306072 /* FileProviderExtension+ThumbnailUploadHook.swift in Sources */,
+				A130608201000000A1306082 /* FileProviderExtension+ThumbnailCascade.swift in Sources */,
+				A130603101000000A1306031 /* FetchThumbnailsTests.swift in Sources */,
+				A130604101000000A1306041 /* FetchThumbnailsErrorMappingTests.swift in Sources */,
+				A130607401000000A1306074 /* UploadHookTests.swift in Sources */,
+				A130608401000000A1306084 /* CascadeDeleteTests.swift in Sources */,
+				A130608601000000A1306086 /* CascadeRenameTests.swift in Sources */,
+				A130609201000000A1306092 /* OrphanSweeper.swift in Sources */,
+				A130609401000000A1306094 /* OrphanSweepTests.swift in Sources */,
+				A130609601000000A1306096 /* BFSThumbnailHookTests.swift in Sources */,
+				A130609901000000A1306099 /* BFSThumbnailHookRunner.swift in Sources */,
+				A131001002000000A1310012 /* ThumbnailRollout.swift in Sources */,
+				A131001003000000A1310013 /* ThumbnailRolloutTests.swift in Sources */,
 				903785BB1923D1DBC1CCB1F0 /* FileProviderExtension.swift in Sources */,
 				DD32BFCCFB04F1E8754BA97B /* NotificationsManager.swift in Sources */,
 				EB1A3C539D02741B0F43A0EB /* S3Enumerator.swift in Sources */,
@@ -1372,6 +1443,9 @@
 				8C165828152B4160A3C9B16D /* FileProviderExtension+Lifecycle.swift in Sources */,
 				9CEA174F0E2844919898555F /* FileProviderExtension+Modify.swift in Sources */,
 				F2F25C3273074BA8A7E3EA60 /* FileProviderExtension+Thumbnails.swift in Sources */,
+				A130602101000000A1306021 /* FileProviderExtension+ThumbnailConsume.swift in Sources */,
+				A130607101000000A1306071 /* FileProviderExtension+ThumbnailUploadHook.swift in Sources */,
+				A130608101000000A1306081 /* FileProviderExtension+ThumbnailCascade.swift in Sources */,
 				016234D433404D56AD1E6417 /* S3Lib+Transfers.swift in Sources */,
 				CBC4B9775BD14315A22AA731 /* S3Lib+Trash.swift in Sources */,
 				D11103010000000000000001 /* S3Lib+Thumbnails.swift in Sources */,
@@ -1380,7 +1454,11 @@
 				D5A2228A2B5721CC00F1413B /* S3Enumerator.swift in Sources */,
 				350E26F94BBF4312AEEC0C92 /* TrashS3Enumerator.swift in Sources */,
 				B1BF5A012F6800000042AD93 /* BreadthFirstIndexer.swift in Sources */,
+				A130609101000000A1306091 /* OrphanSweeper.swift in Sources */,
+				A130609801000000A1306098 /* BFSThumbnailHookRunner.swift in Sources */,
+				A131001001000000A1310010 /* ThumbnailRollout.swift in Sources */,
 				D51672A22F7A00000042AD93 /* BucketListingLimiter.swift in Sources */,
+				A130601101000000A1306011 /* ThumbnailFetchLimiter.swift in Sources */,
 				D5A4E0AB2B630A9800D7560B /* NotificationsManager.swift in Sources */,
 				D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */,
 			);

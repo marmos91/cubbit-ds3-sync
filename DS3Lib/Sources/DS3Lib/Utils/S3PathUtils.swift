@@ -157,6 +157,20 @@ public enum S3PathUtils {
         return parent + filename
     }
 
+    /// Suffix-based allow-list for raster image formats Phase 13 will generate thumbnails for.
+    /// MUST agree with `ThumbnailRenderer`'s UTI allow-list — both gate the same set.
+    /// Reads from the canonical `DefaultSettings.Thumbnail.rasterExtensions` set so the
+    /// upload-hook pre-filter (D-08) and the consume-path pre-filter share one source of truth.
+    /// Case-insensitive; tolerates a leading dot. Returns false for empty / unknown extensions.
+    /// Per Phase 13 D-08.
+    /// - Parameter pathExtension: A filename extension (with or without leading dot).
+    /// - Returns: true if the extension is in the raster allow-list.
+    public static func isRasterExtension(_ pathExtension: String) -> Bool {
+        let trimmed = pathExtension.hasPrefix(".") ? String(pathExtension.dropFirst()) : pathExtension
+        guard !trimmed.isEmpty else { return false }
+        return DefaultSettings.Thumbnail.rasterExtensions.contains(trimmed.lowercased())
+    }
+
     /// Synthesizes virtual parent folder keys from a list of S3 object keys.
     /// Used by the working set enumerator to build a complete folder hierarchy.
     /// - Parameters:

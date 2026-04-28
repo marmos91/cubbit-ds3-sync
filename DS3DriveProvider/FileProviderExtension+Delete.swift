@@ -229,6 +229,20 @@ extension FileProviderExtension {
                     self.signalChanges()
                 }
 
+                // Phase 13 D-21 / THUMB-17: cascade thumbnail delete via fire-and-forget
+                // Task.detached. The user-visible delete contract is unaffected — failures
+                // are logged + swallowed; orphan sweep (Plan 13-09) is the backstop.
+                #if os(macOS)
+                    if let s3Client = self.s3Client {
+                        enqueueThumbnailDeleteCascade(
+                            originalKey: s3Item.itemIdentifier.rawValue,
+                            drive: drive,
+                            s3Client: s3Client,
+                            logger: self.logger
+                        )
+                    }
+                #endif
+
                 progress.completedUnitCount = 1
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 self.signalChanges()
@@ -371,6 +385,21 @@ extension FileProviderExtension {
                 }
 
                 try? await self.metadataStore?.deleteItem(byKey: identifier.rawValue, driveId: drive.id)
+
+                // Phase 13 D-21 / THUMB-17: cascade thumbnail delete via fire-and-forget
+                // Task.detached. The user-visible delete contract is unaffected — failures
+                // are logged + swallowed; orphan sweep (Plan 13-09) is the backstop.
+                #if os(macOS)
+                    if let s3Client = self.s3Client {
+                        enqueueThumbnailDeleteCascade(
+                            originalKey: identifier.rawValue,
+                            drive: drive,
+                            s3Client: s3Client,
+                            logger: self.logger
+                        )
+                    }
+                #endif
+
                 progress.completedUnitCount = 1
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 self.signalChanges()

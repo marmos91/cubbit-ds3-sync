@@ -13,7 +13,7 @@ public actor MetadataStore {
     /// previous build that used a different versioned schema), the store is
     /// deleted and recreated — metadata is ephemeral cache, not user data.
     public static func createContainer() throws -> ModelContainer {
-        let schema = Schema(versionedSchema: SyncedItemSchemaV3.self)
+        let schema = Schema(versionedSchema: SyncedItemSchemaV4.self)
         let config = ModelConfiguration(
             "SyncedItems",
             schema: schema,
@@ -112,6 +112,11 @@ public actor MetadataStore {
         size: Int64 = 0
     ) throws {
         if let existing = try findItem(byKey: s3Key, driveId: driveId) {
+            // Phase 13 D-31: capture old ETag BEFORE reassignment to detect a
+            // legitimate content change. ETag inequality re-arms the thumbnail
+            // (resets strike count + status to .pending) so the BFS backfill
+            // picks the file up again on the next pass.
+            let oldETag = existing.etag
             existing.etag = etag
             existing.lastModified = lastModified
             existing.localFileHash = localFileHash
@@ -123,6 +128,14 @@ public actor MetadataStore {
             existing.parentKey = parentKey
             existing.contentType = contentType
             existing.size = size
+
+            // Phase 13 D-31: ETag change re-arms the thumbnail. Treat a
+            // missing-old-ETag (early-version data) as a change too — conservative
+            // re-arm fires once and is harmless.
+            if oldETag != etag {
+                existing.thumbnailFailCount = 0
+                existing.thumbnailStatus = ThumbnailStatus.pending.rawValue
+            }
         } else {
             let item = SyncedItem(s3Key: s3Key, driveId: driveId, size: size, syncStatus: syncStatus.rawValue)
             item.etag = etag

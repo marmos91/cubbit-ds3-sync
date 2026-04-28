@@ -122,6 +122,49 @@ extension FileProviderExtension {
         }
     }
 
+    // MARK: - Thumbnail Rollout (Plan 13-10, D-01, D-02, D-03)
+
+    /// Spawns a background Task that runs the silent once-per-drive thumbnail
+    /// rollout. macOS-only — iOS extension lifetime is too short for the
+    /// inspect→persist round trip, and Phase 13 ships macOS thumbnails only.
+    ///
+    /// The rollout is idempotent: on first launch it inspects the bucket's
+    /// `.thumbnails/` prefix and persists `enabled=true` (empty / matches-ours)
+    /// or `enabled=false` (conflicting); on every subsequent launch the
+    /// `hasThumbnailSettings` guard short-circuits, so the cost is one
+    /// SharedData read.
+    ///
+    /// `Task.detached` is used so launch (`init(domain:)`) is never blocked on
+    /// `inspectThumbnailPrefix` latency — verified by
+    /// `testRolloutRunsInBackgroundDoesNotBlockLaunch`. Errors are silent
+    /// (D-03): the rollout logs + swallows; no settings file is written, so
+    /// the next launch retries.
+    func runThumbnailRolloutIfNeeded() {
+        #if os(iOS)
+            // iOS path deferred to Phase 14 (foreground driver). The extension
+            // lifetime here is too short for a reliable inspect+persist round
+            // trip, and Phase 13's renderer is macOS-only anyway.
+            return
+        #else
+            guard self.enabled, let drive = self.drive, let s3Client = self.s3Client else {
+                return
+            }
+
+            let rollout = ThumbnailRollout(
+                s3Client: s3Client,
+                settingsStore: SharedData.default(),
+                logger: self.logger
+            )
+            // Capture sendable locals only — never `self`. The detached Task
+            // outlives the extension's launch path; capturing self would create
+            // a non-Sendable closure under Swift 6 strict concurrency.
+            let driveCopy = drive
+            Task.detached(priority: .background) {
+                await rollout.runIfNeeded(forDrive: driveCopy)
+            }
+        #endif
+    }
+
     // MARK: - BFS Indexer
 
     func startBFSIndexer() {
@@ -141,7 +184,8 @@ extension FileProviderExtension {
                 s3Lib: s3Lib,
                 drive: drive,
                 metadataStore: self.metadataStore,
-                manager: NSFileProviderManager(for: self.domain)
+                manager: NSFileProviderManager(for: self.domain),
+                s3Client: self.s3Client
             )
             indexer.start()
             self.breadthFirstIndexer = indexer

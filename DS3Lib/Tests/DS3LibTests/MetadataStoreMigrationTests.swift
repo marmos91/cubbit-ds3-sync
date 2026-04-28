@@ -7,7 +7,7 @@ import SwiftData
 final class MetadataStoreMigrationTests: XCTestCase {
     func testCurrentSchemaHasIsMaterializedField() throws {
         // Verify SyncedItem in the current schema has isMaterialized with default false
-        let schema = Schema(versionedSchema: SyncedItemSchemaV3.self)
+        let schema = Schema(versionedSchema: SyncedItemSchemaV4.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
@@ -24,7 +24,7 @@ final class MetadataStoreMigrationTests: XCTestCase {
 
     func testSchemaIncludesSyncAnchorRecord() throws {
         // Verify SyncAnchorRecord can be persisted in the current schema
-        let schema = Schema(versionedSchema: SyncedItemSchemaV3.self)
+        let schema = Schema(versionedSchema: SyncedItemSchemaV4.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
@@ -46,7 +46,7 @@ final class MetadataStoreMigrationTests: XCTestCase {
         // Verify MetadataStore is usable from async context (not @MainActor).
         // Note: SyncedItem and SyncAnchorRecord are @Model classes (not Sendable),
         // so we test actor isolation via methods that return Sendable types (Void, Int, Date).
-        let schema = Schema(versionedSchema: SyncedItemSchemaV3.self)
+        let schema = Schema(versionedSchema: SyncedItemSchemaV4.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let store = MetadataStore(modelContainer: container)

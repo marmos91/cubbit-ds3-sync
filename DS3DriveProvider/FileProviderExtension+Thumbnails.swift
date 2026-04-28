@@ -150,12 +150,19 @@ extension FileProviderExtension {
     }
 }
 
-// MARK: - Thumbnails
+// MARK: - Thumbnails (Phase 13 cache-first consume path)
 
 extension FileProviderExtension {
+    /// `NSFileProviderThumbnailing` entry point. Cache-first: reads
+    /// `.thumbnails/<key>.jpg` from S3 and returns bytes; on 404, marks the
+    /// item `.pending` for backfill and returns `.noSuchItem` so Finder draws
+    /// the default UTType icon and retries on next browse.
+    ///
+    /// Phase 13 D-11, D-12, D-13: this path NEVER renders, NEVER downloads
+    /// originals, and NEVER returns custom error domains across the boundary.
     func fetchThumbnails(
         for itemIdentifiers: [NSFileProviderItemIdentifier],
-        requestedSize size: CGSize,
+        requestedSize _: CGSize,
         perThumbnailCompletionHandler: @escaping (NSFileProviderItemIdentifier, Data?, Error?) -> Void,
         completionHandler: @escaping (Error?) -> Void
     ) -> Progress {
@@ -164,7 +171,9 @@ extension FileProviderExtension {
         #if os(iOS)
             // On iOS, skip all thumbnail generation to stay within the 20MB memory limit.
             // Each thumbnail requires S3 HEAD + download + image processing which quickly
-            // exhausts the extension's memory budget, causing jetsam kills.
+            // exhausts the extension's memory budget, causing jetsam kills. iOS has its
+            // own consume path (Phase 14) that will read `.thumbnails/` once Phase 13
+            // generation has populated the prefix.
             for identifier in itemIdentifiers {
                 perThumbnailCompletionHandler(identifier, nil, nil)
             }
@@ -188,19 +197,28 @@ extension FileProviderExtension {
             }
 
             guard self.enabled else {
+                // Mirror the paused-path pattern below: invoke the per-item
+                // handler for each identifier so the File Provider host
+                // doesn't observe missing per-item completions before
+                // `completeFinal` fires.
+                for identifier in itemIdentifiers {
+                    perThumbnailCompletionHandler(identifier, nil, nil)
+                }
+                progress.completedUnitCount = Int64(itemIdentifiers.count)
                 completeFinal(NSFileProviderError(.notAuthenticated) as NSError)
                 return progress
             }
 
-            guard let drive = self.drive,
-                  let s3Lib = self.s3Lib,
-                  let temporaryDirectory = self.temporaryDirectory
-            else {
+            guard let drive = self.drive, let s3Client = self.s3Client else {
+                for identifier in itemIdentifiers {
+                    perThumbnailCompletionHandler(identifier, nil, nil)
+                }
+                progress.completedUnitCount = Int64(itemIdentifiers.count)
                 completeFinal(NSFileProviderError(.cannotSynchronize) as NSError)
                 return progress
             }
 
-            self.logger.info("fetchThumbnails: starting for \(itemIdentifiers.count) items")
+            self.logger.info("fetchThumbnails: starting for \(itemIdentifiers.count) items (cache-first)")
 
             // When paused, skip all thumbnail downloads — they require S3 network access.
             if isDrivePaused(drive.id, operation: "fetchThumbnails") {
@@ -212,159 +230,112 @@ extension FileProviderExtension {
                 return progress
             }
 
-            let boxedPerItemCb = UncheckedBox(value: perThumbnailCompletionHandler)
-            let task = Task {
-                let perThumbnailCompletionHandler = boxedPerItemCb.value
-                var downloadedFiles: [URL] = []
-                defer {
-                    for file in downloadedFiles {
-                        try? FileManager.default.removeItem(at: file)
-                    }
-                }
+            let task = self.spawnCacheFirstThumbnailTask(
+                itemIdentifiers: itemIdentifiers,
+                drive: drive,
+                s3Client: s3Client,
+                progress: progress,
+                perThumbnailCompletionHandler: perThumbnailCompletionHandler,
+                completeFinal: completeFinal
+            )
 
-                for identifier in itemIdentifiers {
-                    guard !Task.isCancelled, !progress.isCancelled else { break }
-
-                    if let fileURL = await self.downloadThumbnailImage(
-                        for: identifier, drive: drive, s3Lib: s3Lib,
-                        temporaryDirectory: temporaryDirectory, size: size,
-                        perItemHandler: perThumbnailCompletionHandler
-                    ) {
-                        downloadedFiles.append(fileURL)
-                    }
-                    progress.completedUnitCount += 1
-                }
-
-                completeFinal(nil)
-            }
-
+            // Cancellation flow:
+            //  1. Cancel the parent Task; cooperative checks inside
+            //     `limiter.acquire()` resume any suspended waiters with
+            //     `CancellationError`.
+            //  2. Each child closure observes the throw, fires its per-item
+            //     handler with `NSUserCancelledError`, and exits.
+            //  3. The TaskGroup awaits every child; the spawned Task then
+            //     calls `completeFinal(nil)` AFTER all per-item handlers have
+            //     fired, satisfying NSFileProviderThumbnailing's ordering
+            //     contract.
+            // Calling `completeFinal(...)` here would race the per-item
+            // handlers and violate the contract — see code review Fix 5.
             progress.cancellationHandler = {
                 task.cancel()
-                completeFinal(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
             }
 
             return progress
         #endif // os(macOS)
     }
 
-    /// Maximum file size for thumbnail downloads on macOS (50 MB).
-    private static let macOSThumbnailMaxBytes = 50_000_000
+    #if os(macOS)
+        /// Wires the cache-first consume pipeline (limiter + fetchBytes + markPending +
+        /// per-item Sendable shim) and spawns the orchestrating Task. Extracted so
+        /// `fetchThumbnails` stays under the SwiftLint function-body length limit.
+        private func spawnCacheFirstThumbnailTask(
+            itemIdentifiers: [NSFileProviderItemIdentifier],
+            drive: DS3Drive,
+            s3Client: DS3S3Client,
+            progress: Progress,
+            perThumbnailCompletionHandler: @escaping (NSFileProviderItemIdentifier, Data?, Error?) -> Void,
+            completeFinal: @escaping @Sendable (Error?) -> Void
+        ) -> Task<Void, Never> {
+            let limiter = self.thumbnailFetchLimiter
+            let metadataStore = self.metadataStore
+            let logger = self.logger
+            let boxedPerItemCb = UncheckedBox(value: perThumbnailCompletionHandler)
 
-    /// Checks whether a UTType is eligible for thumbnail generation without
-    /// any network requests. Returns `true` for images, videos, and PDFs.
-    private static func isThumbnailable(_ utType: UTType) -> Bool {
-        utType.conforms(to: .image) || utType.conforms(to: .movie) || utType.conforms(to: .pdf)
-    }
-
-    /// Downloads and generates a thumbnail for a single item. Returns the temporary file URL if downloaded, nil if
-    /// skipped.
-    ///
-    /// **Important:** This method NEVER returns errors via `perItemHandler`. Returning an
-    /// error can prevent Finder from falling back to the UTType-based system icon, causing
-    /// blank page icons in icon view. Instead, failures are logged and `(nil, nil)` is
-    /// returned so the system gracefully shows the file-type icon.
-    private func downloadThumbnailImage(
-        for identifier: NSFileProviderItemIdentifier,
-        drive: DS3Drive,
-        s3Lib: S3Lib,
-        temporaryDirectory: URL,
-        size: CGSize,
-        perItemHandler: @escaping (NSFileProviderItemIdentifier, Data?, Error?) -> Void
-    ) async -> URL? {
-        // Skip folders and system containers
-        if identifier.rawValue.hasSuffix("/") || identifier == .rootContainer {
-            perItemHandler(identifier, nil, nil)
-            return nil
-        }
-
-        #if os(iOS)
-            // On iOS, skip thumbnails for trashed items entirely.
-            // Their identifiers are original keys (not .trash/ keys) so S3 HEAD
-            // fails, and fallback HEAD requests spike memory -> jetsam.
-            let isTrashedByKey = S3Lib.isTrashedKey(identifier.rawValue, drive: drive)
-            let store = self.metadataStore
-            let hasTrashed = try? await store?.fetchTrashKey(
-                forOriginalKey: identifier.rawValue, driveId: drive.id
-            )
-            if isTrashedByKey || hasTrashed != nil {
-                perItemHandler(identifier, nil, nil)
-                return nil
-            }
-        #endif
-
-        // Determine the file extension from the identifier key (avoids an S3 HEAD
-        // request for file types we can't thumbnail anyway).
-        let filename = String(identifier.rawValue.split(separator: "/").last ?? "")
-        let fileExtension = (filename as NSString).pathExtension
-        guard !fileExtension.isEmpty,
-              let utType = UTType(filenameExtension: fileExtension),
-              Self.isThumbnailable(utType)
-        else {
-            perItemHandler(identifier, nil, nil)
-            return nil
-        }
-
-        do {
-            let s3Item = try await self.withAPIKeyRecovery {
-                try await s3Lib.remoteS3Item(for: identifier, drive: drive)
+            // Cache-first byte fetcher — `getThumbnailBytes` returns nil on 404, throws on
+            // 5xx / network / auth errors. NEVER renders, NEVER downloads original.
+            let fetchBytes: ThumbnailByteFetcher = { @Sendable bucket, key in
+                try await s3Client.getThumbnailBytes(bucket: bucket, key: key)
             }
 
-            let fileSize = s3Item.documentSize?.intValue ?? 0
-
-            #if os(iOS)
-                // On iOS, skip thumbnails for files > 5MB to avoid jetsam (20MB limit)
-                if fileSize > 5_000_000 {
-                    perItemHandler(identifier, nil, nil)
-                    return nil
+            let markPending: ThumbnailPendingMarker = { @Sendable s3Key, driveId in
+                guard let metadataStore else { return }
+                do {
+                    try await metadataStore.setThumbnailStatus(
+                        s3Key: s3Key, driveId: driveId, status: .pending
+                    )
+                } catch {
+                    logger.debug(
+                        "fetchThumbnails: setThumbnailStatus(.pending) failed for \(s3Key, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
                 }
-            #else
-                // On macOS, skip thumbnails for very large files to avoid excessive
-                // memory usage and long download times.
-                if fileSize > Self.macOSThumbnailMaxBytes {
-                    self.logger
-                        .debug(
-                            "fetchThumbnails: skipping \(identifier.rawValue, privacy: .public) — \(fileSize) bytes exceeds limit"
-                        )
-                    perItemHandler(identifier, nil, nil)
-                    return nil
+            }
+
+            // Sendable shim around the non-Sendable Foundation completion handler — the
+            // UncheckedBox lets the Task closure capture the underlying callback safely.
+            let perItemCb: PerThumbnailCompletionHandler = { id, data, error in
+                boxedPerItemCb.value(id, data, error)
+            }
+
+            return Task {
+                await withTaskGroup(of: Void.self) { group in
+                    for identifier in itemIdentifiers {
+                        group.addTask {
+                            do {
+                                try await limiter.acquire()
+                            } catch is CancellationError {
+                                perItemCb(
+                                    identifier, nil,
+                                    NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)
+                                )
+                                return
+                            } catch {
+                                perItemCb(
+                                    identifier, nil,
+                                    NSFileProviderError(.cannotSynchronize) as NSError
+                                )
+                                return
+                            }
+                            await consumeThumbnail(
+                                identifier: identifier,
+                                drive: drive,
+                                fetchBytes: fetchBytes,
+                                markPending: markPending,
+                                perItemHandler: perItemCb
+                            )
+                            await limiter.release()
+                            progress.completedUnitCount += 1
+                        }
+                    }
                 }
-            #endif
-
-            let fileURL = try await self.withAPIKeyRecovery {
-                try await s3Lib.getS3Item(s3Item, withTemporaryFolder: temporaryDirectory, withProgress: nil)
+                completeFinal(nil)
             }
-
-            #if os(macOS)
-                // ThumbnailRenderer is macOS-only at the type level (THUMB-07).
-                let renderer = ThumbnailRenderer(
-                    maxDimension: CGFloat(max(size.width, size.height)),
-                    jpegQuality: DefaultSettings.S3.thumbnailJPEGQuality
-                )
-                let thumbnailData = renderer.renderJPEG(from: fileURL)
-            #else
-                // Unreachable: fetchThumbnails returns early on iOS.
-                let thumbnailData: Data? = nil
-            #endif
-
-            perItemHandler(identifier, thumbnailData, nil)
-            if thumbnailData != nil {
-                self.logger
-                    .debug("fetchThumbnails: generated thumbnail for \(identifier.rawValue, privacy: .public)")
-            }
-            return fileURL
-        } catch {
-            // Never propagate errors to the per-item handler. Returning an error
-            // can prevent Finder from showing the UTType-based file icon, resulting
-            // in blank page icons in icon view. Log and return (nil, nil) so the
-            // system falls back to the content-type icon gracefully.
-            self.logger
-                .error(
-                    "fetchThumbnails: failed for \(identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                )
-            perItemHandler(identifier, nil, nil)
-            return nil
         }
-    }
+    #endif
 }
 
 // MARK: - Partial Content Fetching
