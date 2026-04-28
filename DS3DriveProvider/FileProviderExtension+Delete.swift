@@ -49,15 +49,20 @@ extension FileProviderExtension {
                     self.signalTrashChanges()
                     boxedCb.value(nil)
                 } catch let s3Error as AWSErrorType {
+                    // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
+                    progress.completedUnitCount = progress.totalUnitCount
                     self.logger.error("Failed to empty trash: \(s3Error.errorCode, privacy: .public)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     boxedCb.value(s3Error.toFileProviderError())
                 } catch is CancellationError {
+                    progress.completedUnitCount = progress.totalUnitCount
                     self.logger.debug("Empty trash cancelled for drive \(drive.id, privacy: .public)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                     boxedCb.value(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
                 } catch {
-                    self.logger.error("Failed to empty trash: \(error.localizedDescription, privacy: .public)")
+                    progress.completedUnitCount = progress.totalUnitCount
+                    self.logger
+                        .error("Failed to empty trash: \(DS3S3Client.describeSotoError(error), privacy: .public)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     boxedCb.value(NSFileProviderError(.cannotSynchronize) as NSError)
                 }
@@ -179,11 +184,14 @@ extension FileProviderExtension {
                 self.signalChanges()
                 self.signalTrashChanges()
             } catch let s3Error as AWSErrorType {
+                // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
+                progress.completedUnitCount = progress.totalUnitCount
                 self.logger.error("Move to trash failed: \(s3Error.errorCode, privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
             } catch {
-                self.logger.error("Move to trash failed: \(error.localizedDescription, privacy: .public)")
+                progress.completedUnitCount = progress.totalUnitCount
+                self.logger.error("Move to trash failed: \(DS3S3Client.describeSotoError(error), privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(
                     nil,
@@ -249,15 +257,19 @@ extension FileProviderExtension {
                 self.signalTrashChanges()
                 completionHandler(nil)
             } catch let s3Error as AWSErrorType {
+                // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
+                progress.completedUnitCount = progress.totalUnitCount
                 self.logger.error("Soft-delete failed with S3 error \(s3Error.errorCode, privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(s3Error.toFileProviderError())
             } catch is CancellationError {
+                progress.completedUnitCount = progress.totalUnitCount
                 self.logger.debug("Soft-delete cancelled for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 completionHandler(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
             } catch {
-                self.logger.error("Soft-delete failed: \(error.localizedDescription, privacy: .public)")
+                progress.completedUnitCount = progress.totalUnitCount
+                self.logger.error("Soft-delete failed: \(DS3S3Client.describeSotoError(error), privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(NSFileProviderError(.cannotSynchronize) as NSError)
             }
@@ -291,15 +303,19 @@ extension FileProviderExtension {
                 self.signalTrashChanges()
                 completionHandler(nil)
             } catch let s3Error as AWSErrorType {
+                // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
+                progress.completedUnitCount = progress.totalUnitCount
                 self.logger.error("Hard-delete failed with S3 error \(s3Error.errorCode, privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(s3Error.toFileProviderError())
             } catch is CancellationError {
+                progress.completedUnitCount = progress.totalUnitCount
                 self.logger.debug("Hard-delete cancelled for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 completionHandler(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
             } catch {
-                self.logger.error("Hard-delete failed: \(error.localizedDescription, privacy: .public)")
+                progress.completedUnitCount = progress.totalUnitCount
+                self.logger.error("Hard-delete failed: \(DS3S3Client.describeSotoError(error), privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(NSFileProviderError(.cannotSynchronize) as NSError)
             }
@@ -341,6 +357,8 @@ extension FileProviderExtension {
                         }
 
                         if let remoteETag, let storedETag, !ETagUtils.areEqual(remoteETag, storedETag) {
+                            // Phase 13.1-06 / D-13: finalize Progress on terminal early-return path.
+                            progress.completedUnitCount = progress.totalUnitCount
                             self.logger
                                 .warning(
                                     "Delete cancelled: remote ETag changed for \(identifier.rawValue, privacy: .public)"
@@ -360,9 +378,11 @@ extension FileProviderExtension {
                         completionHandler(nil)
                         return
                     } catch {
+                        // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
+                        progress.completedUnitCount = progress.totalUnitCount
                         self.logger
                             .error(
-                                "Delete conflict check HEAD failed for \(identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                                "Delete conflict check HEAD failed for \(identifier.rawValue, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                             )
                         await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(NSFileProviderError(.serverUnreachable) as NSError)
@@ -413,6 +433,8 @@ extension FileProviderExtension {
                 self.signalChanges()
                 completionHandler(nil)
             } catch let s3Error as AWSErrorType {
+                // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
+                progress.completedUnitCount = progress.totalUnitCount
                 self.logger
                     .error(
                         "An error occurred while deleting file \(identifier.rawValue, privacy: .public): \(s3Error.errorCode, privacy: .public)"
@@ -420,10 +442,12 @@ extension FileProviderExtension {
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(s3Error.toFileProviderError())
             } catch is CancellationError {
+                progress.completedUnitCount = progress.totalUnitCount
                 self.logger.debug("Delete cancelled for \(identifier.rawValue, privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 completionHandler(NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
             } catch {
+                progress.completedUnitCount = progress.totalUnitCount
                 self.logger
                     .error(
                         "An error occurred while deleting file \(identifier.rawValue, privacy: .public): \(error, privacy: .public)"

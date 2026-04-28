@@ -138,12 +138,15 @@ extension FileProviderExtension {
                         self.signalChanges()
                         completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
                     } catch let s3Error as AWSErrorType {
+                        // Phase 13.1-06 / D-13: finalize Progress on the terminal error path.
+                        progress.completedUnitCount = progress.totalUnitCount
                         await self.markItemAndParentAsError(
                             itemKey: key, driveId: drive.id, metadataStore: self.metadataStore
                         )
                         await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
                     } catch {
+                        progress.completedUnitCount = progress.totalUnitCount
                         await self.markItemAndParentAsError(
                             itemKey: key, driveId: drive.id, metadataStore: self.metadataStore
                         )
@@ -156,6 +159,7 @@ extension FileProviderExtension {
                         )
                     }
                 } catch let s3Error as AWSErrorType {
+                    progress.completedUnitCount = progress.totalUnitCount
                     self.logger.error("HEAD failed for .mayAlreadyExist check: \(s3Error.errorCode, privacy: .public)")
                     await self.markItemAndParentAsError(
                         itemKey: key, driveId: drive.id, metadataStore: self.metadataStore
@@ -164,6 +168,7 @@ extension FileProviderExtension {
                     completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
                 } catch {
                     // Network/unknown error — return transient error for retry
+                    progress.completedUnitCount = progress.totalUnitCount
                     self.logger.error("HEAD failed for .mayAlreadyExist check: \(error)")
                     await self.markItemAndParentAsError(
                         itemKey: key, driveId: drive.id, metadataStore: self.metadataStore
@@ -222,7 +227,7 @@ extension FileProviderExtension {
                         // Network error during HEAD -- proceed with create (best-effort check)
                         self.logger
                             .debug(
-                                "Create conflict check failed, proceeding with upload: \(error.localizedDescription, privacy: .public)"
+                                "Create conflict check failed, proceeding with upload: \(DS3S3Client.describeSotoError(error), privacy: .public)"
                             )
                     }
                 }
@@ -273,6 +278,8 @@ extension FileProviderExtension {
                 self.signalChanges()
                 completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
             } catch let s3Error as AWSErrorType {
+                // Phase 13.1-06 / D-13: finalize Progress so parent-folder aggregation releases.
+                progress.completedUnitCount = progress.totalUnitCount
                 self.logger.error("Upload failed with S3 error \(s3Error.errorCode, privacy: .public)")
                 // Mark item and parent folder as error so Finder shows error badge
                 await self.markItemAndParentAsError(
@@ -281,6 +288,7 @@ extension FileProviderExtension {
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
             } catch is CancellationError {
+                progress.completedUnitCount = progress.totalUnitCount
                 self.logger.debug("Upload cancelled for \(key, privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 completionHandler(
@@ -290,9 +298,10 @@ extension FileProviderExtension {
                     NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)
                 )
             } catch {
+                progress.completedUnitCount = progress.totalUnitCount
                 self.logger
                     .error(
-                        "Upload failed for \(key, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                        "Upload failed for \(key, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                     )
                 // Mark item and parent folder as error so Finder shows error badge
                 await self.markItemAndParentAsError(

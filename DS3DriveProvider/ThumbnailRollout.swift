@@ -78,7 +78,7 @@ struct ThumbnailRollout {
             // D-03: silent — log + swallow. No settings file is written, so the
             // next launch retries (the once-per-drive guard returns false).
             logger.warning(
-                "ThumbnailRollout: drive \(driveId.uuidString, privacy: .public) skipped due to error: \(error.localizedDescription, privacy: .public)"
+                "ThumbnailRollout: drive \(driveId.uuidString, privacy: .public) skipped due to error: \(DS3S3Client.describeSotoError(error), privacy: .public)"
             )
         }
     }

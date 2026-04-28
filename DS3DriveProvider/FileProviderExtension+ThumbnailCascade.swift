@@ -59,9 +59,19 @@ func enqueueThumbnailDeleteCascade(
         } catch {
             // D-21: errors NEVER propagate to the user-visible delete contract — log + swallow.
             // Orphan sweep (Plan 13-09) reclaims the leaked thumb on the next pass.
-            logger.error(
-                "Delete cascade failed for \(thumbKey, privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
+            //
+            // Phase 13.1 Finding 5 (D-07): demote NoSuchKey to .info — the thumbnail
+            // is already gone (orphan sweep / prior cascade beat us), which is the
+            // success post-condition of this very call. Logging at .error creates noise.
+            if DS3S3Client.isNotFoundError(error) {
+                logger.info(
+                    "Delete cascade: thumbnail already absent (NoSuchKey) for \(thumbKey, privacy: .public)"
+                )
+            } else {
+                logger.error(
+                    "Delete cascade failed for \(thumbKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
+                )
+            }
         }
     }
 }
@@ -120,12 +130,28 @@ func enqueueThumbnailRenameCascade(
             // We do NOT call deleteThumbnail(old) here — the old thumb is the only
             // surviving fresh copy; orphan sweep will reclaim it after backfill writes
             // the new thumb. Per Pitfall 5.
-            logger.error(
-                """
-                Rename cascade copy failed; marking new key .pending for backfill: \
-                \(newThumbKey, privacy: .public): \(error.localizedDescription, privacy: .public)
-                """
-            )
+            //
+            // Phase 13.1 Finding 5 (D-07): NoSuchKey here means the source thumbnail
+            // was already swept (post-Finding-4 fix this is rare; pre-fix it was
+            // common — Finding 4 false-positive deletes). The .pending fallback
+            // (D-08) still fires as defense-in-depth so backfill regenerates from
+            // the new original. Log at .info — this is an expected race, not an
+            // error worth alerting on.
+            if DS3S3Client.isNotFoundError(error) {
+                logger.info(
+                    """
+                    Rename cascade: source thumbnail already absent (NoSuchKey); \
+                    marking new key .pending: \(newThumbKey, privacy: .public)
+                    """
+                )
+            } else {
+                logger.error(
+                    """
+                    Rename cascade copy failed; marking new key .pending for backfill: \
+                    \(newThumbKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)
+                    """
+                )
+            }
             try? await metadataStore.setThumbnailStatus(
                 s3Key: newKey, driveId: driveId, status: .pending
             )
@@ -136,12 +162,21 @@ func enqueueThumbnailRenameCascade(
         do {
             try await s3Client.deleteThumbnail(bucket: bucket, key: oldThumbKey)
         } catch {
-            logger.warning(
-                """
-                Rename cascade delete-old failed (orphan sweep will reclaim): \
-                \(oldThumbKey, privacy: .public): \(error.localizedDescription, privacy: .public)
-                """
-            )
+            // Phase 13.1 Finding 5 (D-07): NoSuchKey here means the old thumbnail
+            // is already gone — concurrent cascade or orphan sweep beat us. That is
+            // the success post-condition of this very delete; demote to .info.
+            if DS3S3Client.isNotFoundError(error) {
+                logger.info(
+                    "Rename cascade: old thumbnail already absent (NoSuchKey) for \(oldThumbKey, privacy: .public)"
+                )
+            } else {
+                logger.warning(
+                    """
+                    Rename cascade delete-old failed (orphan sweep will reclaim): \
+                    \(oldThumbKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)
+                    """
+                )
+            }
         }
     }
 }

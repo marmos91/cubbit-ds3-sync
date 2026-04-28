@@ -127,6 +127,7 @@
 		A131001001000000A1310010 /* ThumbnailRollout.swift in Sources */ = {isa = PBXBuildFile; fileRef = A131001001000000A1310011 /* ThumbnailRollout.swift */; };
 		A131001002000000A1310012 /* ThumbnailRollout.swift in Sources */ = {isa = PBXBuildFile; fileRef = A131001001000000A1310011 /* ThumbnailRollout.swift */; };
 		A131001003000000A1310013 /* ThumbnailRolloutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A131001003000000A1310014 /* ThumbnailRolloutTests.swift */; };
+		A131006001000000A1310060 /* ProgressFinalizationOnErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A131006001000000A1310061 /* ProgressFinalizationOnErrorTests.swift */; };
 		D54002A02B5EAEB000B54E97 /* S3Lib.swift in Sources */ = {isa = PBXBuildFile; fileRef = D540029D2B5EAEB000B54E97 /* S3Lib.swift */; };
 		D54775C72B57181D00DABCD4 /* DS3DriveApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54775C62B57181D00DABCD4 /* DS3DriveApp.swift */; };
 		D54775D72B57185100DABCD4 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = D54775D52B57185100DABCD4 /* README.md */; };
@@ -352,6 +353,7 @@
 		A130609701000000A1306097 /* BFSThumbnailHookRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BFSThumbnailHookRunner.swift; sourceTree = "<group>"; };
 		A131001001000000A1310011 /* ThumbnailRollout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailRollout.swift; sourceTree = "<group>"; };
 		A131001003000000A1310014 /* ThumbnailRolloutTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThumbnailRolloutTests.swift; sourceTree = "<group>"; };
+		A131006001000000A1310061 /* ProgressFinalizationOnErrorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProgressFinalizationOnErrorTests.swift; sourceTree = "<group>"; };
 		D540029D2B5EAEB000B54E97 /* S3Lib.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S3Lib.swift; sourceTree = "<group>"; };
 		D54775C32B57181D00DABCD4 /* Cubbit DS3 Drive.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Cubbit DS3 Drive.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D54775C62B57181D00DABCD4 /* DS3DriveApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3DriveApp.swift; sourceTree = "<group>"; };
@@ -654,6 +656,7 @@
 				A130609301000000A1306093 /* OrphanSweepTests.swift */,
 				A130609501000000A1306095 /* BFSThumbnailHookTests.swift */,
 				A131001003000000A1310014 /* ThumbnailRolloutTests.swift */,
+				A131006001000000A1310061 /* ProgressFinalizationOnErrorTests.swift */,
 				D4EF1EC6AFC859E3FA549C6D /* TestFixtures.swift */,
 			);
 			name = DS3DriveProviderTests;
@@ -1339,6 +1342,7 @@
 				A130609901000000A1306099 /* BFSThumbnailHookRunner.swift in Sources */,
 				A131001002000000A1310012 /* ThumbnailRollout.swift in Sources */,
 				A131001003000000A1310013 /* ThumbnailRolloutTests.swift in Sources */,
+				A131006001000000A1310060 /* ProgressFinalizationOnErrorTests.swift in Sources */,
 				903785BB1923D1DBC1CCB1F0 /* FileProviderExtension.swift in Sources */,
 				DD32BFCCFB04F1E8754BA97B /* NotificationsManager.swift in Sources */,
 				EB1A3C539D02741B0F43A0EB /* S3Enumerator.swift in Sources */,

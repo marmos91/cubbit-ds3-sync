@@ -48,7 +48,7 @@ public extension DS3S3ClientProtocol {
             // .thumbnails/ prefix isn't silently masked.
             thumbnailPrefixLogger
                 .error(
-                    "inspectThumbnailPrefix failed for bucket \(bucket, privacy: .public), prefix \(prefix ?? "<nil>", privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    "inspectThumbnailPrefix failed for bucket \(bucket, privacy: .public), prefix \(prefix ?? "<nil>", privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                 )
             return .empty
         }

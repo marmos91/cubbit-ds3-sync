@@ -17,8 +17,7 @@ Closes GitHub issue #109. Image files in Finder (macOS) and the iOS Files app sh
 
 ### Generation
 
-- [x] **THUMB-06
-**: macOS File Provider extension generates thumbnails inline during upload in `createItem` / `modifyItem` (fire-and-forget, decoupled from upload lifecycle — failures never propagate to user-visible file upload)
+- [x] **THUMB-06**: macOS File Provider extension generates thumbnails inline during upload in `createItem` / `modifyItem` (fire-and-forget, decoupled from upload lifecycle — failures never propagate to user-visible file upload)
 - [ ] **THUMB-07**: iOS File Provider extension is strictly consume-only — it never calls ImageIO / CoreImage / UIImage; enforced with `#if os(macOS)` gates on the generator type
 - [ ] **THUMB-08**: Generated thumbnails correctly apply EXIF orientation so portrait iPhone photos display right-side up
 - [ ] **THUMB-09**: Generator supports raster formats: jpg, jpeg, png, heic, heif, webp, gif, tiff. Unsupported formats are silently skipped (no error, no user-visible spinner)
@@ -33,22 +32,15 @@ Closes GitHub issue #109. Image files in Finder (macOS) and the iOS Files app sh
 
 ### Backfill & Lifecycle
 
-- [x] **THUMB-15
-**: macOS extension backfills existing and externally-added images opportunistically during BFS enumeration passes (budgeted per pass, thermal-state gated)
+- [x] **THUMB-15**: macOS extension backfills existing and externally-added images opportunistically during BFS enumeration passes (budgeted per pass, thermal-state gated)
 - [ ] **THUMB-16**: iOS main app backfills via `BGProcessingTask` (overnight, charging, idle) and via a foreground driver that runs while the app is in `ScenePhase.active`
-- [x] **THUMB-17
-**: Deleting an image cascades to delete its thumbnail (delete-after-original ordering; orphan sweep backstops failures)
-- [x] **THUMB-18
-**: Renaming or moving an image cascades to the thumbnail (server-side S3 copy to new key, then delete old)
-- [x] **THUMB-19
-**: Periodic orphan sweep removes `.thumbnails/` entries whose originals no longer exist
-- [x] **THUMB-20
-**: Reconciliation loop terminates — items that fail 3 times with permanent errors enter a negative cache and are counted as "done — N skipped" in UI, not "99%"
-- [x] **THUMB-21
-**: Thumbnail backfill respects the existing per-drive pause/resume state
+- [x] **THUMB-17**: Deleting an image cascades to delete its thumbnail (delete-after-original ordering; orphan sweep backstops failures)
+- [x] **THUMB-18**: Renaming or moving an image cascades to the thumbnail (server-side S3 copy to new key, then delete old)
+- [x] **THUMB-19**: Periodic orphan sweep removes `.thumbnails/` entries whose originals no longer exist
+- [x] **THUMB-20**: Reconciliation loop terminates — items that fail 3 times with permanent errors enter a negative cache and are counted as "done — N skipped" in UI, not "99%"
+- [x] **THUMB-21**: Thumbnail backfill respects the existing per-drive pause/resume state
 - [ ] **THUMB-22**: iOS thumbnail backfill is gated off cellular / metered connections by default (opt-in setting required to enable on cellular)
-- [x] **THUMB-23
-**: No eager full-bucket scan on feature launch — backfill is opportunistic; existing-content processing runs only when users browse folders or trigger the manual action
+- [x] **THUMB-23**: No eager full-bucket scan on feature launch — backfill is opportunistic; existing-content processing runs only when users browse folders or trigger the manual action
 
 ### UI Feedback & Control
 

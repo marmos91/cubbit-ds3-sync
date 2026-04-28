@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import DS3Lib
 @preconcurrency import FileProvider
 import os.log
@@ -146,7 +147,7 @@ extension FileProviderExtension {
                                 // Network error during HEAD — conflict check is best-effort, proceed with upload
                                 self.logger
                                     .warning(
-                                        "Conflict check failed (best-effort, proceeding) for \(s3Item.itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                                        "Conflict check failed (best-effort, proceeding) for \(s3Item.itemIdentifier.rawValue, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                                     )
                             }
                         }
@@ -194,6 +195,8 @@ extension FileProviderExtension {
                         self.signalChanges()
                         completionHandler(s3Item, remainingFields, false, nil)
                     } catch let s3Error as AWSErrorType {
+                        // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
+                        putProgress.completedUnitCount = putProgress.totalUnitCount
                         self.logger.error("Upload failed with S3 error \(s3Error.errorCode, privacy: .public)")
                         // Mark item and parent folder as error so Finder shows error badge
                         await self.markItemAndParentAsError(
@@ -203,6 +206,7 @@ extension FileProviderExtension {
                         await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
                     } catch is CancellationError {
+                        putProgress.completedUnitCount = putProgress.totalUnitCount
                         self.logger
                             .debug("Modify upload cancelled for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
                         await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
@@ -213,9 +217,10 @@ extension FileProviderExtension {
                             NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)
                         )
                     } catch {
+                        putProgress.completedUnitCount = putProgress.totalUnitCount
                         self.logger
                             .error(
-                                "Modify upload failed for \(s3Item.itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                                "Modify upload failed for \(s3Item.itemIdentifier.rawValue, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                             )
                         // Mark item and parent folder as error so Finder shows error badge
                         await self.markItemAndParentAsError(
@@ -251,11 +256,15 @@ extension FileProviderExtension {
                     self.signalTrashChanges()
                     completionHandler(restoredItem, NSFileProviderItemFields(), false, nil)
                 } catch let s3Error as AWSErrorType {
+                    // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
+                    progress.completedUnitCount = progress.totalUnitCount
                     self.logger.error("Restore from trash failed: \(s3Error.errorCode, privacy: .public)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
                 } catch {
-                    self.logger.error("Restore from trash failed: \(error.localizedDescription, privacy: .public)")
+                    progress.completedUnitCount = progress.totalUnitCount
+                    self.logger
+                        .error("Restore from trash failed: \(DS3S3Client.describeSotoError(error), privacy: .public)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     completionHandler(
                         nil,
@@ -342,11 +351,17 @@ extension FileProviderExtension {
                     self.signalChanges()
                     completionHandler(movedS3Item, NSFileProviderItemFields(), false, nil)
                 } catch let s3Error as AWSErrorType {
+                    // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
+                    progress.completedUnitCount = progress.totalUnitCount
                     self.logger.error("Rename+move failed with S3 error \(s3Error.errorCode, privacy: .public)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
                 } catch {
-                    self.logger.error("Rename+move failed with error \(error)")
+                    progress.completedUnitCount = progress.totalUnitCount
+                    self.logger
+                        .error(
+                            "Rename+move failed with error \(DS3S3Client.describeSotoError(error), privacy: .public)"
+                        )
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     completionHandler(
                         nil,
@@ -423,10 +438,13 @@ extension FileProviderExtension {
                         self.signalChanges()
                         completionHandler(newS3Item, NSFileProviderItemFields(), false, nil)
                     } catch let s3Error as AWSErrorType {
+                        // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
+                        progress.completedUnitCount = progress.totalUnitCount
                         self.logger.error("Rename failed with S3 error \(s3Error.errorCode, privacy: .public)")
                         await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
                     } catch is CancellationError {
+                        progress.completedUnitCount = progress.totalUnitCount
                         self.logger.debug("Rename cancelled for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
                         await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                         completionHandler(
@@ -436,9 +454,10 @@ extension FileProviderExtension {
                             NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)
                         )
                     } catch {
+                        progress.completedUnitCount = progress.totalUnitCount
                         self.logger
                             .error(
-                                "Rename failed for \(oldKey, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                                "Rename failed for \(oldKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                             )
                         await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                         completionHandler(
@@ -554,10 +573,13 @@ extension FileProviderExtension {
                     self.signalChanges()
                     completionHandler(movedS3Item, NSFileProviderItemFields(), false, nil)
                 } catch let s3Error as AWSErrorType {
+                    // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
+                    progress.completedUnitCount = progress.totalUnitCount
                     self.logger.error("Move failed with S3 error code \(s3Error.errorCode, privacy: .public)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     completionHandler(nil, NSFileProviderItemFields(), false, s3Error.toFileProviderError())
                 } catch is CancellationError {
+                    progress.completedUnitCount = progress.totalUnitCount
                     self.logger.debug("Move cancelled for \(s3Item.itemIdentifier.rawValue, privacy: .public)")
                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                     completionHandler(
@@ -567,9 +589,10 @@ extension FileProviderExtension {
                         NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)
                     )
                 } catch {
+                    progress.completedUnitCount = progress.totalUnitCount
                     self.logger
                         .error(
-                            "Move failed for \(moveOldKey, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                            "Move failed for \(moveOldKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                         )
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     completionHandler(

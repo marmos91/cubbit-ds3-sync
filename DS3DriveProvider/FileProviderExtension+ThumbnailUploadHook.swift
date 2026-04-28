@@ -95,7 +95,7 @@ func enqueueThumbnailUpload(_ context: ThumbnailUploadHookContext) {
             } catch {
                 // D-06: errors NEVER propagate to the user-visible upload contract — log + swallow.
                 logger.error(
-                    "Upload-hook: thumbnail upload failed for \(originalKey, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    "Upload-hook: thumbnail upload failed for \(originalKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                 )
             }
         #else

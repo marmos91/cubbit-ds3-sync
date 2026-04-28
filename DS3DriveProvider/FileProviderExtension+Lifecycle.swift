@@ -101,7 +101,7 @@ extension FileProviderExtension {
                 } catch {
                     self?.logger
                         .error(
-                            "Cache warm-up failed: \(error.localizedDescription, privacy: .public). Falling back to BFS."
+                            "Cache warm-up failed: \(DS3S3Client.describeSotoError(error), privacy: .public). Falling back to BFS."
                         )
                 }
 
@@ -261,7 +261,8 @@ extension FileProviderExtension {
                             self.logger
                                 .info("Empty trash completed via app request for drive \(driveId, privacy: .public)")
                         } catch {
-                            self.logger.error("Empty trash failed: \(error.localizedDescription, privacy: .public)")
+                            self.logger
+                                .error("Empty trash failed: \(DS3S3Client.describeSotoError(error), privacy: .public)")
                         }
                     }
 
@@ -290,7 +291,7 @@ extension FileProviderExtension {
                                 } catch {
                                     self.logger
                                         .warning(
-                                            "Failed to purge \(item.itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                                            "Failed to purge \(item.itemIdentifier.rawValue, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                                         )
                                 }
                             }
@@ -303,7 +304,8 @@ extension FileProviderExtension {
                                 )
                         }
                     } catch {
-                        self.logger.error("Auto-purge check failed: \(error.localizedDescription, privacy: .public)")
+                        self.logger
+                            .error("Auto-purge check failed: \(DS3S3Client.describeSotoError(error), privacy: .public)")
                     }
                 }
             }

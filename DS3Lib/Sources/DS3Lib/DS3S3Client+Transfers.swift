@@ -303,14 +303,14 @@ public extension DS3S3Client {
         } catch {
             logger
                 .error(
-                    "Multipart upload failed for key \(key, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    "Multipart upload failed for key \(key, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                 )
             do {
                 try await abortMultipartUpload(bucket: bucket, key: key, uploadId: uploadId)
             } catch {
                 logger
                     .warning(
-                        "Failed to abort multipart upload \(uploadId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                        "Failed to abort multipart upload \(uploadId, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                     )
             }
             await pendingUploadStore.remove(forKey: key)

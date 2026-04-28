@@ -212,6 +212,22 @@ Plans:
 - [ ] 13-11-PLAN.md — Phase 13 integration smoke tests + dead-code cleanup audit + human verification
 **UI hint**: no
 
+### Phase 13.1: Thumbnail subsystem hardening - Phase 13 audit fixes (INSERTED)
+
+**Goal:** Phase 13 audit fixes — Findings 2, 4, 5, and parent-folder progress propagation, restoring THUMB-13, THUMB-18, THUMB-19 conformance under real-world load
+**Requirements**: THUMB-13, THUMB-18, THUMB-19 (no new requirements; bugs violate existing ones)
+**Depends on:** Phase 13
+**Plans:** 7 plans
+
+Plans:
+- [ ] 13.1-01-PLAN.md — Parent-folder progress root-cause spike (Wave 0; D-13)
+- [ ] 13.1-02-PLAN.md — OrphanSweeper MetadataStore freshness backstop (Finding 4; D-01..D-05)
+- [ ] 13.1-03-PLAN.md — Cascade NoSuchKey demote + log opacity fix (Finding 5; D-06..D-08)
+- [ ] 13.1-04-PLAN.md — ThumbnailRenderer eager Data snapshot (Finding 2; D-09..D-12)
+- [ ] 13.1-05-PLAN.md — Codebase-wide describeSotoError sweep (Finding 5b; D-06)
+- [ ] 13.1-06-PLAN.md — Parent-folder progress propagation fix (depends on 13.1-01 spike)
+- [ ] 13.1-07-PLAN.md — Phase 13.1 ship gate (D-18, D-19)
+
 ### Phase 14: iOS Generation & Polish
 **Goal**: iPhone and iPad users can contribute thumbnails for images uploaded from their iOS devices (and for any bucket content that macOS hasn't already processed) via a foreground-primary backfill driver with an opportunistic `BGProcessingTask` overnight supplement, with clear UI copy about the force-quit caveat and a manual "Generate now" escape valve on both platforms.
 **Depends on**: Phase 13

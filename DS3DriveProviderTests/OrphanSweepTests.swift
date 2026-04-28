@@ -1,17 +1,22 @@
 @testable import DS3Lib
 import Foundation
 import os
+import SwiftData
 import XCTest
 
-/// Tests for `OrphanSweeper` (Phase 13 D-25, D-26, D-27, D-28; THUMB-19).
+/// Tests for `OrphanSweeper` (Phase 13 D-25, D-26, D-27, D-28; THUMB-19;
+/// Phase 13.1 Finding 4 / D-01..D-05).
 ///
 /// The sweeper lists `<drivePrefix>` recursively (Phase 11 places `.thumbnails/`
 /// per-folder, NOT at the drive root), filters via `S3PathUtils.isThumbnailKey`,
 /// then deletes any thumbnail whose implied original key is NOT in the BFS-
-/// enumerated key set. Capped at `DefaultSettings.Thumbnail.maxOrphanDeletesPerPass`.
+/// enumerated key set AND is NOT present as a `SyncedItem` row in the
+/// MetadataStore (Phase 13.1 Finding 4 freshness backstop). Capped at
+/// `DefaultSettings.Thumbnail.maxOrphanDeletesPerPass`.
 ///
 /// Tests use a recording mock `DS3S3ClientProtocol` to assert exact list / delete
-/// invocation counts. No real S3 traffic.
+/// invocation counts plus an in-memory `MetadataStore` to seed (or not seed) the
+/// freshness backstop. No real S3 traffic.
 final class OrphanSweepTests: XCTestCase {
     private func makeLogger() -> os.Logger {
         os.Logger(subsystem: "io.cubbit.DS3Drive.tests", category: "orphan-sweep")
@@ -21,12 +26,23 @@ final class OrphanSweepTests: XCTestCase {
         S3ObjectSummary(key: key, etag: "etag-\(key)", lastModified: Date(), size: 1024)
     }
 
+    /// Build a fresh in-memory `MetadataStore` per test so the freshness
+    /// backstop is always empty unless a test seeds it explicitly.
+    /// Mirrors the construction pattern in `UploadHookTests` /
+    /// `MetadataStoreThumbnailQueriesTests`.
+    private func makeInMemoryMetadataStore() throws -> MetadataStore {
+        let schema = Schema(versionedSchema: SyncedItemSchemaV4.self)
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        return MetadataStore(modelContainer: container)
+    }
+
     // MARK: - Test 1 — Set-diff orphan detection
 
     /// Seed the bucket with three thumbnails (`a.jpg.jpg`, `b.jpg.jpg`,
     /// `orphan.jpg.jpg`); enumeratedKeys contains the originals for `a` and `b`
     /// only; sweep MUST issue exactly one deleteThumbnail call, for the orphan.
-    func testSweepDeletesThumbnailsWhoseOriginalsNotInEnumeratedSet() async {
+    func testSweepDeletesThumbnailsWhoseOriginalsNotInEnumeratedSet() async throws {
         let drive = ProviderTestFixtures.makeDrive()
         let prefix = drive.syncAnchor.prefix ?? ""
         let mock = OrphanSweepMockS3Client()
@@ -51,7 +67,13 @@ final class OrphanSweepTests: XCTestCase {
             "\(prefix)b.jpg"
         ]
 
-        let sweeper = OrphanSweeper(s3Client: mock, logger: makeLogger())
+        let metadataStore = try makeInMemoryMetadataStore()
+        let sweeper = OrphanSweeper(
+            s3Client: mock,
+            metadataStore: metadataStore,
+            driveId: drive.id,
+            logger: makeLogger()
+        )
         let deleted = await sweeper.sweep(
             bucket: drive.syncAnchor.bucket.name,
             drivePrefix: drive.syncAnchor.prefix,
@@ -66,7 +88,7 @@ final class OrphanSweepTests: XCTestCase {
 
     /// Seed 100 orphans; sweeper deletes EXACTLY 50; remaining 50 left for
     /// the next pass. Exercises `DefaultSettings.Thumbnail.maxOrphanDeletesPerPass`.
-    func testSweepRespectsMaxDeletesPerPassCap() async {
+    func testSweepRespectsMaxDeletesPerPassCap() async throws {
         let drive = ProviderTestFixtures.makeDrive()
         let prefix = drive.syncAnchor.prefix ?? ""
         let mock = OrphanSweepMockS3Client()
@@ -84,7 +106,15 @@ final class OrphanSweepTests: XCTestCase {
         // No originals exist — every thumbnail is an orphan.
         let enumerated: Set<String> = []
 
-        let sweeper = OrphanSweeper(s3Client: mock, logger: makeLogger())
+        // Empty MetadataStore — freshness backstop returns false for every
+        // candidate, so the cap is the only thing limiting the sweep.
+        let metadataStore = try makeInMemoryMetadataStore()
+        let sweeper = OrphanSweeper(
+            s3Client: mock,
+            metadataStore: metadataStore,
+            driveId: drive.id,
+            logger: makeLogger()
+        )
         let deleted = await sweeper.sweep(
             bucket: drive.syncAnchor.bucket.name,
             drivePrefix: drive.syncAnchor.prefix,
@@ -98,7 +128,7 @@ final class OrphanSweepTests: XCTestCase {
 
     // MARK: - Test 3 — No-op when every thumbnail has an original
 
-    func testSweepNoOpWhenAllThumbnailsHaveOriginals() async {
+    func testSweepNoOpWhenAllThumbnailsHaveOriginals() async throws {
         let drive = ProviderTestFixtures.makeDrive()
         let prefix = drive.syncAnchor.prefix ?? ""
         let mock = OrphanSweepMockS3Client()
@@ -117,7 +147,13 @@ final class OrphanSweepTests: XCTestCase {
             "\(prefix)b.jpg"
         ]
 
-        let sweeper = OrphanSweeper(s3Client: mock, logger: makeLogger())
+        let metadataStore = try makeInMemoryMetadataStore()
+        let sweeper = OrphanSweeper(
+            s3Client: mock,
+            metadataStore: metadataStore,
+            driveId: drive.id,
+            logger: makeLogger()
+        )
         let deleted = await sweeper.sweep(
             bucket: drive.syncAnchor.bucket.name,
             drivePrefix: drive.syncAnchor.prefix,
@@ -130,7 +166,7 @@ final class OrphanSweepTests: XCTestCase {
 
     // MARK: - Test 4 — Empty thumbnail listing is no-op
 
-    func testSweepEmptyThumbnailPrefixIsNoOp() async {
+    func testSweepEmptyThumbnailPrefixIsNoOp() async throws {
         let drive = ProviderTestFixtures.makeDrive()
         let mock = OrphanSweepMockS3Client()
         mock.listObjectsResults = [.init(
@@ -140,7 +176,13 @@ final class OrphanSweepTests: XCTestCase {
             isTruncated: false
         )]
 
-        let sweeper = OrphanSweeper(s3Client: mock, logger: makeLogger())
+        let metadataStore = try makeInMemoryMetadataStore()
+        let sweeper = OrphanSweeper(
+            s3Client: mock,
+            metadataStore: metadataStore,
+            driveId: drive.id,
+            logger: makeLogger()
+        )
         let deleted = await sweeper.sweep(
             bucket: drive.syncAnchor.bucket.name,
             drivePrefix: drive.syncAnchor.prefix,
@@ -156,7 +198,7 @@ final class OrphanSweepTests: XCTestCase {
     /// The sweeper does a recursive listing of the drive prefix and filters
     /// thumbnail keys via `S3PathUtils.isThumbnailKey`. Non-thumbnail keys
     /// (e.g. ordinary originals) are skipped — they MUST NOT be deleted.
-    func testSweepHandlesUnparseableThumbnailKeyGracefully() async {
+    func testSweepHandlesUnparseableThumbnailKeyGracefully() async throws {
         let drive = ProviderTestFixtures.makeDrive()
         let prefix = drive.syncAnchor.prefix ?? ""
         let mock = OrphanSweepMockS3Client()
@@ -178,7 +220,13 @@ final class OrphanSweepTests: XCTestCase {
         // enumeratedKeys empty — orphanThumb's original is missing → delete it.
         // nonThumbKey is NOT a thumb key → never considered for deletion even
         // though it's also "missing from enumerated".
-        let sweeper = OrphanSweeper(s3Client: mock, logger: makeLogger())
+        let metadataStore = try makeInMemoryMetadataStore()
+        let sweeper = OrphanSweeper(
+            s3Client: mock,
+            metadataStore: metadataStore,
+            driveId: drive.id,
+            logger: makeLogger()
+        )
         let deleted = await sweeper.sweep(
             bucket: drive.syncAnchor.bucket.name,
             drivePrefix: drive.syncAnchor.prefix,
@@ -198,7 +246,7 @@ final class OrphanSweepTests: XCTestCase {
     /// Even if a folder marker (`...thumbnails/subfolder/`) appears in the
     /// listing, the sweeper MUST skip it (folder deletion would delete real
     /// content; thumbnails are leaves only).
-    func testSweepDoesNotInvokeDeleteOnFolderKeys() async {
+    func testSweepDoesNotInvokeDeleteOnFolderKeys() async throws {
         let drive = ProviderTestFixtures.makeDrive()
         let prefix = drive.syncAnchor.prefix ?? ""
         let mock = OrphanSweepMockS3Client()
@@ -211,7 +259,13 @@ final class OrphanSweepTests: XCTestCase {
             isTruncated: false
         )]
 
-        let sweeper = OrphanSweeper(s3Client: mock, logger: makeLogger())
+        let metadataStore = try makeInMemoryMetadataStore()
+        let sweeper = OrphanSweeper(
+            s3Client: mock,
+            metadataStore: metadataStore,
+            driveId: drive.id,
+            logger: makeLogger()
+        )
         let deleted = await sweeper.sweep(
             bucket: drive.syncAnchor.bucket.name,
             drivePrefix: drive.syncAnchor.prefix,
@@ -229,7 +283,7 @@ final class OrphanSweepTests: XCTestCase {
     /// or it has gathered enough thumbnail keys to fill its delete budget.
     /// Without pagination, orphans in later-sorting prefixes would never be
     /// reclaimed.
-    func testSweepPaginatesUntilOrphanBudgetMet() async {
+    func testSweepPaginatesUntilOrphanBudgetMet() async throws {
         let drive = ProviderTestFixtures.makeDrive()
         let prefix = drive.syncAnchor.prefix ?? ""
         let mock = OrphanSweepMockS3Client()
@@ -256,7 +310,13 @@ final class OrphanSweepTests: XCTestCase {
             )
         ]
 
-        let sweeper = OrphanSweeper(s3Client: mock, logger: makeLogger())
+        let metadataStore = try makeInMemoryMetadataStore()
+        let sweeper = OrphanSweeper(
+            s3Client: mock,
+            metadataStore: metadataStore,
+            driveId: drive.id,
+            logger: makeLogger()
+        )
         let deleted = await sweeper.sweep(
             bucket: drive.syncAnchor.bucket.name,
             drivePrefix: drive.syncAnchor.prefix,
@@ -278,12 +338,18 @@ final class OrphanSweepTests: XCTestCase {
 
     /// If listObjects throws, the sweeper logs and returns 0; no deletes
     /// issued. Ensures a transient S3 outage doesn't crash the BFS pass tail.
-    func testSweepHandlesListFailureGracefully() async {
+    func testSweepHandlesListFailureGracefully() async throws {
         let drive = ProviderTestFixtures.makeDrive()
         let mock = OrphanSweepMockS3Client()
         mock.listObjectsError = NSError(domain: "TestDomain", code: 99, userInfo: nil)
 
-        let sweeper = OrphanSweeper(s3Client: mock, logger: makeLogger())
+        let metadataStore = try makeInMemoryMetadataStore()
+        let sweeper = OrphanSweeper(
+            s3Client: mock,
+            metadataStore: metadataStore,
+            driveId: drive.id,
+            logger: makeLogger()
+        )
         let deleted = await sweeper.sweep(
             bucket: drive.syncAnchor.bucket.name,
             drivePrefix: drive.syncAnchor.prefix,
@@ -292,6 +358,77 @@ final class OrphanSweepTests: XCTestCase {
 
         XCTAssertEqual(deleted, 0)
         XCTAssertEqual(mock.deletedKeys, [])
+    }
+
+    // MARK: - Test 8 — Phase 13.1 Finding 4 regression lock (D-04)
+
+    /// Regression lock for Phase 13.1 Finding 4 (`.planning/debug/phase13-orphan-
+    /// sweep-deletes-valid.md`).
+    ///
+    /// Reproduction: BFS visits prefix P at time T1; user uploads file F into P
+    /// at time T2 > T1; pass-tail sweep runs at time T3. `enumeratedKeys` does
+    /// NOT contain F (it was built before T2). Without the freshness backstop
+    /// the sweep would delete F's thumbnail as a false-positive orphan.
+    ///
+    /// Plan 13-07's upload-hook writes a `SyncedItem` row synchronously
+    /// alongside the original PUT. The Phase 13.1 fix consults that row as the
+    /// freshness backstop. This test seeds such a row for an original whose
+    /// key is NOT in `enumeratedKeys` and asserts the sweep does NOT delete
+    /// the corresponding thumbnail.
+    func testSweepDoesNotDeleteThumbnailWhenSyncedItemExistsForOriginal() async throws {
+        let drive = ProviderTestFixtures.makeDrive()
+        let prefix = drive.syncAnchor.prefix ?? ""
+        let mock = OrphanSweepMockS3Client()
+
+        let freshOriginal = "\(prefix)fresh.png"
+        let freshThumb = "\(prefix).thumbnails/fresh.png.jpg"
+        mock.listObjectsResults = [.init(
+            objects: [makeSummary(key: freshThumb)],
+            commonPrefixes: [],
+            nextContinuationToken: nil,
+            isTruncated: false
+        )]
+
+        // Seed MetadataStore as if upload-hook wrote the SyncedItem
+        // synchronously alongside the original PUT (Plan 13-07 contract).
+        let metadataStore = try makeInMemoryMetadataStore()
+        try await metadataStore.batchUpsertItems([
+            .init(
+                s3Key: freshOriginal,
+                driveId: drive.id,
+                etag: "etag-fresh",
+                lastModified: Date(),
+                syncStatus: .synced,
+                parentKey: nil,
+                contentType: "image/png",
+                size: 1024
+            )
+        ])
+
+        let sweeper = OrphanSweeper(
+            s3Client: mock,
+            metadataStore: metadataStore,
+            driveId: drive.id,
+            logger: makeLogger()
+        )
+
+        // enumeratedKeys is EMPTY — simulates BFS having visited the parent
+        // prefix BEFORE freshOriginal was uploaded. Without the backstop, the
+        // sweep would delete freshThumb (Finding 4 symptom).
+        let deleted = await sweeper.sweep(
+            bucket: drive.syncAnchor.bucket.name,
+            drivePrefix: drive.syncAnchor.prefix,
+            enumeratedKeys: []
+        )
+
+        XCTAssertEqual(
+            deleted, 0,
+            "Fresh thumbnail with SyncedItem must NOT be deleted by orphan sweep"
+        )
+        XCTAssertEqual(
+            mock.deletedKeys, [],
+            "MetadataStore freshness backstop must prevent the false-positive delete"
+        )
     }
 }
 

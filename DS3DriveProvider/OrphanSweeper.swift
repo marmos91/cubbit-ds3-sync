@@ -45,12 +45,23 @@ import os.log
 ///   (never abort a sweep on one bad delete).
 struct OrphanSweeper {
     let s3Client: any DS3S3ClientProtocol
+    /// Phase 13.1 Finding 4 (D-01, D-02): freshness backstop. The sweeper
+    /// consults this store for a `SyncedItem` row keyed by the implied
+    /// original BEFORE issuing a delete. The upload-hook (Plan 13-07) writes
+    /// the row synchronously alongside the original PUT, so any thumbnail
+    /// produced by an upload that landed AFTER BFS visited its parent prefix
+    /// (and is therefore absent from `enumeratedKeys`) still has a fresh
+    /// `SyncedItem` row visible to this query — preventing the false-positive
+    /// delete the audit surfaced. Optional only as defensive null-safety;
+    /// production wiring (BreadthFirstIndexer) gates on a non-nil store.
+    let metadataStore: MetadataStore
+    let driveId: UUID
     let logger: os.Logger
 
     /// Lists thumbnail keys under `drivePrefix`, computes the set diff against
     /// `enumeratedKeys`, and deletes any thumbnail whose implied original is
-    /// NOT in `enumeratedKeys`. Capped at
-    /// `DefaultSettings.Thumbnail.maxOrphanDeletesPerPass`.
+    /// NOT in `enumeratedKeys` AND has no `SyncedItem` row in `metadataStore`.
+    /// Capped at `DefaultSettings.Thumbnail.maxOrphanDeletesPerPass`.
     /// - Returns: Number of deletes actually issued (for logging / metrics).
     func sweep(
         bucket: String,
@@ -64,7 +75,7 @@ struct OrphanSweeper {
             allKeys = try await listAllKeys(bucket: bucket, drivePrefix: drivePrefix)
         } catch {
             logger.warning(
-                "Orphan sweep listing failed: \(error.localizedDescription, privacy: .public)"
+                "Orphan sweep listing failed: \(DS3S3Client.describeSotoError(error), privacy: .public)"
             )
             return 0
         }
@@ -90,6 +101,39 @@ struct OrphanSweeper {
             // Implied original still exists in the BFS-enumerated set → keep.
             if enumeratedKeys.contains(originalKey) { continue }
 
+            // Phase 13.1 Finding 4 (D-01, D-02): stale-snapshot backstop.
+            // The BFS-built `enumeratedKeys` is a snapshot from the moment BFS
+            // visited each prefix. Any upload that landed AFTER BFS visited
+            // the parent prefix but BEFORE the pass-tail sweep is invisible
+            // to that set. Plan 13-07's upload-hook writes a `SyncedItem` row
+            // synchronously alongside the original PUT — that row is the
+            // freshness backstop. O(1) actor-isolated lookup; no S3 round-trip.
+            //
+            // Implementation note: DS3DriveProvider is a separate module from
+            // DS3Lib, so the internal `findItem(byKey:driveId:)` is not
+            // visible here. We use the equivalent public Sendable-safe wrapper
+            // `itemExists(byKey:driveId:)` from `MetadataStore+Queries.swift`,
+            // which is a one-line `findItem(byKey:driveId:) != nil` adapter.
+            //
+            // Data-loss-safe default: on any MetadataStore error, skip the
+            // delete (the next pass retries; never delete on uncertainty).
+            let hasFreshSyncedItem: Bool
+            do {
+                hasFreshSyncedItem = try await metadataStore.itemExists(
+                    byKey: originalKey, driveId: driveId
+                )
+            } catch {
+                logger.warning(
+                    """
+                    Orphan sweep: MetadataStore lookup failed for \
+                    \(originalKey, privacy: .public); skipping delete: \
+                    \(DS3S3Client.describeSotoError(error), privacy: .public)
+                    """
+                )
+                continue
+            }
+            if hasFreshSyncedItem { continue }
+
             // Orphan — delete.
             do {
                 try await s3Client.deleteThumbnail(bucket: bucket, key: key)
@@ -98,7 +142,7 @@ struct OrphanSweeper {
                 logger.warning(
                     """
                     Orphan sweep delete failed for \(key, privacy: .public): \
-                    \(error.localizedDescription, privacy: .public)
+                    \(DS3S3Client.describeSotoError(error), privacy: .public)
                     """
                 )
             }

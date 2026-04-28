@@ -111,7 +111,7 @@ final class BFSThumbnailHookRunner: @unchecked Sendable {
                 // Pause-flip cancellation is expected — no log noise.
             } catch {
                 log.error(
-                    "BFS-tail backfill failed: \(error.localizedDescription, privacy: .public)"
+                    "BFS-tail backfill failed: \(DS3S3Client.describeSotoError(error), privacy: .public)"
                 )
             }
             // Clear the handle once we're done so subsequent cancel calls

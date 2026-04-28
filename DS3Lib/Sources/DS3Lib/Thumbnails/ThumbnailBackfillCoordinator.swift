@@ -232,7 +232,7 @@ public actor ThumbnailBackfillCoordinator {
                 )
             } catch {
                 logger.error(
-                    "Backfill: temp file alloc failed for \(item.s3Key, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    "Backfill: temp file alloc failed for \(item.s3Key, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                 )
                 return await recordFailure(item)
             }
@@ -261,7 +261,7 @@ public actor ThumbnailBackfillCoordinator {
                 return .cancelled
             } catch {
                 logger.error(
-                    "Backfill: download failed for \(item.s3Key, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    "Backfill: download failed for \(item.s3Key, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                 )
                 return await recordFailure(item)
             }
@@ -311,7 +311,7 @@ public actor ThumbnailBackfillCoordinator {
                 return .cancelled
             } catch {
                 logger.error(
-                    "Backfill: PUT failed for \(thumbnailKey, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    "Backfill: PUT failed for \(thumbnailKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                 )
                 return await recordFailure(item)
             }

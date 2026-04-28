@@ -117,6 +117,10 @@ extension FileProviderExtension {
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 complete(fileURL, s3Item, nil)
             } catch let s3Error as AWSErrorType {
+                // Phase 13.1-06 / D-13: finalize Progress so parent-folder aggregation releases
+                // the in-progress spinner. Without this, fileproviderd treats the Progress as
+                // still active and the parent folder icon stays in the spinner state indefinitely.
+                progress.completedUnitCount = progress.totalUnitCount
                 self.logger.error(
                     "Download failed for \(itemIdentifier.rawValue, privacy: .public) with S3 error \(s3Error.errorCode, privacy: .public)"
                 )
@@ -126,12 +130,14 @@ extension FileProviderExtension {
                 await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                 complete(nil, nil, s3Error.toFileProviderError())
             } catch is CancellationError {
+                progress.completedUnitCount = progress.totalUnitCount
                 self.logger.debug("Download cancelled for \(itemIdentifier.rawValue, privacy: .public)")
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 complete(nil, nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
             } catch {
+                progress.completedUnitCount = progress.totalUnitCount
                 self.logger.error(
-                    "Download failed for \(itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    "Download failed for \(itemIdentifier.rawValue, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                 )
                 await self.markItemAndParentAsError(
                     itemKey: itemIdentifier.rawValue, driveId: drive.id, metadataStore: metadataStore
@@ -143,6 +149,9 @@ extension FileProviderExtension {
 
         progress.cancellationHandler = {
             task.cancel()
+            // Phase 13.1-06 / D-13: belt-and-braces — also finalize on cancellation so the
+            // parent-folder spinner releases regardless of which signal fileproviderd watches.
+            progress.completedUnitCount = progress.totalUnitCount
             complete(nil, nil, NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
         }
 
@@ -451,6 +460,8 @@ extension FileProviderExtension {
                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                     complete(fileURL, s3Item, alignedRange, [], nil)
                 } catch let s3Error as AWSErrorType {
+                    // Phase 13.1-06 / D-13: finalize Progress so parent-folder aggregation releases.
+                    progress.completedUnitCount = progress.totalUnitCount
                     self.logger.error("Partial download failed with S3 error \(s3Error.errorCode, privacy: .public)")
                     await self.markItemAndParentAsError(
                         itemKey: itemIdentifier.rawValue, driveId: drive.id, metadataStore: self.metadataStore
@@ -458,9 +469,10 @@ extension FileProviderExtension {
                     await nm.sendDriveChangedNotificationWithDebounce(status: .error)
                     complete(nil, nil, NSRange(location: 0, length: 0), [], s3Error.toFileProviderError())
                 } catch {
+                    progress.completedUnitCount = progress.totalUnitCount
                     self.logger
                         .error(
-                            "Partial download failed for \(itemIdentifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                            "Partial download failed for \(itemIdentifier.rawValue, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                         )
                     await self.markItemAndParentAsError(
                         itemKey: itemIdentifier.rawValue, driveId: drive.id, metadataStore: self.metadataStore
@@ -478,6 +490,8 @@ extension FileProviderExtension {
 
             progress.cancellationHandler = {
                 task.cancel()
+                // Phase 13.1-06 / D-13: belt-and-braces finalization on cancellation.
+                progress.completedUnitCount = progress.totalUnitCount
                 complete(
                     nil,
                     nil,

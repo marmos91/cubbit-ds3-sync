@@ -377,7 +377,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
 
                         self.logger
                             .warning(
-                                "S3 listing failed for folder \(self.prefix ?? "nil", privacy: .public), trying cache fallback: \(error.localizedDescription, privacy: .public)"
+                                "S3 listing failed for folder \(self.prefix ?? "nil", privacy: .public), trying cache fallback: \(DS3S3Client.describeSotoError(error), privacy: .public)"
                             )
 
                         // Offline fallback: serve from MetadataStore if available.
@@ -451,7 +451,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
 
                     self.logger
                         .warning(
-                            "S3 listing failed, trying MetadataStore fallback for prefix \(self.prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)"
+                            "S3 listing failed, trying MetadataStore fallback for prefix \(self.prefix ?? "nil", privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                         )
 
                     // Last-resort: BFS may have populated MetadataStore
@@ -490,7 +490,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
             } catch {
                 self.logger
                     .error(
-                        "enumerateItems failed for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)"
+                        "enumerateItems failed for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                     )
                 await self.notificationManager.sendDriveChangedNotificationWithDebounce(
                     status: .error,
@@ -650,7 +650,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                 } catch {
                     self.logger
                         .error(
-                            "enumerateChanges failed for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(error.localizedDescription, privacy: .public)"
+                            "enumerateChanges failed for drive \(self.drive.id, privacy: .public) prefix \(self.prefix ?? "nil", privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                         )
                     await self.notificationManager.sendDriveChangedNotificationWithDebounce(
                         status: .error,

@@ -51,10 +51,18 @@ final class BreadthFirstIndexer: @unchecked Sendable {
     }()
 
     /// Lazy orphan sweeper — built on first BFS-tail invocation when
-    /// thumbnails are enabled.
+    /// thumbnails are enabled. Per Phase 13.1 Finding 4 (D-01), the sweeper
+    /// also consults `MetadataStore` as a freshness backstop, so the lazy
+    /// initializer now gates on BOTH `s3Client` and `metadataStore` being
+    /// wired (drives without a metadata store can't safely sweep).
     private lazy var orphanSweeper: OrphanSweeper? = {
-        guard let s3Client else { return nil }
-        return OrphanSweeper(s3Client: s3Client, logger: logger)
+        guard let s3Client, let metadataStore else { return nil }
+        return OrphanSweeper(
+            s3Client: s3Client,
+            metadataStore: metadataStore,
+            driveId: drive.id,
+            logger: logger
+        )
     }()
 
     init(
@@ -251,7 +259,7 @@ final class BreadthFirstIndexer: @unchecked Sendable {
         } catch {
             logger
                 .error(
-                    "BFS listing failed for prefix \(prefix, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    "BFS listing failed for prefix \(prefix, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                 )
         }
     }
