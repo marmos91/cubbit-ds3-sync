@@ -520,12 +520,13 @@ public enum SyncedItemMigrationPlan: SchemaMigrationPlan {
             SyncedItemSchemaV3.self,
             SyncedItemSchemaV4.self,
             SyncedItemSchemaV5.self,
-            SyncedItemSchemaV6.self
+            SyncedItemSchemaV6.self,
+            SyncedItemSchemaV7.self
         ]
     }
 
     public static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6]
+        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6, migrateV6toV7]
     }
 
     /// Lightweight migration from V1 to V2:
@@ -567,8 +568,15 @@ public enum SyncedItemMigrationPlan: SchemaMigrationPlan {
         fromVersion: SyncedItemSchemaV5.self,
         toVersion: SyncedItemSchemaV6.self
     )
+
+    /// Lightweight migration from V6 to V7:
+    /// - Adds `isPinned` (Bool, default false) to SyncedItem.
+    nonisolated static let migrateV6toV7 = MigrationStage.lightweight(
+        fromVersion: SyncedItemSchemaV6.self,
+        toVersion: SyncedItemSchemaV7.self
+    )
 }
 
 /// Type alias for the current schema version's SyncedItem.
 /// (`SyncAnchorRecord` typealias lives in `SyncAnchorRecord.swift`.)
-public typealias SyncedItem = SyncedItemSchemaV6.SyncedItem
+public typealias SyncedItem = SyncedItemSchemaV7.SyncedItem
