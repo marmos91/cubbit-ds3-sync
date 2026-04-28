@@ -39,9 +39,9 @@ import XCTest
         override func setUp() async throws {
             // In-memory MetadataStore (V6 schema — Phase 13.2 Plan 09 dropped
             // `thumbnailStatus`). The `SyncedItem` typealias resolves to
-            // `SyncedItemSchemaV7.SyncedItem`, so the container must be bound
+            // `SyncedItemSchemaV6.SyncedItem`, so the container must be bound
             // to V7 to avoid the SwiftData "Failed to cast model" trap (Pitfall 3).
-            let schema = Schema(versionedSchema: SyncedItemSchemaV7.self)
+            let schema = Schema(versionedSchema: SyncedItemSchemaV6.self)
             let config = ModelConfiguration(isStoredInMemoryOnly: true)
             container = try ModelContainer(for: schema, configurations: [config])
             metadataStore = MetadataStore(modelContainer: container)

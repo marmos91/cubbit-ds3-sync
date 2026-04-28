@@ -77,8 +77,7 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked
                             lastModified: member.lastModified,
                             size: NSNumber(value: member.size),
                             syncStatus: member.syncStatus
-                        ),
-                        isPinned: member.isPinned
+                        )
                     )
                 }
                 if !items.isEmpty {

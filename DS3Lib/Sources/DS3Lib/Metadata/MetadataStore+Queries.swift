@@ -44,7 +44,6 @@ public extension MetadataStore {
         public let contentType: String?
         public let size: Int64
         public let syncStatus: String?
-        public let isPinned: Bool
         public let isMaterialized: Bool
     }
 
@@ -80,7 +79,6 @@ public extension MetadataStore {
                 contentType: $0.contentType,
                 size: $0.size,
                 syncStatus: $0.syncStatus,
-                isPinned: $0.isPinned,
                 isMaterialized: $0.isMaterialized
             )
         }
@@ -171,26 +169,16 @@ public extension MetadataStore {
         try modelExecutor.modelContext.save()
     }
 
-    /// Set the pinned state for an item by S3 key within a specific drive.
-    /// Pinned items are members of the working set even when not materialised,
-    /// so the system polls their metadata for changes without the user having
-    /// to re-navigate the parent folder.
-    func setPinned(s3Key: String, driveId: UUID, isPinned: Bool) throws {
-        guard let item = try findItem(byKey: s3Key, driveId: driveId) else { return }
-        item.isPinned = isPinned
-        try modelExecutor.modelContext.save()
-    }
-
-    /// Fetch members of the working set for a drive: items that are either
-    /// currently materialised on disk or explicitly pinned by the user.
-    /// Bounded by user behaviour, so it stays small enough for `enumerateChanges`
-    /// to refresh via per-item HEAD requests without walking the remote tree.
+    /// Fetch members of the working set for a drive: items currently
+    /// materialised on disk. Apple's "Keep Downloaded" affordance maps to
+    /// materialisation, so this naturally surfaces user-pinned content
+    /// without us tracking a separate pin flag.
     func fetchWorkingSetMembers(driveId: UUID) throws -> [CachedChildItem] {
         let trashedStatus = SyncStatus.trashed.rawValue
         let predicate = #Predicate<SyncedItem> {
             $0.driveId == driveId
                 && $0.syncStatus != trashedStatus
-                && ($0.isMaterialized || $0.isPinned)
+                && $0.isMaterialized
         }
         let items = try modelExecutor.modelContext.fetch(
             FetchDescriptor<SyncedItem>(predicate: predicate)
@@ -203,7 +191,6 @@ public extension MetadataStore {
                 contentType: $0.contentType,
                 size: $0.size,
                 syncStatus: $0.syncStatus,
-                isPinned: $0.isPinned,
                 isMaterialized: $0.isMaterialized
             )
         }

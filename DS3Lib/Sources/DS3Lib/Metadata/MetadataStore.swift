@@ -13,7 +13,7 @@ public actor MetadataStore {
     /// previous build that used a different versioned schema), the store is
     /// deleted and recreated — metadata is ephemeral cache, not user data.
     public static func createContainer() throws -> ModelContainer {
-        let schema = Schema(versionedSchema: SyncedItemSchemaV7.self)
+        let schema = Schema(versionedSchema: SyncedItemSchemaV6.self)
         let config = ModelConfiguration(
             "SyncedItems",
             schema: schema,

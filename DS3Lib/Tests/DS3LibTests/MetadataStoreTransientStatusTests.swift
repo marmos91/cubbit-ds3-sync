@@ -10,7 +10,7 @@ final class MetadataStoreTransientStatusTests: XCTestCase {
     private let driveId = UUID()
 
     override func setUp() async throws {
-        let schema = Schema(versionedSchema: SyncedItemSchemaV7.self)
+        let schema = Schema(versionedSchema: SyncedItemSchemaV6.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         container = try ModelContainer(for: schema, configurations: [config])
         store = MetadataStore(modelContainer: container)

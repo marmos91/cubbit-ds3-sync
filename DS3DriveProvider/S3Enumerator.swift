@@ -302,8 +302,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                     lastModified: child.lastModified,
                     size: NSNumber(value: child.size),
                     syncStatus: child.syncStatus
-                ),
-                isPinned: child.isPinned
+                )
             )
         }
     }
