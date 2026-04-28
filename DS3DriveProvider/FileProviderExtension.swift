@@ -56,9 +56,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
     var endpoint: String?
     var notificationManager: NotificationManager?
     var metadataStore: MetadataStore?
-    private var syncEngine: SyncEngine?
-    private var networkMonitor: NetworkMonitor?
-    var pollingTask: Task<Void, Never>?
     var purgeTask: Task<Void, Never>?
     var commandListenerTask: Task<Void, Never>?
 
@@ -113,21 +110,13 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             // swiftlint:disable:next force_unwrapping
             self.s3Lib = S3Lib(withClient: self.s3Client!, withNotificationManager: self.notificationManager!)
 
-            // Initialize MetadataStore, NetworkMonitor, and SyncEngine
             do {
                 let container = try MetadataStore.createContainer()
-                let store = MetadataStore(modelContainer: container)
-                self.metadataStore = store
-
-                let monitor = NetworkMonitor()
-                self.networkMonitor = monitor
-                Task { await monitor.startMonitoring() }
-
-                self.syncEngine = SyncEngine(metadataStore: store, networkMonitor: monitor)
+                self.metadataStore = MetadataStore(modelContainer: container)
             } catch {
                 logger
                     .warning(
-                        "Failed to initialize MetadataStore/SyncEngine: \(error.localizedDescription, privacy: .public). Extension will work without sync engine."
+                        "Failed to initialize MetadataStore: \(error.localizedDescription, privacy: .public). Extension will work without offline cache."
                     )
             }
 
@@ -144,8 +133,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         }
 
         super.init()
-        self.startPolling()
-        self.warmCache()
         self.startAutoPurge()
         self.startCommandListener()
 
@@ -161,9 +148,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
 
     func invalidate() {
         self.logger.info("Extension invalidating for domain \(self.domain.identifier.rawValue, privacy: .public)")
-        self.logger.debug("Stopping periodic polling task")
-        self.pollingTask?.cancel()
-        self.pollingTask = nil
         self.purgeTask?.cancel()
         self.purgeTask = nil
         self.commandListenerTask?.cancel()
@@ -175,10 +159,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
 
         if let s3Lib = self.s3Lib {
             Task { try? await s3Lib.shutdown() }
-        }
-
-        if let monitor = networkMonitor {
-            Task { await monitor.stopMonitoring() }
         }
     }
 
@@ -421,24 +401,25 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             return TrashS3Enumerator(s3Lib: s3Lib, drive: drive, metadataStore: self.metadataStore)
 
         case .workingSet:
-            // NOTE: The system is requesting the whole working set (probably to index it via spotlight
-            return WorkingSetS3Enumerator(
-                parent: containerItemIdentifier,
+            // Bounded set: items the user has materialised or pinned. The
+            // system polls this enumerator out-of-band from folder navigation
+            // so pinned files refresh without the user re-opening their parent
+            // folder.
+            return WorkingSetEnumerator(
                 s3Lib: s3Lib,
-                notificationManager: nm,
                 drive: drive,
-                syncEngine: self.syncEngine,
                 metadataStore: self.metadataStore
             )
 
         default:
-            // NOTE: The user is navigating the finder
+            // User is navigating Finder/Files.app. Lazy direct-children
+            // enumeration; remote deletions surface via enumerateChanges
+            // when the user navigates back.
             return S3Enumerator(
                 parent: containerItemIdentifier,
                 s3Lib: s3Lib,
                 notificationManager: nm,
                 drive: drive,
-                syncEngine: self.syncEngine,
                 metadataStore: self.metadataStore
             )
         }

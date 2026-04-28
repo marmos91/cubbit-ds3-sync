@@ -2,87 +2,7 @@ import DS3Lib
 @preconcurrency import FileProvider
 import os.log
 
-// MARK: - Cache Warm-up
-
 extension FileProviderExtension {
-    /// Performs a single recursive S3 listing on startup to populate MetadataStore.
-    /// This turns all subsequent enumerateItems calls into instant cache hits,
-    /// avoiding the enumeration waterfall when the user downloads a large folder
-    /// tree. Per-folder discovery beyond the warm-up is driven reactively by
-    /// Apple's `enumerateItems`.
-    func warmCache() {
-        #if os(iOS)
-            // On iOS, skip warm-up — recursive listings spike memory and burn
-            // the networking grace period. Per-folder enumeration handles discovery.
-            return
-        #else
-            guard self.enabled,
-                  let drive = self.drive,
-                  let s3Lib = self.s3Lib,
-                  let metadataStore = self.metadataStore
-            else {
-                return
-            }
-
-            Task.detached(priority: .utility) { [weak self] in
-                let prefix = drive.syncAnchor.prefix
-                self?.logger
-                    .info(
-                        "Cache warm-up: starting recursive listing for prefix \(prefix ?? "<root>", privacy: .public)"
-                    )
-
-                do {
-                    var continuationToken: String?
-                    var allKeys: Set<String> = []
-
-                    repeat {
-                        let (items, nextToken) = try await s3Lib.listS3Items(
-                            forDrive: drive,
-                            withPrefix: prefix,
-                            recursively: true,
-                            withContinuationToken: continuationToken
-                        )
-                        continuationToken = nextToken
-
-                        let visibleItems = items
-                            .filter { S3Lib.isUserVisible($0.itemIdentifier.rawValue, drive: drive) }
-
-                        for item in visibleItems {
-                            allKeys.insert(item.itemIdentifier.rawValue)
-                        }
-
-                        // Upsert each page incrementally so enumerateItems can
-                        // start serving partial results while we're still listing.
-                        let upsertData = visibleItems.map { MetadataStore.ItemUpsertData(from: $0) }
-                        try await metadataStore.batchUpsertItems(upsertData)
-                    } while continuationToken != nil
-
-                    // Synthesize virtual folders (recursive listing omits directory-only prefixes)
-                    let virtualFolders = S3Enumerator.synthesizeVirtualFolders(
-                        fromKeys: allKeys, drive: drive, prefix: prefix
-                    )
-                    if !virtualFolders.isEmpty {
-                        let folderData = virtualFolders.map { MetadataStore.ItemUpsertData(from: $0) }
-                        try await metadataStore.batchUpsertItems(folderData)
-                    }
-
-                    self?.logger
-                        .info(
-                            "Cache warm-up complete: \(allKeys.count) items + \(virtualFolders.count) virtual folders"
-                        )
-
-                    // Signal working set so fileproviderd picks up the warm cache
-                    self?.signalChanges()
-                } catch {
-                    self?.logger
-                        .error(
-                            "Cache warm-up failed: \(DS3S3Client.describeSotoError(error), privacy: .public)."
-                        )
-                }
-            }
-        #endif
-    }
-
     /// Signals the trash container enumerator to re-enumerate.
     /// Call `signalChanges()` alongside this if the working set also changed.
     func signalTrashChanges() {
@@ -92,37 +12,6 @@ extension FileProviderExtension {
                 self.logger.error("Failed to signal trash container: \(error.localizedDescription, privacy: .public)")
             }
         }
-    }
-
-    // MARK: - Periodic Polling
-
-    /// Starts a background task that periodically signals the system to re-enumerate
-    /// changes from the remote, ensuring local state stays up to date even when no
-    /// local modifications trigger a sync.
-    func startPolling() {
-        guard self.enabled else { return }
-
-        // Polling disabled on iOS. enumerateChanges is skipped entirely on iOS
-        // (SyncEngine.reconcile does full recursive S3 listings that spike memory
-        // and burn the networking grace period), so signaling does nothing useful.
-        // Changes are discovered via per-folder enumerateItems when the user navigates.
-        #if os(macOS)
-            let pollingInterval = DefaultSettings.Extension.pollingIntervalSeconds
-
-            // Signal immediately on startup so enumerateChanges/reconciliation
-            // runs right away — don't wait for the first polling interval.
-            self.signalChanges()
-
-            self.pollingTask = Task { [weak self] in
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: .seconds(pollingInterval))
-                    guard !Task.isCancelled, let self else { break }
-                    self.signalChanges()
-                }
-            }
-
-            self.logger.debug("Periodic polling started with interval \(pollingInterval)s")
-        #endif
     }
 
     // MARK: - IPC Command Listener

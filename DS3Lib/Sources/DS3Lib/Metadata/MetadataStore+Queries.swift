@@ -44,6 +44,8 @@ public extension MetadataStore {
         public let contentType: String?
         public let size: Int64
         public let syncStatus: String?
+        public let isPinned: Bool
+        public let isMaterialized: Bool
     }
 
     /// Fetch all children of a given parent key within a drive.
@@ -77,7 +79,9 @@ public extension MetadataStore {
                 lastModified: $0.lastModified,
                 contentType: $0.contentType,
                 size: $0.size,
-                syncStatus: $0.syncStatus
+                syncStatus: $0.syncStatus,
+                isPinned: $0.isPinned,
+                isMaterialized: $0.isMaterialized
             )
         }
     }
@@ -113,20 +117,6 @@ public extension MetadataStore {
             consecutiveFailures: record.consecutiveFailures,
             itemCount: record.itemCount
         )
-    }
-
-    /// Fetch all item keys and etags for a drive as a Sendable dictionary.
-    /// Used by SyncEngine for reconciliation without crossing actor boundary with @Model objects.
-    func fetchItemKeysAndEtags(driveId: UUID) throws -> [String: String?] {
-        let items = try findItems(byDrive: driveId)
-        return Dictionary(uniqueKeysWithValues: items.map { ($0.s3Key, $0.etag) })
-    }
-
-    /// Fetch all item keys and their sync status for a drive as a Sendable dictionary.
-    /// Used by SyncEngine to determine which items qualify for deletion detection.
-    func fetchItemKeysAndStatuses(driveId: UUID) throws -> [String: String] {
-        let items = try findItems(byDrive: driveId)
-        return Dictionary(uniqueKeysWithValues: items.map { ($0.s3Key, $0.syncStatus) })
     }
 
     /// Update only the sync status for an item, preserving all other fields.
@@ -212,7 +202,9 @@ public extension MetadataStore {
                 lastModified: $0.lastModified,
                 contentType: $0.contentType,
                 size: $0.size,
-                syncStatus: $0.syncStatus
+                syncStatus: $0.syncStatus,
+                isPinned: $0.isPinned,
+                isMaterialized: $0.isMaterialized
             )
         }
     }
