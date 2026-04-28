@@ -229,17 +229,6 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
         Task {
             let observer = boxedObserver.value
             do {
-                // When paused, serve from cache or return empty. No S3 calls.
-                if (try? SharedData.default().isDrivePaused(self.drive.id)) == true {
-                    let hadCachedItems = try await self.serveCachedItems(to: observer)
-                    self.logger
-                        .debug(
-                            "enumerateItems (paused): hadCachedItems=\(hadCachedItems) for prefix \(self.prefix ?? "nil", privacy: .public)"
-                        )
-                    observer.finishEnumerating(upTo: nil)
-                    return
-                }
-
                 #if os(iOS)
                     // On iOS, working set must never read from the cloud (WWDC 2017 Session 243).
                     // Recursive S3 listings spike memory to 15+ MB → extension jetsammed.
@@ -513,15 +502,6 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
         let boxedObserver = UncheckedBox(value: observer)
         Task {
             let observer = boxedObserver.value
-            // When paused, finish immediately with current anchor — no S3 calls.
-            if (try? SharedData.default().isDrivePaused(self.drive.id)) == true {
-                self.logger
-                    .debug(
-                        "enumerateChanges (paused): finishing with current anchor for prefix \(self.prefix ?? "nil", privacy: .public)"
-                    )
-                return observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
-            }
-
             #if os(iOS)
                 // On iOS, skip ALL change enumeration. Even per-folder enumerateChanges
                 // calls SyncEngine.reconcile() which does a full recursive S3 listing,

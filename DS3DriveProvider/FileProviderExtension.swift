@@ -149,12 +149,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         self.startAutoPurge()
         self.startCommandListener()
 
-        // If drive is paused, notify the main app so UI reflects the state
-        if let driveId = self.drive?.id,
-           (try? SharedData.default().isDrivePaused(driveId)) == true {
-            Task { await self.notificationManager?.sendDriveChangedNotification(status: .paused) }
-        }
-
         logMemoryUsage(label: "init-complete", logger: logger)
     }
 
@@ -386,13 +380,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         progress.completedUnitCount = 1
 
         return progress
-    }
-
-    /// Returns true when the drive is paused, logging the deferred operation name.
-    func isDrivePaused(_ driveId: UUID, operation: String) -> Bool {
-        guard (try? SharedData.default().isDrivePaused(driveId)) == true else { return false }
-        logger.info("Drive paused, deferring \(operation, privacy: .public) operation")
-        return true
     }
 
     /// Signals the system to re-enumerate changes after a local CRUD operation.

@@ -33,7 +33,6 @@
                     .environment(ds3DriveManager)
             }
             .onAppear {
-                driveViewModel.loadPersistedPauseState(drives: ds3DriveManager.drives)
                 driveViewModel.startListening()
             }
             .onDisappear {
@@ -143,7 +142,6 @@
             case .idle: Image(.statusIdleBadge)
             case .sync: Image(.statusSyncBadge)
             case .error: Image(.statusErrorBadge)
-            case .paused: Image(.statusPauseBadge)
             }
         }
 

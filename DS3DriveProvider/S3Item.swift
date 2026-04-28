@@ -177,21 +177,12 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
 
     /// Computes the bytes used for both `contentVersion` and `metadataVersion`.
     /// Folders use the identifier (stable across code paths). Files use the
-    /// source etag, optionally suffixed with the per-drive resume epoch — the
-    /// epoch is only > 0 after the first pause→resume transition and only
-    /// changes on subsequent resumes, so steady-state remains etag-only per
-    /// D-14. Folding it in forces Apple to evict cached "no thumbnail"
-    /// responses for items that returned nil during the pause window.
+    /// source etag, per D-14.
     private func computeVersionData() -> Data {
         if isFolder {
             return identifier.rawValue.data(using: .utf8) ?? Data()
         }
-        guard let etag = self.metadata.etag, let etagData = etag.data(using: .utf8) else {
-            return Data()
-        }
-        let epoch = SharedData.default().resumeEpoch(forDrive: drive.id)
-        guard epoch > 0 else { return etagData }
-        return etagData + Data(":\(epoch)".utf8)
+        return self.metadata.etag?.data(using: .utf8) ?? Data()
     }
 
     var contentType: UTType {

@@ -189,10 +189,6 @@ typealias ThumbnailRendererFn = @Sendable (URL) -> Data?
 typealias ThumbnailFallbackPutter =
     @Sendable (_ bucket: String, _ key: String, _ data: Data, _ sourceETag: String) async throws -> Void
 
-/// Closure that returns whether the drive is currently paused (D-24, THUMB-21).
-/// Production wires this to `SharedData.default().isDrivePaused(_:)`.
-typealias ThumbnailPauseChecker = @Sendable (UUID) -> Bool
-
 /// Closure that signals a parent container to re-enumerate (D-12). Production
 /// wires this to `NSFileProviderManager(for: domain).signalEnumerator(for:)`.
 typealias ThumbnailSignalContainer = @Sendable (NSFileProviderItemIdentifier) -> Void
@@ -205,28 +201,25 @@ struct ThumbnailFallbackContext {
     let download: ThumbnailOriginalDownloader
     let render: ThumbnailRendererFn
     let putThumbnail: ThumbnailFallbackPutter
-    let isPaused: ThumbnailPauseChecker
     let signalParentContainer: ThumbnailSignalContainer
     let logger: os.Logger
 }
 
 /// Cache-miss fallback for `fetchThumbnails` (Phase 13.2, D-01..D-04, D-12,
-/// D-19, D-20, D-24, THUMB-15, THUMB-21).
+/// D-19, D-20, THUMB-15).
 ///
 /// Sequence (each step is a hard precondition for the next):
 /// 1. **Poison check (D-19, D-20):** if `limiter.isPoisoned(key)` → return nil
 ///    immediately. No download, no render, no slot acquired.
-/// 2. **Pause gate (D-24, THUMB-21):** if `isPaused(drive.id)` → return nil
-///    immediately. No download, no render, no slot acquired.
-/// 3. **Acquire** a slot from the 2-slot `ThumbnailFallbackLimiter` (D-02).
+/// 2. **Acquire** a slot from the 2-slot `ThumbnailFallbackLimiter` (D-02).
 ///    Cancellation maps to `NSUserCancelledError`.
-/// 4. **Download** original via the `download` closure. On throw → record
+/// 3. **Download** original via the `download` closure. On throw → record
 ///    strike, map error via `mapThumbnailFetchError`, return mapped error.
-/// 5. **Render** via the `render` closure. nil result → record strike, return
+/// 4. **Render** via the `render` closure. nil result → record strike, return
 ///    `.noSuchItem`.
-/// 6. **Lane 2 (D-01 lane 2, D-04):** invoke `perItemHandler` with rendered
+/// 5. **Lane 2 (D-01 lane 2, D-04):** invoke `perItemHandler` with rendered
 ///    bytes BEFORE issuing the PUT — the user sees the thumbnail immediately.
-/// 7. **Lane 3 (D-01 lane 3, D-04, D-12):** fire-and-forget `Task.detached`
+/// 6. **Lane 3 (D-01 lane 3, D-04, D-12):** fire-and-forget `Task.detached`
 ///    that PUTs the SAME bytes to `.thumbnails/<key>.jpg` then calls
 ///    `signalParentContainer(parentId)`. PUT failures are logged via
 ///    `describeSotoError` but do NOT record a strike (the user already saw
@@ -257,15 +250,7 @@ func consumeThumbnailFallback(
         return
     }
 
-    // Step 2 — Pause gate (D-24, THUMB-21). Pause check happens BEFORE any
-    // limiter slot is acquired so paused drives never block the 2-slot pool.
-    if context.isPaused(drive.id) {
-        logger.info("Fallback: drive paused, skipping \(key, privacy: .public)")
-        perItemHandler(identifier, nil, nil)
-        return
-    }
-
-    // Step 3 — Acquire a slot (D-02). Cancellation maps to NSUserCancelledError.
+    // Step 2 — Acquire a slot (D-02). Cancellation maps to NSUserCancelledError.
     do {
         try await limiter.acquire()
     } catch is CancellationError {
@@ -280,7 +265,7 @@ func consumeThumbnailFallback(
         return
     }
 
-    // Steps 4–7 — Download → render → return bytes → fire-and-forget PUT.
+    // Steps 3–6 — Download → render → return bytes → fire-and-forget PUT.
     // Code review Fix 2 (Phase 13.2): release explicitly on every exit path
     // rather than via `defer { Task { await release } }`. Spawning an
     // unstructured Task to return the slot delays the hand-off by an extra
@@ -291,7 +276,7 @@ func consumeThumbnailFallback(
         let (fileURL, sourceETag) = try await context.download(identifier, drive)
         defer { try? FileManager.default.removeItem(at: fileURL) }
 
-        // Step 5 — Render. nil result records a strike but is NOT an error
+        // Step 4 — Render. nil result records a strike but is NOT an error
         // surfaced to Finder beyond `.noSuchItem` (Finder draws default icon).
         guard let jpegBytes = context.render(fileURL) else {
             await limiter.recordFailure(key)
@@ -301,13 +286,13 @@ func consumeThumbnailFallback(
             return
         }
 
-        // Step 6 — Lane 2 (D-04): bytes returned to Finder are the same bytes
+        // Step 5 — Lane 2 (D-04): bytes returned to Finder are the same bytes
         // PUT to S3. Single render. The success callback to the limiter
         // resets the strike counter for this key.
         perItemHandler(identifier, jpegBytes, nil)
         await limiter.recordSuccess(key)
 
-        // Step 7 — Lane 3 (D-12): fire-and-forget PUT + signalEnumerator.
+        // Step 6 — Lane 3 (D-12): fire-and-forget PUT + signalEnumerator.
         // Detached so the per-item handler ordering contract is not violated
         // by network latency. PUT failures are logged + swallowed.
         let bucket = drive.syncAnchor.bucket.name

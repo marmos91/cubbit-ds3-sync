@@ -22,11 +22,6 @@ extension FileProviderExtension {
             return Progress()
         }
 
-        if isDrivePaused(drive.id, operation: "deleteItem") {
-            completionHandler(NSFileProviderError(.serverUnreachable) as NSError)
-            return Progress()
-        }
-
         switch identifier {
         case .rootContainer:
             self.logger.debug("Skipping deletion of root container")

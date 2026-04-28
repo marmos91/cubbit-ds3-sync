@@ -139,8 +139,6 @@ struct DS3DriveApp: App {
                         Image(.trayIconInfo)
                     case .offline:
                         Image(.trayIconOffline)
-                    case .paused:
-                        Image(.trayIconPause)
                     }
                 }
             }

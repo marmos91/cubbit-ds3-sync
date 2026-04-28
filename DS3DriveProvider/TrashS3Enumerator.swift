@@ -31,12 +31,6 @@ class TrashS3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable
 
         Task {
             do {
-                // When paused, return empty
-                if (try? SharedData.default().isDrivePaused(self.drive.id)) == true {
-                    observer.finishEnumerating(upTo: nil)
-                    return
-                }
-
                 let continuationToken = page.toContinuationToken()
 
                 let (trashItems, nextToken) = try await self.s3Lib.listTrashedItems(

@@ -79,11 +79,6 @@ class DS3DriveViewModel {
     init(drive: DS3Drive) {
         self.drive = drive
 
-        // Restore paused state from persistence so it survives app restart
-        if (try? SharedData.default().isDrivePaused(drive.id)) == true {
-            self.driveStatus = .paused
-        }
-
         // Plan 05-15 Gap 14: any syncing entries left in the tracker from a
         // previous session (e.g. the app was quit mid-transfer) should be
         // transitioned to `.error("interrupted")` immediately so the user
@@ -280,12 +275,6 @@ class DS3DriveViewModel {
         else { return }
 
         let newStatus = updateDriveStatusNotification.status
-
-        // While paused, ignore extension status updates (they'd be stale .idle/.error
-        // from failed operations). Only allow the .paused status itself through.
-        if self.driveStatus == .paused, newStatus != .paused {
-            return
-        }
 
         // Always cancel any pending idle transition
         self.idleDebounceTask?.cancel()

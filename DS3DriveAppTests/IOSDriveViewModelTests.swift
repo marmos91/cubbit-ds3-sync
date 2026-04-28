@@ -64,25 +64,19 @@
         func testStatusLabels() {
             XCTAssertEqual(IOSDriveViewModel.statusLabel(for: .idle), "Synced")
             XCTAssertEqual(IOSDriveViewModel.statusLabel(for: .sync), "Syncing")
-            XCTAssertEqual(IOSDriveViewModel.statusLabel(for: .indexing), "Indexing")
             XCTAssertEqual(IOSDriveViewModel.statusLabel(for: .error), "Error")
-            XCTAssertEqual(IOSDriveViewModel.statusLabel(for: .paused), "Paused")
         }
 
         // MARK: - Status Color
 
         func testStatusColorsAreDistinct() {
             let idle = IOSDriveViewModel.statusColor(for: .idle)
+            let sync = IOSDriveViewModel.statusColor(for: .sync)
             let error = IOSDriveViewModel.statusColor(for: .error)
-            let paused = IOSDriveViewModel.statusColor(for: .paused)
 
             XCTAssertNotEqual(idle, error)
-            XCTAssertNotEqual(idle, paused)
-            XCTAssertNotEqual(error, paused)
-
-            let sync = IOSDriveViewModel.statusColor(for: .sync)
-            let indexing = IOSDriveViewModel.statusColor(for: .indexing)
-            XCTAssertEqual(sync, indexing)
+            XCTAssertNotEqual(idle, sync)
+            XCTAssertNotEqual(error, sync)
         }
 
         // MARK: - Status Accessor
@@ -111,21 +105,6 @@
             let driveId = UUID()
             vm.driveTransferSpeeds[driveId] = 1234.5
             XCTAssertEqual(vm.speed(for: driveId), 1234.5)
-        }
-
-        // MARK: - Toggle Pause
-
-        func testTogglePauseSetsAndUnsets() {
-            let vm = makeViewModel()
-            let driveId = UUID()
-
-            XCTAssertEqual(vm.status(for: driveId), .idle)
-
-            vm.togglePause(for: driveId)
-            XCTAssertEqual(vm.status(for: driveId), .paused)
-
-            vm.togglePause(for: driveId)
-            XCTAssertEqual(vm.status(for: driveId), .idle)
         }
     }
 

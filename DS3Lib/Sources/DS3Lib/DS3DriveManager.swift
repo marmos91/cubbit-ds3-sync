@@ -29,8 +29,7 @@ public final class DS3DriveManager: @unchecked Sendable {
     /// Per-drive last-known status for aggregation. Observed by SwiftUI through
     /// `aggregateStatus` so the menu bar icon and tray footer recompute when
     /// any drive transitions. `private(set)` so external observers can read
-    /// but only the manager itself mutates the map — invariants like the
-    /// allPaused/clamp logic in `togglePause` rely on this.
+    /// but only the manager itself mutates the map.
     public private(set) var driveStatuses: [UUID: DS3DriveStatus] = [:]
 
     /// Single source of truth for the tray aggregate state (Gaps 15 + 27).
@@ -94,20 +93,6 @@ public final class DS3DriveManager: @unchecked Sendable {
     @MainActor
     private func handleDriveStatusChange(_ change: DS3DriveStatusChange) {
         let driveId = change.driveId
-
-        // While the user has the drive paused, ignore extension status pulses
-        // that would overwrite the paused state. Background timers (the 30 s
-        // polling task, working-set enumerateChanges) still emit transient
-        // `.sync` / `.idle` pulses; without this guard the aggregate flaps
-        // between `.allPaused` and `.syncing`/`.allIdle`, which makes the
-        // tray footer icon visibly spin and mis-report state.
-        // `DS3DriveViewModel.driveStatusChanged` already applies the same guard
-        // to its own copy — this anchors the aggregate to the same truth.
-        if (try? SharedData.default().isDrivePaused(driveId)) == true,
-           change.status != .paused {
-            return
-        }
-
         driveStatuses[driveId] = change.status
 
         switch change.status {
@@ -115,69 +100,16 @@ public final class DS3DriveManager: @unchecked Sendable {
             syncingDrives.insert(driveId)
             AppStatusManager.default().setStatus(.syncing)
 
-        case .paused:
-            syncingDrives.remove(driveId)
-            recomputeAppStatus()
-
         case .error:
             syncingDrives.remove(driveId)
             AppStatusManager.default().setStatus(.error)
 
         case .idle:
             syncingDrives.remove(driveId)
-            recomputeAppStatus()
+            if syncingDrives.isEmpty {
+                AppStatusManager.default().setStatus(.idle)
+            }
         }
-    }
-
-    /// Called by the UI when the user manually pauses a drive.
-    /// Updates the internal tracking so `AppStatusManager` reflects the change immediately.
-    @MainActor
-    public func notifyDrivePausedFromUI(driveId: UUID) {
-        driveStatuses[driveId] = .paused
-        syncingDrives.remove(driveId)
-        recomputeAppStatus()
-    }
-
-    /// Called by the UI when the user resumes a drive.
-    /// Sets the drive to syncing so it re-checks for pending work.
-    /// The extension will send the actual status via IPC once it finishes scanning.
-    @MainActor
-    public func notifyDriveResumedFromUI(driveId: UUID) {
-        driveStatuses[driveId] = .sync
-        syncingDrives.insert(driveId)
-        AppStatusManager.default().setStatus(.syncing)
-
-        // Bump the per-drive resume epoch BEFORE signaling the extension.
-        // S3Item.itemVersion folds this epoch into contentVersion for files,
-        // so when the extension's signalEnumerator(.workingSet) triggers
-        // Apple's re-enumeration, every item now has a different
-        // contentVersion than what Apple's thumbnail cache holds. That
-        // forces eviction of the nil responses cached during the pause and
-        // a fresh `fetchThumbnails` call → 3-lane fallback runs.
-        // The epoch only changes on explicit resume; steady-state
-        // contentVersion stays sourceETag-derived per D-14.
-        do {
-            try SharedData.default().incrementResumeEpoch(forDrive: driveId)
-        } catch {
-            logger.warning(
-                "Failed to bump resume epoch for drive \(driveId, privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
-        }
-
-        Task { [ipcService] in
-            await ipcService.postCommand(.resumeDrive(driveId: driveId))
-        }
-    }
-
-    /// Recomputes the global app status from per-drive statuses.
-    /// If all drives are paused → .paused. If any syncing → .syncing. Otherwise → .idle.
-    @MainActor
-    private func recomputeAppStatus() {
-        guard syncingDrives.isEmpty else { return }
-
-        let allPaused = !drives.isEmpty && drives.allSatisfy { driveStatuses[$0.id] == .paused }
-
-        AppStatusManager.default().setStatus(allPaused ? .paused : .idle)
     }
 
     /// Returns a stored DS3Drive with the given id, if any

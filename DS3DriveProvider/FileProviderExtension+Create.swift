@@ -23,11 +23,6 @@ extension FileProviderExtension {
             return Progress()
         }
 
-        if isDrivePaused(drive.id, operation: "createItem") {
-            completionHandler(nil, [], false, NSFileProviderError(.serverUnreachable) as NSError)
-            return Progress()
-        }
-
         self.logger.debug("Starting upload for item \(itemTemplate.itemIdentifier.rawValue, privacy: .public)")
 
         guard itemTemplate.contentType != .symbolicLink else {

@@ -24,11 +24,6 @@ extension FileProviderExtension {
                 return
             }
 
-            // Skip warm-up when drive is paused
-            if (try? SharedData.default().isDrivePaused(drive.id)) == true {
-                return
-            }
-
             Task.detached(priority: .utility) { [weak self] in
                 let prefix = drive.syncAnchor.prefix
                 self?.logger
@@ -122,13 +117,6 @@ extension FileProviderExtension {
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(pollingInterval))
                     guard !Task.isCancelled, let self else { break }
-
-                    // Skip polling when drive is paused
-                    if let driveId = self.drive?.id,
-                       (try? SharedData.default().isDrivePaused(driveId)) == true {
-                        continue
-                    }
-
                     self.signalChanges()
                 }
             }
@@ -139,31 +127,21 @@ extension FileProviderExtension {
 
     // MARK: - IPC Command Listener
 
-    /// Listens for `IPCCommand` events from the main app and reacts to ones
-    /// that need extension-side handling. Today this is just `.resumeDrive`,
-    /// which signals the working set so Apple re-issues `fetchThumbnails`
-    /// for items whose previous response was nil under pause. Other commands
-    /// (`.pauseDrive`, `.refreshEnumeration`, `.emptyTrash`) are read from
-    /// `SharedData` flags or handled lazily on the next handler entry.
+    /// Listens for `IPCCommand` events from the main app. `.refreshEnumeration`
+    /// and `.emptyTrash` are read from `SharedData` flags or handled lazily on
+    /// the next handler entry; this listener is kept as a lifecycle attach
+    /// point for future commands.
     func startCommandListener() {
-        guard let drive = self.drive else { return }
-        let driveId = drive.id
+        guard self.drive != nil else { return }
 
         self.commandListenerTask = Task { [weak self] in
             guard let ipcService = self?.ipcService else { return }
             await ipcService.startListening()
 
             for await command in ipcService.commands {
-                guard !Task.isCancelled, let self else { break }
+                guard !Task.isCancelled, self != nil else { break }
                 switch command {
-                case let .resumeDrive(id) where id == driveId:
-                    self.logger
-                        .info(
-                            "IPC: resumeDrive received for \(id, privacy: .public) — signaling working set"
-                        )
-                    self.signalChanges()
-                case .pauseDrive, .resumeDrive, .refreshEnumeration, .emptyTrash:
-                    // Other commands handled via SharedData flags or other paths.
+                case .refreshEnumeration, .emptyTrash:
                     continue
                 }
             }
@@ -188,8 +166,6 @@ extension FileProviderExtension {
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(interval))
                     guard !Task.isCancelled, let self else { break }
-
-                    if (try? SharedData.default().isDrivePaused(driveId)) == true { continue }
 
                     // Check for empty-trash flag from main app
                     if (try? SharedData.default().hasEmptyTrashRequest(forDrive: driveId)) == true {

@@ -179,41 +179,6 @@ final class SharedDataPersistenceTests: XCTestCase {
         XCTAssertEqual(loaded.refreshToken, "refresh-abc")
     }
 
-    // MARK: - Pause State Persistence
-
-    func testPersistAndLoadPauseState() throws {
-        let driveId1 = UUID()
-        let driveId2 = UUID()
-        var state: [String: Bool] = [:]
-        state[driveId1.uuidString] = true
-        state[driveId2.uuidString] = true
-
-        let pauseURL = tempDir.appendingPathComponent(DefaultSettings.FileNames.pauseStateFileName)
-        try JSONEncoder().encode(state).write(to: pauseURL)
-
-        let loaded = try JSONDecoder().decode([String: Bool].self, from: Data(contentsOf: pauseURL))
-        XCTAssertEqual(loaded[driveId1.uuidString], true)
-        XCTAssertEqual(loaded[driveId2.uuidString], true)
-
-        // Unpause one drive
-        var updated = loaded
-        updated.removeValue(forKey: driveId1.uuidString)
-        try JSONEncoder().encode(updated).write(to: pauseURL)
-
-        let reloaded = try JSONDecoder().decode([String: Bool].self, from: Data(contentsOf: pauseURL))
-        XCTAssertNil(reloaded[driveId1.uuidString])
-        XCTAssertEqual(reloaded[driveId2.uuidString], true)
-    }
-
-    func testEmptyPauseState() throws {
-        let pauseURL = tempDir.appendingPathComponent(DefaultSettings.FileNames.pauseStateFileName)
-        let empty: [String: Bool] = [:]
-        try JSONEncoder().encode(empty).write(to: pauseURL)
-
-        let loaded = try JSONDecoder().decode([String: Bool].self, from: Data(contentsOf: pauseURL))
-        XCTAssertTrue(loaded.isEmpty)
-    }
-
     // MARK: - Trash Settings Persistence
 
     func testPersistAndLoadTrashSettings() throws {
@@ -291,7 +256,6 @@ final class SharedDataPersistenceTests: XCTestCase {
         XCTAssertEqual(DefaultSettings.FileNames.credentialsFileName, "credentials.json")
         XCTAssertEqual(DefaultSettings.FileNames.accountFileName, "account.json")
         XCTAssertEqual(DefaultSettings.FileNames.accountSessionFileName, "accountSession.json")
-        XCTAssertEqual(DefaultSettings.FileNames.pauseStateFileName, "pauseState.json")
         XCTAssertEqual(DefaultSettings.FileNames.trashSettingsFileName, "trashSettings.json")
         XCTAssertEqual(DefaultSettings.FileNames.emptyTrashFlagFileName, "emptyTrashFlag.json")
         XCTAssertEqual(DefaultSettings.FileNames.tenantFileName, "tenant.txt")
