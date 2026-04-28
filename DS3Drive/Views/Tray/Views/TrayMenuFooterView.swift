@@ -16,30 +16,11 @@ struct TrayMenuFooterView: View {
     /// the footer is the single live status surface (no redundant rows).
     var driveViewModels: [DS3DriveViewModel] = []
 
-    @State private var rotationAngle: Double = 0
-
     var body: some View {
         HStack(spacing: DS3Spacing.xs) {
-            // Continuous rotation for the syncing state. Driving
-            // a Double angle via `withAnimation(...repeatForever)` inside
-            // onAppear/onChange is the reliable SwiftUI pattern — the
-            // previous Bool + `.animation(value:)` approach stalled when
-            // the MenuBarExtra window dismissed and reopened, because the
-            // flag was already `true` and nothing re-triggered the repeat.
             Image(systemName: statusIcon.name)
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(statusIcon.color)
-                .rotationEffect(.degrees(rotationAngle))
-                .onAppear {
-                    if statusIcon.animated { startContinuousRotation() }
-                }
-                .onChange(of: statusIcon.animated) { _, newValue in
-                    if newValue {
-                        startContinuousRotation()
-                    } else {
-                        stopRotation()
-                    }
-                }
 
             Text(status)
                 .font(DS3Typography.footnote)
@@ -89,43 +70,30 @@ struct TrayMenuFooterView: View {
         }
     }
 
-    private func startContinuousRotation() {
-        rotationAngle = 0
-        withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
-            rotationAngle = 360
-        }
-    }
-
-    private func stopRotation() {
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            rotationAngle = 0
-        }
-    }
-
-    /// Display descriptor for the footer state icon.
+    /// Display descriptor for the footer state icon. Static — no animation.
+    /// The previous spinning syncing icon flapped under transient sync pulses
+    /// (e.g. enumeration bursts), which read as visual noise rather than
+    /// progress. State transitions are conveyed by icon shape + color now.
     private struct StatusIcon {
         let name: String
         let color: Color
-        let animated: Bool
     }
 
-    /// Maps the aggregate status to an SF Symbol + color + animation flag.
+    /// Maps the aggregate status to an SF Symbol + color.
     private var statusIcon: StatusIcon {
         switch aggregateStatus {
         case .idle:
-            StatusIcon(name: "checkmark.circle.fill", color: DS3Colors.statusSynced, animated: false)
+            StatusIcon(name: "checkmark.circle.fill", color: DS3Colors.statusSynced)
         case .syncing:
-            StatusIcon(name: "arrow.triangle.2.circlepath", color: DS3Colors.statusSyncing, animated: true)
+            StatusIcon(name: "arrow.triangle.2.circlepath", color: DS3Colors.statusSyncing)
         case .error:
-            StatusIcon(name: "exclamationmark.triangle.fill", color: DS3Colors.statusError, animated: false)
+            StatusIcon(name: "exclamationmark.triangle.fill", color: DS3Colors.statusError)
         case .paused:
-            StatusIcon(name: "pause.circle.fill", color: DS3Colors.brandTextSecondary, animated: false)
+            StatusIcon(name: "pause.circle.fill", color: DS3Colors.brandTextSecondary)
         case .offline:
-            StatusIcon(name: "wifi.slash", color: DS3Colors.brandTextSecondary, animated: false)
+            StatusIcon(name: "wifi.slash", color: DS3Colors.brandTextSecondary)
         case .info:
-            StatusIcon(name: "info.circle.fill", color: DS3Colors.statusSyncing, animated: false)
+            StatusIcon(name: "info.circle.fill", color: DS3Colors.statusSyncing)
         }
     }
 }

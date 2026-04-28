@@ -137,6 +137,39 @@ extension FileProviderExtension {
         #endif
     }
 
+    // MARK: - IPC Command Listener
+
+    /// Listens for `IPCCommand` events from the main app and reacts to ones
+    /// that need extension-side handling. Today this is just `.resumeDrive`,
+    /// which signals the working set so Apple re-issues `fetchThumbnails`
+    /// for items whose previous response was nil under pause. Other commands
+    /// (`.pauseDrive`, `.refreshEnumeration`, `.emptyTrash`) are read from
+    /// `SharedData` flags or handled lazily on the next handler entry.
+    func startCommandListener() {
+        guard let drive = self.drive else { return }
+        let driveId = drive.id
+
+        self.commandListenerTask = Task { [weak self] in
+            guard let ipcService = self?.ipcService else { return }
+            await ipcService.startListening()
+
+            for await command in ipcService.commands {
+                guard !Task.isCancelled, let self else { break }
+                switch command {
+                case let .resumeDrive(id) where id == driveId:
+                    self.logger
+                        .info(
+                            "IPC: resumeDrive received for \(id, privacy: .public) — signaling working set"
+                        )
+                    self.signalChanges()
+                case .pauseDrive, .resumeDrive, .refreshEnumeration, .emptyTrash:
+                    // Other commands handled via SharedData flags or other paths.
+                    continue
+                }
+            }
+        }
+    }
+
     // MARK: - Auto-Purge Expired Trash
 
     /// Starts a periodic background task that purges expired trash items.

@@ -108,9 +108,6 @@
         }
       }
     },
-    "All drives paused" : {
-      "comment" : "Speed summary all paused"
-    },
     "All drives up to date" : {
       "comment" : "Speed summary idle",
       "extractionState" : "stale",
@@ -1072,9 +1069,6 @@
           }
         }
       }
-    },
-    "Syncing files…" : {
-      "comment" : "Speed summary syncing"
     },
     "Syncing…" : {
       "comment" : "Drive row syncing status"

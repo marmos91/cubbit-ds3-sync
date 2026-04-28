@@ -60,6 +60,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
     private var networkMonitor: NetworkMonitor?
     var pollingTask: Task<Void, Never>?
     var purgeTask: Task<Void, Never>?
+    var commandListenerTask: Task<Void, Never>?
 
     // Limits concurrent fetchContents/fetchPartialContents calls to prevent
     // HTTP/2 stream exhaustion (NIOHTTP2.StreamClosed errors).
@@ -146,6 +147,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         self.startPolling()
         self.warmCache()
         self.startAutoPurge()
+        self.startCommandListener()
 
         // If drive is paused, notify the main app so UI reflects the state
         if let driveId = self.drive?.id,
@@ -170,6 +172,8 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         self.pollingTask = nil
         self.purgeTask?.cancel()
         self.purgeTask = nil
+        self.commandListenerTask?.cancel()
+        self.commandListenerTask = nil
 
         if let nm = self.notificationManager {
             Task { await nm.shutdown() }

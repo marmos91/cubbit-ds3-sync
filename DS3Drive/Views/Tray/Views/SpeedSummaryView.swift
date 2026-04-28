@@ -17,51 +17,21 @@ struct SpeedSummaryView: View {
         totalUploadSpeed > 0 || totalDownloadSpeed > 0
     }
 
-    private var isSyncing: Bool {
-        // Phase 13.2 D-16: enumeration "busy" pulses now report `.sync` too,
-        // so a single check covers both transfers and listing activity.
-        driveViewModels.contains { $0.driveStatus == .sync }
-    }
-
-    private var allPaused: Bool {
-        !driveViewModels.isEmpty && driveViewModels.allSatisfy { $0.driveStatus == .paused }
-    }
-
     var body: some View {
         HStack(spacing: DS3Spacing.sm) {
             if isTransferring {
                 speedIndicators
-            } else if isSyncing {
-                ProgressView()
-                    .controlSize(.mini)
-
-                Text(NSLocalizedString("Syncing files…", comment: "Speed summary syncing"))
-                    .font(DS3Typography.caption)
-                    .foregroundStyle(DS3Colors.brandTextSecondary)
-            } else if allPaused {
-                Image(.statusPauseBadge)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 12, height: 12)
-                    .foregroundStyle(DS3Colors.statusPaused)
-
-                Text(NSLocalizedString("All drives paused", comment: "Speed summary all paused"))
-                    .font(DS3Typography.caption)
-                    .foregroundStyle(DS3Colors.brandTextSecondary)
             }
-            // Idle case intentionally renders nothing — the tray footer
-            // already shows "Idle" with the green pill, so repeating
-            // "All drives up to date" here is redundant.
+            // Paused, syncing-without-transfers, and idle cases render nothing.
+            // The footer's leading status icon + the per-drive rows already
+            // convey state — repeating it here was redundant and amplified the
+            // tray-flapping bug fixed in DS3DriveManager.handleDriveStatusChange.
 
             Spacer()
         }
         .padding(.horizontal, DS3Spacing.lg)
-        .padding(.vertical, isIdle ? 0 : DS3Spacing.sm)
-        .frame(height: isIdle ? 0 : nil)
-    }
-
-    private var isIdle: Bool {
-        !isTransferring && !isSyncing && !allPaused
+        .padding(.vertical, isTransferring ? DS3Spacing.sm : 0)
+        .frame(height: isTransferring ? nil : 0)
     }
 
     @ViewBuilder private var speedIndicators: some View {

@@ -153,6 +153,13 @@ public enum DefaultSettings {
 
         /// The name of the file used to store per-drive thumbnail settings.
         public static let thumbnailSettingsFileName = "thumbnailSettings.json"
+
+        /// The name of the file used to store the per-drive resume epoch
+        /// (incremented on every pause→resume transition; folded into
+        /// `S3Item.itemVersion.contentVersion` so Apple evicts cached
+        /// "no thumbnail" responses for items that were nil-cached during
+        /// the pause window).
+        public static let resumeEpochFileName = "resumeEpoch.json"
     }
 
     /// Group of settings related to the S3 client.
