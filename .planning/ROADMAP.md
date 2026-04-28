@@ -228,6 +228,25 @@ Plans:
 - [ ] 13.1-06-PLAN.md — Parent-folder progress propagation fix (depends on 13.1-01 spike)
 - [ ] 13.1-07-PLAN.md — Phase 13.1 ship gate (D-18, D-19)
 
+### Phase 13.2: Dropbox-like thumbnail UX (INSERTED)
+
+**Goal:** Replace the BFS-driven thumbnail subsystem with a reactive, Apple-API-driven 3-lane `fetchThumbnails` model (cache hit → fallback render → background backfill PUT), eliminating ~2400 LoC of BFS/coordinator/sweeper machinery while preserving THUMB-15, THUMB-19, THUMB-20, THUMB-21 conformance via reframed semantics.
+**Requirements**: THUMB-15, THUMB-19, THUMB-20, THUMB-21 (reframed; no new requirements)
+**Depends on:** Phase 13.1
+**Plans:** 10 plans
+
+Plans:
+- [ ] 13.2-01-PLAN.md — TDD: ThumbnailFallbackLimiter actor (2-slot FIFO + in-memory 3-strike state) — D-02, D-19, D-20
+- [ ] 13.2-02-PLAN.md — fetchThumbnails cache-miss fallback fork (consumeThumbnailFallback) — D-01..D-04, D-12, D-24
+- [ ] 13.2-03-PLAN.md — Upload-hook post-PUT signalEnumerator + ThumbnailUploadHookContext.domain — D-12
+- [ ] 13.2-04-PLAN.md — Memory smoke test (8x50MB HEIC under 50MB peak) — D-17, D-18
+- [ ] 13.2-05-PLAN.md — Drop tray .indexing case; collapse to .sync — D-16
+- [ ] 13.2-06-PLAN.md — Delete BFS stack (BreadthFirstIndexer + BFSThumbnailHookRunner + callsites) — D-11
+- [ ] 13.2-07-PLAN.md — Delete coordinator + sweeper + warmCacheThenStartBFS + runThumbnailRolloutIfNeeded — D-09, D-10, D-25
+- [ ] 13.2-08-PLAN.md — Schema V5: drop thumbnailFailCount + setThumbnailFailure + migration test — D-05, D-06, D-07
+- [ ] 13.2-09-PLAN.md — Schema V6: drop thumbnailStatus + fetchPendingThumbnails + markPending + migration test — D-05, D-08, D-23
+- [ ] 13.2-10-PLAN.md — Phase ship gate: orphan audit + error-domain audit + manual smoke + phase summary
+
 ### Phase 14: iOS Generation & Polish
 **Goal**: iPhone and iPad users can contribute thumbnails for images uploaded from their iOS devices (and for any bucket content that macOS hasn't already processed) via a foreground-primary backfill driver with an opportunistic `BGProcessingTask` overnight supplement, with clear UI copy about the force-quit caveat and a manual "Generate now" escape valve on both platforms.
 **Depends on**: Phase 13

@@ -7,8 +7,15 @@ import XCTest
 ///
 /// `consumeThumbnail` is a free function — testing it directly avoids needing
 /// a real `FileProviderExtension` instance (which requires a domain, App Group
-/// container, and a `DS3S3Client`). The fetch + mark-pending closures provide
-/// dependency injection seams for the S3 client and metadata store.
+/// container, and a `DS3S3Client`). The fetch closure provides a dependency
+/// injection seam for the S3 client.
+///
+/// Phase 13.2 Plan 09 (D-05, D-08, D-23): the `markPending` parameter was
+/// stripped from `consumeThumbnail` — Schema V6 dropped `thumbnailStatus`,
+/// and the BFS coordinator that consumed `.pending` writes is gone. The
+/// cache-miss sentinel `(nil, NSFileProviderError(.noSuchItem))` is the only
+/// signal the caller's interceptor needs to route into the reactive fallback
+/// path (`consumeThumbnailFallback`).
 final class FetchThumbnailsTests: XCTestCase {
     // MARK: - Test 1 — Raster HIT
 
@@ -18,18 +25,13 @@ final class FetchThumbnailsTests: XCTestCase {
         let identifier = NSFileProviderItemIdentifier("prefix/photo.jpg")
         let payload = Data([0xFF, 0xD8, 0xFF, 0xE0]) // JPEG SOI marker (any non-empty Data works)
         let recorder = ResultRecorder()
-        let pendingTracker = PendingTracker()
 
         let fetchBytes: ThumbnailByteFetcher = { _, _ in payload }
-        let markPending: ThumbnailPendingMarker = { key, driveId in
-            await pendingTracker.record(key: key, driveId: driveId)
-        }
 
         await consumeThumbnail(
             identifier: identifier,
             drive: drive,
             fetchBytes: fetchBytes,
-            markPending: markPending,
             perItemHandler: { id, data, error in
                 Task { await recorder.record(id: id, data: data, error: error) }
             }
@@ -43,28 +45,24 @@ final class FetchThumbnailsTests: XCTestCase {
         XCTAssertEqual(results.first?.identifier, identifier)
         XCTAssertEqual(results.first?.data, payload)
         XCTAssertNil(results.first?.error)
-        let pendingCount = await pendingTracker.count
-        XCTAssertEqual(pendingCount, 0, "HIT must not mark pending")
     }
 
-    // MARK: - Test 2 — Raster MISS marks pending and returns .noSuchItem
+    // MARK: - Test 2 — Raster MISS returns the .noSuchItem cache-miss sentinel
 
-    func testFetchThumbnailsRasterMissReturnsNoSuchItemAndMarksPending() async {
+    /// Phase 13.2 Plan 09: the miss branch no longer writes to any metadata
+    /// store. It returns the sentinel `(nil, NSFileProviderError(.noSuchItem))`
+    /// that the caller's interceptor uses to route into `consumeThumbnailFallback`.
+    func testFetchThumbnailsRasterMissReturnsNoSuchItemSentinel() async {
         let drive = ProviderTestFixtures.makeDrive()
         let identifier = NSFileProviderItemIdentifier("prefix/photo.jpg")
         let recorder = ResultRecorder()
-        let pendingTracker = PendingTracker()
 
         let fetchBytes: ThumbnailByteFetcher = { _, _ in nil } // 404
-        let markPending: ThumbnailPendingMarker = { key, driveId in
-            await pendingTracker.record(key: key, driveId: driveId)
-        }
 
         await consumeThumbnail(
             identifier: identifier,
             drive: drive,
             fetchBytes: fetchBytes,
-            markPending: markPending,
             perItemHandler: { id, data, error in
                 Task { await recorder.record(id: id, data: data, error: error) }
             }
@@ -80,11 +78,6 @@ final class FetchThumbnailsTests: XCTestCase {
         XCTAssertNotNil(nsError)
         XCTAssertEqual(nsError?.domain, NSFileProviderErrorDomain)
         XCTAssertEqual(nsError?.code, NSFileProviderError(.noSuchItem).code.rawValue)
-
-        let pending = await pendingTracker.entries
-        XCTAssertEqual(pending.count, 1, "MISS must mark .pending exactly once")
-        XCTAssertEqual(pending.first?.key, identifier.rawValue)
-        XCTAssertEqual(pending.first?.driveId, drive.id)
     }
 
     // MARK: - Test 3 — Non-raster identifier returns (nil, nil) with no S3 call
@@ -93,22 +86,17 @@ final class FetchThumbnailsTests: XCTestCase {
         let drive = ProviderTestFixtures.makeDrive()
         let identifier = NSFileProviderItemIdentifier("prefix/document.pdf")
         let recorder = ResultRecorder()
-        let pendingTracker = PendingTracker()
         let fetchCounter = CallCounter()
 
         let fetchBytes: ThumbnailByteFetcher = { _, _ in
             await fetchCounter.increment()
             return Data()
         }
-        let markPending: ThumbnailPendingMarker = { key, driveId in
-            await pendingTracker.record(key: key, driveId: driveId)
-        }
 
         await consumeThumbnail(
             identifier: identifier,
             drive: drive,
             fetchBytes: fetchBytes,
-            markPending: markPending,
             perItemHandler: { id, data, error in
                 Task { await recorder.record(id: id, data: data, error: error) }
             }
@@ -123,8 +111,6 @@ final class FetchThumbnailsTests: XCTestCase {
         XCTAssertNil(results.first?.error)
         let calls = await fetchCounter.count
         XCTAssertEqual(calls, 0, "Non-raster must not call fetchBytes")
-        let pendingCount = await pendingTracker.count
-        XCTAssertEqual(pendingCount, 0, "Non-raster must not mark .pending")
     }
 
     // MARK: - Test 4 — Folder identifier returns (nil, nil)
@@ -133,22 +119,17 @@ final class FetchThumbnailsTests: XCTestCase {
         let drive = ProviderTestFixtures.makeDrive()
         let folderIdentifier = NSFileProviderItemIdentifier("prefix/folder/")
         let recorder = ResultRecorder()
-        let pendingTracker = PendingTracker()
         let fetchCounter = CallCounter()
 
         let fetchBytes: ThumbnailByteFetcher = { _, _ in
             await fetchCounter.increment()
             return Data()
         }
-        let markPending: ThumbnailPendingMarker = { key, driveId in
-            await pendingTracker.record(key: key, driveId: driveId)
-        }
 
         await consumeThumbnail(
             identifier: folderIdentifier,
             drive: drive,
             fetchBytes: fetchBytes,
-            markPending: markPending,
             perItemHandler: { id, data, error in
                 Task { await recorder.record(id: id, data: data, error: error) }
             }
@@ -159,7 +140,6 @@ final class FetchThumbnailsTests: XCTestCase {
             identifier: .rootContainer,
             drive: drive,
             fetchBytes: fetchBytes,
-            markPending: markPending,
             perItemHandler: { id, data, error in
                 Task { await recorder.record(id: id, data: data, error: error) }
             }
@@ -175,8 +155,6 @@ final class FetchThumbnailsTests: XCTestCase {
         }
         let calls = await fetchCounter.count
         XCTAssertEqual(calls, 0, "Folder/root must not call fetchBytes")
-        let pendingCount = await pendingTracker.count
-        XCTAssertEqual(pendingCount, 0, "Folder/root must not mark .pending")
     }
 
     // MARK: - Test 5 — Limiter caps concurrent S3 GETs at 4
@@ -189,7 +167,6 @@ final class FetchThumbnailsTests: XCTestCase {
         let drive = ProviderTestFixtures.makeDrive()
         let limiter = ThumbnailFetchLimiter(maxSlots: 4)
         let recorder = ResultRecorder()
-        let pendingTracker = PendingTracker()
         let inFlight = ConcurrencyMaxObserver()
 
         let fetchBytes: ThumbnailByteFetcher = { _, _ in
@@ -197,9 +174,6 @@ final class FetchThumbnailsTests: XCTestCase {
             try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
             await inFlight.exit()
             return Data([0xAA])
-        }
-        let markPending: ThumbnailPendingMarker = { key, driveId in
-            await pendingTracker.record(key: key, driveId: driveId)
         }
 
         let identifiers: [NSFileProviderItemIdentifier] = (0 ..< 8).map { idx in
@@ -214,7 +188,6 @@ final class FetchThumbnailsTests: XCTestCase {
                         identifier: identifier,
                         drive: drive,
                         fetchBytes: fetchBytes,
-                        markPending: markPending,
                         perItemHandler: { id, data, error in
                             Task { await recorder.record(id: id, data: data, error: error) }
                         }
@@ -248,18 +221,13 @@ final class FetchThumbnailsTests: XCTestCase {
         let identifier = NSFileProviderItemIdentifier("prefix/photo.jpg")
         let sentinelBytes = Data("CACHE-SENTINEL-NOT-RENDERED".utf8)
         let recorder = ResultRecorder()
-        let pendingTracker = PendingTracker()
 
         let fetchBytes: ThumbnailByteFetcher = { _, _ in sentinelBytes }
-        let markPending: ThumbnailPendingMarker = { key, driveId in
-            await pendingTracker.record(key: key, driveId: driveId)
-        }
 
         await consumeThumbnail(
             identifier: identifier,
             drive: drive,
             fetchBytes: fetchBytes,
-            markPending: markPending,
             perItemHandler: { id, data, error in
                 Task { await recorder.record(id: id, data: data, error: error) }
             }
@@ -289,23 +257,6 @@ actor ResultRecorder {
 
     func record(id: NSFileProviderItemIdentifier, data: Data?, error: Error?) {
         results.append(RecordedThumbnailResult(identifier: id, data: data, error: error))
-    }
-}
-
-struct PendingEntry {
-    let key: String
-    let driveId: UUID
-}
-
-actor PendingTracker {
-    private(set) var entries: [PendingEntry] = []
-
-    func record(key: String, driveId: UUID) {
-        entries.append(PendingEntry(key: key, driveId: driveId))
-    }
-
-    var count: Int {
-        entries.count
     }
 }
 

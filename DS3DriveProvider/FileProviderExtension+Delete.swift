@@ -239,7 +239,8 @@ extension FileProviderExtension {
 
                 // Phase 13 D-21 / THUMB-17: cascade thumbnail delete via fire-and-forget
                 // Task.detached. The user-visible delete contract is unaffected — failures
-                // are logged + swallowed; orphan sweep (Plan 13-09) is the backstop.
+                // are logged + swallowed. Phase 13.2 D-25: cascades are the sole orphan-
+                // prevention mechanism; a failed delete leaks the thumb permanently on S3.
                 #if os(macOS)
                     if let s3Client = self.s3Client {
                         enqueueThumbnailDeleteCascade(
@@ -408,7 +409,8 @@ extension FileProviderExtension {
 
                 // Phase 13 D-21 / THUMB-17: cascade thumbnail delete via fire-and-forget
                 // Task.detached. The user-visible delete contract is unaffected — failures
-                // are logged + swallowed; orphan sweep (Plan 13-09) is the backstop.
+                // are logged + swallowed. Phase 13.2 D-25: cascades are the sole orphan-
+                // prevention mechanism; a failed delete leaks the thumb permanently on S3.
                 #if os(macOS)
                     if let s3Client = self.s3Client {
                         enqueueThumbnailDeleteCascade(

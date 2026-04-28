@@ -201,80 +201,16 @@ public extension MetadataStore {
 
     // MARK: - Thumbnail Queries
 
-    struct PendingThumbnail: Sendable {
-        public let s3Key: String
-        public let etag: String?
-        public let contentType: String?
-        public let size: Int64
-    }
-
-    /// Returns up to `limit` raster `.pending` rows for `driveId`. Non-raster
-    /// rows encountered during the scan are reclassified to `.notApplicable`
-    /// in the same transaction so they can't dominate future fetches.
-    func fetchPendingThumbnails(driveId: UUID, limit: Int) throws -> [PendingThumbnail] {
-        guard limit > 0 else { return [] }
-
-        let pendingRaw = ThumbnailStatus.pending.rawValue
-        let predicate = #Predicate<SyncedItem> {
-            $0.driveId == driveId && $0.thumbnailStatus == pendingRaw
-        }
-        var descriptor = FetchDescriptor<SyncedItem>(predicate: predicate)
-        // Over-fetch so non-raster items don't crowd out raster ones in a
-        // single pass; cap to bound memory.
-        descriptor.fetchLimit = min(limit * 4, 200)
-        let items = try modelExecutor.modelContext.fetch(descriptor)
-
-        var raster: [PendingThumbnail] = []
-        let notApplicable = ThumbnailStatus.notApplicable.rawValue
-        var dirty = false
-
-        for item in items {
-            let pathExtension = (item.s3Key as NSString).pathExtension
-            if S3PathUtils.isRasterExtension(pathExtension) {
-                guard raster.count < limit else { continue }
-                raster.append(PendingThumbnail(
-                    s3Key: item.s3Key,
-                    etag: item.etag,
-                    contentType: item.contentType,
-                    size: item.size
-                ))
-            } else {
-                item.thumbnailStatus = notApplicable
-                dirty = true
-            }
-        }
-
-        if dirty {
-            try modelExecutor.modelContext.save()
-        }
-        return raster
-    }
-
-    func setThumbnailStatus(s3Key: String, driveId: UUID, status: ThumbnailStatus) throws {
-        guard let item = try findItem(byKey: s3Key, driveId: driveId) else { return }
-        guard item.thumbnailStatus != status.rawValue else { return }
-        item.thumbnailStatus = status.rawValue
-        try modelExecutor.modelContext.save()
-    }
-
-    /// Increments `thumbnailFailCount` on the matching SyncedItem; transitions
-    /// `thumbnailStatus` to `.failed` when the post-increment count is
-    /// `>= DefaultSettings.Thumbnail.maxFailStrikes` (3 — Pitfall 10:
-    /// boundary is `>=`, NOT `>`). Returns the resulting status. If the row
-    /// is not found, returns `.failed` (best-effort — caller's logic should
-    /// already have observed the row, but a missing row simulates "exhausted"
-    /// rather than crashing). Phase 13 D-29, D-30, D-32.
-    @discardableResult
-    func setThumbnailFailure(s3Key: String, driveId: UUID) throws -> ThumbnailStatus {
-        guard let item = try findItem(byKey: s3Key, driveId: driveId) else {
-            return .failed
-        }
-        item.thumbnailFailCount += 1
-        let newStatus: ThumbnailStatus = item.thumbnailFailCount >= DefaultSettings.Thumbnail.maxFailStrikes
-            ? .failed
-            : .pending
-        item.thumbnailStatus = newStatus.rawValue
-        try modelExecutor.modelContext.save()
-        return newStatus
-    }
+    //
+    // All thumbnail-related queries removed in Phase 13.2 Plan 09 (D-05, D-08, D-23):
+    //
+    // - `fetchPendingThumbnails(...)` — gone; the BFS coordinator is gone (Plan 07)
+    //   and the consume-path fallback (Plan 02) decides per-item via S3.
+    // - `setThumbnailStatus(...)` — gone; the `thumbnailStatus` SwiftData field is
+    //   dropped in Schema V6.
+    // - `setThumbnailFailure(...)` — gone (Plan 08 / D-05, D-19); the 3-strike rule
+    //   now lives in `ThumbnailFallbackLimiter` as in-memory state.
+    //
+    // The "is the thumbnail uploaded?" question is now answered by S3 itself —
+    // `getThumbnailBytes` returns bytes or nil.
 }

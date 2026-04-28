@@ -1,7 +1,6 @@
 import DS3Lib
 @preconcurrency import FileProvider
 import os.log
-import UniformTypeIdentifiers
 
 // MARK: - Fetch Contents
 
@@ -269,9 +268,10 @@ extension FileProviderExtension {
     }
 
     #if os(macOS)
-        /// Wires the cache-first consume pipeline (limiter + fetchBytes + markPending +
-        /// per-item Sendable shim) and spawns the orchestrating Task. Extracted so
-        /// `fetchThumbnails` stays under the SwiftLint function-body length limit.
+        // Wires the cache-first consume pipeline (limiter + fetchBytes +
+        // per-item Sendable shim) and spawns the orchestrating Task. Extracted so
+        // `fetchThumbnails` stays under the SwiftLint function-body length limit.
+        // swiftlint:disable:next function_body_length
         private func spawnCacheFirstThumbnailTask(
             itemIdentifiers: [NSFileProviderItemIdentifier],
             drive: DS3Drive,
@@ -281,9 +281,16 @@ extension FileProviderExtension {
             completeFinal: @escaping @Sendable (Error?) -> Void
         ) -> Task<Void, Never> {
             let limiter = self.thumbnailFetchLimiter
-            let metadataStore = self.metadataStore
+            let fallbackLimiter = self.thumbnailFallbackLimiter
             let logger = self.logger
             let boxedPerItemCb = UncheckedBox(value: perThumbnailCompletionHandler)
+
+            // Phase 13.2 fallback wiring (D-01..D-04, D-12, D-19, D-20, D-24).
+            // Capture sendable locals BEFORE the Task body so the fallback's
+            // detached PUT does not capture `self` (Pitfall 1).
+            let s3LibCopy = self.s3Lib
+            let temporaryDirectory = self.temporaryDirectory
+            let domainCopy = self.domain
 
             // Cache-first byte fetcher — `getThumbnailBytes` returns nil on 404, throws on
             // 5xx / network / auth errors. NEVER renders, NEVER downloads original.
@@ -291,24 +298,54 @@ extension FileProviderExtension {
                 try await s3Client.getThumbnailBytes(bucket: bucket, key: key)
             }
 
-            let markPending: ThumbnailPendingMarker = { @Sendable s3Key, driveId in
-                guard let metadataStore else { return }
-                do {
-                    try await metadataStore.setThumbnailStatus(
-                        s3Key: s3Key, driveId: driveId, status: .pending
-                    )
-                } catch {
-                    logger.debug(
-                        "fetchThumbnails: setThumbnailStatus(.pending) failed for \(s3Key, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                    )
-                }
-            }
-
             // Sendable shim around the non-Sendable Foundation completion handler — the
             // UncheckedBox lets the Task closure capture the underlying callback safely.
             let perItemCb: PerThumbnailCompletionHandler = { id, data, error in
                 boxedPerItemCb.value(id, data, error)
             }
+
+            // Phase 13.2 fallback closures. Wired to production helpers; tests
+            // exercise `consumeThumbnailFallback` directly with their own mocks.
+            let downloadFn: ThumbnailOriginalDownloader = { @Sendable identifier, drive in
+                guard let s3Lib = s3LibCopy, let tempDir = temporaryDirectory else {
+                    throw NSFileProviderError(.cannotSynchronize)
+                }
+                let (fileURL, s3Item) = try await s3Lib.downloadS3Item(
+                    identifier: identifier,
+                    drive: drive,
+                    temporaryFolder: tempDir,
+                    progress: Progress()
+                )
+                return (fileURL, s3Item.metadata.etag)
+            }
+            let renderFn: ThumbnailRendererFn = { @Sendable url in
+                ThumbnailRenderer().renderJPEG(from: url)
+            }
+            let putFn: ThumbnailFallbackPutter = { @Sendable bucket, key, data, sourceETag in
+                _ = try await s3Client.putThumbnail(
+                    bucket: bucket, key: key, data: data, sourceETag: sourceETag
+                )
+            }
+            let pauseFn: ThumbnailPauseChecker = { @Sendable driveId in
+                (try? SharedData.default().isDrivePaused(driveId)) == true
+            }
+            let signalFn: ThumbnailSignalContainer = makeSignalParentContainer(
+                domain: domainCopy, logger: logger, label: "Fallback"
+            )
+
+            // Hoisted out of the per-identifier loop: every child task uses the
+            // same context. Phase 13.2 cache-miss interceptor routes only on the
+            // unique `.noSuchItem` sentinel from `consumeThumbnail` — anything
+            // else (HIT bytes or a real error) passes through to Finder unchanged.
+            let fallbackCtx = ThumbnailFallbackContext(
+                limiter: fallbackLimiter,
+                download: downloadFn,
+                render: renderFn,
+                putThumbnail: putFn,
+                isPaused: pauseFn,
+                signalParentContainer: signalFn,
+                logger: logger
+            )
 
             return Task {
                 await withTaskGroup(of: Void.self) { group in
@@ -329,13 +366,42 @@ extension FileProviderExtension {
                                 )
                                 return
                             }
+
+                            // Cache-miss interceptor: detect the unique
+                            // `.noSuchItem` sentinel from `consumeThumbnail` and
+                            // route through the fallback in-line. Capturing the
+                            // miss flag in a lock-protected box (rather than
+                            // spawning an unstructured `Task` from inside the
+                            // closure) keeps the fallback's perItemHandler
+                            // invocation ordered BEFORE the child exits the
+                            // TaskGroup — so `completeFinal(nil)` cannot race
+                            // ahead of a late fallback callback.
+                            // See code review Fix 1 (Phase 13.2 review).
+                            let missFlag = OSAllocatedUnfairLock(initialState: false)
+                            let interceptor: PerThumbnailCompletionHandler = { id, data, error in
+                                if data == nil, let nsError = error as NSError?,
+                                   nsError.domain == NSFileProviderErrorDomain,
+                                   nsError.code == NSFileProviderError(.noSuchItem).code.rawValue {
+                                    missFlag.withLock { $0 = true }
+                                } else {
+                                    perItemCb(id, data, error)
+                                }
+                            }
+
                             await consumeThumbnail(
                                 identifier: identifier,
                                 drive: drive,
                                 fetchBytes: fetchBytes,
-                                markPending: markPending,
-                                perItemHandler: perItemCb
+                                perItemHandler: interceptor
                             )
+                            if missFlag.withLock({ $0 }) {
+                                await consumeThumbnailFallback(
+                                    identifier: identifier,
+                                    drive: drive,
+                                    context: fallbackCtx,
+                                    perItemHandler: perItemCb
+                                )
+                            }
                             await limiter.release()
                             progress.completedUnitCount += 1
                         }

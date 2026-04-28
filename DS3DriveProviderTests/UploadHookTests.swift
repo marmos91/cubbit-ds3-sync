@@ -22,8 +22,10 @@ import XCTest
 /// `+Create.swift` (post-PUT, raster + non-raster) and `+Modify.swift` (content-change
 /// branch ONLY — rename/move belongs to Plan 13-08) call `enqueueThumbnailUpload`.
 /// Per D-06, the user-visible completion handler returns success BEFORE the detached
-/// Task starts; per D-08, non-raster originals silently mark `.notApplicable`; per
-/// the THUMB-06 contract, errors NEVER propagate to the upload completion handler.
+/// Task starts; per D-08, non-raster originals are silently skipped (Phase 13.2 Plan
+/// 09 dropped the `.notApplicable` schema write — Schema V6 has no `thumbnailStatus`
+/// field); per the THUMB-06 contract, errors NEVER propagate to the upload completion
+/// handler.
 final class UploadHookTests: XCTestCase {
     // swiftlint:disable implicitly_unwrapped_optional
     // Test-only IUO: setUp guarantees non-nil; the alternative (Optional + force-unwrap
@@ -33,8 +35,8 @@ final class UploadHookTests: XCTestCase {
     // swiftlint:enable implicitly_unwrapped_optional
 
     override func setUp() async throws {
-        // V4 schema — matches `MetadataStore` typealias after Plan 13-04.
-        let schema = Schema(versionedSchema: SyncedItemSchemaV4.self)
+        // V6 schema — matches `MetadataStore` typealias after Phase 13.2 Plan 09.
+        let schema = Schema(versionedSchema: SyncedItemSchemaV6.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         container = try ModelContainer(for: schema, configurations: [config])
         metadataStore = MetadataStore(modelContainer: container)
@@ -122,6 +124,7 @@ final class UploadHookTests: XCTestCase {
             drive: drive,
             s3Client: mock,
             metadataStore: metadataStore,
+            domain: ProviderTestFixtures.makeDomain(),
             logger: makeLogger()
         )
 
@@ -142,8 +145,11 @@ final class UploadHookTests: XCTestCase {
         XCTAssertEqual(metadata?[etagKey], "abc123", "x-amz-meta-source-etag must echo PUT response")
     }
 
-    // MARK: - Test 2 — Non-raster create does NOT trigger uploader; marks .notApplicable
+    // MARK: - Test 2 — Non-raster create does NOT trigger uploader (no PUT, no schema write)
 
+    /// Phase 13.2 Plan 09 (D-08, D-23): the `.notApplicable` schema write is gone
+    /// — Schema V6 dropped `thumbnailStatus`. The contract is now negative-only:
+    /// non-raster originals must NOT call putThumbnail.
     func testCreateItemNonRasterFileDoesNotTriggerUploader() async throws {
         let drive = ProviderTestFixtures.makeDrive()
         let mock = HookMockS3Client()
@@ -152,7 +158,7 @@ final class UploadHookTests: XCTestCase {
 
         let originalKey = "prefix/document.pdf"
 
-        // Seed the row so the .notApplicable transition has a target.
+        // Seed the row so the upsert path has a target row (size for verification only).
         try await metadataStore.upsertItem(
             s3Key: originalKey, driveId: drive.id, syncStatus: .synced, size: 100
         )
@@ -164,30 +170,14 @@ final class UploadHookTests: XCTestCase {
             drive: drive,
             s3Client: mock,
             metadataStore: metadataStore,
+            domain: ProviderTestFixtures.makeDomain(),
             logger: makeLogger()
         )
 
-        // Poll the actor-isolated MetadataStore for the .notApplicable transition. The
-        // detached Task spawned by the helper writes asynchronously; bound to 2s.
-        let store = try XCTUnwrap(metadataStore)
-        let driveId = drive.id
-        let deadline = Date().addingTimeInterval(2.0)
-        var observedStatus: String?
-        while Date() < deadline {
-            // fetchThumbnailStatusForTest returns a Sendable String? from inside actor isolation,
-            // avoiding the non-Sendable `SyncedItem` model object crossing the actor boundary.
-            if let status = try? await store.fetchThumbnailStatusForTest(s3Key: originalKey, driveId: driveId),
-               status == ThumbnailStatus.notApplicable.rawValue {
-                observedStatus = status
-                break
-            }
-            try? await Task.sleep(nanoseconds: 50_000_000)
-        }
+        // Drain the detached Task — even with no work to do, the helper opens
+        // (and immediately exits) a detached Task before returning to the caller.
+        try? await Task.sleep(nanoseconds: 200_000_000)
 
-        XCTAssertEqual(
-            observedStatus, ThumbnailStatus.notApplicable.rawValue,
-            "Non-raster MUST mark .notApplicable (D-08 pre-filter)"
-        )
         XCTAssertEqual(
             mock.putThumbnailKeys.count, 0,
             "Non-raster MUST NOT call putThumbnail (D-08 pre-filter)"
@@ -216,6 +206,7 @@ final class UploadHookTests: XCTestCase {
             drive: drive,
             s3Client: mock,
             metadataStore: metadataStore,
+            domain: ProviderTestFixtures.makeDomain(),
             logger: makeLogger()
         )
         let elapsedNanos = DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds
@@ -249,6 +240,7 @@ final class UploadHookTests: XCTestCase {
             drive: drive,
             s3Client: mock,
             metadataStore: metadataStore,
+            domain: ProviderTestFixtures.makeDomain(),
             logger: makeLogger()
         )
 
@@ -284,6 +276,7 @@ final class UploadHookTests: XCTestCase {
             drive: drive,
             s3Client: mock,
             metadataStore: metadataStore,
+            domain: ProviderTestFixtures.makeDomain(),
             logger: makeLogger()
         )
 
@@ -333,7 +326,116 @@ final class UploadHookTests: XCTestCase {
         _ = drive
     }
 
-    // MARK: - Test 7 — Compile-time guard: Task.detached MUST NOT capture self
+    // MARK: - Test 7 — Phase 13.2 D-12: signalEnumerator(parent) after successful PUT
+
+    /// Phase 13.2 D-12: after a successful upload-hook PUT, the detached Task must
+    /// invoke `signalEnumerator(for: parentContainer)` so Apple re-enumerates the
+    /// parent folder and the just-uploaded thumbnail is fetched on the next visit.
+    ///
+    /// Implementation seam: `enqueueThumbnailUpload` accepts a test-only
+    /// `signalParentContainer` closure parameter (defaulting to the production
+    /// NSFileProviderManager-backed implementation). Tests inject a recorder closure.
+    /// This mirrors the closure-injection pattern used by Plan 02's
+    /// `consumeThumbnailFallback`. Preserves Sendable contract: the closure is
+    /// `@Sendable` and captures only Sendable locals.
+    func testUploadHookSignalsParentContainerAfterSuccessfulPut() async throws {
+        let drive = ProviderTestFixtures.makeDrive()
+        let mock = HookMockS3Client()
+        let url = try writeTempJPEG()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let originalKey = "prefix/folder/photo.jpg"
+        let expectedThumbKey = S3PathUtils.thumbnailKey(
+            forOriginalKey: originalKey, drivePrefix: drive.syncAnchor.prefix
+        )
+        let expectedParentKey = S3PathUtils.parentKey(
+            forKey: originalKey, drivePrefix: drive.syncAnchor.prefix
+        )
+
+        // Recorder for signalEnumerator invocations (shared actor type from
+        // ThumbnailHybridConsumeTests.swift — same closure-injection seam).
+        let recorder = SignalRecorder()
+
+        enqueueThumbnailUpload(
+            originalKey: originalKey,
+            localURL: url,
+            sourceETag: "etag-d12",
+            drive: drive,
+            s3Client: mock,
+            metadataStore: metadataStore,
+            domain: ProviderTestFixtures.makeDomain(),
+            logger: makeLogger(),
+            signalParentContainer: { identifier in
+                Task { await recorder.record(identifier) }
+            }
+        )
+
+        // Wait for the PUT to land first (proves the success path executed).
+        let putPredicate = NSPredicate { _, _ in
+            mock.putThumbnailKeys.contains(expectedThumbKey)
+        }
+        let putExp = expectation(for: putPredicate, evaluatedWith: NSObject(), handler: nil)
+        await fulfillment(of: [putExp], timeout: 2.0)
+
+        // Then poll the actor-isolated recorder for the post-PUT signal.
+        let deadline = Date().addingTimeInterval(2.0)
+        var recorded: [NSFileProviderItemIdentifier] = []
+        while Date() < deadline {
+            recorded = await recorder.identifiers
+            if !recorded.isEmpty { break }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+
+        XCTAssertEqual(
+            recorded.count, 1,
+            "Successful PUT must trigger exactly one signalEnumerator (D-12)"
+        )
+
+        // Parent of "prefix/folder/photo.jpg" is "prefix/folder/" — must match.
+        let expectedParentRaw = expectedParentKey ?? NSFileProviderItemIdentifier.rootContainer.rawValue
+        XCTAssertEqual(
+            recorded.first?.rawValue, expectedParentRaw,
+            "signalEnumerator must target the parent container of the original key (D-12)"
+        )
+    }
+
+    /// Phase 13.2 D-12 negative path: PUT failure must NOT invoke signalEnumerator
+    /// (no point nudging Apple to re-enumerate when the new thumb didn't land).
+    func testUploadHookDoesNotSignalWhenPutFails() async throws {
+        let drive = ProviderTestFixtures.makeDrive()
+        let mock = HookMockS3Client()
+        mock.putThumbnailError = NSError(domain: "TestDomain", code: 99, userInfo: nil)
+        let url = try writeTempJPEG()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let recorder = SignalRecorder()
+
+        enqueueThumbnailUpload(
+            originalKey: "prefix/fail.jpg",
+            localURL: url,
+            sourceETag: "etag",
+            drive: drive,
+            s3Client: mock,
+            metadataStore: metadataStore,
+            domain: ProviderTestFixtures.makeDomain(),
+            logger: makeLogger(),
+            signalParentContainer: { identifier in
+                Task { await recorder.record(identifier) }
+            }
+        )
+
+        // Drain detached Task so error path runs.
+        try? await Task.sleep(nanoseconds: 300_000_000)
+
+        let recorded = await recorder.identifiers
+        XCTAssertEqual(mock.putThumbnailKeys.count, 1, "PUT must be attempted")
+        XCTAssertEqual(
+            recorded.count, 0,
+            "Failed PUT must NOT trigger signalEnumerator — nothing to re-enumerate"
+        )
+    }
+
+    // MARK: - Test 9 — Compile-time guard: Task.detached MUST NOT capture self
 
     /// This test asserts the build itself succeeds under Swift 6 strict concurrency.
     /// `enqueueThumbnailUpload` is a free function (NOT a method), so by construction
@@ -363,6 +465,13 @@ final class HookMockS3Client: DS3S3ClientProtocol, @unchecked Sendable {
     private struct State {
         var putThumbnailKeys: [String] = []
         var lastPutThumbnailMetadata: [String: String]?
+        // Code review Fix 3 (Phase 13.2): putThumbnailError and
+        // putThumbnailDelayNanos were unprotected stored properties accessed
+        // concurrently from the test thread (writer) and the detached Task
+        // spawned by `enqueueThumbnailUpload` (reader). Move both into the
+        // lock-protected State to eliminate the data race.
+        var putThumbnailError: Error?
+        var putThumbnailDelayNanos: UInt64 = 0
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -375,8 +484,15 @@ final class HookMockS3Client: DS3S3ClientProtocol, @unchecked Sendable {
         state.withLock { $0.lastPutThumbnailMetadata }
     }
 
-    var putThumbnailError: Error?
-    var putThumbnailDelayNanos: UInt64 = 0
+    var putThumbnailError: Error? {
+        get { state.withLock { $0.putThumbnailError } }
+        set { state.withLock { $0.putThumbnailError = newValue } }
+    }
+
+    var putThumbnailDelayNanos: UInt64 {
+        get { state.withLock { $0.putThumbnailDelayNanos } }
+        set { state.withLock { $0.putThumbnailDelayNanos = newValue } }
+    }
 
     // MARK: - DS3S3ClientProtocol stubs
 
@@ -432,14 +548,17 @@ final class HookMockS3Client: DS3S3ClientProtocol, @unchecked Sendable {
         bucket _: String, key: String,
         data _: Data, metadata: [String: String]?
     ) async throws -> String? {
-        if putThumbnailDelayNanos > 0 {
-            try? await Task.sleep(nanoseconds: putThumbnailDelayNanos)
-        }
-        state.withLock { state in
+        // Snapshot delay + error under the lock so reads happen-before the
+        // sleep/throw without racing the test thread's writes.
+        let (delayNanos, recordedError) = state.withLock { state -> (UInt64, Error?) in
             state.putThumbnailKeys.append(key)
             state.lastPutThumbnailMetadata = metadata
+            return (state.putThumbnailDelayNanos, state.putThumbnailError)
         }
-        if let err = putThumbnailError { throw err }
+        if delayNanos > 0 {
+            try? await Task.sleep(nanoseconds: delayNanos)
+        }
+        if let err = recordedError { throw err }
         return "mock-thumb-etag"
     }
 
@@ -472,11 +591,8 @@ final class HookMockS3Client: DS3S3ClientProtocol, @unchecked Sendable {
 
 // MARK: - Test-only MetadataStore helper
 
-/// Returns the row's `thumbnailStatus` raw value as a Sendable String — avoids the
-/// non-Sendable `SyncedItem` model object crossing the @ModelActor boundary in tests.
-extension MetadataStore {
-    func fetchThumbnailStatusForTest(s3Key: String, driveId: UUID) throws -> String? {
-        guard let item = try fetchItem(byKey: s3Key, driveId: driveId) else { return nil }
-        return item.thumbnailStatus
-    }
-}
+//
+// Phase 13.2 Plan 09: `fetchThumbnailStatusForTest` removed — Schema V6 dropped
+// the `thumbnailStatus` field. Tests no longer have any per-row thumbnail state
+// to inspect; the only observable signal is "did the S3 PUT happen?" which the
+// mock S3 client records directly.

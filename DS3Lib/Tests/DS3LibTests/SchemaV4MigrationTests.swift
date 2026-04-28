@@ -89,9 +89,12 @@ final class SchemaV4MigrationTests: XCTestCase {
         )
         let v4Context = ModelContext(v4Container)
 
-        // 3. All 3 SyncedItem rows present, all default to thumbnailFailCount == 0,
-        //    and thumbnailStatus is preserved verbatim across the migration.
-        let items = try v4Context.fetch(FetchDescriptor<SyncedItem>())
+        // 3. All 3 SyncedItem rows present (fetch via the V4 type explicitly —
+        //    the public `SyncedItem` typealias resolves to V5 after Phase 13.2
+        //    Plan 08, so we cannot rely on it here for a V4-bound container).
+        //    All default to thumbnailFailCount == 0; thumbnailStatus is
+        //    preserved verbatim across the V3→V4 migration.
+        let items = try v4Context.fetch(FetchDescriptor<SyncedItemSchemaV4.SyncedItem>())
         XCTAssertEqual(items.count, 3, "All 3 V3 SyncedItem rows must survive V3→V4 migration")
         for item in items {
             XCTAssertEqual(
@@ -117,40 +120,35 @@ final class SchemaV4MigrationTests: XCTestCase {
         )
 
         // 4. The SyncAnchorRecord row must survive (Pitfall 3 regression test).
-        let anchors = try v4Context.fetch(FetchDescriptor<SyncAnchorRecord>())
+        let anchors = try v4Context.fetch(FetchDescriptor<SyncedItemSchemaV2.SyncAnchorRecord>())
         XCTAssertEqual(anchors.count, 1, "SyncAnchorRecord must survive V3→V4 migration")
         XCTAssertEqual(anchors[0].driveId, anchorDriveId)
         XCTAssertEqual(anchors[0].itemCount, 42)
         XCTAssertEqual(anchors[0].consecutiveFailures, 3)
     }
 
-    /// The bottom-of-file `typealias SyncedItem` resolves to V4's class.
-    /// This is a compile-and-runtime check — if the typealias still points at
-    /// V3, this assertion would fail because the metatypes differ.
-    func testTypealiasIsV4() throws {
-        XCTAssertTrue(
-            SyncedItem.self == SyncedItemSchemaV4.SyncedItem.self,
-            "typealias SyncedItem must resolve to SyncedItemSchemaV4.SyncedItem"
-        )
-    }
-
-    /// Open MetadataStore via `createContainer()` (in-memory ModelConfiguration
-    /// shape doesn't apply — but we can prove the binding by inserting a row
-    /// with a non-default `thumbnailFailCount` and reading it back, which only
-    /// works if the schema bound by the container is V4.
-    func testMetadataStoreCreateContainerBindsV4() throws {
+    /// V4-bound container can round-trip a SyncedItem with a non-default
+    /// `thumbnailFailCount`. This proves the V4 schema is still wired into the
+    /// migration plan even after Phase 13.2 Plan 08 advanced the typealias to V5.
+    /// We use `SyncedItemSchemaV4.SyncedItem` explicitly because the public
+    /// `SyncedItem` typealias now resolves to V5 (no `thumbnailFailCount`).
+    func testV4SchemaRoundTripsThumbnailFailCount() throws {
         let schema = Schema(versionedSchema: SyncedItemSchemaV4.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
 
         let driveId = UUID()
-        let item = SyncedItem(s3Key: "v4-prove.jpg", driveId: driveId, size: 1)
-        item.thumbnailFailCount = 5
+        let item = SyncedItemSchemaV4.SyncedItem(
+            s3Key: "v4-prove.jpg",
+            driveId: driveId,
+            size: 1,
+            thumbnailFailCount: 5
+        )
         context.insert(item)
         try context.save()
 
-        let fetched = try context.fetch(FetchDescriptor<SyncedItem>())
+        let fetched = try context.fetch(FetchDescriptor<SyncedItemSchemaV4.SyncedItem>())
         XCTAssertEqual(fetched.count, 1)
         XCTAssertEqual(
             fetched[0].thumbnailFailCount, 5,

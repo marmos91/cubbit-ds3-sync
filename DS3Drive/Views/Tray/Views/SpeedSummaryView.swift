@@ -18,11 +18,9 @@ struct SpeedSummaryView: View {
     }
 
     private var isSyncing: Bool {
+        // Phase 13.2 D-16: enumeration "busy" pulses now report `.sync` too,
+        // so a single check covers both transfers and listing activity.
         driveViewModels.contains { $0.driveStatus == .sync }
-    }
-
-    private var isIndexing: Bool {
-        driveViewModels.contains { $0.driveStatus == .indexing }
     }
 
     private var allPaused: Bool {
@@ -38,13 +36,6 @@ struct SpeedSummaryView: View {
                     .controlSize(.mini)
 
                 Text(NSLocalizedString("Syncing files…", comment: "Speed summary syncing"))
-                    .font(DS3Typography.caption)
-                    .foregroundStyle(DS3Colors.brandTextSecondary)
-            } else if isIndexing {
-                ProgressView()
-                    .controlSize(.mini)
-
-                Text(NSLocalizedString("Indexing files…", comment: "Speed summary indexing"))
                     .font(DS3Typography.caption)
                     .foregroundStyle(DS3Colors.brandTextSecondary)
             } else if allPaused {
@@ -70,7 +61,7 @@ struct SpeedSummaryView: View {
     }
 
     private var isIdle: Bool {
-        !isTransferring && !isSyncing && !isIndexing && !allPaused
+        !isTransferring && !isSyncing && !allPaused
     }
 
     @ViewBuilder private var speedIndicators: some View {

@@ -97,9 +97,9 @@ public final class DS3DriveManager: @unchecked Sendable {
         driveStatuses[driveId] = change.status
 
         switch change.status {
-        case .sync, .indexing:
+        case .sync:
             syncingDrives.insert(driveId)
-            AppStatusManager.default().setStatus(change.status == .sync ? .syncing : .indexing)
+            AppStatusManager.default().setStatus(.syncing)
 
         case .paused:
             syncingDrives.remove(driveId)

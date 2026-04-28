@@ -122,7 +122,7 @@ struct DS3DriveApp: App {
                 // `ds3DriveManager.aggregateStatus`, which is computed from
                 // per-drive states (Gap 15). Replaces the previous binding to
                 // `AppStatusManager.status`, which could leak into a stuck
-                // .indexing state when the operation counter diverged.
+                // active state when the operation counter diverged.
                 Group {
                     switch ds3DriveManager.aggregateAppStatus {
                     case .idle:
@@ -131,7 +131,7 @@ struct DS3DriveApp: App {
                         } else {
                             Image(.trayIcon)
                         }
-                    case .syncing, .indexing:
+                    case .syncing:
                         Image(.trayIconSync)
                     case .error:
                         Image(.trayIconError)

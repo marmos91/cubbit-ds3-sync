@@ -27,7 +27,7 @@ final class CascadeRenameTests: XCTestCase {
     // swiftlint:enable implicitly_unwrapped_optional
 
     override func setUp() async throws {
-        let schema = Schema(versionedSchema: SyncedItemSchemaV4.self)
+        let schema = Schema(versionedSchema: SyncedItemSchemaV6.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         container = try ModelContainer(for: schema, configurations: [config])
         metadataStore = MetadataStore(modelContainer: container)
@@ -140,9 +140,14 @@ final class CascadeRenameTests: XCTestCase {
         XCTAssertEqual(mock.deleteObjectKeys.count, 0, "Non-raster rename MUST NOT call deleteThumbnail")
     }
 
-    // MARK: - Test 9 — Copy failure marks NEW originalKey .pending; delete NOT called
+    // MARK: - Test 9 — Copy failure: delete NOT called; reactive fallback re-renders
 
-    func testRenameItemCopyFailureMarksNewKeyPending() async throws {
+    /// Phase 13.2 Plan 09 (D-08, D-23): the `.pending` schema write is gone — Schema V6
+    /// dropped `thumbnailStatus`. The cascade now relies on the absence of the new
+    /// thumb-key in S3 to trigger the reactive fallback render path on the next
+    /// user-visible visit. The contract here is purely negative: delete-old MUST NOT
+    /// run when the copy fails (the old thumb is the only fresh copy on disk).
+    func testRenameItemCopyFailureDoesNotDeleteOldThumb() async throws {
         let drive = ProviderTestFixtures.makeDrive()
         let mock = CascadeMockS3Client()
         mock.copyObjectError = NSError(
@@ -153,7 +158,9 @@ final class CascadeRenameTests: XCTestCase {
         let oldOriginalKey = "prefix/missing.jpg"
         let newOriginalKey = "prefix/renamed.jpg"
 
-        // Seed the new originalKey so .pending has a row to land on.
+        // Seed the new originalKey so the `metadataStore` parameter has a real row
+        // to point at (the cascade no longer writes to it, but the parameter is
+        // retained for API stability).
         try await metadataStore.upsertItem(
             s3Key: newOriginalKey, driveId: drive.id, syncStatus: .synced, size: 100
         )
@@ -167,26 +174,16 @@ final class CascadeRenameTests: XCTestCase {
             logger: makeLogger()
         )
 
-        let store = try XCTUnwrap(metadataStore)
-        let driveId = drive.id
-        let deadline = Date().addingTimeInterval(2.0)
-        var observedStatus: String?
-        while Date() < deadline {
-            if let status = try? await store.fetchThumbnailStatusForTest(s3Key: newOriginalKey, driveId: driveId),
-               status == ThumbnailStatus.pending.rawValue {
-                observedStatus = status
-                break
-            }
-            try? await Task.sleep(nanoseconds: 50_000_000)
-        }
+        // Drain the detached Task — copy fires once and short-circuits.
+        try? await Task.sleep(nanoseconds: 400_000_000)
 
         XCTAssertEqual(
-            observedStatus, ThumbnailStatus.pending.rawValue,
-            "Copy failure MUST mark the new originalKey .pending so backfill regenerates (D-22)"
+            mock.copyObjectPairs.count, 1,
+            "copyThumbnail must be attempted exactly once before the failure path short-circuits"
         )
         XCTAssertEqual(
             mock.deleteObjectKeys.count, 0,
-            "Copy failure path MUST NOT call deleteThumbnail (early-out)"
+            "Copy failure path MUST NOT call deleteThumbnail (early-out — old thumb is the only fresh copy)"
         )
     }
 
@@ -216,47 +213,42 @@ final class CascadeRenameTests: XCTestCase {
         )
     }
 
-    // MARK: - Test 11.1 — NoSuchKey on copy: marks .pending; old thumb untouched (Phase 13.1 Finding 5)
+    // MARK: - Test 11.1 — NoSuchKey on copy: old thumb untouched (Phase 13.1 Finding 5)
 
     /// Phase 13.1 Finding 5 regression — D-07.
     ///
     /// When `copyThumbnail` rethrows an AWS error whose `errorCode` is `NoSuchKey`
-    /// (post-Finding-4 fix this is rare but still possible — concurrent user delete
-    /// + rename, or a still-in-flight orphan-sweep race during the 13.1 transition),
-    /// the rename cascade MUST:
+    /// (concurrent user delete + rename, or pre-Finding-4 orphan-sweep race), the
+    /// rename cascade MUST:
     ///
-    ///   • Mark the new originalKey `.pending` so backfill regenerates from the new
-    ///     original (D-22 / D-08 defense-in-depth fallback — UNCHANGED by Finding 5).
     ///   • NOT call `deleteThumbnail(oldThumbKey)` — the old thumb is the only fresh
-    ///     copy on disk; orphan sweep is the backstop after backfill writes the new.
-    ///   • NOT swallow the operation silently — the .pending write is the cascade's
-    ///     forward-progress signal.
+    ///     copy on disk; the consume-path fallback is the backstop after the new
+    ///     original is reactively rendered on next visit.
+    ///   • NOT throw or otherwise propagate the error to the user-visible upload
+    ///     contract.
     ///
+    /// Phase 13.2 Plan 09 (D-08, D-23): the `.pending` schema write is gone — Schema
+    /// V6 dropped `thumbnailStatus`. The forward-progress signal is now the absence
+    /// of `.thumbnails/<newKey>.jpg` in S3, which the consume-path fallback (Plan 02)
+    /// observes on the next user-visible visit and re-renders from the new original.
     /// The companion fix at the production site is the LOG severity demote (`.error`
     /// → `.info`) and richer Soto-error formatting; functional behaviour is what we
     /// assert here.
-    func testRenameCascadeNoSuchKeyMarksNewKeyPendingAndDoesNotTouchOldThumb() async throws {
+    func testRenameCascadeNoSuchKeyDoesNotTouchOldThumb() async throws {
         let drive = ProviderTestFixtures.makeDrive()
         let mock = CascadeMockS3Client()
         // Soto's canonical NoSuchKey — `DS3S3Client.isNotFoundError(_:)`
         // recovers `errorCode == "NoSuchKey"` via the `AWSErrorType` conformance.
-        // Matches the precedent set by `DS3S3ClientThumbnailsTests` /
-        // `CopyThumbnailTests` (DS3LibTests).
         mock.copyObjectError = S3ErrorType.noSuchKey
 
         let oldOriginalKey = "prefix/photos/old.png"
         let newOriginalKey = "prefix/photos/new.png"
 
-        // Seed the new originalKey row, then transition its thumbnailStatus to
-        // `.uploaded` — newly-upserted rows default to `.pending`, which would
-        // make the polling loop below exit immediately (before the cascade Task
-        // even runs). Forcing `.uploaded` ensures the polling loop only succeeds
-        // after the cascade's catch block actually runs and rewrites it to .pending.
+        // Seed the new originalKey row so the `metadataStore` parameter points at
+        // a real row (the cascade no longer writes to it, but the parameter is
+        // retained for API stability).
         try await metadataStore.upsertItem(
             s3Key: newOriginalKey, driveId: drive.id, syncStatus: .synced, size: 200
-        )
-        try await metadataStore.setThumbnailStatus(
-            s3Key: newOriginalKey, driveId: drive.id, status: .uploaded
         )
 
         enqueueThumbnailRenameCascade(
@@ -268,34 +260,18 @@ final class CascadeRenameTests: XCTestCase {
             logger: makeLogger()
         )
 
-        // Drain the detached Task — poll for the .pending write.
-        let store = try XCTUnwrap(metadataStore)
-        let driveId = drive.id
-        let deadline = Date().addingTimeInterval(2.0)
-        var observedStatus: String?
-        while Date() < deadline {
-            if let status = try? await store.fetchThumbnailStatusForTest(s3Key: newOriginalKey, driveId: driveId),
-               status == ThumbnailStatus.pending.rawValue {
-                observedStatus = status
-                break
-            }
-            try? await Task.sleep(nanoseconds: 50_000_000)
-        }
+        // Drain the detached Task — copy fires once, NoSuchKey → short-circuit.
+        try? await Task.sleep(nanoseconds: 400_000_000)
 
-        // (a) New key marked .pending — backfill will regenerate.
-        XCTAssertEqual(
-            observedStatus, ThumbnailStatus.pending.rawValue,
-            "NoSuchKey on copy MUST mark the new originalKey .pending so backfill regenerates (D-22 / D-08)"
-        )
-        // (b) Exactly one copy attempt, no retries.
+        // (a) Exactly one copy attempt, no retries.
         XCTAssertEqual(
             mock.copyObjectPairs.count, 1,
             "copyThumbnail must be attempted exactly once before fallback"
         )
-        // (c) Old thumbnail must NOT be deleted — it is the only fresh copy until backfill.
+        // (b) Old thumbnail must NOT be deleted — it is the only fresh copy.
         XCTAssertEqual(
             mock.deleteObjectKeys, [],
-            "NoSuchKey on copy MUST NOT delete the old thumbnail (D-22 — orphan sweep is the backstop)"
+            "NoSuchKey on copy MUST NOT delete the old thumbnail (consume-path fallback is the backstop)"
         )
     }
 

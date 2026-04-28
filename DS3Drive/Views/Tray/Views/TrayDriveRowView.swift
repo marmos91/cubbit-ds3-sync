@@ -110,7 +110,7 @@ struct TrayDriveRowView: View {
     private var stripeColor: Color {
         switch driveViewModel.driveStatus {
         case .idle: DS3Colors.statusSynced
-        case .sync, .indexing: DS3Colors.statusSyncing
+        case .sync: DS3Colors.statusSyncing
         case .error: DS3Colors.statusError
         case .paused: DS3Colors.statusPaused
         }
@@ -134,7 +134,7 @@ struct TrayDriveRowView: View {
         switch driveViewModel.driveStatus {
         case .idle:
             Image(.statusIdleBadge).resizable().scaledToFit()
-        case .sync, .indexing:
+        case .sync:
             Image(.statusSyncBadge).resizable().scaledToFit()
         case .error:
             Image(.statusErrorBadge).resizable().scaledToFit()
@@ -179,15 +179,6 @@ struct TrayDriveRowView: View {
                     .font(DS3Typography.footnote)
                     .foregroundStyle(DS3Colors.brandTextSecondary)
                 }
-            } else if driveViewModel.driveStatus == .indexing {
-                Label {
-                    Text(NSLocalizedString("Indexing…", comment: "Drive row indexing status"))
-                } icon: {
-                    Image(systemName: "magnifyingglass")
-                        .symbolEffect(.pulse, options: .repeating)
-                }
-                .font(DS3Typography.footnote)
-                .foregroundStyle(DS3Colors.brandTextSecondary)
             } else if driveViewModel.driveStatus == .sync {
                 Label {
                     Text(NSLocalizedString("Syncing…", comment: "Drive row syncing status"))

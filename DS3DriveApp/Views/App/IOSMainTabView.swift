@@ -141,7 +141,7 @@
         private func statusBadgeImage(for status: DS3DriveStatus) -> Image {
             switch status {
             case .idle: Image(.statusIdleBadge)
-            case .sync, .indexing: Image(.statusSyncBadge)
+            case .sync: Image(.statusSyncBadge)
             case .error: Image(.statusErrorBadge)
             case .paused: Image(.statusPauseBadge)
             }

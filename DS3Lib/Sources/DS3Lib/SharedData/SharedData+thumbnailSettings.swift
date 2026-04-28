@@ -33,7 +33,9 @@ extension SharedData {
     /// Returns true if a thumbnail-settings entry exists for this drive AND the
     /// underlying JSON file decodes successfully. False if the file is missing,
     /// corrupt, or contains no entry for `driveId` — all three cases trigger a
-    /// first-launch re-check via `ThumbnailRollout.runIfNeeded`.
+    /// re-check via the drive-setup wizard's `inspectThumbnailPrefix` call
+    /// (Phase 11). Phase 13.2 Plan 07 deleted the launch-time `ThumbnailRollout`
+    /// path (D-09); the wizard is now the sole rollout trigger.
     ///
     /// File-existence alone is insufficient: a corrupt JSON file would lock every
     /// drive into the persisted-disabled state forever (D-02's first-launch re-check

@@ -253,7 +253,7 @@ actor NotificationManager {
     // MARK: - Counter Watchdog (Gap 15)
 
     /// Spawns a repeating task that periodically calls
-    /// `resetCounterIfQuiescent` so a phantom `.indexing`/`.sync` state cannot
+    /// `resetCounterIfQuiescent` so a phantom `.sync` state cannot
     /// stick after the upstream notifications stop arriving.
     private func startCounterWatchdog() {
         counterWatchdogTask?.cancel()

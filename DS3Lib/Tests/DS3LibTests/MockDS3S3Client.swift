@@ -25,7 +25,7 @@ final class MockDS3S3Client: DS3S3ClientProtocol, @unchecked Sendable {
 
     /// Optional artificial delay (nanoseconds) injected at the start of
     /// `getObject(toFile:)` to give external cancellation a deterministic
-    /// window. Used by `ThumbnailBackfillCoordinatorTests.testCancelInFlight*`.
+    /// window. Currently unused; retained for future cancellation-window tests.
     var getObjectDelayNanos: UInt64 = 0
 
     // MARK: - Recorded Parameters

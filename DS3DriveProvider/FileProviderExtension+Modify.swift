@@ -1,4 +1,3 @@
-// swiftlint:disable file_length
 import DS3Lib
 @preconcurrency import FileProvider
 import os.log
@@ -179,6 +178,7 @@ extension FileProviderExtension {
                                 drive: drive,
                                 s3Client: s3Client,
                                 metadataStore: self.metadataStore,
+                                domain: self.domain,
                                 logger: self.logger
                             )
                         }
@@ -318,34 +318,16 @@ extension FileProviderExtension {
                     )
 
                     // Phase 13 D-22, D-24 / THUMB-18: cascade thumbnail rename via fire-and-forget
-                    // Task.detached. Suppressed when .contents is also present — Plan 13-07's
-                    // content-change hook already wrote a fresh thumb at the new key; copying
-                    // the old thumb over it would overwrite the fresh render with a stale one.
-                    // Also suppressed when metadataStore is unavailable: without it the .pending
-                    // fallback on copy failure can't be persisted, so the rename would silently
-                    // drop thumbnails. The orphan sweep cleans up any stale old key.
-                    #if os(macOS)
-                        if !changedFields.contains(.contents),
-                           !s3Item.isFolder,
-                           let s3Client = self.s3Client,
-                           let metadataStore = self.metadataStore {
-                            enqueueThumbnailRenameCascade(
-                                oldOriginalKey: oldKey,
-                                newOriginalKey: movedS3Item.itemIdentifier.rawValue,
-                                drive: drive,
-                                s3Client: s3Client,
-                                metadataStore: metadataStore,
-                                logger: self.logger
-                            )
-                        } else if !changedFields.contains(.contents),
-                                  !s3Item.isFolder,
-                                  self.s3Client != nil,
-                                  self.metadataStore == nil {
-                            self.logger.debug(
-                                "Rename+move thumbnail cascade skipped — metadataStore unavailable for \(oldKey, privacy: .public)"
-                            )
-                        }
-                    #endif
+                    // Task.detached. See `dispatchRenameCascade` for the gate semantics
+                    // (suppressed on .contents, folders, or missing metadataStore).
+                    self.dispatchRenameCascade(
+                        oldKey: oldKey,
+                        newKey: movedS3Item.itemIdentifier.rawValue,
+                        drive: drive,
+                        s3Item: s3Item,
+                        changedFields: changedFields,
+                        contextLabel: "Rename+move"
+                    )
 
                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                     self.signalChanges()
@@ -408,31 +390,15 @@ extension FileProviderExtension {
                         )
 
                         // Phase 13 D-22, D-24 / THUMB-18: cascade thumbnail rename via fire-and-forget
-                        // Task.detached. Suppressed when .contents is also present — Plan 13-07's
-                        // content-change hook already wrote a fresh thumb at the new key.
-                        // Also suppressed when metadataStore is unavailable (see rename+move branch).
-                        #if os(macOS)
-                            if !changedFields.contains(.contents),
-                               !s3Item.isFolder,
-                               let s3Client = self.s3Client,
-                               let metadataStore = self.metadataStore {
-                                enqueueThumbnailRenameCascade(
-                                    oldOriginalKey: oldKey,
-                                    newOriginalKey: newS3Item.itemIdentifier.rawValue,
-                                    drive: drive,
-                                    s3Client: s3Client,
-                                    metadataStore: metadataStore,
-                                    logger: self.logger
-                                )
-                            } else if !changedFields.contains(.contents),
-                                      !s3Item.isFolder,
-                                      self.s3Client != nil,
-                                      self.metadataStore == nil {
-                                self.logger.debug(
-                                    "Rename thumbnail cascade skipped — metadataStore unavailable for \(oldKey, privacy: .public)"
-                                )
-                            }
-                        #endif
+                        // Task.detached. See `dispatchRenameCascade` for the gate semantics.
+                        self.dispatchRenameCascade(
+                            oldKey: oldKey,
+                            newKey: newS3Item.itemIdentifier.rawValue,
+                            drive: drive,
+                            s3Item: s3Item,
+                            changedFields: changedFields,
+                            contextLabel: "Rename"
+                        )
 
                         await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                         self.signalChanges()
@@ -543,31 +509,15 @@ extension FileProviderExtension {
                     )
 
                     // Phase 13 D-22, D-24 / THUMB-18: cascade thumbnail rename via fire-and-forget
-                    // Task.detached. Suppressed when .contents is also present — Plan 13-07's
-                    // content-change hook already wrote a fresh thumb at the new key.
-                    // Also suppressed when metadataStore is unavailable (see rename+move branch).
-                    #if os(macOS)
-                        if !changedFields.contains(.contents),
-                           !s3Item.isFolder,
-                           let s3Client = self.s3Client,
-                           let metadataStore = self.metadataStore {
-                            enqueueThumbnailRenameCascade(
-                                oldOriginalKey: moveOldKey,
-                                newOriginalKey: movedS3Item.itemIdentifier.rawValue,
-                                drive: drive,
-                                s3Client: s3Client,
-                                metadataStore: metadataStore,
-                                logger: self.logger
-                            )
-                        } else if !changedFields.contains(.contents),
-                                  !s3Item.isFolder,
-                                  self.s3Client != nil,
-                                  self.metadataStore == nil {
-                            self.logger.debug(
-                                "Move thumbnail cascade skipped — metadataStore unavailable for \(moveOldKey, privacy: .public)"
-                            )
-                        }
-                    #endif
+                    // Task.detached. See `dispatchRenameCascade` for the gate semantics.
+                    self.dispatchRenameCascade(
+                        oldKey: moveOldKey,
+                        newKey: movedS3Item.itemIdentifier.rawValue,
+                        drive: drive,
+                        s3Item: s3Item,
+                        changedFields: changedFields,
+                        contextLabel: "Move"
+                    )
 
                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                     self.signalChanges()

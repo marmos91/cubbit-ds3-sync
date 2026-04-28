@@ -18,12 +18,12 @@ public enum AggregateStatus: Equatable, Sendable {
     /// explicitly covered by `.allPaused` / `.mixed` — see reducer).
     case allIdle
 
-    /// At least one drive is actively `.sync`. Wins over `.indexing` because
-    /// transfers are the user-visible signal.
+    /// At least one drive is actively `.sync`. Subsumes both transfer activity
+    /// and transient enumeration pulses — the previous `.indexing` aggregate
+    /// case was dropped in Phase 13.2 (D-16) since folder-listing pulses now
+    /// collapse to `.sync` via `NotificationManager`'s active-operations
+    /// counter.
     case syncing
-
-    /// At least one drive is `.indexing` and none are `.sync`.
-    case indexing
 
     /// Every drive is in `.error`. `count` records how many so the UI can
     /// choose between "1 drive error" and "N drives error" copy.
@@ -48,8 +48,7 @@ public enum AggregateStatus: Equatable, Sendable {
     ///  3. all `.paused`   → `.allPaused`
     ///  4. any `.error`    → `.mixed` (error coexists with a healthy state)
     ///  5. any `.sync`     → `.syncing`
-    ///  6. any `.indexing` → `.indexing`
-    ///  7. otherwise       → `.allIdle`
+    ///  6. otherwise       → `.allIdle`
     public static func from(statuses: [DS3DriveStatus]) -> AggregateStatus {
         if statuses.isEmpty { return .noDrives }
 
@@ -60,7 +59,6 @@ public enum AggregateStatus: Equatable, Sendable {
         if pausedCount == statuses.count { return .allPaused }
         if errorCount > 0 { return .mixed }
         if statuses.contains(.sync) { return .syncing }
-        if statuses.contains(.indexing) { return .indexing }
         return .allIdle
     }
 
@@ -73,7 +71,6 @@ public enum AggregateStatus: Equatable, Sendable {
         switch self {
         case .noDrives, .allIdle: .idle
         case .syncing: .syncing
-        case .indexing: .indexing
         case .error, .mixed: .error
         case .allPaused: .paused
         }

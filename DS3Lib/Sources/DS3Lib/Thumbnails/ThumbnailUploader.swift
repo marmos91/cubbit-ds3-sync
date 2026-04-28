@@ -10,20 +10,23 @@ import os.log
 /// (D-09); the type itself is cross-platform Sendable so iOS extension targets
 /// can hold a reference but compile out the body.
 ///
-/// Failure semantics (D-06 fire-and-forget contract):
-///   - Non-raster originalKey → silently mark `.notApplicable` and return.
-///   - Renderer returns nil → log + record a strike via `setThumbnailFailure`
-///     (`.pending` → `.pending` until the 3rd strike, then terminal `.failed`).
-///   - PUT throws → log + record a strike via `setThumbnailFailure` + RETHROW
-///     (caller's `try? await ...` swallows; this rethrow lets the caller observe
-///     the failure if it ever wants to in the future).
+/// Failure semantics (D-06 fire-and-forget contract, Phase 13.2 D-05/D-08/D-19):
+///   - Non-raster originalKey → log + return (caller pre-filters anyway).
+///   - Renderer returns nil → log only and return. No schema strike counter
+///     anymore (Schema V5 dropped `thumbnailFailCount`); the consume-path
+///     fallback's `ThumbnailFallbackLimiter` owns the in-memory 3-strike rule.
+///   - PUT throws → log + RETHROW (caller's `try? await ...` swallows). No
+///     schema strike counter write.
 ///
-/// Strike semantics (Plan 13-04 D-29..D-32): each render/PUT failure increments
-/// `thumbnailFailCount`. Items reach terminal `.failed` only after 3 strikes;
-/// an ETag change on the original (observed during BFS upsert) resets both
-/// the count and the status to `.pending` so the file is retried fresh.
+/// Phase 13.2 Plan 09 (D-08, D-23): all `thumbnailStatus` writes removed in
+/// the same plan that ships Schema V6 — the field is gone from `SyncedItem`,
+/// so writing to it would not compile. The `metadataStore` parameter is
+/// retained for API stability (Plan 09 deliberately keeps the signature
+/// compatible with existing call sites).
 public struct ThumbnailUploader: Sendable {
     private let s3Client: any DS3S3ClientProtocol
+    // Retained for API stability — callers pass a store but the uploader no
+    // longer writes any thumbnail-specific fields against it (Phase 13.2 D-08).
     private let metadataStore: MetadataStore
     private let logger = Logger(
         subsystem: LogSubsystem.app,
@@ -43,17 +46,20 @@ public struct ThumbnailUploader: Sendable {
             originalKey: String
         ) async throws {
             // (a) Defensive raster pre-filter — caller is expected to pre-filter via the
-            // same allow-list, but we re-check so that a regression upstream marks the
-            // SyncedItem `.notApplicable` rather than burning a render attempt.
+            // same allow-list, but we re-check so that a regression upstream is logged
+            // rather than burning a render attempt.
             //
             // Plan 13-01 shipped `S3PathUtils.isRasterExtension(_:)` — the canonical
             // helper that reads from `DefaultSettings.Thumbnail.rasterExtensions`. Use
             // it here so the upload-hook pre-filter (D-08) and the consume-path
             // pre-filter share one source of truth and one entry point.
+            //
+            // Phase 13.2 D-08: no longer marks `.notApplicable` — the field is gone
+            // in Schema V6.
             let pathExtension = (originalKey as NSString).pathExtension
             guard S3PathUtils.isRasterExtension(pathExtension) else {
-                try? await metadataStore.setThumbnailStatus(
-                    s3Key: originalKey, driveId: drive.id, status: .notApplicable
+                logger.debug(
+                    "Uploader: skipping non-raster originalKey \(originalKey, privacy: .public)"
                 )
                 return
             }
@@ -63,14 +69,12 @@ public struct ThumbnailUploader: Sendable {
             // a raster extension whose bytes don't decode (corrupt JPEGs, unknown UTI).
             guard let data = ThumbnailRenderer().renderJPEG(from: localURL) else {
                 logger.info(
-                    "Uploader: render returned nil for \(originalKey, privacy: .public) — incrementing fail count"
+                    "Uploader: render returned nil for \(originalKey, privacy: .public)"
                 )
-                // Plan 13-04 retrofit: 3-strike-aware. Below threshold the row stays
-                // .pending so subsequent BFS passes retry; at >= maxFailStrikes (3) the
-                // row flips to terminal .failed.
-                try? await metadataStore.setThumbnailFailure(
-                    s3Key: originalKey, driveId: drive.id
-                )
+                // Phase 13.2 D-05/D-19: no schema strike counter anymore. The
+                // consume-path fallback's `ThumbnailFallbackLimiter` (in-memory)
+                // owns the 3-strike rule. The consume-path fallback re-renders
+                // from S3 on the next visit anyway.
                 return
             }
 
@@ -81,9 +85,8 @@ public struct ThumbnailUploader: Sendable {
                 forOriginalKey: originalKey, drivePrefix: drivePrefix
             )
 
-            // (d) PUT. On throw: mark `.failed` and rethrow. The double-write here is
-            // intentional — the persisted `.failed` survives the rethrow in case the
-            // caller doesn't catch (which it shouldn't, per D-06).
+            // (d) PUT. Errors rethrow to the caller's `try? await ...` (D-06 contract).
+            // Phase 13.2 D-08: no `.failed` write — the field is gone in Schema V6.
             do {
                 _ = try await s3Client.putThumbnail(
                     bucket: bucket,
@@ -93,21 +96,14 @@ public struct ThumbnailUploader: Sendable {
                 )
             } catch {
                 logger.error(
-                    "Uploader: PUT failed for \(thumbKey, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                )
-                // Plan 13-04 retrofit: 3-strike-aware. PUT failure increments the
-                // strike count; only the third consecutive failure flips terminal.
-                try? await metadataStore.setThumbnailFailure(
-                    s3Key: originalKey, driveId: drive.id
+                    "Uploader: PUT failed for \(thumbKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                 )
                 throw error
             }
 
-            // (e) Persist `.uploaded` — the row is now in steady state until the next
-            // BFS pass observes an ETag change (Plan 13-04 reset condition).
-            try? await metadataStore.setThumbnailStatus(
-                s3Key: originalKey, driveId: drive.id, status: .uploaded
-            )
+            // Phase 13.2 D-08: no `.uploaded` write — the field is gone in
+            // Schema V6. The "is the thumbnail uploaded?" question is now
+            // answered by S3 itself via `getThumbnailBytes`.
         }
     #endif
 }

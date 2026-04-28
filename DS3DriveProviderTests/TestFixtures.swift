@@ -21,6 +21,15 @@ enum ProviderTestFixtures {
         )
     }
 
+    /// Stub domain for tests that need to satisfy an `NSFileProviderDomain` parameter
+    /// without standing up a real provider. Identifier and display name are arbitrary.
+    static func makeDomain(identifier: String = "test-domain") -> NSFileProviderDomain {
+        NSFileProviderDomain(
+            identifier: NSFileProviderDomainIdentifier(identifier),
+            displayName: "Test Domain"
+        )
+    }
+
     static func makeItem(
         key: String,
         drive: DS3Drive? = nil,

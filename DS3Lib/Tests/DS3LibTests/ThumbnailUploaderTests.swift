@@ -7,11 +7,18 @@ import XCTest
 /// Tests for `ThumbnailUploader` — the Phase 13 / Plan 13-02 render+PUT pipeline
 /// invoked by the upload-hook in `createItem`/`modifyItem` (Plan 13-07 wiring).
 ///
+/// Phase 13.2 Plan 09 (D-05, D-08, D-23): Schema V6 dropped the
+/// `thumbnailStatus` field, so the uploader no longer writes `.uploaded`,
+/// `.notApplicable`, `.pending`, or `.failed` to it. The "is the thumbnail
+/// uploaded?" question is now answered by S3 itself via `getThumbnailBytes`.
+/// Tests therefore assert on the S3 PUT contract (key, bytes, metadata, error
+/// rethrow) rather than on schema-level transitions.
+///
 /// Coverage matches Plan 13-02 `<behavior>`:
-///   1. Raster fixture round-trip — render success + single PUT + `.uploaded`.
-///   2. Non-raster originalKey — defensive guard, no PUT, `.notApplicable`.
-///   3. Renderer returns nil (rejected fixture) — no PUT, `.failed`.
-///   4. PUT throws — `.failed` AND rethrow to caller.
+///   1. Raster fixture round-trip — render success + single PUT to canonical key.
+///   2. Non-raster originalKey — defensive guard, no PUT.
+///   3. Renderer returns nil (rejected fixture) — no PUT, no rethrow.
+///   4. PUT throws — rethrow to caller.
 ///   5. PUT key matches `S3PathUtils.thumbnailKey(...)` (canonical key, no ad-hoc concat).
 ///
 /// Per D-09 the `generateAndUpload` function is `#if os(macOS)`-gated, so the whole
@@ -30,11 +37,11 @@ import XCTest
         private let drivePrefix: String? = nil // root-level drive — keeps thumbnailKey arithmetic simple
 
         override func setUp() async throws {
-            // In-memory MetadataStore (V4 schema — Plan 13-04 bumped from V3).
-            // The `SyncedItem` typealias now resolves to `SyncedItemSchemaV4.SyncedItem`,
-            // so the container must be bound to V4 to avoid the SwiftData
-            // "Failed to cast model" trap (Pitfall 3).
-            let schema = Schema(versionedSchema: SyncedItemSchemaV4.self)
+            // In-memory MetadataStore (V6 schema — Phase 13.2 Plan 09 dropped
+            // `thumbnailStatus`). The `SyncedItem` typealias resolves to
+            // `SyncedItemSchemaV6.SyncedItem`, so the container must be bound
+            // to V6 to avoid the SwiftData "Failed to cast model" trap (Pitfall 3).
+            let schema = Schema(versionedSchema: SyncedItemSchemaV6.self)
             let config = ModelConfiguration(isStoredInMemoryOnly: true)
             container = try ModelContainer(for: schema, configurations: [config])
             metadataStore = MetadataStore(modelContainer: container)
@@ -83,7 +90,8 @@ import XCTest
             return DS3Drive(id: driveId, name: "Test Drive", syncAnchor: anchor)
         }
 
-        /// Seeds a SyncedItem at `s3Key` with default `.pending` thumbnail status.
+        /// Seeds a SyncedItem at `s3Key`. Phase 13.2 Plan 09: no thumbnail
+        /// fields to seed — `SyncedItem` no longer carries any.
         private func seedItem(s3Key: String) async throws {
             try await metadataStore.upsertItem(
                 s3Key: s3Key,
@@ -95,14 +103,7 @@ import XCTest
             )
         }
 
-        /// Reads the persisted thumbnailStatus raw value for a key.
-        private func currentStatus(forKey s3Key: String) async throws -> String? {
-            try await metadataStore.fetchItemSyncStatusForThumbnails(
-                s3Key: s3Key, driveId: driveId
-            )
-        }
-
-        // MARK: - Test 1: render success + PUT + .uploaded
+        // MARK: - Test 1: render success + PUT (no schema write)
 
         func testGenerateAndUploadOnRasterFixtureRendersAndPuts() async throws {
             let url = try fixtureURL(name: "exif6-portrait", ext: "jpg")
@@ -131,17 +132,13 @@ import XCTest
                 "\"original-etag\""
             )
 
-            // Status transitioned to .uploaded.
-            let status = try await currentStatus(forKey: originalKey)
-            XCTAssertEqual(
-                status, ThumbnailStatus.uploaded.rawValue,
-                "SyncedItem must transition to .uploaded on render success"
-            )
+            // Phase 13.2 D-08: no `.uploaded` schema write — the field is gone.
+            // Success is observable via the PUT call only.
         }
 
-        // MARK: - Test 2: non-raster guard → .notApplicable, no PUT
+        // MARK: - Test 2: non-raster guard → no PUT, no schema write
 
-        func testGenerateAndUploadOnNonRasterMarksNotApplicable() async throws {
+        func testGenerateAndUploadOnNonRasterIsNoOp() async throws {
             // Caller forgot to pre-filter — pass a .pdf originalKey. Defensive guard
             // must short-circuit before render and before PUT. localURL is irrelevant
             // because we never attempt to read it.
@@ -162,25 +159,14 @@ import XCTest
             let putCount = mockS3.calls.filter { $0.hasPrefix("putObjectData(") }.count
             XCTAssertEqual(putCount, 0, "non-raster originalKey must not trigger any PUT")
 
-            let status = try await currentStatus(forKey: originalKey)
-            XCTAssertEqual(
-                status, ThumbnailStatus.notApplicable.rawValue,
-                "non-raster originalKey must be marked .notApplicable"
-            )
+            // Phase 13.2 D-08: no `.notApplicable` schema write — the field is gone.
         }
 
-        // MARK: - Test 3: renderer rejects fixture → strike count++, no PUT
+        // MARK: - Test 3: renderer rejects fixture → log + return, no PUT, no rethrow
 
-        func testGenerateAndUploadWhenRendererReturnsNilMarksFailed() async throws {
-            // The unsupported.pdf fixture is a raster-allow-list bypass: it has no
-            // recognized raster extension, so the defensive guard returns early
-            // BEFORE we attempt render. To exercise the render-nil path we need a
-            // fixture whose path extension passes the raster guard but whose bytes
-            // do not decode into a CGImageSource of an allowed UTI. The cleanest
-            // way is to write garbage bytes into a .jpg file: the path extension
-            // passes `isRasterExtension`, but `CGImageSourceCreateWithURL` either
-            // returns nil OR the UTI is not in the allow-list — either branch
-            // makes `renderJPEG` return nil.
+        func testGenerateAndUploadWhenRendererReturnsNilLogsAndReturns() async throws {
+            // Write garbage bytes into a .jpg file so `isRasterExtension` passes
+            // but `CGImageSourceCreateWithURL` (or UTI allow-list) rejects.
             let bogusURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent("bogus-\(UUID().uuidString).jpg")
             try Data([0x00, 0x01, 0x02, 0x03, 0x04, 0x05]).write(to: bogusURL)
@@ -190,9 +176,6 @@ import XCTest
             let originalKey = "photos/corrupt.jpg"
             try await seedItem(s3Key: originalKey)
 
-            // First failure: strike count goes 0 → 1; below the 3-strike threshold,
-            // so the row stays .pending (Plan 13-04 retrofitted from .failed to
-            // setThumbnailFailure).
             try await uploader.generateAndUpload(
                 localURL: bogusURL,
                 drive: drive,
@@ -203,13 +186,9 @@ import XCTest
             let putCount = mockS3.calls.filter { $0.hasPrefix("putObjectData(") }.count
             XCTAssertEqual(putCount, 0, "render-nil must not produce a PUT")
 
-            let statusAfterOne = try await currentStatus(forKey: originalKey)
-            XCTAssertEqual(
-                statusAfterOne, ThumbnailStatus.pending.rawValue,
-                "single render-nil failure (count=1) must keep the SyncedItem .pending below the 3-strike threshold"
-            )
-
-            // Second + third failures: strike count climbs 2, 3 — third flips terminal.
+            // Phase 13.2 D-05/D-19: the consume-path fallback's
+            // `ThumbnailFallbackLimiter` (in-memory) owns the 3-strike rule.
+            // Repeated render-nil calls must not throw.
             try await uploader.generateAndUpload(
                 localURL: bogusURL, drive: drive, sourceETag: "src", originalKey: originalKey
             )
@@ -217,14 +196,11 @@ import XCTest
                 localURL: bogusURL, drive: drive, sourceETag: "src", originalKey: originalKey
             )
 
-            let statusAfterThree = try await currentStatus(forKey: originalKey)
-            XCTAssertEqual(
-                statusAfterThree, ThumbnailStatus.failed.rawValue,
-                "third render-nil failure (count=3) must transition the row to terminal .failed"
-            )
+            let putCountAfterThree = mockS3.calls.filter { $0.hasPrefix("putObjectData(") }.count
+            XCTAssertEqual(putCountAfterThree, 0, "render-nil must never PUT, no matter the call count")
         }
 
-        // MARK: - Test 4: PUT throws → rethrow + strike count++
+        // MARK: - Test 4: PUT throws → rethrow
 
         func testGenerateAndUploadOnPutFailureRethrows() async throws {
             let url = try fixtureURL(name: "exif6-portrait", ext: "jpg")
@@ -250,27 +226,6 @@ import XCTest
                     "uploader must rethrow the underlying PUT error type"
                 )
             }
-
-            // First PUT failure: strike count goes 0 → 1; below threshold, so
-            // .pending (Plan 13-04 retrofitted from .failed to setThumbnailFailure).
-            let statusAfterOne = try await currentStatus(forKey: originalKey)
-            XCTAssertEqual(
-                statusAfterOne, ThumbnailStatus.pending.rawValue,
-                "single PUT failure (count=1) keeps the SyncedItem .pending below the 3-strike threshold"
-            )
-
-            // Second + third PUT failures: count climbs 2, 3 — third flips terminal.
-            for _ in 0..<2 {
-                _ = try? await uploader.generateAndUpload(
-                    localURL: url, drive: drive, sourceETag: "src", originalKey: originalKey
-                )
-            }
-
-            let statusAfterThree = try await currentStatus(forKey: originalKey)
-            XCTAssertEqual(
-                statusAfterThree, ThumbnailStatus.failed.rawValue,
-                "third PUT failure (count=3) must transition the row to terminal .failed"
-            )
         }
 
         // MARK: - Test 5: PUT key uses S3PathUtils.thumbnailKey (canonical)

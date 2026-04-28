@@ -25,16 +25,11 @@ final class FetchThumbnailsErrorMappingTests: XCTestCase {
         let recorder = ResultRecorder()
 
         let fetchBytes: ThumbnailByteFetcher = { _, _ in nil }
-        let markPending: ThumbnailPendingMarker = { _, _ in
-            // No-op: this test only inspects the error path; pending writes are
-            // verified in FetchThumbnailsTests.testFetchThumbnailsRasterMissReturnsNoSuchItemAndMarksPending.
-        }
 
         await consumeThumbnail(
             identifier: identifier,
             drive: drive,
             fetchBytes: fetchBytes,
-            markPending: markPending,
             perItemHandler: { id, data, error in
                 Task { await recorder.record(id: id, data: data, error: error) }
             }

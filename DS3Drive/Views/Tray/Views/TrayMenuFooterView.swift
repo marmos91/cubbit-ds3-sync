@@ -20,7 +20,7 @@ struct TrayMenuFooterView: View {
 
     var body: some View {
         HStack(spacing: DS3Spacing.xs) {
-            // Continuous rotation for the syncing/indexing state. Driving
+            // Continuous rotation for the syncing state. Driving
             // a Double angle via `withAnimation(...repeatForever)` inside
             // onAppear/onChange is the reliable SwiftUI pattern — the
             // previous Bool + `.animation(value:)` approach stalled when
@@ -118,8 +118,6 @@ struct TrayMenuFooterView: View {
             StatusIcon(name: "checkmark.circle.fill", color: DS3Colors.statusSynced, animated: false)
         case .syncing:
             StatusIcon(name: "arrow.triangle.2.circlepath", color: DS3Colors.statusSyncing, animated: true)
-        case .indexing:
-            StatusIcon(name: "magnifyingglass.circle", color: DS3Colors.statusSyncing, animated: true)
         case .error:
             StatusIcon(name: "exclamationmark.triangle.fill", color: DS3Colors.statusError, animated: false)
         case .paused:

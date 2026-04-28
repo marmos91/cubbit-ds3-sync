@@ -34,7 +34,9 @@ import os.log
 ///
 /// Calls `s3Client.deleteThumbnail(bucket:key:)` with the thumbnail key derived
 /// via `S3PathUtils.thumbnailKey(...)`. 404s are silent (Phase 12 D-14 contract).
-/// Other failures are logged + swallowed; orphan sweep (Plan 13-09) is the backstop.
+/// Other failures are logged + swallowed; the cascade is the sole orphan-prevention
+/// mechanism (Phase 13.2 D-25 deleted the orphan sweeper). A failed delete leaves
+/// an orphan thumb on S3; recovery is the next user-initiated original-key delete.
 ///
 /// Per Phase 13 D-21.
 @Sendable
@@ -58,11 +60,12 @@ func enqueueThumbnailDeleteCascade(
             try await s3Client.deleteThumbnail(bucket: bucket, key: thumbKey)
         } catch {
             // D-21: errors NEVER propagate to the user-visible delete contract — log + swallow.
-            // Orphan sweep (Plan 13-09) reclaims the leaked thumb on the next pass.
+            // Phase 13.2 D-25: orphan sweeper deleted; a failed delete leaks the thumb
+            // on S3 until the next user-initiated original-key delete reclaims it.
             //
             // Phase 13.1 Finding 5 (D-07): demote NoSuchKey to .info — the thumbnail
-            // is already gone (orphan sweep / prior cascade beat us), which is the
-            // success post-condition of this very call. Logging at .error creates noise.
+            // is already gone (prior cascade beat us), which is the success
+            // post-condition of this very call. Logging at .error creates noise.
             if DS3S3Client.isNotFoundError(error) {
                 logger.info(
                     "Delete cascade: thumbnail already absent (NoSuchKey) for \(thumbKey, privacy: .public)"
@@ -85,11 +88,16 @@ func enqueueThumbnailDeleteCascade(
 /// the original after the rename. Then `deleteThumbnail(old)` reclaims the old key.
 ///
 /// Failure modes (D-22):
-/// - Copy failure → mark new originalKey `.pending` so backfill (Plan 13-05 / 13-09)
-///   regenerates the thumbnail from the new original. We do NOT call deleteThumbnail
-///   on the old key in this path: the old thumbnail is the only surviving fresh copy
-///   until backfill completes; orphan sweep will reclaim it once the new is uploaded.
-/// - Delete-old failure → swallowed (orphan sweep is the backstop).
+/// - Copy failure → leave the new key without a thumbnail; the next user open of
+///   the new key triggers the reactive fallback render path (Phase 13.2 Plan 02)
+///   which renders + PUTs from the new original. We do NOT call deleteThumbnail
+///   on the old key in this path: the old thumbnail is the only surviving fresh
+///   copy until the new key has its own thumb. The leaked old thumb is permanent
+///   (Phase 13.2 D-25 deleted the orphan sweeper).
+///   Phase 13.2 Plan 09 / Schema V6 dropped `thumbnailStatus`, so there is no
+///   longer a `.pending` write to perform — the absence of `.thumbnails/<newKey>.jpg`
+///   in S3 is now the sole signal that triggers the consume-path fallback.
+/// - Delete-old failure → swallowed; orphan thumb accumulates on S3 (no sweeper).
 ///
 /// Per Phase 13 D-22, D-24.
 ///
@@ -97,6 +105,43 @@ func enqueueThumbnailDeleteCascade(
 /// both `.contents` AND a rename/move, the rename cascade is SUPPRESSED — Plan 13-07's
 /// content-change hook already wrote a fresh thumb at the new key; copying the old over
 /// it would overwrite the fresh render with a stale one. See Test 11 in CascadeRenameTests.
+extension FileProviderExtension {
+    /// Dispatches the post-rename/move thumbnail cascade if all preconditions hold.
+    /// Centralizes the gate logic shared by `modifyItem`'s rename, rename+move, and
+    /// move-only branches: skip when content was also changed (Plan 13-07's hook
+    /// already wrote a fresh thumb at the new key), when the item is a folder, or
+    /// when `s3Client` / `metadataStore` are unavailable. macOS only — iOS lacks
+    /// the upload-side renderer wired in Phase 13.2.
+    func dispatchRenameCascade(
+        oldKey: String,
+        newKey: String,
+        drive: DS3Drive,
+        s3Item: S3Item,
+        changedFields: NSFileProviderItemFields,
+        contextLabel: String
+    ) {
+        #if os(macOS)
+            guard !changedFields.contains(.contents), !s3Item.isFolder, self.s3Client != nil else {
+                return
+            }
+            guard let s3Client = self.s3Client, let metadataStore = self.metadataStore else {
+                self.logger.debug(
+                    "\(contextLabel, privacy: .public) thumbnail cascade skipped — metadataStore unavailable for \(oldKey, privacy: .public)"
+                )
+                return
+            }
+            enqueueThumbnailRenameCascade(
+                oldOriginalKey: oldKey,
+                newOriginalKey: newKey,
+                drive: drive,
+                s3Client: s3Client,
+                metadataStore: metadataStore,
+                logger: self.logger
+            )
+        #endif
+    }
+}
+
 @Sendable
 func enqueueThumbnailRenameCascade(
     oldOriginalKey: String,
@@ -116,6 +161,12 @@ func enqueueThumbnailRenameCascade(
     let oldKey = oldOriginalKey
     let newKey = newOriginalKey
 
+    // metadataStore is retained on the public signature for API stability and
+    // future use; Phase 13.2 Plan 09 dropped the `thumbnailStatus` writes that
+    // previously consumed it. Silence the unused-variable warning on iOS-style
+    // strict builds.
+    _ = (metadataStore, driveId)
+
     Task.detached(priority: .background) {
         let oldThumbKey = S3PathUtils.thumbnailKey(forOriginalKey: oldKey, drivePrefix: drivePrefix)
         let newThumbKey = S3PathUtils.thumbnailKey(forOriginalKey: newKey, drivePrefix: drivePrefix)
@@ -126,45 +177,49 @@ func enqueueThumbnailRenameCascade(
                 bucket: bucket, fromKey: oldThumbKey, toKey: newThumbKey
             )
         } catch {
-            // D-22 fallback: mark NEW originalKey .pending so backfill regenerates.
-            // We do NOT call deleteThumbnail(old) here — the old thumb is the only
-            // surviving fresh copy; orphan sweep will reclaim it after backfill writes
-            // the new thumb. Per Pitfall 5.
+            // D-22 fallback: leave the new key without a thumbnail. The next
+            // user-visible open of the new key triggers the reactive fallback
+            // render path (Phase 13.2 Plan 02), which renders + PUTs from the
+            // new original. We do NOT call deleteThumbnail(old) here — the old
+            // thumb is the only surviving fresh copy and the orphan sweeper is
+            // gone (Phase 13.2 D-25); the leaked old thumb stays on S3
+            // permanently unless a future cascade overwrites/deletes it.
             //
-            // Phase 13.1 Finding 5 (D-07): NoSuchKey here means the source thumbnail
-            // was already swept (post-Finding-4 fix this is rare; pre-fix it was
-            // common — Finding 4 false-positive deletes). The .pending fallback
-            // (D-08) still fires as defense-in-depth so backfill regenerates from
-            // the new original. Log at .info — this is an expected race, not an
-            // error worth alerting on.
+            // Phase 13.2 Plan 09 / Schema V6: no `.pending` write — the field
+            // is gone. The absence of `.thumbnails/<newKey>.jpg` in S3 is now
+            // the sole signal that triggers the consume-path fallback.
+            //
+            // Phase 13.1 Finding 5 (D-07): NoSuchKey here means the source
+            // thumbnail was missing at copy time (concurrent cascade or never
+            // existed). Log at .info — this is an expected race, not an error
+            // worth alerting on.
             if DS3S3Client.isNotFoundError(error) {
                 logger.info(
                     """
                     Rename cascade: source thumbnail already absent (NoSuchKey); \
-                    marking new key .pending: \(newThumbKey, privacy: .public)
+                    new key will be re-rendered on next visit: \(newThumbKey, privacy: .public)
                     """
                 )
             } else {
                 logger.error(
                     """
-                    Rename cascade copy failed; marking new key .pending for backfill: \
+                    Rename cascade copy failed; new key will be re-rendered on next visit: \
                     \(newThumbKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)
                     """
                 )
             }
-            try? await metadataStore.setThumbnailStatus(
-                s3Key: newKey, driveId: driveId, status: .pending
-            )
             return
         }
 
-        // 2. Delete old thumbnail. Failures are swallowed (orphan sweep cleans up).
+        // 2. Delete old thumbnail. Failures are swallowed; the cascade is the
+        // sole orphan-prevention mechanism (Phase 13.2 D-25). A failed delete
+        // leaks the old thumb on S3 permanently.
         do {
             try await s3Client.deleteThumbnail(bucket: bucket, key: oldThumbKey)
         } catch {
             // Phase 13.1 Finding 5 (D-07): NoSuchKey here means the old thumbnail
-            // is already gone — concurrent cascade or orphan sweep beat us. That is
-            // the success post-condition of this very delete; demote to .info.
+            // is already gone — concurrent cascade beat us. That is the success
+            // post-condition of this very delete; demote to .info.
             if DS3S3Client.isNotFoundError(error) {
                 logger.info(
                     "Rename cascade: old thumbnail already absent (NoSuchKey) for \(oldThumbKey, privacy: .public)"
@@ -172,7 +227,7 @@ func enqueueThumbnailRenameCascade(
             } else {
                 logger.warning(
                     """
-                    Rename cascade delete-old failed (orphan sweep will reclaim): \
+                    Rename cascade delete-old failed (orphan thumb leaked, no sweeper): \
                     \(oldThumbKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)
                     """
                 )

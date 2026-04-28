@@ -261,6 +261,7 @@ extension FileProviderExtension {
                         drive: drive,
                         s3Client: s3Client,
                         metadataStore: self.metadataStore,
+                        domain: self.domain,
                         logger: self.logger
                     )
                 }

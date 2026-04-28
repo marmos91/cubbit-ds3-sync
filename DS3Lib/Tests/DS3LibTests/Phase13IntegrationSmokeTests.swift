@@ -10,9 +10,8 @@ import XCTest
 /// These wire all Phase-13 production components together against a
 /// **stateful** in-memory S3 bucket and a real (in-memory) `MetadataStore`.
 /// Per-component unit tests (`ThumbnailUploaderTests`,
-/// `ThumbnailBackfillCoordinatorTests`, `MetadataStoreThumbnailQueriesTests`,
-/// `CopyThumbnailTests`, `ThumbnailStrikeRuleTests`) all use lighter mocks
-/// that record calls but don't actually share storage between components.
+/// `MetadataStoreThumbnailQueriesTests`, `CopyThumbnailTests`) all use lighter
+/// mocks that record calls but don't actually share storage between components.
 ///
 /// The bug class these tests exist to catch: **contract drift between the
 /// uploader and the consumer.** If the uploader writes a thumbnail to key
@@ -20,18 +19,17 @@ import XCTest
 /// but the user sees a perpetual default UTType icon. Sharing the in-memory
 /// bucket across both calls makes the contract drift fail loudly.
 ///
-/// The four tests cover:
+/// The two surviving tests cover:
 ///   1. `testUploadFlowEndToEnd` — uploader writes → store marks `.uploaded`
 ///      → cache-first read returns the SAME bytes. Single shared bucket.
-///   2. `testBackfillFlowEndToEnd` — coordinator processes pending rows →
-///      writes 3 thumbnails → cache-first reads return the SAME bytes.
-///   3. `testCascadeRoundTrip` — uploader writes → copyThumbnail copies →
+///   2. `testCascadeRoundTrip` — uploader writes → copyThumbnail copies →
 ///      deleteThumbnail removes old → reads on new key hit, reads on old
 ///      key miss (Plan 13-08 rename cascade contract).
-///   4. `testStrikeRuleEndToEnd` — coordinator processes a render-nil item
-///      three times → row transitions to terminal `.failed` → subsequent
-///      runBatch invocations skip it (predicate excludes `.failed`) →
-///      ETag change resets count + status → next runBatch picks it up.
+///
+/// Phase 13.2 Plan 07 deleted `testBackfillFlowEndToEnd` and
+/// `testStrikeRuleEndToEnd` along with the BFS coordinator they exercised
+/// (D-10). Per-folder discovery is now driven entirely by Apple's
+/// `enumerateItems` plus the reactive cache-miss fallback render path.
 ///
 /// All tests are macOS-only — the uploader and the renderer are
 /// `#if os(macOS)`-gated (D-09); iOS test runs compile this file as an
@@ -259,8 +257,8 @@ import XCTest
         private let drivePrefix: String? = nil
 
         override func setUp() async throws {
-            // V4 schema (Plan 13-04 bumped from V3).
-            let schema = Schema(versionedSchema: SyncedItemSchemaV4.self)
+            // V6 schema (Phase 13.2 Plan 09 dropped `thumbnailStatus`).
+            let schema = Schema(versionedSchema: SyncedItemSchemaV6.self)
             let config = ModelConfiguration(isStoredInMemoryOnly: true)
             container = try ModelContainer(for: schema, configurations: [config])
             metadataStore = MetadataStore(modelContainer: container)
@@ -334,16 +332,11 @@ import XCTest
                 originalKey: originalKey
             )
 
-            // Cross-component pin #1 — SyncedItem must be `.uploaded`.
-            let status = try await metadataStore.fetchItemSyncStatusForThumbnails(
-                s3Key: originalKey, driveId: driveId
-            )
-            XCTAssertEqual(
-                status, ThumbnailStatus.uploaded.rawValue,
-                "uploader must transition the SyncedItem to .uploaded on render success"
-            )
-
-            // Cross-component pin #2 — bucket has the object at the canonical key.
+            // Cross-component pin #1 — bucket has the object at the canonical key.
+            // Phase 13.2 Plan 09 (D-08, D-23): the `thumbnailStatus` field was
+            // dropped in Schema V6. The "is the thumbnail uploaded?" question is
+            // now answered exclusively by S3 — `getThumbnailBytes` returns bytes
+            // or nil. The next pin asserts exactly that contract.
             let canonicalKey = S3PathUtils.thumbnailKey(
                 forOriginalKey: originalKey, drivePrefix: drivePrefix
             )
@@ -373,83 +366,7 @@ import XCTest
             XCTAssertGreaterThan(fetched?.count ?? 0, 0)
         }
 
-        // MARK: - Test 2: backfill flow end-to-end
-
-        /// **Cross-component contract:**
-        /// `ThumbnailBackfillCoordinator.runBatch` processes 3 pending rows;
-        /// each row's original is downloaded via `getObject(toFile:)`,
-        /// rendered via `ThumbnailRenderer`, PUT to the canonical thumbnail
-        /// key, and the SyncedItem transitions to `.uploaded`. The post-
-        /// condition is a 1:1 correspondence between seeded pendings and
-        /// `.thumbnails/` keys in the bucket.
-        func testBackfillFlowEndToEnd() async throws {
-            let drive = makeDrive()
-            let fixtureURL = try fixtureURL(name: "exif6-portrait", ext: "jpg")
-            let originalBytes = try Data(contentsOf: fixtureURL)
-
-            // Seed 3 pending raster rows AND plant their originals in the
-            // bucket so the coordinator's `getObject(toFile:)` succeeds.
-            let originalKeys = (0..<3).map { "photos/photo-\($0).jpg" }
-            for key in originalKeys {
-                try await seedItem(s3Key: key)
-                bucket.seedOriginal(key: key, payload: originalBytes)
-            }
-
-            // Force `.pending` thumbnail status so they appear in the
-            // coordinator's fetchPendingThumbnails query (upsert defaults
-            // are `.pending`, but we want to be explicit).
-            for key in originalKeys {
-                try await metadataStore.setThumbnailStatus(
-                    s3Key: key, driveId: driveId, status: .pending
-                )
-            }
-
-            let coordinator = ThumbnailBackfillCoordinator(
-                metadataStore: metadataStore,
-                s3Client: bucket,
-                drive: drive,
-                thermalStateProvider: { .nominal },
-                pauseProvider: { _ in false }
-            )
-
-            let result = try await coordinator.runBatch(maxItems: 5)
-
-            XCTAssertEqual(result.processed, 3, "coordinator must process all 3 pending rows in one batch")
-            XCTAssertEqual(result.succeeded, 3, "all 3 originals decode + upload cleanly")
-            XCTAssertEqual(result.failed, 0)
-
-            // Cross-component pin — every row is `.uploaded` AND every
-            // canonical thumbnail key exists in the shared bucket.
-            for key in originalKeys {
-                let status = try await metadataStore.fetchItemSyncStatusForThumbnails(
-                    s3Key: key, driveId: driveId
-                )
-                XCTAssertEqual(
-                    status, ThumbnailStatus.uploaded.rawValue,
-                    "coordinator must transition \(key) to .uploaded"
-                )
-
-                let canonical = S3PathUtils.thumbnailKey(
-                    forOriginalKey: key, drivePrefix: drivePrefix
-                )
-                XCTAssertTrue(
-                    bucket.has(key: canonical),
-                    "coordinator must PUT thumbnail at canonical key for \(key)"
-                )
-
-                // The bytes the coordinator wrote must be readable via the
-                // consume-path API on the SAME key.
-                let fetched = try await bucket.getThumbnailBytes(
-                    bucket: drive.syncAnchor.bucket.name, key: canonical
-                )
-                XCTAssertNotNil(
-                    fetched,
-                    "getThumbnailBytes must hit for backfilled key \(canonical)"
-                )
-            }
-        }
-
-        // MARK: - Test 3: cascade round-trip (rename)
+        // MARK: - Test 2: cascade round-trip (rename)
 
         /// **Cross-component contract (Plan 13-08 rename cascade):**
         /// 1. uploader writes to `oldThumb`,
@@ -522,98 +439,5 @@ import XCTest
             )
         }
 
-        // MARK: - Test 4: strike rule end-to-end (terminal + ETag reset)
-
-        /// **Cross-component contract (Plans 13-04 + 13-05):**
-        /// 1. Coordinator processes a row whose download payload doesn't
-        ///    decode (renderer returns nil) — strike count goes 1.
-        /// 2. Two more runBatch invocations bring count to 3 — row flips
-        ///    terminal `.failed`.
-        /// 3. Subsequent runBatch DOES NOT re-process the terminal row
-        ///    (`fetchPendingThumbnails` excludes `.failed` per D-30).
-        /// 4. Upserting the row with a new ETag resets count + status.
-        /// 5. Next runBatch picks the row up again — proves the reset
-        ///    re-arms the row (D-31).
-        func testStrikeRuleEndToEnd() async throws {
-            let drive = makeDrive()
-            let originalKey = "photos/keeps-failing.jpg"
-            try await seedItem(s3Key: originalKey, etag: "\"etag-v1\"")
-            // Plant a stub original so getObject succeeds, but the
-            // bucket's render-undecodable hook makes the render step
-            // return nil — exercising the strike helper.
-            bucket.seedOriginal(key: originalKey, payload: Data([0xff, 0xd8])) // bogus jpg
-            bucket.renderUndecodableForKey = originalKey
-
-            let coordinator = ThumbnailBackfillCoordinator(
-                metadataStore: metadataStore,
-                s3Client: bucket,
-                drive: drive,
-                thermalStateProvider: { .nominal },
-                pauseProvider: { _ in false }
-            )
-
-            // Strike 1 — count 0 → 1, status stays .pending.
-            _ = try await coordinator.runBatch(maxItems: 5)
-            var state = try await metadataStore.thumbnailStateForTesting(
-                s3Key: originalKey, driveId: driveId
-            )
-            XCTAssertEqual(state?.0, 1, "first failure must increment count to 1")
-            XCTAssertEqual(
-                state?.1, ThumbnailStatus.pending.rawValue,
-                "below threshold the row must stay .pending so next BFS pass retries"
-            )
-
-            // Strike 2 + 3 — count climbs 2, 3.
-            _ = try await coordinator.runBatch(maxItems: 5)
-            _ = try await coordinator.runBatch(maxItems: 5)
-            state = try await metadataStore.thumbnailStateForTesting(
-                s3Key: originalKey, driveId: driveId
-            )
-            XCTAssertEqual(state?.0, 3, "third failure must bring count to 3")
-            XCTAssertEqual(
-                state?.1, ThumbnailStatus.failed.rawValue,
-                "count >= 3 must transition to terminal .failed (Pitfall 10 boundary)"
-            )
-
-            // Subsequent runBatch must NOT re-process the terminal row.
-            // The fetchPendingThumbnails predicate excludes .failed (D-30),
-            // so the coordinator finds an empty queue.
-            let postTerminalResult = try await coordinator.runBatch(maxItems: 5)
-            XCTAssertEqual(
-                postTerminalResult.processed, 0,
-                "terminal .failed rows must not appear in fetchPendingThumbnails (D-30)"
-            )
-
-            // ETag-change reset (D-31) — re-upserting the row with a NEW
-            // etag must reset count to 0 AND status to .pending.
-            try await metadataStore.upsertItem(
-                s3Key: originalKey, driveId: driveId, etag: "\"etag-v2\"",
-                syncStatus: .synced, contentType: "image/jpeg", size: 1024
-            )
-            state = try await metadataStore.thumbnailStateForTesting(
-                s3Key: originalKey, driveId: driveId
-            )
-            XCTAssertEqual(
-                state?.0, 0,
-                "ETag change must reset thumbnailFailCount to 0 (D-31 reset condition)"
-            )
-            XCTAssertEqual(
-                state?.1, ThumbnailStatus.pending.rawValue,
-                "ETag change must re-arm the row by transitioning back to .pending"
-            )
-
-            // Now that the row is .pending again, but the bucket is still
-            // configured to write undecodable payload, the next runBatch
-            // picks it up — proving the reset wired the row back into the
-            // pending query. The strike count goes from 0 → 1 again.
-            _ = try await coordinator.runBatch(maxItems: 5)
-            state = try await metadataStore.thumbnailStateForTesting(
-                s3Key: originalKey, driveId: driveId
-            )
-            XCTAssertEqual(
-                state?.0, 1,
-                "after reset, the row must be re-eligible — next failure increments count from 0 to 1"
-            )
-        }
     }
 #endif

@@ -290,8 +290,12 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                         return
                     }
 
+                    // Phase 13.2 D-16: transient indexing pulse collapsed to
+                    // `.sync` (busy). NotificationManager's active-operations
+                    // counter + debounce aggregator preserves the "something
+                    // is happening" UX without a dedicated `.indexing` state.
                     await self.notificationManager.sendDriveChangedNotificationWithDebounce(
-                        status: .indexing,
+                        status: .sync,
                         isFileOperation: false
                     )
 
@@ -528,8 +532,9 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable { //
                     .info("enumerateChanges: skipping on iOS for prefix \(self.prefix ?? "nil", privacy: .public)")
                 observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
             #else
+                // Phase 13.2 D-16: transient indexing pulse collapsed to `.sync`.
                 await self.notificationManager.sendDriveChangedNotificationWithDebounce(
-                    status: .indexing,
+                    status: .sync,
                     isFileOperation: false
                 )
 

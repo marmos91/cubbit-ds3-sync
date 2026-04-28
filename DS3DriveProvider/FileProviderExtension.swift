@@ -61,9 +61,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
     var pollingTask: Task<Void, Never>?
     var purgeTask: Task<Void, Never>?
 
-    /// Proactive breadth-first indexer that populates MetadataStore level-by-level.
-    var breadthFirstIndexer: BreadthFirstIndexer?
-
     // Limits concurrent fetchContents/fetchPartialContents calls to prevent
     // HTTP/2 stream exhaustion (NIOHTTP2.StreamClosed errors).
     #if os(iOS)
@@ -77,6 +74,13 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
     /// path. Upload generator and backfill coordinator do NOT route through
     /// this limiter (Pitfall 4).
     let thumbnailFetchLimiter = ThumbnailFetchLimiter(maxSlots: 4)
+
+    /// Phase 13.2 D-02: 2-slot limiter for the cache-miss fallback render path.
+    /// Strict separation from the 4-slot `thumbnailFetchLimiter` (cached-thumb
+    /// GETs) prevents heavy fallbacks (full-original download + render) from
+    /// starving the cheap hot path. Also holds the in-memory strike counter
+    /// + poison-key set for THUMB-20 reframed (D-19, D-20, D-21).
+    let thumbnailFallbackLimiter = ThumbnailFallbackLimiter()
 
     var drive: DS3Drive?
     let temporaryDirectory: URL?
@@ -140,8 +144,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
 
         super.init()
         self.startPolling()
-        self.runThumbnailRolloutIfNeeded()
-        self.warmCacheThenStartBFS()
+        self.warmCache()
         self.startAutoPurge()
 
         // If drive is paused, notify the main app so UI reflects the state
@@ -167,8 +170,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         self.pollingTask = nil
         self.purgeTask?.cancel()
         self.purgeTask = nil
-        self.breadthFirstIndexer?.stop()
-        self.breadthFirstIndexer = nil
 
         if let nm = self.notificationManager {
             Task { await nm.shutdown() }
@@ -342,7 +343,8 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
     }
 
     /// Materialises a folder item by providing an empty temp file and marking it in MetadataStore.
-    /// Bumps the folder to the front of the BFS indexer queue so its children are discovered quickly.
+    /// Discovery of the folder's children is driven reactively by Apple's
+    /// `enumerateItems`, so no proactive indexer call is needed here.
     func materializeFolderItem(
         _ itemIdentifier: NSFileProviderItemIdentifier,
         drive: DS3Drive,
@@ -351,9 +353,11 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
     ) -> Progress {
         logger.debug("Materializing folder item: \(itemIdentifier.rawValue, privacy: .public)")
 
-        // Notify the tray immediately so the user sees feedback
+        // Notify the tray immediately so the user sees feedback (Phase 13.2 D-16:
+        // transient indexing pulses now collapse to `.sync` via the existing
+        // active-operations counter — no dedicated `.indexing` state).
         if let nm = self.notificationManager {
-            Task { await nm.sendDriveChangedNotification(status: .indexing) }
+            Task { await nm.sendDriveChangedNotification(status: .sync) }
         }
 
         let progress = Progress(totalUnitCount: 1)
@@ -376,7 +380,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             completionHandler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
         }
         progress.completedUnitCount = 1
-        breadthFirstIndexer?.prioritize(prefix: itemIdentifier.rawValue)
 
         return progress
     }
