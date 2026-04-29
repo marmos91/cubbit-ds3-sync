@@ -8,9 +8,9 @@ import os.log
 /// from folder navigation to keep "important" items fresh and to populate
 /// Spotlight / Files.app Recents without walking the remote tree.
 ///
-/// `enumerateChanges` does a per-member HEAD request through the existing
-/// `BucketListingLimiter` concurrency budget so the working set never
-/// stampedes S3 even when the membership grows.
+/// `enumerateChanges` HEADs every working-set member in parallel via a
+/// `withTaskGroup`. The set is bounded (only materialised items qualify), so
+/// the fan-out is naturally capped without a dedicated limiter.
 final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
     typealias Logger = os.Logger
 

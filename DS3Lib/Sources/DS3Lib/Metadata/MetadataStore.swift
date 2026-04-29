@@ -135,8 +135,6 @@ public actor MetadataStore {
             existing.parentKey = parentKey
             existing.contentType = contentType
             existing.size = size
-            // Additive: never clear a previously-true row. Only explicit
-            // `setMaterialized(..., isMaterialized: false)` clears the flag.
             if isMaterialized {
                 existing.isMaterialized = true
             }

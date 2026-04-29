@@ -201,14 +201,7 @@ extension FileProviderExtension {
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(interval))
                     guard !Task.isCancelled, let self else { break }
-                    guard let manager = NSFileProviderManager(for: self.domain) else { continue }
-                    manager.signalEnumerator(for: .workingSet) { [weak self] error in
-                        if let error {
-                            self?.logger.error(
-                                "Working-set signal failed: \(error.localizedDescription, privacy: .public)"
-                            )
-                        }
-                    }
+                    self.signalChanges()
                 }
             }
 
