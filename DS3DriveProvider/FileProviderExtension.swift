@@ -180,7 +180,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         ) {
             return stored
         }
-        let filename = key.split(separator: "/").last.map(String.init) ?? key
+        let filename = key.split(separator: DefaultSettings.S3.delimiter).last.map(String.init) ?? key
         return S3Lib.fullTrashPrefix(forDrive: drive) + filename
     }
 
@@ -196,7 +196,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         // Try MetadataStore first
         if let cached = try? await metadataStore?.fetchItemMetadata(byKey: identifier.rawValue, driveId: drive.id),
            cached.etag != nil || cached.syncStatus == SyncStatus.error.rawValue || isFolder {
-            self.logger.info("item(for:) cache hit for \(identifier.rawValue, privacy: .public) isFolder=\(isFolder)")
+            self.logger.debug("item(for:) cache hit for \(identifier.rawValue, privacy: .public) isFolder=\(isFolder)")
             return S3Item(
                 identifier: identifier,
                 drive: drive,
@@ -214,7 +214,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         // can hang when the iOS networking grace period is exhausted, causing
         // Files to show folder items without icons while waiting for a response.
         if isFolder {
-            self.logger.info("item(for:) folder shortcut for \(identifier.rawValue, privacy: .public)")
+            self.logger.debug("item(for:) folder shortcut for \(identifier.rawValue, privacy: .public)")
             return S3Item(
                 identifier: identifier,
                 drive: drive,
@@ -222,7 +222,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             )
         }
 
-        self.logger.info("item(for:) S3 HEAD for \(identifier.rawValue, privacy: .public)")
+        self.logger.debug("item(for:) S3 HEAD for \(identifier.rawValue, privacy: .public)")
         do {
             return try await s3Lib.remoteS3Item(for: identifier, drive: drive)
         } catch {
@@ -355,12 +355,19 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             // The folder is now "downloaded" from Apple's POV; flag it as a
             // working-set member so it participates in drift detection.
             let store = self.metadataStore
+            let key = itemIdentifier.rawValue
+            let driveId = drive.id
+            let logger = self.logger
             Task {
-                try? await store?.setMaterialized(
-                    s3Key: itemIdentifier.rawValue,
-                    driveId: drive.id,
-                    isMaterialized: true
-                )
+                do {
+                    try await store?.setMaterialized(
+                        s3Key: key, driveId: driveId, isMaterialized: true
+                    )
+                } catch {
+                    logger.warning(
+                        "materializeFolderItem: setMaterialized failed for \(key, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
+                }
             }
         } catch {
             completionHandler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
@@ -380,9 +387,9 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             return
         }
 
-        manager.signalEnumerator(for: .workingSet) { error in
+        manager.signalEnumerator(for: .workingSet) { [weak self] error in
             if let error {
-                self.logger.error("Failed to signal working set: \(error.localizedDescription, privacy: .public)")
+                self?.logger.error("Failed to signal working set: \(error.localizedDescription, privacy: .public)")
             }
         }
     }

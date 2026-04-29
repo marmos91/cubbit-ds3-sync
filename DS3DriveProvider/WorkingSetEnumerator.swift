@@ -103,7 +103,12 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked
         let _: Task<Void, Never> = Task {
             let observer = boxedObserver.value
             guard let metadataStore = self.metadataStore else {
-                observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
+                self.logger.error(
+                    "WorkingSetEnumerator: enumerateChanges called with nil metadataStore"
+                )
+                observer.finishEnumeratingWithError(
+                    NSFileProviderError(.cannotSynchronize) as NSError
+                )
                 return
             }
 
@@ -128,7 +133,13 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked
                 }
                 if !updatedItems.isEmpty {
                     let upsertData = updatedItems.map { MetadataStore.ItemUpsertData(from: $0) }
-                    try? await metadataStore.batchUpsertItems(upsertData)
+                    do {
+                        try await metadataStore.batchUpsertItems(upsertData)
+                    } catch {
+                        self.logger.warning(
+                            "WorkingSetEnumerator: failed to persist updated items: \(error.localizedDescription, privacy: .public)"
+                        )
+                    }
                     observer.didUpdate(updatedItems)
                 }
                 if !refreshed.deleted.isEmpty {
@@ -139,9 +150,15 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked
                     // indefinitely.
                     let driveId = self.drive.id
                     let deletedKeys = refreshed.deleted
-                    try? await metadataStore.batchDeleteItems(
-                        deletedKeys.map { (s3Key: $0, driveId: driveId) }
-                    )
+                    do {
+                        try await metadataStore.batchDeleteItems(
+                            deletedKeys.map { (s3Key: $0, driveId: driveId) }
+                        )
+                    } catch {
+                        self.logger.error(
+                            "WorkingSetEnumerator: failed to remove deleted keys from store: \(error.localizedDescription, privacy: .public)"
+                        )
+                    }
                     observer.didDeleteItems(
                         withIdentifiers: deletedKeys.map { NSFileProviderItemIdentifier($0) }
                     )

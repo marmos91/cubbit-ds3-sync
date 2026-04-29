@@ -234,9 +234,18 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                     observer.didUpdate(updatedItems)
                 }
                 if !delta.deleted.isEmpty {
-                    observer.didDeleteItems(
-                        withIdentifiers: delta.deleted.map { NSFileProviderItemIdentifier($0) }
-                    )
+                    // Working-set members (`isMaterialized: true`) are owned by
+                    // `WorkingSetEnumerator` for deletion notification — let it
+                    // HEAD them and report 404s on the next 30 s cycle. Reporting
+                    // them here too would defeat that invariant and double-fire
+                    // `didDeleteItems`.
+                    let materializedKeys = Set(local.filter(\.isMaterialized).map(\.s3Key))
+                    let reportable = delta.deleted.subtracting(materializedKeys)
+                    if !reportable.isEmpty {
+                        observer.didDeleteItems(
+                            withIdentifiers: reportable.map { NSFileProviderItemIdentifier($0) }
+                        )
+                    }
                 }
 
                 let newAnchor = NSFileProviderSyncAnchor(

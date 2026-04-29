@@ -76,9 +76,10 @@ public actor MetadataStore {
         public let parentKey: String?
         public let contentType: String?
         public let size: Int64
-        /// When `true`, mark the row as a working-set member. Additive: an existing
-        /// `true` is never downgraded by an upsert with `false` — only an explicit
-        /// `setMaterialized(.., isMaterialized: false)` clears it.
+        /// When `true`, marks the row as a working-set member. Additive on the
+        /// batch upsert path: an existing `true` is never downgraded to `false`
+        /// here. Point eviction uses
+        /// `setMaterialized(s3Key:driveId:isMaterialized:)` directly.
         public let isMaterialized: Bool
 
         public init(

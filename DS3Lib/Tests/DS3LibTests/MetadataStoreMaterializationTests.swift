@@ -62,6 +62,45 @@ final class MetadataStoreMaterializationTests: XCTestCase {
         XCTAssertFalse(keys.contains("c.txt"), "rows not in the set must remain false")
     }
 
+    func testUpsertUpgradesFalseToTrue() async throws {
+        try await store.batchUpsertItems([
+            .init(s3Key: "a.txt", driveId: driveId, isMaterialized: false)
+        ])
+        try await store.batchUpsertItems([
+            .init(s3Key: "a.txt", driveId: driveId, isMaterialized: true)
+        ])
+        let keys = try await materializedKeys()
+        XCTAssertTrue(
+            keys.contains("a.txt"),
+            "batchUpsertItems must upgrade isMaterialized false → true"
+        )
+    }
+
+    func testMarkMaterializedEmptySetIsNoop() async throws {
+        try await store.batchUpsertItems([
+            .init(s3Key: "a.txt", driveId: driveId, isMaterialized: false)
+        ])
+        try await store.markMaterialized([], driveId: driveId)
+        let keys = try await materializedKeys()
+        XCTAssertFalse(keys.contains("a.txt"), "empty set must be a no-op")
+    }
+
+    func testMarkMaterializedUnknownKeyIsSilentNoop() async throws {
+        try await store.batchUpsertItems([
+            .init(s3Key: "a.txt", driveId: driveId, isMaterialized: false)
+        ])
+        try await store.markMaterialized(["nonexistent.txt"], driveId: driveId)
+        let keys = try await materializedKeys()
+        XCTAssertFalse(
+            keys.contains("a.txt"),
+            "unmodified row must remain non-materialised"
+        )
+        XCTAssertFalse(
+            keys.contains("nonexistent.txt"),
+            "unknown key must not synthesise a row"
+        )
+    }
+
     func testPruneChildrenPreservesWorkingSetRows() async throws {
         let parentKey = "Personal/Images/"
         // Two children of the same folder, both synced. Only `b.txt` is in

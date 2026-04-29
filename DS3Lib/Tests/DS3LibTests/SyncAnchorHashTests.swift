@@ -32,7 +32,7 @@ final class SyncAnchorHashTests: XCTestCase {
         XCTAssertNotEqual(two, one)
     }
 
-    func testNilEtagDistinctFromEmptyEtag() {
+    func testNilEtagAndEmptyEtagHashIdentically() {
         // Nil etag becomes "" via the compute formatter; an actual ""
         // remote etag is still distinguishable from a different etag value.
         // The anchor merely needs to be deterministic and stable; this test

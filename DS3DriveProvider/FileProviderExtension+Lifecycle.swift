@@ -7,9 +7,9 @@ extension FileProviderExtension {
     /// Call `signalChanges()` alongside this if the working set also changed.
     func signalTrashChanges() {
         guard let manager = NSFileProviderManager(for: self.domain) else { return }
-        manager.signalEnumerator(for: .trashContainer) { error in
+        manager.signalEnumerator(for: .trashContainer) { [weak self] error in
             if let error {
-                self.logger.error("Failed to signal trash container: \(error.localizedDescription, privacy: .public)")
+                self?.logger.error("Failed to signal trash container: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
