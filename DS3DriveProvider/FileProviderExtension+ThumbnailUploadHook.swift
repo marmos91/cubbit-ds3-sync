@@ -203,6 +203,12 @@ private func runUploadHook(
 /// Issue #141 (Task 4): admission control via `ThumbnailUploadLimiter`. Soft-cap check
 /// at enqueue time drops new work past 64 pending waiters; the consume-path fallback
 /// generates missing thumbnails on first view.
+///
+/// Implementation note: the soft-cap read crosses an actor boundary
+/// (`isAtSoftCap`), so we wrap it in an outer `Task(priority: .utility)`
+/// before spawning the inner `Task.detached(priority: .background)` that
+/// runs the render+PUT. The outer Task only does the cap check; never
+/// captures `self`.
 @Sendable
 func enqueueThumbnailUpload(
     _ context: ThumbnailUploadHookContext,
@@ -231,13 +237,16 @@ func enqueueThumbnailUpload(
 
     // (c) Capture sendable locals before opening the detached Task. NEVER capture `self`
     //     (this is a free function — the FileProviderExtension subclass is non-Sendable per
-    //     Pitfall 1 in 13-RESEARCH.md). All values below are Sendable by construction.
+    //     Pitfall 1 in 13-RESEARCH.md). All values below are Sendable by construction —
+    //     including `downloadFn`, which binds the @escaping `ThumbnailOriginalDownloader`
+    //     closure into a named local so the invariant is explicit at the capture site.
     let limiterRef = limiter
     let originalKey = context.originalKey
     let logger = context.logger
     let s3Client = context.s3Client
     let drive = context.drive
     let domain = context.domain
+    let downloadFn = download
     // Phase 13.2 D-12: bind the signal callback up-front. Production gets the NSFileProviderManager-backed
     // closure; tests inject a recorder. Either way, the closure is @Sendable and never captures self.
     let signalCallback = signalParentContainer ?? makeSignalParentContainer(
@@ -249,7 +258,7 @@ func enqueueThumbnailUpload(
     //     cost is at most one extra waiter past the cap, which is fine.
     //     Issue #141: bulk imports past 64+2 in-flight jobs fall through to the
     //     consume-path fallback on first view.
-    Task {
+    Task(priority: .utility) {
         if await limiterRef.isAtSoftCap {
             logger.info(
                 "Upload-hook: soft cap reached, deferring \(originalKey, privacy: .public) to consume-path fallback"
@@ -263,7 +272,7 @@ func enqueueThumbnailUpload(
                 originalKey: originalKey,
                 sourceETag: sourceETag,
                 limiter: limiterRef,
-                download: download,
+                download: downloadFn,
                 signalCallback: signalCallback,
                 logger: logger
             )
