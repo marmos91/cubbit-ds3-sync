@@ -15,12 +15,15 @@ import UniformTypeIdentifiers
         /// `Data(contentsOf:.mappedIfSafe)` threw — file gone, sandbox eviction, IO error.
         case dataLoad
         /// `CGImageSourceCreateWithData` returned nil — bytes don't form a valid image source.
+        /// Not directly exercisable in unit tests (CGImageSource is permissive on invalid bytes); retained for
+        /// production diagnostic coverage.
         case sourceCreate
         /// UTI not in the raster allow-list (RAW, PDF, etc.).
         case utiReject
         /// `CGImageSourceCreateThumbnailAtIndex` returned nil — ImageIO decode failed.
         case thumbnailCreate
         /// JPEG encoder init or finalize failed.
+        /// Not directly exercisable in unit tests; retained for production diagnostic coverage.
         case jpegEncode
     }
 
