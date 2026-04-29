@@ -81,6 +81,14 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
     /// + poison-key set for THUMB-20 reframed (D-19, D-20, D-21).
     let thumbnailFallbackLimiter = ThumbnailFallbackLimiter()
 
+    /// Admission-gate for the upload-time (eager) thumbnail generator.
+    /// Issue #141: bulk uploads previously spawned unbounded detached Tasks,
+    /// racing into ImageIO and reading the FileProvider temp URL after it
+    /// could be invalidated. This limiter caps concurrent render+PUT to 2
+    /// and drops overflow past 64 pending+inflight jobs (consume-path
+    /// fallback covers missed thumbnails on first view).
+    let thumbnailUploadLimiter = ThumbnailUploadLimiter()
+
     var drive: DS3Drive?
     let temporaryDirectory: URL?
     let systemService: any SystemService
