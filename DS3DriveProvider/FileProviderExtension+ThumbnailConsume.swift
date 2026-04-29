@@ -182,7 +182,7 @@ typealias ThumbnailOriginalDownloader =
 /// Closure that renders a JPEG thumbnail from a local original. Returns nil
 /// when the bytes don't decode (corrupt file, unsupported UTI). Production
 /// wires this to `ThumbnailRenderer().renderJPEG(from:)`.
-typealias ThumbnailRendererFn = @Sendable (URL) -> Data?
+typealias ThumbnailRendererFn = @Sendable (URL) -> Result<Data, RenderFailure>
 
 /// Closure that PUTs the rendered JPEG to S3. Production wires this to
 /// `s3Client.putThumbnail(bucket:key:data:sourceETag:)`.
@@ -276,11 +276,18 @@ func consumeThumbnailFallback(
         let (fileURL, sourceETag) = try await context.download(identifier, drive)
         defer { try? FileManager.default.removeItem(at: fileURL) }
 
-        // Step 4 — Render. nil result records a strike but is NOT an error
+        // Step 4 — Render. A failure records a strike but is NOT an error
         // surfaced to Finder beyond `.noSuchItem` (Finder draws default icon).
-        guard let jpegBytes = context.render(fileURL) else {
+        let renderResult = context.render(fileURL)
+        let jpegBytes: Data
+        switch renderResult {
+        case let .success(bytes):
+            jpegBytes = bytes
+        case let .failure(reason):
             await limiter.recordFailure(key)
-            logger.info("Fallback: render returned nil for \(key, privacy: .public)")
+            logger.info(
+                "Fallback: render failed for \(key, privacy: .public) — reason=\(reason.rawValue, privacy: .public)"
+            )
             perItemHandler(identifier, nil, NSFileProviderError(.noSuchItem) as NSError)
             await limiter.release()
             return

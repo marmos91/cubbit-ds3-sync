@@ -67,9 +67,14 @@ public struct ThumbnailUploader: Sendable {
             // (b) Render — the renderer's allow-list (UTI-based, magic-byte sniffed) is
             // stricter than the extension allow-list, so this branch fires for files with
             // a raster extension whose bytes don't decode (corrupt JPEGs, unknown UTI).
-            guard let data = ThumbnailRenderer().renderJPEG(from: localURL) else {
+            let renderResult = ThumbnailRenderer().renderJPEG(from: localURL)
+            let data: Data
+            switch renderResult {
+            case let .success(bytes):
+                data = bytes
+            case let .failure(reason):
                 logger.info(
-                    "Uploader: render returned nil for \(originalKey, privacy: .public)"
+                    "Uploader: render failed for \(originalKey, privacy: .public) — reason=\(reason.rawValue, privacy: .public)"
                 )
                 // Phase 13.2 D-05/D-19: no schema strike counter anymore. The
                 // consume-path fallback's `ThumbnailFallbackLimiter` (in-memory)

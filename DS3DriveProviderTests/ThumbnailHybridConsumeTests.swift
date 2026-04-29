@@ -37,7 +37,7 @@ final class ThumbnailHybridConsumeTests: XCTestCase {
 
         let context = Self.makeContext(
             download: { _, _ in (downloadURL, sourceETag) },
-            render: { _ in renderedBytes },
+            render: { _ in .success(renderedBytes) },
             putThumbnail: { bucket, key, data, etag in
                 await putRecorder.record(bucket: bucket, key: key, data: data, etag: etag)
             },
@@ -92,7 +92,7 @@ final class ThumbnailHybridConsumeTests: XCTestCase {
 
         let context = Self.makeContext(
             download: { _, _ in (downloadURL, "etag") },
-            render: { _ in renderedBytes },
+            render: { _ in .success(renderedBytes) },
             signalParentContainer: { id in
                 Task { await signalRecorder.record(id) }
             }
@@ -134,7 +134,7 @@ final class ThumbnailHybridConsumeTests: XCTestCase {
                 await downloadCounter.increment()
                 return (URL(fileURLWithPath: "/tmp/never"), nil)
             },
-            render: { _ in Data() },
+            render: { _ in .success(Data()) },
             putThumbnail: { bucket, key, data, etag in
                 await putRecorder.record(bucket: bucket, key: key, data: data, etag: etag)
             },
@@ -190,7 +190,7 @@ final class ThumbnailHybridConsumeTests: XCTestCase {
                 await downloadCounter.increment()
                 return (URL(fileURLWithPath: "/tmp/never"), nil)
             },
-            render: { _ in Data() }
+            render: { _ in .success(Data()) }
         )
 
         await consumeThumbnailFallback(
@@ -235,7 +235,7 @@ final class ThumbnailHybridConsumeTests: XCTestCase {
                 await downloadCounter.increment()
                 return (downloadURL, nil)
             },
-            render: { _ in nil } // unsupported / corrupt
+            render: { _ in .failure(.thumbnailCreate) } // unsupported / corrupt
         )
         for _ in 0 ..< 3 {
             await consumeThumbnailFallback(
@@ -262,7 +262,7 @@ final class ThumbnailHybridConsumeTests: XCTestCase {
                 await downloadCounter.increment()
                 return (downloadURL, nil)
             },
-            render: { _ in Data() }
+            render: { _ in .success(Data()) }
         )
         await consumeThumbnailFallback(
             identifier: identifier,
@@ -299,7 +299,7 @@ final class ThumbnailHybridConsumeTests: XCTestCase {
         let context = Self.makeContext(
             limiter: limiter,
             download: { _, _ in (downloadURL, "etag") },
-            render: { _ in renderedBytes },
+            render: { _ in .success(renderedBytes) },
             putThumbnail: { _, _, _, _ in throw PutNetworkError() }
         )
         await consumeThumbnailFallback(
@@ -344,7 +344,7 @@ final class ThumbnailHybridConsumeTests: XCTestCase {
 
         let context = Self.makeContext(
             download: { _, _ in throw CustomDomainError() }, // download fails
-            render: { _ in Data() }
+            render: { _ in .success(Data()) }
         )
         await consumeThumbnailFallback(
             identifier: identifier,
@@ -398,7 +398,7 @@ final class ThumbnailHybridConsumeTests: XCTestCase {
         download: @escaping ThumbnailOriginalDownloader = { _, _ in
             throw NSFileProviderError(.cannotSynchronize)
         },
-        render: @escaping ThumbnailRendererFn = { _ in nil },
+        render: @escaping ThumbnailRendererFn = { _ in .failure(.thumbnailCreate) },
         putThumbnail: @escaping ThumbnailFallbackPutter = { _, _, _, _ in
             // Default: succeed silently. Tests that care override this.
         },

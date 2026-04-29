@@ -56,9 +56,12 @@ final class ThumbnailFallbackMemorySmokeTests: XCTestCase {
 
         for iteration in 0 ..< 8 {
             autoreleasepool {
-                let bytes = renderer.renderJPEG(from: url)
-                XCTAssertNotNil(bytes, "Render #\(iteration) returned nil — fixture may be invalid HEIC")
-                XCTAssertGreaterThan(bytes?.count ?? 0, 0, "Render #\(iteration) produced empty JPEG")
+                let result = renderer.renderJPEG(from: url)
+                guard case let .success(bytes) = result else {
+                    XCTFail("Render #\(iteration) failed — fixture may be invalid HEIC, got \(result)")
+                    return
+                }
+                XCTAssertGreaterThan(bytes.count, 0, "Render #\(iteration) produced empty JPEG")
             }
             let current = Self.residentFootprintMB()
             peak = max(peak, current)
