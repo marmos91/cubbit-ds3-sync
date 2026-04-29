@@ -127,7 +127,7 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked
                     )
                 }
                 if !updatedItems.isEmpty {
-                    let upsertData = updatedItems.map(MetadataStore.ItemUpsertData.init(from:))
+                    let upsertData = updatedItems.map { MetadataStore.ItemUpsertData(from: $0) }
                     try? await metadataStore.batchUpsertItems(upsertData)
                     observer.didUpdate(updatedItems)
                 }

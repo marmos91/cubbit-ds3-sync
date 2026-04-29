@@ -274,7 +274,9 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
 
 extension MetadataStore.ItemUpsertData {
     /// Creates upsert data from an S3Item, mapping parent identifiers and metadata.
-    init(from item: S3Item) {
+    /// `isMaterialized` defaults to `false`; callers in the working-set
+    /// expansion path (visited-folder enumeration) pass `true`.
+    init(from item: S3Item, isMaterialized: Bool = false) {
         // Preserve the item's existing syncStatus when present (e.g. items
         // built from MetadataStore cache). Default to .synced for S3-originated
         // items that have no status. MetadataStore.applyUpsert provides a
@@ -290,7 +292,8 @@ extension MetadataStore.ItemUpsertData {
             syncStatus: status,
             parentKey: NSFileProviderItemIdentifier.safeParentKey(from: item.parentItemIdentifier),
             contentType: item.metadata.contentType,
-            size: Int64(truncating: item.metadata.size)
+            size: Int64(truncating: item.metadata.size),
+            isMaterialized: isMaterialized
         )
     }
 }

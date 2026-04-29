@@ -130,7 +130,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                 // continuation token). For paginated folders pruning would
                 // delete keys that arrived on other pages.
                 if let metadataStore = self.metadataStore {
-                    let upsertData = visibleItems.map(MetadataStore.ItemUpsertData.init(from:))
+                    let upsertData = visibleItems.map { MetadataStore.ItemUpsertData(from: $0) }
                     let isFirstPage = page.toContinuationToken() == nil
                     let parentKey = self.parentKey
                     let driveId = self.drive.id
@@ -214,7 +214,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                     delta.newOrModified.contains($0.itemIdentifier.rawValue)
                 }
                 if !updatedItems.isEmpty {
-                    let upsertData = updatedItems.map(MetadataStore.ItemUpsertData.init(from:))
+                    let upsertData = updatedItems.map { MetadataStore.ItemUpsertData(from: $0) }
                     try? await metadataStore.batchUpsertItems(upsertData)
                 }
                 if !delta.deleted.isEmpty {

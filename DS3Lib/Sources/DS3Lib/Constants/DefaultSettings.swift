@@ -118,8 +118,11 @@ public enum DefaultSettings {
         /// Prevents repeated S3 auth failures within one extension from flooding the main app.
         public static let authFailureCooldownSeconds = 30.0
 
-        /// Interval in seconds between periodic remote change polling signals.
-        public static let pollingIntervalSeconds: Int = 30
+        /// Cadence at which the File Provider extension calls
+        /// `signalEnumerator(for: .workingSet)` to wake the OS for working-set
+        /// drift detection (HEAD-on-each-member loop in `WorkingSetEnumerator`).
+        /// macOS only; iOS extension lifetime is too short for this pattern.
+        public static let workingSetSignalIntervalSeconds: Int = 30
     }
 
     /// Default settings related to the filenames used to store data in the app group container.

@@ -196,18 +196,19 @@ public extension MetadataStore {
         }
     }
 
-    /// Batch-updates the materialized state for all items of a drive.
-    /// Items whose keys are in `materializedKeys` are marked as materialized;
-    /// all others are marked as not materialized.
-    func updateMaterializedState(driveId: UUID, materializedKeys: Set<String>) throws {
+    /// Marks the supplied keys as materialised (working-set members) for a drive.
+    /// Additive: never clears rows not in the set. Apple's
+    /// `enumeratorForMaterializedItems` reports only items physically on disk, so
+    /// we union it with the visited-folder rows already flagged by `S3Enumerator`.
+    /// Visited folders are cleared exclusively by the explicit evict path
+    /// (`FileProviderExtension+CustomActions.swift`).
+    func markMaterialized(_ keys: Set<String>, driveId: UUID) throws {
+        guard !keys.isEmpty else { return }
         let items = try findItems(byDrive: driveId)
         var changed = false
-        for item in items {
-            let shouldBeMaterialized = materializedKeys.contains(item.s3Key)
-            if item.isMaterialized != shouldBeMaterialized {
-                item.isMaterialized = shouldBeMaterialized
-                changed = true
-            }
+        for item in items where keys.contains(item.s3Key) && !item.isMaterialized {
+            item.isMaterialized = true
+            changed = true
         }
         if changed {
             try modelExecutor.modelContext.save()
