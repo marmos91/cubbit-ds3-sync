@@ -124,9 +124,14 @@ private func runUploadHook(
         } catch {
             return
         }
-        defer {
-            Task { await limiter.release() }
-        }
+
+        // Code review Fix 2 (Phase 13.2): release explicitly on every exit path
+        // rather than via `defer { Task { await release } }`. Spawning an
+        // unstructured Task to return the slot delays the hand-off by an extra
+        // task hop. Explicit `await limiter.release()` before each return
+        // guarantees the slot is returned synchronously within this Task —
+        // mirrors the consume-path fallback pattern in
+        // `consumeThumbnailFallback` (+ThumbnailConsume.swift).
 
         // (b) Download the original from S3. We just uploaded it; S3 is
         //     read-after-write consistent for new objects. Errors logged + swallowed (D-06).
@@ -139,6 +144,7 @@ private func runUploadHook(
             logger.error(
                 "Upload-hook: GET original failed for \(originalKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
             )
+            await limiter.release()
             return
         }
         defer { try? FileManager.default.removeItem(at: downloadedURL) }
@@ -153,6 +159,7 @@ private func runUploadHook(
             logger.info(
                 "Upload-hook: render failed for \(originalKey, privacy: .public) — reason=\(reason.rawValue, privacy: .public)"
             )
+            await limiter.release()
             return
         }
 
@@ -173,8 +180,12 @@ private func runUploadHook(
             logger.error(
                 "Upload-hook: PUT failed for \(thumbKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
             )
+            await limiter.release()
             return
         }
+        logger.info(
+            "Upload-hook: PUT succeeded for \(thumbKey, privacy: .public)"
+        )
 
         // (e) Signal the parent so Apple re-enumerates and the next visit hits
         //     the warm cache.
@@ -184,6 +195,7 @@ private func runUploadHook(
         let parentId: NSFileProviderItemIdentifier =
             parentKeyOpt.map { NSFileProviderItemIdentifier($0) } ?? .rootContainer
         signalCallback(parentId)
+        await limiter.release()
     #else
         _ = (s3Client, drive, originalKey, sourceETag, limiter, download, signalCallback, logger)
     #endif

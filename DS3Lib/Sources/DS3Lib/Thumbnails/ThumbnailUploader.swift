@@ -18,6 +18,13 @@ import os.log
 ///   - PUT throws → log + RETHROW (caller's `try? await ...` swallows). No
 ///     schema strike counter write.
 ///
+/// NOTE: This DS3Lib-side helper is the legacy localURL-based path
+/// (still used by call sites that haven't migrated). The eager-path
+/// `runUploadHook` in DS3DriveProvider is the canonical post-#141
+/// implementation and uses different error semantics (logs + swallows
+/// PUT errors per D-06; does not rethrow). Don't unify their
+/// behavior without revisiting the eager-path D-06 contract.
+///
 /// Phase 13.2 Plan 09 (D-08, D-23): all `thumbnailStatus` writes removed in
 /// the same plan that ships Schema V6 — the field is gone from `SyncedItem`,
 /// so writing to it would not compile. The `metadataStore` parameter is

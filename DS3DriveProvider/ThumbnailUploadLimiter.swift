@@ -38,10 +38,15 @@ actor ThumbnailUploadLimiter {
         self.softMaxWaiters = softMaxWaiters
     }
 
-    /// Returns true if the limiter is currently at the soft cap. Callers use
-    /// this BEFORE spawning a detached Task so they can drop overflow work
-    /// without blocking. Soft because we never block the producer; we just
-    /// log and skip.
+    /// Returns true if the limiter's WAITER queue is at or above
+    /// `softMaxWaiters`. Callers use this BEFORE spawning a detached Task
+    /// so they can drop overflow work without blocking. Soft because we
+    /// never block the producer; we just log and skip.
+    ///
+    /// Counts only suspended waiters, not in-flight slots — so the
+    /// effective ceiling on concurrent in-progress work is
+    /// `softMaxWaiters + maxSlots` (66 with the defaults). Treat the
+    /// value as an order-of-magnitude ceiling, not a precise capacity.
     var isAtSoftCap: Bool {
         waiters.count >= softMaxWaiters
     }
