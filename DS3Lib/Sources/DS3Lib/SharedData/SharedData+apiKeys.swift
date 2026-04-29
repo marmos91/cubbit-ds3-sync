@@ -6,14 +6,8 @@ public extension SharedData {
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed. Other error can be thrown
     /// if reading and decoding fails
     func loadDS3APIKeysFromPersistence() throws -> [DS3ApiKey] {
-        guard let sharedContainerURL = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup)
-        else {
-            throw SharedDataError.cannotAccessAppGroup
-        }
-
-        let apiKeysURL = sharedContainerURL.appendingPathComponent(DefaultSettings.FileNames.credentialsFileName)
-
+        let containerURL = try sharedContainerURL()
+        let apiKeysURL = containerURL.appendingPathComponent(DefaultSettings.FileNames.credentialsFileName)
         return try JSONDecoder().decode([DS3ApiKey].self, from: Data(contentsOf: apiKeysURL))
     }
 
@@ -45,17 +39,9 @@ public extension SharedData {
     func persistDS3APIKeys(
         _ apiKeys: [DS3ApiKey]
     ) throws {
-        guard let sharedContainerURL = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup)
-        else {
-            throw SharedDataError.cannotAccessAppGroup
-        }
-
-        let apiKeysURL = sharedContainerURL.appendingPathComponent(DefaultSettings.FileNames.credentialsFileName)
-
-        let encoder = JSONEncoder()
-        let encodedApiKeys = try encoder.encode(apiKeys)
-
+        let containerURL = try sharedContainerURL()
+        let apiKeysURL = containerURL.appendingPathComponent(DefaultSettings.FileNames.credentialsFileName)
+        let encodedApiKeys = try JSONEncoder().encode(apiKeys)
         try encodedApiKeys.write(to: apiKeysURL)
     }
 
@@ -63,14 +49,8 @@ public extension SharedData {
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed. Other error can be thrown
     /// if reading and decoding fails
     func deleteDS3APIKeysFromPersistence() throws {
-        guard let sharedContainerURL = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup)
-        else {
-            throw SharedDataError.cannotAccessAppGroup
-        }
-
-        let apiKeysURL = sharedContainerURL.appendingPathComponent(DefaultSettings.FileNames.credentialsFileName)
-
+        let containerURL = try sharedContainerURL()
+        let apiKeysURL = containerURL.appendingPathComponent(DefaultSettings.FileNames.credentialsFileName)
         try FileManager.default.removeItem(at: apiKeysURL)
     }
 

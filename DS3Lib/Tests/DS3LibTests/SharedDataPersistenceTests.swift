@@ -249,6 +249,39 @@ final class SharedDataPersistenceTests: XCTestCase {
         XCTAssertEqual(loaded, coordinatorURL)
     }
 
+    // MARK: - testContainerURL init
+
+    func testSharedDataWithTestContainerURLWritesToGivenDirectory() throws {
+        let sharedData = SharedData(testContainerURL: tempDir)
+        try sharedData.persistDS3Drives(ds3Drives: [])
+        let expected = tempDir.appendingPathComponent(DefaultSettings.FileNames.drivesFileName)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: expected.path))
+    }
+
+    func testSharedDataWithTestContainerURLRoundTrips() throws {
+        let project = Project(
+            id: "proj-rt", name: "RoundTrip", description: "desc",
+            email: "e@c.io", createdAt: "2023-01-01", tenantId: "t-rt",
+            users: [IAMUser(id: "u-rt", username: "user", isRoot: true)]
+        )
+        let drive = DS3Drive(
+            id: UUID(), name: "RoundTrip Drive",
+            syncAnchor: SyncAnchor(
+                project: project,
+                IAMUser: IAMUser(id: "u-rt", username: "user", isRoot: true),
+                bucket: Bucket(name: "bucket-rt"),
+                prefix: nil
+            )
+        )
+
+        let sharedData = SharedData(testContainerURL: tempDir)
+        try sharedData.persistDS3Drives(ds3Drives: [drive])
+        let loaded = try sharedData.loadDS3DrivesFromPersistence()
+
+        XCTAssertEqual(loaded.count, 1)
+        XCTAssertEqual(loaded[0].name, "RoundTrip Drive")
+    }
+
     // MARK: - File Name Constants
 
     func testFileNameConstants() {

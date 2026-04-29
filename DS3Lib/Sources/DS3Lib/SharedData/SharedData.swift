@@ -31,9 +31,16 @@ public class SharedData: @unchecked Sendable {
     private static let instance = SharedData()
 
     let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.metadata.rawValue)
+    private let _testContainerURL: URL?
 
     private init() {
-        // Singleton
+        _testContainerURL = nil
+    }
+
+    /// Creates a SharedData instance backed by `url` instead of the App Group container.
+    /// For test use only — production code must use `SharedData.default()`.
+    public init(testContainerURL url: URL) {
+        _testContainerURL = url
     }
 
     /// Get shared data singleton instance.
@@ -45,6 +52,7 @@ public class SharedData: @unchecked Sendable {
     // MARK: - App Group Container
 
     func sharedContainerURL() throws -> URL {
+        if let url = _testContainerURL { return url }
         guard let url = FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup)
         else {
