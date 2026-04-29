@@ -159,6 +159,21 @@ extension FileProviderExtension {
                     size: actualSize
                 )
 
+                // Thumbnail cascade: trash leaves the thumb orphaned otherwise.
+                // Mirrors `performSoftDelete`. On restore the next preview
+                // request re-renders, which is cheaper than tracking rename
+                // pairs through the trash lifecycle.
+                #if os(macOS)
+                    if let s3Client = self.s3Client {
+                        enqueueThumbnailDeleteCascade(
+                            originalKey: s3Item.itemIdentifier.rawValue,
+                            drive: drive,
+                            s3Client: s3Client,
+                            logger: self.logger
+                        )
+                    }
+                #endif
+
                 // Return the item with its ORIGINAL identifier so the system
                 // tracks the same item moving to .trashContainer.
                 let trashedItem = S3Item(
