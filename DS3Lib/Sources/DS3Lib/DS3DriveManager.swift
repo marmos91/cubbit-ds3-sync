@@ -163,6 +163,9 @@ public final class DS3DriveManager: @unchecked Sendable {
             let domain = self.fileProviderDomain(forDrive: drive)
             self.logger.info("Adding domain \(domain.displayName)")
             try await NSFileProviderManager.add(domain)
+            try? await NSFileProviderManager(for: domain)?.signalErrorResolved(
+                NSFileProviderError(.notAuthenticated) as NSError
+            )
             try await NSFileProviderManager(for: domain)?.signalEnumerator(for: .rootContainer)
         }
     }

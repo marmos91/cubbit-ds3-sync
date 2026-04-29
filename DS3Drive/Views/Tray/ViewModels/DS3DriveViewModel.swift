@@ -384,6 +384,9 @@ class DS3DriveViewModel {
 
         // 3. Re-add the domain (restarts extension with fresh state)
         try await NSFileProviderManager.add(domain)
+        try? await NSFileProviderManager(for: domain)?.signalErrorResolved(
+            NSFileProviderError(.notAuthenticated) as NSError
+        )
         try await NSFileProviderManager(for: domain)?.signalEnumerator(for: .rootContainer)
 
         self.driveStatus = .idle
