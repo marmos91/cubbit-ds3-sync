@@ -65,8 +65,15 @@ actor ThumbnailUploadLimiter {
                 waiters.append(Waiter(id: waiterId, cont: cont))
             }
         } onCancel: {
-            Task { [weak self] in
-                await self?.cancelWaiter(id: waiterId)
+            // The limiter is system-level infrastructure retained by
+            // `FileProviderExtension` for the process lifetime. A `[weak self]`
+            // capture here is misleading: `self` cannot deinit while a waiter
+            // is suspended on its continuation, and a weak capture would
+            // silently swallow the cancel-resume if it ever did, leaving the
+            // continuation orphaned and leaking the slot. Strong capture is
+            // correct. (Mirrors `ThumbnailFallbackLimiter` Code review Fix 5.)
+            Task { [self] in
+                await self.cancelWaiter(id: waiterId)
             }
         }
 
