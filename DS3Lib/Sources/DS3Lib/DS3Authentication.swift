@@ -122,17 +122,22 @@ public final class DS3Authentication: @unchecked Sendable {
         !self.isLogged
     }
 
-    public init(urls: CubbitAPIURLs = CubbitAPIURLs()) {
+    private let sharedData: SharedData
+
+    public init(urls: CubbitAPIURLs = CubbitAPIURLs(), sharedData: SharedData = SharedData.default()) {
         self.urls = urls
+        self.sharedData = sharedData
     }
 
     public init(
         accountSession: AccountSession,
         account: Account,
         isLogged: Bool,
-        urls: CubbitAPIURLs = CubbitAPIURLs()
+        urls: CubbitAPIURLs = CubbitAPIURLs(),
+        sharedData: SharedData = SharedData.default()
     ) {
         self.urls = urls
+        self.sharedData = sharedData
         self.accountSession = accountSession
         self.account = account
         self.isLogged = isLogged
@@ -450,7 +455,6 @@ public final class DS3Authentication: @unchecked Sendable {
             let account = self.account
         else { throw DS3AuthenticationError.loggedOut }
 
-        let sharedData = SharedData.default()
         try sharedData.persistAccountSession(accountSession: accountSession)
         try sharedData.persistAccount(account: account)
     }
@@ -480,7 +484,6 @@ public final class DS3Authentication: @unchecked Sendable {
     /// before this (TrayMenuView.signOut already does this).
     public func deleteFromDisk() throws {
         UserDefaults.standard.removeObject(forKey: DefaultSettings.UserDefaultsKeys.tutorial)
-        let sharedData = SharedData.default()
         try sharedData.deleteAccountSessionFromPersistence()
         try sharedData.deleteAccountFromPersistence()
         try sharedData.deleteDS3APIKeysFromPersistence()
