@@ -118,16 +118,21 @@ final class DS3AuthenticationTests: XCTestCase {
         )
         // Write session and account to the temp dir
         try auth.persist()
+        // Also write an empty API keys list so deleteDS3APIKeysFromPersistence() is exercised
+        try sharedData.persistDS3APIKeys([])
 
         let sessionFile = tempDir.appendingPathComponent(DefaultSettings.FileNames.accountSessionFileName)
         let accountFile = tempDir.appendingPathComponent(DefaultSettings.FileNames.accountFileName)
+        let apiKeysFile = tempDir.appendingPathComponent(DefaultSettings.FileNames.credentialsFileName)
         XCTAssertTrue(FileManager.default.fileExists(atPath: sessionFile.path), "session should exist before logout")
         XCTAssertTrue(FileManager.default.fileExists(atPath: accountFile.path), "account should exist before logout")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: apiKeysFile.path), "apiKeys should exist before logout")
 
         auth.logout()
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: sessionFile.path), "session should be deleted after logout")
         XCTAssertFalse(FileManager.default.fileExists(atPath: accountFile.path), "account should be deleted after logout")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: apiKeysFile.path), "apiKeys should be deleted after logout")
     }
 
     // MARK: - shouldRefreshToken
