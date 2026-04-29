@@ -475,12 +475,14 @@ public final class DS3Authentication: @unchecked Sendable {
     }
 
     /// Deletes all persisted authentication data from disk.
+    /// Does NOT delete drives.json — drive config is owned by DS3DriveManager.
+    /// Callers that want a full sign-out should call DS3DriveManager.disconnectAll()
+    /// before this (TrayMenuView.signOut already does this).
     public func deleteFromDisk() throws {
         UserDefaults.standard.removeObject(forKey: DefaultSettings.UserDefaultsKeys.tutorial)
         let sharedData = SharedData.default()
         try sharedData.deleteAccountSessionFromPersistence()
         try sharedData.deleteAccountFromPersistence()
-        try sharedData.deleteDS3DrivesFromPersistence()
         try sharedData.deleteDS3APIKeysFromPersistence()
     }
 

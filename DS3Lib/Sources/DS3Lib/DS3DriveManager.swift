@@ -63,11 +63,16 @@ public final class DS3DriveManager: @unchecked Sendable {
 
         Task {
             do {
-                try await self.syncFileProvider()
+                // Startup: only register domains for drives that are in the list.
+                // Never remove existing domains here — drives.json may be temporarily
+                // missing (e.g. test teardown hit the shared container) and removing
+                // all domains would silently destroy the user's drive setup.
+                // Stale domain removal happens only via explicit disconnect().
+                try await self.registerMissingDomains()
             } catch {
                 self.logger
                     .error(
-                        "Failed to sync file provider domains on startup: \(error.localizedDescription, privacy: .public)"
+                        "Failed to register file provider domains on startup: \(error.localizedDescription, privacy: .public)"
                     )
             }
         }
@@ -143,6 +148,24 @@ public final class DS3DriveManager: @unchecked Sendable {
         let driveIds = Set(self.drives.map(\.id.uuidString))
 
         return existingDomains.filter { !driveIds.contains($0.identifier.rawValue) }
+    }
+
+    /// Registers file provider domains for drives that aren't yet registered.
+    /// Unlike `syncFileProvider()`, this never removes existing domains — safe to call
+    /// on startup when `drives` may be empty due to a transient load failure.
+    private func registerMissingDomains() async throws {
+        let existingDomains = try await self.extensionExistingDomains()
+        let existingIds = Set(existingDomains.map(\.identifier.rawValue))
+
+        for drive in self.drives where !existingIds.contains(drive.id.uuidString) {
+            let domain = self.fileProviderDomain(forDrive: drive)
+            self.logger.info("Registering domain \(domain.displayName)")
+            try await NSFileProviderManager.add(domain)
+            try? await NSFileProviderManager(for: domain)?.signalErrorResolved(
+                NSFileProviderError(.notAuthenticated) as NSError
+            )
+            try await NSFileProviderManager(for: domain)?.signalEnumerator(for: .rootContainer)
+        }
     }
 
     /// Syncs the file provider extensions with the status of the currently registered drives.
