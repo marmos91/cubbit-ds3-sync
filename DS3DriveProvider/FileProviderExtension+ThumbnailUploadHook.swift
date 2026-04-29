@@ -3,7 +3,7 @@ import DS3Lib
 import Foundation
 import os.log
 
-// MARK: - Upload-time thumbnail hook (Phase 13 D-06, D-08, D-09, D-10; THUMB-06)
+// MARK: - Upload-time thumbnail hook (Phase 13 D-06, D-08, D-09, D-10; THUMB-06; #141)
 
 // swiftformat:disable redundantSendable
 /// Free-function entry point that `createItem` (post-PUT) and `modifyItem` (content-change branch)
@@ -21,6 +21,13 @@ import os.log
 ///   the `thumbnailStatus` field, so the hook no longer marks `.notApplicable`.
 /// - Errors inside the detached Task are logged and SWALLOWED (`try?`) — they never propagate
 ///   to the user-visible upload contract. THUMB-06 mandates this lifecycle decoupling.
+///
+/// Issue #141 (Task 4): the eager path no longer reads the FileProvider temp URL.
+/// FileProvider may invalidate `localURL` the moment the createItem completionHandler
+/// returns; the detached Task could race that invalidation under bulk load. The hook
+/// now downloads the original from S3 (same bytes-source as the consume-path fallback)
+/// after the original PUT completes, gated through `ThumbnailUploadLimiter` for
+/// admission control.
 ///
 /// **NEVER capture `self` inside the detached Task** — pass sendable locals only:
 /// `s3Client` (Sendable), `metadataStore` (`@ModelActor`), `drive` (Sendable struct), strings,
@@ -43,7 +50,8 @@ import os.log
 /// for this declaration) prevents SwiftFormat from stripping the conformance.
 struct ThumbnailUploadHookContext: Sendable {
     let originalKey: String
-    let localURL: URL
+    /// `nil` allowed for ETag races — putThumbnail accepts empty sourceETag
+    /// (see consumeThumbnailFallback's `etagForPut = sourceETag ?? ""`).
     let sourceETag: String?
     let drive: DS3Drive
     let s3Client: any DS3S3ClientProtocol
@@ -90,69 +98,116 @@ func makeSignalParentContainer(
 /// `enqueueThumbnailUpload` to keep the Task body type-checkable under Swift 6's
 /// stricter overload resolution (the inline form ran into ambiguity between
 /// `Task.detached` overloads when capturing a `@Sendable` callback alongside the
-/// other Sendable locals). Parameters bundled at the call site via
-/// `ThumbnailUploadHookContext`; SwiftLint's count check is disabled here as a
+/// other Sendable locals). SwiftLint's count check is disabled here as a
 /// deliberate trade-off — the alternative is yet another Sendable struct just
 /// for this internal helper.
+///
+/// Issue #141 (Task 4): pivots the upload path off the FileProvider temp URL.
+/// Sequence: acquire limiter slot → GET original from S3 → render → PUT thumb
+/// → signal parent. Same bytes-source as `consumeThumbnailFallback` so the eager
+/// and lazy paths are byte-identical.
 @Sendable
 private func runUploadHook(
     s3Client: any DS3S3ClientProtocol,
-    metadataStore: MetadataStore,
     drive: DS3Drive,
     originalKey: String,
-    localURL: URL,
     sourceETag: String,
+    limiter: ThumbnailUploadLimiter,
+    download: ThumbnailOriginalDownloader,
     signalCallback: @Sendable (NSFileProviderItemIdentifier) -> Void,
     logger: os.Logger
 ) async {
     #if os(macOS)
+        // (a) Acquire the slot. Cancellation = exit cleanly without doing work.
         do {
-            let uploader = ThumbnailUploader(
-                s3Client: s3Client, metadataStore: metadataStore
-            )
-            try await uploader.generateAndUpload(
-                localURL: localURL,
-                drive: drive,
-                sourceETag: sourceETag,
-                originalKey: originalKey
-            )
-            // Phase 13.2 D-12: PUT succeeded — signal the parent container so Apple
-            // re-enumerates and the just-uploaded thumbnail is fetched on the next visit.
-            // Symmetric with the fallback path's post-PUT signal in consumeThumbnailFallback.
-            let parentKey = S3PathUtils.parentKey(
-                forKey: originalKey, drivePrefix: drive.syncAnchor.prefix
-            )
-            let parentId: NSFileProviderItemIdentifier =
-                parentKey.map { NSFileProviderItemIdentifier($0) } ?? .rootContainer
-            signalCallback(parentId)
+            try await limiter.acquire()
         } catch {
-            // D-06: errors NEVER propagate to the user-visible upload contract — log + swallow.
-            // No signalCallback on the failure path: nothing to re-enumerate (D-12 negative path).
-            logger.error(
-                "Upload-hook: thumbnail upload failed for \(originalKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
-            )
+            return
         }
+        defer {
+            Task { await limiter.release() }
+        }
+
+        // (b) Download the original from S3. We just uploaded it; S3 is
+        //     read-after-write consistent for new objects. Errors logged + swallowed (D-06).
+        let identifier = NSFileProviderItemIdentifier(originalKey)
+        let downloadedURL: URL
+        let downloadedETag: String?
+        do {
+            (downloadedURL, downloadedETag) = try await download(identifier, drive)
+        } catch {
+            logger.error(
+                "Upload-hook: GET original failed for \(originalKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
+            )
+            return
+        }
+        defer { try? FileManager.default.removeItem(at: downloadedURL) }
+
+        // (c) Render. Sub-reason logged via the RenderFailure enum.
+        let renderResult = ThumbnailRenderer().renderJPEG(from: downloadedURL)
+        let jpegBytes: Data
+        switch renderResult {
+        case let .success(bytes):
+            jpegBytes = bytes
+        case let .failure(reason):
+            logger.info(
+                "Upload-hook: render failed for \(originalKey, privacy: .public) — reason=\(reason.rawValue, privacy: .public)"
+            )
+            return
+        }
+
+        // (d) PUT. Use the freshest available sourceETag — caller-supplied first,
+        //     fallback to whatever the GET surfaced, fallback to "" (matches
+        //     consume-path convention).
+        let bucket = drive.syncAnchor.bucket.name
+        let drivePrefix = drive.syncAnchor.prefix
+        let thumbKey = S3PathUtils.thumbnailKey(
+            forOriginalKey: originalKey, drivePrefix: drivePrefix
+        )
+        let etagForPut = sourceETag.isEmpty ? (downloadedETag ?? "") : sourceETag
+        do {
+            _ = try await s3Client.putThumbnail(
+                bucket: bucket, key: thumbKey, data: jpegBytes, sourceETag: etagForPut
+            )
+        } catch {
+            logger.error(
+                "Upload-hook: PUT failed for \(thumbKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
+            )
+            return
+        }
+
+        // (e) Signal the parent so Apple re-enumerates and the next visit hits
+        //     the warm cache.
+        let parentKeyOpt = S3PathUtils.parentKey(
+            forKey: originalKey, drivePrefix: drivePrefix
+        )
+        let parentId: NSFileProviderItemIdentifier =
+            parentKeyOpt.map { NSFileProviderItemIdentifier($0) } ?? .rootContainer
+        signalCallback(parentId)
     #else
-        // iOS path — Phase 14 will wire the foreground backfill driver. Phase 13.2
-        // Plan 09 / Schema V6 dropped `thumbnailStatus`, so there is no longer a
-        // metadata write to perform here. The consume-path fallback (Plan 02) will
-        // attempt a render against S3 on the next visit anyway.
-        _ = (metadataStore, s3Client, drive, originalKey, sourceETag, localURL, logger, signalCallback)
+        _ = (s3Client, drive, originalKey, sourceETag, limiter, download, signalCallback, logger)
     #endif
 }
 
 // swiftlint:enable function_parameter_count
 
-/// Per-platform upload hook. macOS spawns a detached Task that runs `ThumbnailUploader.generateAndUpload`;
-/// iOS marks the row `.pending` for Phase 14's foreground driver to pick up. Errors are SWALLOWED
-/// inside the detached Task per D-06 — they NEVER propagate to the user-visible upload contract.
+/// Per-platform upload hook. macOS spawns a detached Task that runs the limiter-gated
+/// GET → render → PUT → signal sequence; iOS is a no-op (Phase 14 owns the foreground
+/// backfill driver). Errors are SWALLOWED inside the detached Task per D-06 — they
+/// NEVER propagate to the user-visible upload contract.
 ///
 /// Phase 13.2 D-12: after a successful PUT, invokes `signalParentContainer` (defaulting to the
 /// NSFileProviderManager-backed implementation) so Apple re-enumerates the parent folder.
 /// Tests inject a recorder closure to observe the callback without standing up a real domain.
+///
+/// Issue #141 (Task 4): admission control via `ThumbnailUploadLimiter`. Soft-cap check
+/// at enqueue time drops new work past 64 pending waiters; the consume-path fallback
+/// generates missing thumbnails on first view.
 @Sendable
 func enqueueThumbnailUpload(
     _ context: ThumbnailUploadHookContext,
+    limiter: ThumbnailUploadLimiter,
+    download: @escaping ThumbnailOriginalDownloader,
     signalParentContainer: (@Sendable (NSFileProviderItemIdentifier) -> Void)? = nil
 ) {
     // (a) Pre-filter at the call boundary: non-raster originals never schedule render work.
@@ -164,16 +219,12 @@ func enqueueThumbnailUpload(
         return
     }
 
-    // (b) Raster path. We require BOTH a normalized sourceETag AND a metadata store.
-    //     Phase 13.2 Plan 09: the uploader no longer writes thumbnail-specific fields
-    //     against the store, but we still gate on its presence to mirror the prior
-    //     contract — call sites without a store are upstream regressions, not normal flow.
-    guard let metadataStore = context.metadataStore,
-          let sourceETag = context.sourceETag,
-          !sourceETag.isEmpty
-    else {
+    // (b) Require a non-empty sourceETag. The eager path's caller already has
+    //     a fresh ETag from the original PUT response — empty here is an
+    //     upstream bug.
+    guard let sourceETag = context.sourceETag, !sourceETag.isEmpty else {
         context.logger.debug(
-            "Upload-hook: skipping \(context.originalKey, privacy: .public) — missing metadataStore or empty sourceETag"
+            "Upload-hook: skipping \(context.originalKey, privacy: .public) — empty sourceETag"
         )
         return
     }
@@ -181,11 +232,11 @@ func enqueueThumbnailUpload(
     // (c) Capture sendable locals before opening the detached Task. NEVER capture `self`
     //     (this is a free function — the FileProviderExtension subclass is non-Sendable per
     //     Pitfall 1 in 13-RESEARCH.md). All values below are Sendable by construction.
+    let limiterRef = limiter
+    let originalKey = context.originalKey
+    let logger = context.logger
     let s3Client = context.s3Client
     let drive = context.drive
-    let originalKey = context.originalKey
-    let localURL = context.localURL
-    let logger = context.logger
     let domain = context.domain
     // Phase 13.2 D-12: bind the signal callback up-front. Production gets the NSFileProviderManager-backed
     // closure; tests inject a recorder. Either way, the closure is @Sendable and never captures self.
@@ -193,17 +244,30 @@ func enqueueThumbnailUpload(
         domain: domain, logger: logger, label: "Upload-hook"
     )
 
-    Task.detached(priority: .background) {
-        await runUploadHook(
-            s3Client: s3Client,
-            metadataStore: metadataStore,
-            drive: drive,
-            originalKey: originalKey,
-            localURL: localURL,
-            sourceETag: sourceETag,
-            signalCallback: signalCallback,
-            logger: logger
-        )
+    // (d) Soft-cap check. The check is a one-shot read against the actor; it CAN
+    //     race (another job releases between the check and the spawn) but the
+    //     cost is at most one extra waiter past the cap, which is fine.
+    //     Issue #141: bulk imports past 64+2 in-flight jobs fall through to the
+    //     consume-path fallback on first view.
+    Task {
+        if await limiterRef.isAtSoftCap {
+            logger.info(
+                "Upload-hook: soft cap reached, deferring \(originalKey, privacy: .public) to consume-path fallback"
+            )
+            return
+        }
+        Task.detached(priority: .background) {
+            await runUploadHook(
+                s3Client: s3Client,
+                drive: drive,
+                originalKey: originalKey,
+                sourceETag: sourceETag,
+                limiter: limiterRef,
+                download: download,
+                signalCallback: signalCallback,
+                logger: logger
+            )
+        }
     }
 }
 
@@ -215,22 +279,26 @@ func enqueueThumbnailUpload(
 /// Phase 13.2 D-12: `signalParentContainer` is an optional test-injection seam.
 /// Production passes nil (and the default NSFileProviderManager-backed closure runs);
 /// tests pass a recorder closure to assert the post-PUT signal fires correctly.
+///
+/// Issue #141 (Task 4): `limiter` and `download` are required injection seams.
+/// Production wires `download` to a closure around `S3Lib.downloadS3Item`; tests
+/// inject a stub returning a known fixture URL + etag.
 @Sendable
 func enqueueThumbnailUpload(
     originalKey: String,
-    localURL: URL,
     sourceETag: String?,
     drive: DS3Drive,
     s3Client: any DS3S3ClientProtocol,
     metadataStore: MetadataStore?,
     domain: NSFileProviderDomain,
     logger: os.Logger,
+    limiter: ThumbnailUploadLimiter,
+    download: @escaping ThumbnailOriginalDownloader,
     signalParentContainer: (@Sendable (NSFileProviderItemIdentifier) -> Void)? = nil
 ) {
     enqueueThumbnailUpload(
         ThumbnailUploadHookContext(
             originalKey: originalKey,
-            localURL: localURL,
             sourceETag: sourceETag,
             drive: drive,
             s3Client: s3Client,
@@ -238,6 +306,8 @@ func enqueueThumbnailUpload(
             domain: domain,
             logger: logger
         ),
+        limiter: limiter,
+        download: download,
         signalParentContainer: signalParentContainer
     )
 }

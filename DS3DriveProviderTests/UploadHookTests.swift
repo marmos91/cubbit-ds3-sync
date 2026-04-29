@@ -116,15 +116,17 @@ final class UploadHookTests: XCTestCase {
             forOriginalKey: originalKey, drivePrefix: drive.syncAnchor.prefix
         )
 
+        let downloadFn: ThumbnailOriginalDownloader = { @Sendable _, _ in (url, "abc123") }
         enqueueThumbnailUpload(
             originalKey: originalKey,
-            localURL: url,
             sourceETag: "abc123",
             drive: drive,
             s3Client: mock,
             metadataStore: metadataStore,
             domain: ProviderTestFixtures.makeDomain(),
-            logger: makeLogger()
+            logger: makeLogger(),
+            limiter: ThumbnailUploadLimiter(),
+            download: downloadFn
         )
 
         // Wait for the detached Task to call into the mock.
@@ -162,15 +164,19 @@ final class UploadHookTests: XCTestCase {
             s3Key: originalKey, driveId: drive.id, syncStatus: .synced, size: 100
         )
 
+        // Pre-filter rejects non-raster before reaching the download closure;
+        // the stub here would never fire.
+        let downloadFn: ThumbnailOriginalDownloader = { @Sendable _, _ in (url, "abc123") }
         enqueueThumbnailUpload(
             originalKey: originalKey,
-            localURL: url,
             sourceETag: "abc123",
             drive: drive,
             s3Client: mock,
             metadataStore: metadataStore,
             domain: ProviderTestFixtures.makeDomain(),
-            logger: makeLogger()
+            logger: makeLogger(),
+            limiter: ThumbnailUploadLimiter(),
+            download: downloadFn
         )
 
         // Drain the detached Task — even with no work to do, the helper opens
@@ -197,16 +203,18 @@ final class UploadHookTests: XCTestCase {
         let url = try writeTempJPEG()
         defer { try? FileManager.default.removeItem(at: url) }
 
+        let downloadFn: ThumbnailOriginalDownloader = { @Sendable _, _ in (url, "etag") }
         let start = DispatchTime.now()
         enqueueThumbnailUpload(
             originalKey: "prefix/slow.jpg",
-            localURL: url,
             sourceETag: "etag",
             drive: drive,
             s3Client: mock,
             metadataStore: metadataStore,
             domain: ProviderTestFixtures.makeDomain(),
-            logger: makeLogger()
+            logger: makeLogger(),
+            limiter: ThumbnailUploadLimiter(),
+            download: downloadFn
         )
         let elapsedNanos = DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds
 
@@ -232,15 +240,17 @@ final class UploadHookTests: XCTestCase {
 
         // Helper returns Void — calling it CANNOT throw. If the implementation ever
         // surfaces the error to the caller, this won't compile (helper must stay non-throwing).
+        let downloadFn: ThumbnailOriginalDownloader = { @Sendable _, _ in (url, "etag") }
         enqueueThumbnailUpload(
             originalKey: "prefix/fail.jpg",
-            localURL: url,
             sourceETag: "etag",
             drive: drive,
             s3Client: mock,
             metadataStore: metadataStore,
             domain: ProviderTestFixtures.makeDomain(),
-            logger: makeLogger()
+            logger: makeLogger(),
+            limiter: ThumbnailUploadLimiter(),
+            download: downloadFn
         )
 
         // Drain the detached Task so the error path runs and is logged-and-swallowed.
@@ -268,15 +278,17 @@ final class UploadHookTests: XCTestCase {
             forOriginalKey: originalKey, drivePrefix: drive.syncAnchor.prefix
         )
 
+        let downloadFn: ThumbnailOriginalDownloader = { @Sendable _, _ in (url, "new-etag-after-modify") }
         enqueueThumbnailUpload(
             originalKey: originalKey,
-            localURL: url,
             sourceETag: "new-etag-after-modify",
             drive: drive,
             s3Client: mock,
             metadataStore: metadataStore,
             domain: ProviderTestFixtures.makeDomain(),
-            logger: makeLogger()
+            logger: makeLogger(),
+            limiter: ThumbnailUploadLimiter(),
+            download: downloadFn
         )
 
         let predicate = NSPredicate { _, _ in
@@ -297,17 +309,8 @@ final class UploadHookTests: XCTestCase {
     // MARK: - Test 6 — Metadata-only modify path does NOT trigger uploader
 
     /// The metadata-only modify branch in `+Modify.swift` (no `.contents` field) does
-    /// NOT call `enqueueThumbnailUpload`. We can only enforce this via grep / source
-    /// inspection, since the helper itself has no awareness of the calling branch.
-    /// The build-time assertion is: `+Modify.swift` invokes `enqueueThumbnailUpload`
-    /// inside the `changedFields.contains(.contents)` branch only.
-    ///
-    /// Behavioral test: invoking the helper with no localURL would also be an error;
-    /// the call site is gated by `let contents = newContents` already. Here we
-    /// assert the contract: when the helper IS called with a non-existent URL (i.e.
-    /// metadata-only branch never kicked render), no PUT happens because the helper
-    /// short-circuits — we exercise it via the .notApplicable pre-filter on a
-    /// non-raster filename to mirror the "do nothing" path.
+    /// NOT call `enqueueThumbnailUpload`. Enforced by grep — the helper has no
+    /// awareness of the calling branch. This test documents the contract.
     func testModifyItemMetadataOnlyChangeDoesNotTriggerUploader() async {
         let drive = ProviderTestFixtures.makeDrive()
         let mock = HookMockS3Client()
@@ -355,15 +358,17 @@ final class UploadHookTests: XCTestCase {
         // ThumbnailHybridConsumeTests.swift — same closure-injection seam).
         let recorder = SignalRecorder()
 
+        let downloadFn: ThumbnailOriginalDownloader = { @Sendable _, _ in (url, "etag-d12") }
         enqueueThumbnailUpload(
             originalKey: originalKey,
-            localURL: url,
             sourceETag: "etag-d12",
             drive: drive,
             s3Client: mock,
             metadataStore: metadataStore,
             domain: ProviderTestFixtures.makeDomain(),
             logger: makeLogger(),
+            limiter: ThumbnailUploadLimiter(),
+            download: downloadFn,
             signalParentContainer: { identifier in
                 Task { await recorder.record(identifier) }
             }
@@ -409,15 +414,17 @@ final class UploadHookTests: XCTestCase {
 
         let recorder = SignalRecorder()
 
+        let downloadFn: ThumbnailOriginalDownloader = { @Sendable _, _ in (url, "etag") }
         enqueueThumbnailUpload(
             originalKey: "prefix/fail.jpg",
-            localURL: url,
             sourceETag: "etag",
             drive: drive,
             s3Client: mock,
             metadataStore: metadataStore,
             domain: ProviderTestFixtures.makeDomain(),
             logger: makeLogger(),
+            limiter: ThumbnailUploadLimiter(),
+            download: downloadFn,
             signalParentContainer: { identifier in
                 Task { await recorder.record(identifier) }
             }
@@ -588,10 +595,5 @@ final class HookMockS3Client: DS3S3ClientProtocol, @unchecked Sendable {
     }
 }
 
-// MARK: - Test-only MetadataStore helper
-
-//
 // Phase 13.2 Plan 09: `fetchThumbnailStatusForTest` removed — Schema V6 dropped
-// the `thumbnailStatus` field. Tests no longer have any per-row thumbnail state
-// to inspect; the only observable signal is "did the S3 PUT happen?" which the
-// mock S3 client records directly.
+// `thumbnailStatus`. Tests observe upload-hook behavior via the mock S3 client.

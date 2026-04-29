@@ -248,16 +248,31 @@ extension FileProviderExtension {
                 // have no contents). Fire-and-forget, decoupled from this completion handler.
                 // Errors logged + swallowed inside the helper's detached Task — they NEVER
                 // surface in `completionHandler(...)` below.
-                if !s3Item.isFolder, let localURL = url, let s3Client = self.s3Client {
+                if !s3Item.isFolder, let s3Client = self.s3Client {
+                    let s3LibCopy = self.s3Lib
+                    let tempDirCopy = self.temporaryDirectory
+                    let downloadFn: ThumbnailOriginalDownloader = { @Sendable identifier, drive in
+                        guard let s3Lib = s3LibCopy, let tempDir = tempDirCopy else {
+                            throw NSFileProviderError(.cannotSynchronize)
+                        }
+                        let (fileURL, item) = try await s3Lib.downloadS3Item(
+                            identifier: identifier,
+                            drive: drive,
+                            temporaryFolder: tempDir,
+                            progress: Progress()
+                        )
+                        return (fileURL, item.metadata.etag)
+                    }
                     enqueueThumbnailUpload(
                         originalKey: key,
-                        localURL: localURL,
                         sourceETag: ETagUtils.normalize(createETag) ?? createETag,
                         drive: drive,
                         s3Client: s3Client,
                         metadataStore: self.metadataStore,
                         domain: self.domain,
-                        logger: self.logger
+                        logger: self.logger,
+                        limiter: self.thumbnailUploadLimiter,
+                        download: downloadFn
                     )
                 }
 
