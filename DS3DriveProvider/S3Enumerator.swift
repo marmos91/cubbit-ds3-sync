@@ -130,7 +130,11 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                 // continuation token). For paginated folders pruning would
                 // delete keys that arrived on other pages.
                 if let metadataStore = self.metadataStore {
-                    let upsertData = visibleItems.map { MetadataStore.ItemUpsertData(from: $0) }
+                    // Visiting a folder expands the working set: each visible
+                    // child becomes a working-set member so out-of-band remote
+                    // deletions surface via WorkingSetEnumerator.enumerateChanges
+                    // without the user re-opening the folder.
+                    let upsertData = visibleItems.map { MetadataStore.ItemUpsertData(from: $0, isMaterialized: true) }
                     let isFirstPage = page.toContinuationToken() == nil
                     let parentKey = self.parentKey
                     let driveId = self.drive.id

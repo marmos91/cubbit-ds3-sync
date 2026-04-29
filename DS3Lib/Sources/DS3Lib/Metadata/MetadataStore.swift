@@ -231,7 +231,12 @@ public actor MetadataStore {
     }
 
     /// Remove cached children of a folder that are no longer present in S3.
-    /// Only prunes items with `.synced` status — items being uploaded or in error are preserved.
+    /// Only prunes items with `.synced` status — items being uploaded or in error
+    /// are preserved. Working-set members (`isMaterialized == true`) are also
+    /// preserved so `WorkingSetEnumerator.enumerateChanges` retains the chance to
+    /// HEAD them and report deletions to the OS via `didDeleteItems`. Those rows
+    /// are then removed authoritatively from `WorkingSetEnumerator` after the
+    /// notification is sent.
     public func pruneChildren(parentKey: String?, driveId: UUID, keepKeys: Set<String>) throws {
         let context = modelExecutor.modelContext
         let syncedStatus = SyncStatus.synced.rawValue
@@ -249,7 +254,7 @@ public actor MetadataStore {
             items = try context.fetch(FetchDescriptor<SyncedItem>(predicate: predicate))
         }
 
-        let staleItems = items.filter { !keepKeys.contains($0.s3Key) }
+        let staleItems = items.filter { !keepKeys.contains($0.s3Key) && !$0.isMaterialized }
         for item in staleItems {
             context.delete(item)
         }

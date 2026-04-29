@@ -141,10 +141,10 @@ extension FileProviderExtension {
                 let enumerator = manager.enumeratorForMaterializedItems()
                 let materializedKeys = try await self.collectMaterializedKeys(from: enumerator)
 
-                try await metadataStore.updateMaterializedState(
-                    driveId: driveId,
-                    materializedKeys: materializedKeys
-                )
+                // Apple reports only on-disk items; visited-folder children
+                // (flagged by S3Enumerator) must NOT be cleared just because
+                // they have no local blob. `markMaterialized` is additive.
+                try await metadataStore.markMaterialized(materializedKeys, driveId: driveId)
 
                 self.logger.debug("Updated materialized state for \(materializedKeys.count) items")
             } catch {
@@ -181,6 +181,39 @@ extension FileProviderExtension {
         }
 
         return allKeys
+    }
+
+    // MARK: - Working-Set Signaller
+
+    /// Pokes the OS every `workingSetSignalIntervalSeconds` so the system
+    /// schedules `WorkingSetEnumerator.enumerateChanges`. The enumerator HEADs
+    /// each working-set member and reports 404s as `didDeleteItems` — that's
+    /// how out-of-band remote deletions reach Finder. macOS only; iOS extension
+    /// lifetime is too short and Apple drives this differently on iOS.
+    func startWorkingSetSignaller() {
+        #if os(iOS)
+            return
+        #else
+            guard self.enabled else { return }
+
+            let interval = DefaultSettings.Extension.workingSetSignalIntervalSeconds
+            self.workingSetSignallerTask = Task { [weak self] in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(interval))
+                    guard !Task.isCancelled, let self else { break }
+                    guard let manager = NSFileProviderManager(for: self.domain) else { continue }
+                    manager.signalEnumerator(for: .workingSet) { [weak self] error in
+                        if let error {
+                            self?.logger.error(
+                                "Working-set signal failed: \(error.localizedDescription, privacy: .public)"
+                            )
+                        }
+                    }
+                }
+            }
+
+            self.logger.debug("Working-set signaller started with interval \(interval)s")
+        #endif
     }
 }
 

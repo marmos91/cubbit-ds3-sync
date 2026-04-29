@@ -132,8 +132,18 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked
                     observer.didUpdate(updatedItems)
                 }
                 if !refreshed.deleted.isEmpty {
+                    // Remove rows from MetadataStore BEFORE notifying the
+                    // observer so the post-refresh anchor below excludes them.
+                    // Without this cleanup, the next 30s cycle re-HEADs the
+                    // same gone-forever keys and re-reports `didDeleteItems`
+                    // indefinitely.
+                    let driveId = self.drive.id
+                    let deletedKeys = refreshed.deleted
+                    try? await metadataStore.batchDeleteItems(
+                        deletedKeys.map { (s3Key: $0, driveId: driveId) }
+                    )
                     observer.didDeleteItems(
-                        withIdentifiers: refreshed.deleted.map { NSFileProviderItemIdentifier($0) }
+                        withIdentifiers: deletedKeys.map { NSFileProviderItemIdentifier($0) }
                     )
                 }
 

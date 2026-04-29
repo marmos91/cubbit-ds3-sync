@@ -61,4 +61,44 @@ final class MetadataStoreMaterializationTests: XCTestCase {
         XCTAssertTrue(keys.contains("b.txt"), "supplied key must be marked")
         XCTAssertFalse(keys.contains("c.txt"), "rows not in the set must remain false")
     }
+
+    func testPruneChildrenPreservesWorkingSetRows() async throws {
+        let parentKey = "Personal/Images/"
+        // Two children of the same folder, both synced. Only `b.txt` is in
+        // the working set (visited-folder member). After a fresh listing
+        // returns only `a.txt`, the prune must preserve `b.txt` so
+        // WorkingSetEnumerator can HEAD it and surface the deletion.
+        try await store.batchUpsertItems([
+            .init(
+                s3Key: parentKey + "a.txt", driveId: driveId,
+                syncStatus: .synced, parentKey: parentKey, isMaterialized: true
+            ),
+            .init(
+                s3Key: parentKey + "b.txt", driveId: driveId,
+                syncStatus: .synced, parentKey: parentKey, isMaterialized: true
+            ),
+            .init(
+                s3Key: parentKey + "c.txt", driveId: driveId,
+                syncStatus: .synced, parentKey: parentKey, isMaterialized: false
+            )
+        ])
+
+        // Fresh S3 listing returns only `a.txt` — both `b.txt` (working-set
+        // member) and `c.txt` (not materialised) are stale.
+        try await store.pruneChildren(
+            parentKey: parentKey, driveId: driveId,
+            keepKeys: [parentKey + "a.txt"]
+        )
+
+        let workingSet = try await materializedKeys()
+        XCTAssertTrue(workingSet.contains(parentKey + "a.txt"),
+                      "row in keepKeys must remain")
+        XCTAssertTrue(workingSet.contains(parentKey + "b.txt"),
+                      "working-set member must be preserved across pruneChildren")
+        // c.txt was not in the working set; it should be pruned.
+        let remainingChildren = try await store.fetchChildren(parentKey: parentKey, driveId: driveId)
+        let remainingKeys = Set(remainingChildren.map(\.s3Key))
+        XCTAssertFalse(remainingKeys.contains(parentKey + "c.txt"),
+                       "non-materialised stale row must be pruned")
+    }
 }

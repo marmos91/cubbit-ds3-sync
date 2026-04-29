@@ -58,6 +58,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
     var metadataStore: MetadataStore?
     var purgeTask: Task<Void, Never>?
     var commandListenerTask: Task<Void, Never>?
+    var workingSetSignallerTask: Task<Void, Never>?
 
     // Limits concurrent fetchContents/fetchPartialContents calls to prevent
     // HTTP/2 stream exhaustion (NIOHTTP2.StreamClosed errors).
@@ -135,6 +136,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         super.init()
         self.startAutoPurge()
         self.startCommandListener()
+        self.startWorkingSetSignaller()
 
         logMemoryUsage(label: "init-complete", logger: logger)
     }
@@ -152,6 +154,8 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         self.purgeTask = nil
         self.commandListenerTask?.cancel()
         self.commandListenerTask = nil
+        self.workingSetSignallerTask?.cancel()
+        self.workingSetSignallerTask = nil
 
         if let nm = self.notificationManager {
             Task { await nm.shutdown() }
@@ -348,12 +352,16 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             let emptyFileURL = temporaryDirectory.appendingPathComponent(UUID().uuidString)
             try Data().write(to: emptyFileURL)
             completionHandler(emptyFileURL, folderItem, nil)
+            // The folder is now "downloaded" from Apple's POV; flag it as a
+            // working-set member so it participates in drift detection.
             let store = self.metadataStore
-            Task { try? await store?.setMaterialized(
-                s3Key: itemIdentifier.rawValue,
-                driveId: drive.id,
-                isMaterialized: true
-            ) }
+            Task {
+                try? await store?.setMaterialized(
+                    s3Key: itemIdentifier.rawValue,
+                    driveId: drive.id,
+                    isMaterialized: true
+                )
+            }
         } catch {
             completionHandler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
         }
@@ -401,10 +409,10 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             return TrashS3Enumerator(s3Lib: s3Lib, drive: drive, metadataStore: self.metadataStore)
 
         case .workingSet:
-            // Bounded set: items the user has materialised or pinned. The
-            // system polls this enumerator out-of-band from folder navigation
-            // so pinned files refresh without the user re-opening their parent
-            // folder.
+            // Bounded set: items the user has materialised. The system polls
+            // this enumerator out-of-band from folder navigation so
+            // materialised files reconcile without the user re-opening their
+            // parent folder.
             return WorkingSetEnumerator(
                 s3Lib: s3Lib,
                 drive: drive,
@@ -413,8 +421,11 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
 
         default:
             // User is navigating Finder/Files.app. Lazy direct-children
-            // enumeration; remote deletions surface via enumerateChanges
-            // when the user navigates back.
+            // enumeration; remote deletions surface via `enumerateChanges`
+            // when the user navigates back. Out-of-band remote deletions
+            // for non-materialised items only surface on the next user
+            // navigation — see issue #140 for the working-set-expansion
+            // follow-up.
             return S3Enumerator(
                 parent: containerItemIdentifier,
                 s3Lib: s3Lib,
