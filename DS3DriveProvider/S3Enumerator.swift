@@ -64,7 +64,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
         completionHandler: @escaping (NSFileProviderSyncAnchor?) -> Void
     ) {
         guard let metadataStore = self.metadataStore else {
-            completionHandler(nil)
+            completionHandler(NSFileProviderSyncAnchor(SyncAnchorHash.compute(over: [])))
             return
         }
 

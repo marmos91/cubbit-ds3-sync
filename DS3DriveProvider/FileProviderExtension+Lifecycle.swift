@@ -199,9 +199,9 @@ extension FileProviderExtension {
             let interval = DefaultSettings.Extension.workingSetSignalIntervalSeconds
             self.workingSetSignallerTask = Task { [weak self] in
                 while !Task.isCancelled {
-                    try? await Task.sleep(for: .seconds(interval))
-                    guard !Task.isCancelled, let self else { break }
+                    guard let self, !Task.isCancelled else { break }
                     self.signalChanges()
+                    try? await Task.sleep(for: .seconds(interval))
                 }
             }
 

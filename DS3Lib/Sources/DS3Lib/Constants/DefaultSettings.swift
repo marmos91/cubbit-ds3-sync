@@ -123,6 +123,12 @@ public enum DefaultSettings {
         /// drift detection (HEAD-on-each-member loop in `WorkingSetEnumerator`).
         /// macOS only; iOS extension lifetime is too short for this pattern.
         public static let workingSetSignalIntervalSeconds: Int = 30
+
+        /// Maximum number of concurrent S3 HEAD requests issued by
+        /// `WorkingSetEnumerator.refreshMembers`. Caps the fan-out so a large
+        /// working set (grown via additive `isMaterialized` visits) doesn't
+        /// stampede S3 or spike extension memory on each 30 s tick.
+        public static let workingSetRefreshConcurrency: Int = 16
     }
 
     /// Default settings related to the filenames used to store data in the app group container.

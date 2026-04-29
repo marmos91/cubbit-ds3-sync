@@ -169,10 +169,12 @@ public extension MetadataStore {
         try modelExecutor.modelContext.save()
     }
 
-    /// Fetch members of the working set for a drive: items currently
-    /// materialised on disk. Apple's "Keep Downloaded" affordance maps to
-    /// materialisation, so this naturally surfaces user-pinned content
-    /// without us tracking a separate pin flag.
+    /// Fetch members of the working set for a drive: all items whose
+    /// `isMaterialized` flag is set. The flag is additive — `S3Enumerator`
+    /// sets it on every enumerated child (growing the set with folder
+    /// navigation) and `materializedItemsDidChange` unions it with the
+    /// Apple-reported on-disk list. This is not strictly "files on disk";
+    /// it is the full set watched by `WorkingSetEnumerator`.
     func fetchWorkingSetMembers(driveId: UUID) throws -> [CachedChildItem] {
         let trashedStatus = SyncStatus.trashed.rawValue
         let predicate = #Predicate<SyncedItem> {

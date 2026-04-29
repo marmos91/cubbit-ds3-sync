@@ -3,14 +3,14 @@ import DS3Lib
 import Foundation
 import os.log
 
-/// Enumerates the bounded working set: items the user has materialised on
-/// disk or explicitly pinned. The system polls this enumerator out-of-band
-/// from folder navigation to keep "important" items fresh and to populate
-/// Spotlight / Files.app Recents without walking the remote tree.
+/// Enumerates the working set: items flagged `isMaterialized` in the local
+/// cache. The flag is additive — `S3Enumerator` sets it on every enumerated
+/// child (so the set grows with folder navigation) and
+/// `materializedItemsDidChange` unions it with Apple's on-disk list.
 ///
-/// `enumerateChanges` HEADs every working-set member in parallel via a
-/// `withTaskGroup`. The set is bounded (only materialised items qualify), so
-/// the fan-out is naturally capped without a dedicated limiter.
+/// `enumerateChanges` HEADs each member via a bounded `withTaskGroup`
+/// (capped at `DefaultSettings.Extension.workingSetRefreshConcurrency`) to
+/// detect remote ETag drift or 404s without stampeding S3.
 final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
     typealias Logger = os.Logger
 
@@ -179,44 +179,59 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked
     }
 
     /// Per-member HEAD against S3 to detect remote ETag drift or deletion.
-    /// Bounded fan-out so a large working set doesn't stampede.
+    /// Uses a sliding-window concurrency cap so a large working set (grown via
+    /// additive `isMaterialized` visits) doesn't stampede S3 or spike extension
+    /// memory on each 30 s tick.
     private func refreshMembers(
         _ members: [MetadataStore.CachedChildItem]
     ) async -> (updated: [S3Item], deleted: [String]) {
-        let drive = self.drive
-        let s3Lib = self.s3Lib
+        let maxConcurrency = DefaultSettings.Extension.workingSetRefreshConcurrency
         return await withTaskGroup(
             of: (key: String, result: MemberCheckResult).self
         ) { group in
-            for member in members {
-                group.addTask {
-                    let id = NSFileProviderItemIdentifier(member.s3Key)
-                    do {
-                        let remote = try await s3Lib.remoteS3Item(for: id, drive: drive)
-                        let cachedETag = member.etag
-                        let remoteETag = remote.metadata.etag
-                        if cachedETag != remoteETag {
-                            return (member.s3Key, .updated(remote))
-                        }
-                        return (member.s3Key, .unchanged)
-                    } catch let awsError as AWSErrorType where awsError.isNotFound {
-                        return (member.s3Key, .deleted)
-                    } catch {
-                        return (member.s3Key, .unchanged)
-                    }
-                }
-            }
-
             var updated: [S3Item] = []
             var deleted: [String] = []
+            var nextIndex = 0
+
+            // Seed the initial window.
+            while nextIndex < min(maxConcurrency, members.count) {
+                let member = members[nextIndex]
+                nextIndex += 1
+                group.addTask { [self] in await self.checkMember(member) }
+            }
+
+            // Drain one result, then enqueue the next to keep the window full.
             for await outcome in group {
                 switch outcome.result {
                 case let .updated(item): updated.append(item)
                 case .deleted: deleted.append(outcome.key)
                 case .unchanged: break
                 }
+                if nextIndex < members.count {
+                    let member = members[nextIndex]
+                    nextIndex += 1
+                    group.addTask { [self] in await self.checkMember(member) }
+                }
             }
+
             return (updated, deleted)
+        }
+    }
+
+    private func checkMember(
+        _ member: MetadataStore.CachedChildItem
+    ) async -> (key: String, result: MemberCheckResult) {
+        let id = NSFileProviderItemIdentifier(member.s3Key)
+        do {
+            let remote = try await self.s3Lib.remoteS3Item(for: id, drive: self.drive)
+            if member.etag != remote.metadata.etag {
+                return (member.s3Key, .updated(remote))
+            }
+            return (member.s3Key, .unchanged)
+        } catch let awsError as AWSErrorType where awsError.isNotFound {
+            return (member.s3Key, .deleted)
+        } catch {
+            return (member.s3Key, .unchanged)
         }
     }
 
