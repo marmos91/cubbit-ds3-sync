@@ -95,6 +95,46 @@ final class DS3AuthenticationTests: XCTestCase {
         XCTAssertFalse(auth.isLogged)
     }
 
+    func testLogoutDeletesFilesFromInjectedSharedData() throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let sharedData = SharedData(testContainerURL: tempDir)
+        let token = try TestHelpers.makeToken(expiringAt: Date().addingTimeInterval(3600))
+        let session = AccountSession(token: token, refreshToken: "refresh")
+        let account = Account(
+            id: "acc-1", firstName: "Test", lastName: "User",
+            isInternal: false, isBanned: false, createdAt: "2023-01-01",
+            maxAllowedProjects: 5,
+            emails: [], isTwoFactorEnabled: false, tenantId: "t-1",
+            endpointGateway: "https://s3.cubbit.eu", authProvider: "cubbit"
+        )
+
+        let auth = DS3Authentication(
+            accountSession: session, account: account,
+            isLogged: true, sharedData: sharedData
+        )
+        // Write session and account to the temp dir
+        try auth.persist()
+        // Also write an empty API keys list so deleteDS3APIKeysFromPersistence() is exercised
+        try sharedData.persistDS3APIKeys([])
+
+        let sessionFile = tempDir.appendingPathComponent(DefaultSettings.FileNames.accountSessionFileName)
+        let accountFile = tempDir.appendingPathComponent(DefaultSettings.FileNames.accountFileName)
+        let apiKeysFile = tempDir.appendingPathComponent(DefaultSettings.FileNames.credentialsFileName)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sessionFile.path), "session should exist before logout")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: accountFile.path), "account should exist before logout")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: apiKeysFile.path), "apiKeys should exist before logout")
+
+        auth.logout()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: sessionFile.path), "session should be deleted after logout")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: accountFile.path), "account should be deleted after logout")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: apiKeysFile.path), "apiKeys should be deleted after logout")
+    }
+
     // MARK: - shouldRefreshToken
 
     func testTokenFarFromExpiryDoesNotNeedRefresh() throws {

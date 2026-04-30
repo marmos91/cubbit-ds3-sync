@@ -44,6 +44,7 @@ public extension MetadataStore {
         public let contentType: String?
         public let size: Int64
         public let syncStatus: String?
+        public let isMaterialized: Bool
     }
 
     /// Fetch all children of a given parent key within a drive.
@@ -77,7 +78,8 @@ public extension MetadataStore {
                 lastModified: $0.lastModified,
                 contentType: $0.contentType,
                 size: $0.size,
-                syncStatus: $0.syncStatus
+                syncStatus: $0.syncStatus,
+                isMaterialized: $0.isMaterialized
             )
         }
     }
@@ -113,20 +115,6 @@ public extension MetadataStore {
             consecutiveFailures: record.consecutiveFailures,
             itemCount: record.itemCount
         )
-    }
-
-    /// Fetch all item keys and etags for a drive as a Sendable dictionary.
-    /// Used by SyncEngine for reconciliation without crossing actor boundary with @Model objects.
-    func fetchItemKeysAndEtags(driveId: UUID) throws -> [String: String?] {
-        let items = try findItems(byDrive: driveId)
-        return Dictionary(uniqueKeysWithValues: items.map { ($0.s3Key, $0.etag) })
-    }
-
-    /// Fetch all item keys and their sync status for a drive as a Sendable dictionary.
-    /// Used by SyncEngine to determine which items qualify for deletion detection.
-    func fetchItemKeysAndStatuses(driveId: UUID) throws -> [String: String] {
-        let items = try findItems(byDrive: driveId)
-        return Dictionary(uniqueKeysWithValues: items.map { ($0.s3Key, $0.syncStatus) })
     }
 
     /// Update only the sync status for an item, preserving all other fields.
@@ -181,18 +169,48 @@ public extension MetadataStore {
         try modelExecutor.modelContext.save()
     }
 
-    /// Batch-updates the materialized state for all items of a drive.
-    /// Items whose keys are in `materializedKeys` are marked as materialized;
-    /// all others are marked as not materialized.
-    func updateMaterializedState(driveId: UUID, materializedKeys: Set<String>) throws {
+    /// Fetch members of the working set for a drive: all items whose
+    /// `isMaterialized` flag is set. The flag is additive — `S3Enumerator`
+    /// sets it on every enumerated child (growing the set with folder
+    /// navigation) and `materializedItemsDidChange` unions it with the
+    /// Apple-reported on-disk list. This is not strictly "files on disk";
+    /// it is the full set watched by `WorkingSetEnumerator`.
+    func fetchWorkingSetMembers(driveId: UUID) throws -> [CachedChildItem] {
+        let trashedStatus = SyncStatus.trashed.rawValue
+        let predicate = #Predicate<SyncedItem> {
+            $0.driveId == driveId
+                && $0.syncStatus != trashedStatus
+                && $0.isMaterialized
+        }
+        let items = try modelExecutor.modelContext.fetch(
+            FetchDescriptor<SyncedItem>(predicate: predicate)
+        )
+        return items.map {
+            CachedChildItem(
+                s3Key: $0.s3Key,
+                etag: $0.etag,
+                lastModified: $0.lastModified,
+                contentType: $0.contentType,
+                size: $0.size,
+                syncStatus: $0.syncStatus,
+                isMaterialized: $0.isMaterialized
+            )
+        }
+    }
+
+    /// Marks the supplied keys as materialised (working-set members) for a drive.
+    /// Additive: never clears rows not in the set. Apple's
+    /// `enumeratorForMaterializedItems` reports only items physically on disk, so
+    /// we union it with the visited-folder rows already flagged by `S3Enumerator`.
+    /// Visited folders are cleared exclusively by the explicit evict path
+    /// (`FileProviderExtension+CustomActions.swift`).
+    func markMaterialized(_ keys: Set<String>, driveId: UUID) throws {
+        guard !keys.isEmpty else { return }
         let items = try findItems(byDrive: driveId)
         var changed = false
-        for item in items {
-            let shouldBeMaterialized = materializedKeys.contains(item.s3Key)
-            if item.isMaterialized != shouldBeMaterialized {
-                item.isMaterialized = shouldBeMaterialized
-                changed = true
-            }
+        for item in items where keys.contains(item.s3Key) && !item.isMaterialized {
+            item.isMaterialized = true
+            changed = true
         }
         if changed {
             try modelExecutor.modelContext.save()

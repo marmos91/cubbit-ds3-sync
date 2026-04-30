@@ -2,168 +2,35 @@ import DS3Lib
 @preconcurrency import FileProvider
 import os.log
 
-// MARK: - Cache Warm-up
-
 extension FileProviderExtension {
-    /// Performs a single recursive S3 listing on startup to populate MetadataStore.
-    /// This turns all subsequent enumerateItems calls into instant cache hits,
-    /// avoiding the enumeration waterfall when the user downloads a large folder
-    /// tree. Per-folder discovery beyond the warm-up is driven reactively by
-    /// Apple's `enumerateItems`.
-    func warmCache() {
-        #if os(iOS)
-            // On iOS, skip warm-up — recursive listings spike memory and burn
-            // the networking grace period. Per-folder enumeration handles discovery.
-            return
-        #else
-            guard self.enabled,
-                  let drive = self.drive,
-                  let s3Lib = self.s3Lib,
-                  let metadataStore = self.metadataStore
-            else {
-                return
-            }
-
-            // Skip warm-up when drive is paused
-            if (try? SharedData.default().isDrivePaused(drive.id)) == true {
-                return
-            }
-
-            Task.detached(priority: .utility) { [weak self] in
-                let prefix = drive.syncAnchor.prefix
-                self?.logger
-                    .info(
-                        "Cache warm-up: starting recursive listing for prefix \(prefix ?? "<root>", privacy: .public)"
-                    )
-
-                do {
-                    var continuationToken: String?
-                    var allKeys: Set<String> = []
-
-                    repeat {
-                        let (items, nextToken) = try await s3Lib.listS3Items(
-                            forDrive: drive,
-                            withPrefix: prefix,
-                            recursively: true,
-                            withContinuationToken: continuationToken
-                        )
-                        continuationToken = nextToken
-
-                        let visibleItems = items
-                            .filter { S3Lib.isUserVisible($0.itemIdentifier.rawValue, drive: drive) }
-
-                        for item in visibleItems {
-                            allKeys.insert(item.itemIdentifier.rawValue)
-                        }
-
-                        // Upsert each page incrementally so enumerateItems can
-                        // start serving partial results while we're still listing.
-                        let upsertData = visibleItems.map { MetadataStore.ItemUpsertData(from: $0) }
-                        try await metadataStore.batchUpsertItems(upsertData)
-                    } while continuationToken != nil
-
-                    // Synthesize virtual folders (recursive listing omits directory-only prefixes)
-                    let virtualFolders = S3Enumerator.synthesizeVirtualFolders(
-                        fromKeys: allKeys, drive: drive, prefix: prefix
-                    )
-                    if !virtualFolders.isEmpty {
-                        let folderData = virtualFolders.map { MetadataStore.ItemUpsertData(from: $0) }
-                        try await metadataStore.batchUpsertItems(folderData)
-                    }
-
-                    self?.logger
-                        .info(
-                            "Cache warm-up complete: \(allKeys.count) items + \(virtualFolders.count) virtual folders"
-                        )
-
-                    // Signal working set so fileproviderd picks up the warm cache
-                    self?.signalChanges()
-                } catch {
-                    self?.logger
-                        .error(
-                            "Cache warm-up failed: \(DS3S3Client.describeSotoError(error), privacy: .public)."
-                        )
-                }
-            }
-        #endif
-    }
-
     /// Signals the trash container enumerator to re-enumerate.
     /// Call `signalChanges()` alongside this if the working set also changed.
     func signalTrashChanges() {
         guard let manager = NSFileProviderManager(for: self.domain) else { return }
-        manager.signalEnumerator(for: .trashContainer) { error in
+        manager.signalEnumerator(for: .trashContainer) { [weak self] error in
             if let error {
-                self.logger.error("Failed to signal trash container: \(error.localizedDescription, privacy: .public)")
+                self?.logger.error("Failed to signal trash container: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
 
-    // MARK: - Periodic Polling
-
-    /// Starts a background task that periodically signals the system to re-enumerate
-    /// changes from the remote, ensuring local state stays up to date even when no
-    /// local modifications trigger a sync.
-    func startPolling() {
-        guard self.enabled else { return }
-
-        // Polling disabled on iOS. enumerateChanges is skipped entirely on iOS
-        // (SyncEngine.reconcile does full recursive S3 listings that spike memory
-        // and burn the networking grace period), so signaling does nothing useful.
-        // Changes are discovered via per-folder enumerateItems when the user navigates.
-        #if os(macOS)
-            let pollingInterval = DefaultSettings.Extension.pollingIntervalSeconds
-
-            // Signal immediately on startup so enumerateChanges/reconciliation
-            // runs right away — don't wait for the first polling interval.
-            self.signalChanges()
-
-            self.pollingTask = Task { [weak self] in
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: .seconds(pollingInterval))
-                    guard !Task.isCancelled, let self else { break }
-
-                    // Skip polling when drive is paused
-                    if let driveId = self.drive?.id,
-                       (try? SharedData.default().isDrivePaused(driveId)) == true {
-                        continue
-                    }
-
-                    self.signalChanges()
-                }
-            }
-
-            self.logger.debug("Periodic polling started with interval \(pollingInterval)s")
-        #endif
-    }
-
     // MARK: - IPC Command Listener
 
-    /// Listens for `IPCCommand` events from the main app and reacts to ones
-    /// that need extension-side handling. Today this is just `.resumeDrive`,
-    /// which signals the working set so Apple re-issues `fetchThumbnails`
-    /// for items whose previous response was nil under pause. Other commands
-    /// (`.pauseDrive`, `.refreshEnumeration`, `.emptyTrash`) are read from
-    /// `SharedData` flags or handled lazily on the next handler entry.
+    /// Listens for `IPCCommand` events from the main app. `.refreshEnumeration`
+    /// and `.emptyTrash` are read from `SharedData` flags or handled lazily on
+    /// the next handler entry; this listener is kept as a lifecycle attach
+    /// point for future commands.
     func startCommandListener() {
-        guard let drive = self.drive else { return }
-        let driveId = drive.id
+        guard self.drive != nil else { return }
 
         self.commandListenerTask = Task { [weak self] in
             guard let ipcService = self?.ipcService else { return }
             await ipcService.startListening()
 
             for await command in ipcService.commands {
-                guard !Task.isCancelled, let self else { break }
+                guard !Task.isCancelled, self != nil else { break }
                 switch command {
-                case let .resumeDrive(id) where id == driveId:
-                    self.logger
-                        .info(
-                            "IPC: resumeDrive received for \(id, privacy: .public) — signaling working set"
-                        )
-                    self.signalChanges()
-                case .pauseDrive, .resumeDrive, .refreshEnumeration, .emptyTrash:
-                    // Other commands handled via SharedData flags or other paths.
+                case .refreshEnumeration, .emptyTrash:
                     continue
                 }
             }
@@ -188,8 +55,6 @@ extension FileProviderExtension {
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(interval))
                     guard !Task.isCancelled, let self else { break }
-
-                    if (try? SharedData.default().isDrivePaused(driveId)) == true { continue }
 
                     // Check for empty-trash flag from main app
                     if (try? SharedData.default().hasEmptyTrashRequest(forDrive: driveId)) == true {
@@ -276,10 +141,10 @@ extension FileProviderExtension {
                 let enumerator = manager.enumeratorForMaterializedItems()
                 let materializedKeys = try await self.collectMaterializedKeys(from: enumerator)
 
-                try await metadataStore.updateMaterializedState(
-                    driveId: driveId,
-                    materializedKeys: materializedKeys
-                )
+                // Apple reports only on-disk items; visited-folder children
+                // (flagged by S3Enumerator) must NOT be cleared just because
+                // they have no local blob. `markMaterialized` is additive.
+                try await metadataStore.markMaterialized(materializedKeys, driveId: driveId)
 
                 self.logger.debug("Updated materialized state for \(materializedKeys.count) items")
             } catch {
@@ -316,6 +181,32 @@ extension FileProviderExtension {
         }
 
         return allKeys
+    }
+
+    // MARK: - Working-Set Signaller
+
+    /// Pokes the OS every `workingSetSignalIntervalSeconds` so the system
+    /// schedules `WorkingSetEnumerator.enumerateChanges`. The enumerator HEADs
+    /// each working-set member and reports 404s as `didDeleteItems` — that's
+    /// how out-of-band remote deletions reach Finder. macOS only; iOS extension
+    /// lifetime is too short and Apple drives this differently on iOS.
+    func startWorkingSetSignaller() {
+        #if os(iOS)
+            return
+        #else
+            guard self.enabled else { return }
+
+            let interval = DefaultSettings.Extension.workingSetSignalIntervalSeconds
+            self.workingSetSignallerTask = Task { [weak self] in
+                while !Task.isCancelled {
+                    guard let self, !Task.isCancelled else { break }
+                    self.signalChanges()
+                    try? await Task.sleep(for: .seconds(interval))
+                }
+            }
+
+            self.logger.debug("Working-set signaller started with interval \(interval)s")
+        #endif
     }
 }
 

@@ -118,8 +118,17 @@ public enum DefaultSettings {
         /// Prevents repeated S3 auth failures within one extension from flooding the main app.
         public static let authFailureCooldownSeconds = 30.0
 
-        /// Interval in seconds between periodic remote change polling signals.
-        public static let pollingIntervalSeconds: Int = 30
+        /// Cadence at which the File Provider extension calls
+        /// `signalEnumerator(for: .workingSet)` to wake the OS for working-set
+        /// drift detection (HEAD-on-each-member loop in `WorkingSetEnumerator`).
+        /// macOS only; iOS extension lifetime is too short for this pattern.
+        public static let workingSetSignalIntervalSeconds: Int = 30
+
+        /// Maximum number of concurrent S3 HEAD requests issued by
+        /// `WorkingSetEnumerator.refreshMembers`. Caps the fan-out so a large
+        /// working set (grown via additive `isMaterialized` visits) doesn't
+        /// stampede S3 or spike extension memory on each 30 s tick.
+        public static let workingSetRefreshConcurrency: Int = 16
     }
 
     /// Default settings related to the filenames used to store data in the app group container.
@@ -142,9 +151,6 @@ public enum DefaultSettings {
         /// The name of the file used to store the coordinator URL.
         public static let coordinatorURLFileName = "coordinatorURL.txt"
 
-        /// The name of the file used to store per-drive pause state.
-        public static let pauseStateFileName = "pauseState.json"
-
         /// The name of the file used to store per-drive trash settings.
         public static let trashSettingsFileName = "trashSettings.json"
 
@@ -153,13 +159,6 @@ public enum DefaultSettings {
 
         /// The name of the file used to store per-drive thumbnail settings.
         public static let thumbnailSettingsFileName = "thumbnailSettings.json"
-
-        /// The name of the file used to store the per-drive resume epoch
-        /// (incremented on every pause→resume transition; folded into
-        /// `S3Item.itemVersion.contentVersion` so Apple evicts cached
-        /// "no thumbnail" responses for items that were nil-cached during
-        /// the pause window).
-        public static let resumeEpochFileName = "resumeEpoch.json"
     }
 
     /// Group of settings related to the S3 client.

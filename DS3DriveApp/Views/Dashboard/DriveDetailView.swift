@@ -106,7 +106,6 @@
             case .idle: Image(.statusIdleBadge)
             case .sync: Image(.statusSyncBadge)
             case .error: Image(.statusErrorBadge)
-            case .paused: Image(.statusPauseBadge)
             }
         }
 
@@ -245,13 +244,6 @@
                     )
 
                     divider
-
-                    actionRow(
-                        icon: currentStatus == .paused ? "play.fill" : "pause.fill",
-                        tint: IOSColors.brandPrimary,
-                        title: currentStatus == .paused ? "Resume Sync" : "Pause Sync",
-                        action: togglePauseResume
-                    )
                 }
                 .padding(.horizontal, 4)
                 .background(cardBackground)
@@ -385,10 +377,6 @@
             let bucketName = drive.syncAnchor.bucket.name
             guard let url = URL(string: "\(ConsoleURLs.projectsURL)/\(projectId)/buckets/\(bucketName)") else { return }
             openURL(url)
-        }
-
-        private func togglePauseResume() {
-            driveViewModel.togglePause(for: drive.id)
         }
 
         private func disconnectDrive() {

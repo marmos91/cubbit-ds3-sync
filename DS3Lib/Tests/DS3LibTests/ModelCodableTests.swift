@@ -388,7 +388,6 @@ final class ModelCodableTests: XCTestCase {
         XCTAssertEqual(DS3DriveStatus.sync.rawValue, "sync")
         XCTAssertEqual(DS3DriveStatus.idle.rawValue, "idle")
         XCTAssertEqual(DS3DriveStatus.error.rawValue, "error")
-        XCTAssertEqual(DS3DriveStatus.paused.rawValue, "paused")
     }
 
     // MARK: - TransferStatus

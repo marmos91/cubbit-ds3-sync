@@ -23,11 +23,6 @@ extension FileProviderExtension {
             return Progress()
         }
 
-        if isDrivePaused(drive.id, operation: "modifyItem") {
-            completionHandler(nil, [], false, NSFileProviderError(.serverUnreachable) as NSError)
-            return Progress()
-        }
-
         let progress = Progress()
         let boxedCb = UncheckedBox(value: completionHandler)
 

@@ -112,7 +112,6 @@ struct TrayDriveRowView: View {
         case .idle: DS3Colors.statusSynced
         case .sync: DS3Colors.statusSyncing
         case .error: DS3Colors.statusError
-        case .paused: DS3Colors.statusPaused
         }
     }
 
@@ -138,9 +137,6 @@ struct TrayDriveRowView: View {
             Image(.statusSyncBadge).resizable().scaledToFit()
         case .error:
             Image(.statusErrorBadge).resizable().scaledToFit()
-        case .paused:
-            Image(.statusPauseBadge).resizable().scaledToFit()
-                .foregroundStyle(DS3Colors.statusPaused)
         }
     }
 
@@ -149,16 +145,7 @@ struct TrayDriveRowView: View {
     private var metricsRow: some View {
         HStack(spacing: DS3Spacing.md) {
             // Current speed or status text
-            if driveViewModel.driveStatus == .paused {
-                Label {
-                    Text(NSLocalizedString("Paused", comment: "Drive row paused status"))
-                } icon: {
-                    Image(systemName: "pause.circle")
-                        .symbolRenderingMode(.hierarchical)
-                }
-                .font(DS3Typography.footnote)
-                .foregroundStyle(DS3Colors.statusPaused)
-            } else if driveViewModel.driveStats.isTransferring {
+            if driveViewModel.driveStats.isTransferring {
                 if let uploadSpeed = driveViewModel.driveStats.uploadSpeedBs {
                     Label {
                         Text(formatSpeed(uploadSpeed))
@@ -317,40 +304,6 @@ struct TrayDriveRowView: View {
         }
 
         Divider()
-
-        // Pause / Resume
-        Button {
-            let driveId = driveViewModel.drive.id
-            let isPaused = driveViewModel.driveStatus == .paused
-            do {
-                try SharedData.default().setDrivePaused(driveId, paused: !isPaused)
-
-                if isPaused {
-                    // Resume: go to syncing so extension re-checks for pending work
-                    driveViewModel.driveStatus = .sync
-                    ds3DriveManager.notifyDriveResumedFromUI(driveId: driveId)
-
-                    // Signal the enumerator to trigger a fresh scan
-                    let domain = driveViewModel.fileProviderDomain()
-                    let manager = NSFileProviderManager(for: domain)
-                    Task {
-                        try? await manager?.signalEnumerator(for: .rootContainer)
-                    }
-                } else {
-                    // Pause: stop immediately
-                    driveViewModel.driveStatus = .paused
-                    ds3DriveManager.notifyDrivePausedFromUI(driveId: driveId)
-                }
-            } catch {
-                logger.error("Error toggling pause state: \(error.localizedDescription)")
-            }
-        } label: {
-            if driveViewModel.driveStatus == .paused {
-                Label(NSLocalizedString("Resume", comment: "Drive menu resume"), systemImage: "play")
-            } else {
-                Label(NSLocalizedString("Pause", comment: "Drive menu pause"), systemImage: "pause")
-            }
-        }
 
         // Copy S3 Path
         Button {

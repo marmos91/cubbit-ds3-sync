@@ -53,21 +53,18 @@ enum IntegrationTestConfig {
 class DS3IntegrationTestCase: XCTestCase {
     var authentication: DS3Authentication!
     var urls: CubbitAPIURLs!
+    var tempContainerURL: URL?
 
     override func setUp() async throws {
         try IntegrationTestConfig.skipIfNotConfigured()
 
-        // Ensure the App Group container directory exists.
-        // On CI runners (SPM test environment), there are no entitlements so
-        // FileManager.containerURL(forSecurityApplicationGroupIdentifier:) returns nil
-        // on iOS but on macOS it resolves to ~/Library/Group Containers/<appGroup>.
-        // Create it preemptively so SharedData.persist() doesn't fail.
-        let groupDir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Group Containers/\(DefaultSettings.appGroup)")
-        try? FileManager.default.createDirectory(at: groupDir, withIntermediateDirectories: true)
+        tempContainerURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempContainerURL!, withIntermediateDirectories: true)
 
         urls = IntegrationTestConfig.makeURLs()
-        authentication = DS3Authentication(urls: urls)
+        let sharedData = SharedData(testContainerURL: tempContainerURL!)
+        authentication = DS3Authentication(urls: urls, sharedData: sharedData)
 
         try await authentication.login(
             email: IntegrationTestConfig.email!,
@@ -80,6 +77,10 @@ class DS3IntegrationTestCase: XCTestCase {
         authentication?.logout()
         authentication = nil
         urls = nil
+        if let tempContainerURL {
+            try? FileManager.default.removeItem(at: tempContainerURL)
+        }
+        tempContainerURL = nil
     }
 }
 
@@ -97,9 +98,10 @@ class DS3S3IntegrationTestCase: DS3IntegrationTestCase {
         testPrefix = IntegrationTestConfig.uniqueTestPrefix()
 
         // Get API keys and create S3 client.
-        // Bypasses SharedData persistence (not available in CI's SPM test runner)
-        // by using the SDK API directly instead of loadOrCreateDS3APIKeys().
-        let sdk = DS3SDK(withAuthentication: authentication, urls: urls)
+        // Uses the SDK API directly instead of loadOrCreateDS3APIKeys()
+        // to avoid creating a runtime dependency on drive-management state in S3 tests.
+        let sharedData = SharedData(testContainerURL: tempContainerURL!)
+        let sdk = DS3SDK(withAuthentication: authentication, urls: urls, sharedData: sharedData)
         let projects = try await sdk.getRemoteProjects()
         guard let project = projects.first else {
             throw XCTSkip("No projects found for test account — create one in the Cubbit console first")

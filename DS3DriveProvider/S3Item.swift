@@ -177,21 +177,12 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
 
     /// Computes the bytes used for both `contentVersion` and `metadataVersion`.
     /// Folders use the identifier (stable across code paths). Files use the
-    /// source etag, optionally suffixed with the per-drive resume epoch — the
-    /// epoch is only > 0 after the first pause→resume transition and only
-    /// changes on subsequent resumes, so steady-state remains etag-only per
-    /// D-14. Folding it in forces Apple to evict cached "no thumbnail"
-    /// responses for items that returned nil during the pause window.
+    /// source etag, per D-14.
     private func computeVersionData() -> Data {
         if isFolder {
             return identifier.rawValue.data(using: .utf8) ?? Data()
         }
-        guard let etag = self.metadata.etag, let etagData = etag.data(using: .utf8) else {
-            return Data()
-        }
-        let epoch = SharedData.default().resumeEpoch(forDrive: drive.id)
-        guard epoch > 0 else { return etagData }
-        return etagData + Data(":\(epoch)".utf8)
+        return self.metadata.etag?.data(using: .utf8) ?? Data()
     }
 
     var contentType: UTType {
@@ -283,7 +274,9 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
 
 extension MetadataStore.ItemUpsertData {
     /// Creates upsert data from an S3Item, mapping parent identifiers and metadata.
-    init(from item: S3Item) {
+    /// `isMaterialized` defaults to `false`; callers in the working-set
+    /// expansion path (visited-folder enumeration) pass `true`.
+    init(from item: S3Item, isMaterialized: Bool = false) {
         // Preserve the item's existing syncStatus when present (e.g. items
         // built from MetadataStore cache). Default to .synced for S3-originated
         // items that have no status. MetadataStore.applyUpsert provides a
@@ -299,7 +292,8 @@ extension MetadataStore.ItemUpsertData {
             syncStatus: status,
             parentKey: NSFileProviderItemIdentifier.safeParentKey(from: item.parentItemIdentifier),
             contentType: item.metadata.contentType,
-            size: Int64(truncating: item.metadata.size)
+            size: Int64(truncating: item.metadata.size),
+            isMaterialized: isMaterialized
         )
     }
 }

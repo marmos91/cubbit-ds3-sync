@@ -79,11 +79,6 @@ class DS3DriveViewModel {
     init(drive: DS3Drive) {
         self.drive = drive
 
-        // Restore paused state from persistence so it survives app restart
-        if (try? SharedData.default().isDrivePaused(drive.id)) == true {
-            self.driveStatus = .paused
-        }
-
         // Plan 05-15 Gap 14: any syncing entries left in the tracker from a
         // previous session (e.g. the app was quit mid-transfer) should be
         // transitioned to `.error("interrupted")` immediately so the user
@@ -281,12 +276,6 @@ class DS3DriveViewModel {
 
         let newStatus = updateDriveStatusNotification.status
 
-        // While paused, ignore extension status updates (they'd be stale .idle/.error
-        // from failed operations). Only allow the .paused status itself through.
-        if self.driveStatus == .paused, newStatus != .paused {
-            return
-        }
-
         // Always cancel any pending idle transition
         self.idleDebounceTask?.cancel()
         self.idleDebounceTask = nil
@@ -395,6 +384,9 @@ class DS3DriveViewModel {
 
         // 3. Re-add the domain (restarts extension with fresh state)
         try await NSFileProviderManager.add(domain)
+        try? await NSFileProviderManager(for: domain)?.signalErrorResolved(
+            NSFileProviderError(.notAuthenticated) as NSError
+        )
         try await NSFileProviderManager(for: domain)?.signalEnumerator(for: .rootContainer)
 
         self.driveStatus = .idle

@@ -110,7 +110,6 @@
             case .idle: Image(.statusIdleBadge)
             case .sync: Image(.statusSyncBadge)
             case .error: Image(.statusErrorBadge)
-            case .paused: Image(.statusPauseBadge)
             }
         }
 

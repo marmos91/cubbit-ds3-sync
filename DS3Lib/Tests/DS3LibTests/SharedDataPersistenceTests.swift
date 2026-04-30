@@ -179,41 +179,6 @@ final class SharedDataPersistenceTests: XCTestCase {
         XCTAssertEqual(loaded.refreshToken, "refresh-abc")
     }
 
-    // MARK: - Pause State Persistence
-
-    func testPersistAndLoadPauseState() throws {
-        let driveId1 = UUID()
-        let driveId2 = UUID()
-        var state: [String: Bool] = [:]
-        state[driveId1.uuidString] = true
-        state[driveId2.uuidString] = true
-
-        let pauseURL = tempDir.appendingPathComponent(DefaultSettings.FileNames.pauseStateFileName)
-        try JSONEncoder().encode(state).write(to: pauseURL)
-
-        let loaded = try JSONDecoder().decode([String: Bool].self, from: Data(contentsOf: pauseURL))
-        XCTAssertEqual(loaded[driveId1.uuidString], true)
-        XCTAssertEqual(loaded[driveId2.uuidString], true)
-
-        // Unpause one drive
-        var updated = loaded
-        updated.removeValue(forKey: driveId1.uuidString)
-        try JSONEncoder().encode(updated).write(to: pauseURL)
-
-        let reloaded = try JSONDecoder().decode([String: Bool].self, from: Data(contentsOf: pauseURL))
-        XCTAssertNil(reloaded[driveId1.uuidString])
-        XCTAssertEqual(reloaded[driveId2.uuidString], true)
-    }
-
-    func testEmptyPauseState() throws {
-        let pauseURL = tempDir.appendingPathComponent(DefaultSettings.FileNames.pauseStateFileName)
-        let empty: [String: Bool] = [:]
-        try JSONEncoder().encode(empty).write(to: pauseURL)
-
-        let loaded = try JSONDecoder().decode([String: Bool].self, from: Data(contentsOf: pauseURL))
-        XCTAssertTrue(loaded.isEmpty)
-    }
-
     // MARK: - Trash Settings Persistence
 
     func testPersistAndLoadTrashSettings() throws {
@@ -284,6 +249,39 @@ final class SharedDataPersistenceTests: XCTestCase {
         XCTAssertEqual(loaded, coordinatorURL)
     }
 
+    // MARK: - testContainerURL init
+
+    func testSharedDataWithTestContainerURLWritesToGivenDirectory() throws {
+        let sharedData = SharedData(testContainerURL: tempDir)
+        try sharedData.persistDS3Drives(ds3Drives: [])
+        let expected = tempDir.appendingPathComponent(DefaultSettings.FileNames.drivesFileName)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: expected.path))
+    }
+
+    func testSharedDataWithTestContainerURLRoundTrips() throws {
+        let project = Project(
+            id: "proj-rt", name: "RoundTrip", description: "desc",
+            email: "e@c.io", createdAt: "2023-01-01", tenantId: "t-rt",
+            users: [IAMUser(id: "u-rt", username: "user", isRoot: true)]
+        )
+        let drive = DS3Drive(
+            id: UUID(), name: "RoundTrip Drive",
+            syncAnchor: SyncAnchor(
+                project: project,
+                IAMUser: IAMUser(id: "u-rt", username: "user", isRoot: true),
+                bucket: Bucket(name: "bucket-rt"),
+                prefix: nil
+            )
+        )
+
+        let sharedData = SharedData(testContainerURL: tempDir)
+        try sharedData.persistDS3Drives(ds3Drives: [drive])
+        let loaded = try sharedData.loadDS3DrivesFromPersistence()
+
+        XCTAssertEqual(loaded.count, 1)
+        XCTAssertEqual(loaded[0].name, "RoundTrip Drive")
+    }
+
     // MARK: - File Name Constants
 
     func testFileNameConstants() {
@@ -291,7 +289,6 @@ final class SharedDataPersistenceTests: XCTestCase {
         XCTAssertEqual(DefaultSettings.FileNames.credentialsFileName, "credentials.json")
         XCTAssertEqual(DefaultSettings.FileNames.accountFileName, "account.json")
         XCTAssertEqual(DefaultSettings.FileNames.accountSessionFileName, "accountSession.json")
-        XCTAssertEqual(DefaultSettings.FileNames.pauseStateFileName, "pauseState.json")
         XCTAssertEqual(DefaultSettings.FileNames.trashSettingsFileName, "trashSettings.json")
         XCTAssertEqual(DefaultSettings.FileNames.emptyTrashFlagFileName, "emptyTrashFlag.json")
         XCTAssertEqual(DefaultSettings.FileNames.tenantFileName, "tenant.txt")

@@ -56,11 +56,9 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
     var endpoint: String?
     var notificationManager: NotificationManager?
     var metadataStore: MetadataStore?
-    private var syncEngine: SyncEngine?
-    private var networkMonitor: NetworkMonitor?
-    var pollingTask: Task<Void, Never>?
     var purgeTask: Task<Void, Never>?
     var commandListenerTask: Task<Void, Never>?
+    var workingSetSignallerTask: Task<Void, Never>?
 
     // Limits concurrent fetchContents/fetchPartialContents calls to prevent
     // HTTP/2 stream exhaustion (NIOHTTP2.StreamClosed errors).
@@ -113,21 +111,13 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             // swiftlint:disable:next force_unwrapping
             self.s3Lib = S3Lib(withClient: self.s3Client!, withNotificationManager: self.notificationManager!)
 
-            // Initialize MetadataStore, NetworkMonitor, and SyncEngine
             do {
                 let container = try MetadataStore.createContainer()
-                let store = MetadataStore(modelContainer: container)
-                self.metadataStore = store
-
-                let monitor = NetworkMonitor()
-                self.networkMonitor = monitor
-                Task { await monitor.startMonitoring() }
-
-                self.syncEngine = SyncEngine(metadataStore: store, networkMonitor: monitor)
+                self.metadataStore = MetadataStore(modelContainer: container)
             } catch {
                 logger
                     .warning(
-                        "Failed to initialize MetadataStore/SyncEngine: \(error.localizedDescription, privacy: .public). Extension will work without sync engine."
+                        "Failed to initialize MetadataStore: \(error.localizedDescription, privacy: .public). Extension will work without offline cache."
                     )
             }
 
@@ -144,16 +134,9 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         }
 
         super.init()
-        self.startPolling()
-        self.warmCache()
         self.startAutoPurge()
         self.startCommandListener()
-
-        // If drive is paused, notify the main app so UI reflects the state
-        if let driveId = self.drive?.id,
-           (try? SharedData.default().isDrivePaused(driveId)) == true {
-            Task { await self.notificationManager?.sendDriveChangedNotification(status: .paused) }
-        }
+        self.startWorkingSetSignaller()
 
         logMemoryUsage(label: "init-complete", logger: logger)
     }
@@ -167,13 +150,12 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
 
     func invalidate() {
         self.logger.info("Extension invalidating for domain \(self.domain.identifier.rawValue, privacy: .public)")
-        self.logger.debug("Stopping periodic polling task")
-        self.pollingTask?.cancel()
-        self.pollingTask = nil
         self.purgeTask?.cancel()
         self.purgeTask = nil
         self.commandListenerTask?.cancel()
         self.commandListenerTask = nil
+        self.workingSetSignallerTask?.cancel()
+        self.workingSetSignallerTask = nil
 
         if let nm = self.notificationManager {
             Task { await nm.shutdown() }
@@ -181,10 +163,6 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
 
         if let s3Lib = self.s3Lib {
             Task { try? await s3Lib.shutdown() }
-        }
-
-        if let monitor = networkMonitor {
-            Task { await monitor.stopMonitoring() }
         }
     }
 
@@ -202,7 +180,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         ) {
             return stored
         }
-        let filename = key.split(separator: "/").last.map(String.init) ?? key
+        let filename = key.split(separator: DefaultSettings.S3.delimiter).last.map(String.init) ?? key
         return S3Lib.fullTrashPrefix(forDrive: drive) + filename
     }
 
@@ -218,7 +196,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         // Try MetadataStore first
         if let cached = try? await metadataStore?.fetchItemMetadata(byKey: identifier.rawValue, driveId: drive.id),
            cached.etag != nil || cached.syncStatus == SyncStatus.error.rawValue || isFolder {
-            self.logger.info("item(for:) cache hit for \(identifier.rawValue, privacy: .public) isFolder=\(isFolder)")
+            self.logger.debug("item(for:) cache hit for \(identifier.rawValue, privacy: .public) isFolder=\(isFolder)")
             return S3Item(
                 identifier: identifier,
                 drive: drive,
@@ -236,7 +214,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         // can hang when the iOS networking grace period is exhausted, causing
         // Files to show folder items without icons while waiting for a response.
         if isFolder {
-            self.logger.info("item(for:) folder shortcut for \(identifier.rawValue, privacy: .public)")
+            self.logger.debug("item(for:) folder shortcut for \(identifier.rawValue, privacy: .public)")
             return S3Item(
                 identifier: identifier,
                 drive: drive,
@@ -244,7 +222,7 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             )
         }
 
-        self.logger.info("item(for:) S3 HEAD for \(identifier.rawValue, privacy: .public)")
+        self.logger.debug("item(for:) S3 HEAD for \(identifier.rawValue, privacy: .public)")
         do {
             return try await s3Lib.remoteS3Item(for: identifier, drive: drive)
         } catch {
@@ -374,25 +352,29 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             let emptyFileURL = temporaryDirectory.appendingPathComponent(UUID().uuidString)
             try Data().write(to: emptyFileURL)
             completionHandler(emptyFileURL, folderItem, nil)
+            // The folder is now "downloaded" from Apple's POV; flag it as a
+            // working-set member so it participates in drift detection.
             let store = self.metadataStore
-            Task { try? await store?.setMaterialized(
-                s3Key: itemIdentifier.rawValue,
-                driveId: drive.id,
-                isMaterialized: true
-            ) }
+            let key = itemIdentifier.rawValue
+            let driveId = drive.id
+            let logger = self.logger
+            Task {
+                do {
+                    try await store?.setMaterialized(
+                        s3Key: key, driveId: driveId, isMaterialized: true
+                    )
+                } catch {
+                    logger.warning(
+                        "materializeFolderItem: setMaterialized failed for \(key, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
+                }
+            }
         } catch {
             completionHandler(nil, nil, NSFileProviderError(.cannotSynchronize) as NSError)
         }
         progress.completedUnitCount = 1
 
         return progress
-    }
-
-    /// Returns true when the drive is paused, logging the deferred operation name.
-    func isDrivePaused(_ driveId: UUID, operation: String) -> Bool {
-        guard (try? SharedData.default().isDrivePaused(driveId)) == true else { return false }
-        logger.info("Drive paused, deferring \(operation, privacy: .public) operation")
-        return true
     }
 
     /// Signals the system to re-enumerate changes after a local CRUD operation.
@@ -405,9 +387,9 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             return
         }
 
-        manager.signalEnumerator(for: .workingSet) { error in
+        manager.signalEnumerator(for: .workingSet) { [weak self] error in
             if let error {
-                self.logger.error("Failed to signal working set: \(error.localizedDescription, privacy: .public)")
+                self?.logger.error("Failed to signal working set: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -434,24 +416,28 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
             return TrashS3Enumerator(s3Lib: s3Lib, drive: drive, metadataStore: self.metadataStore)
 
         case .workingSet:
-            // NOTE: The system is requesting the whole working set (probably to index it via spotlight
-            return WorkingSetS3Enumerator(
-                parent: containerItemIdentifier,
+            // Bounded set: items the user has materialised. The system polls
+            // this enumerator out-of-band from folder navigation so
+            // materialised files reconcile without the user re-opening their
+            // parent folder.
+            return WorkingSetEnumerator(
                 s3Lib: s3Lib,
-                notificationManager: nm,
                 drive: drive,
-                syncEngine: self.syncEngine,
                 metadataStore: self.metadataStore
             )
 
         default:
-            // NOTE: The user is navigating the finder
+            // User is navigating Finder/Files.app. Lazy direct-children
+            // enumeration; remote deletions surface via `enumerateChanges`
+            // when the user navigates back. Out-of-band remote deletions
+            // for non-materialised items only surface on the next user
+            // navigation — see issue #140 for the working-set-expansion
+            // follow-up.
             return S3Enumerator(
                 parent: containerItemIdentifier,
                 s3Lib: s3Lib,
                 notificationManager: nm,
                 drive: drive,
-                syncEngine: self.syncEngine,
                 metadataStore: self.metadataStore
             )
         }

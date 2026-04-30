@@ -76,6 +76,11 @@ public actor MetadataStore {
         public let parentKey: String?
         public let contentType: String?
         public let size: Int64
+        /// When `true`, marks the row as a working-set member. Additive on the
+        /// batch upsert path: an existing `true` is never downgraded to `false`
+        /// here. Point eviction uses
+        /// `setMaterialized(s3Key:driveId:isMaterialized:)` directly.
+        public let isMaterialized: Bool
 
         public init(
             s3Key: String,
@@ -85,7 +90,8 @@ public actor MetadataStore {
             syncStatus: SyncStatus = .synced,
             parentKey: String? = nil,
             contentType: String? = nil,
-            size: Int64 = 0
+            size: Int64 = 0,
+            isMaterialized: Bool = false
         ) {
             self.s3Key = s3Key
             self.driveId = driveId
@@ -95,6 +101,7 @@ public actor MetadataStore {
             self.parentKey = parentKey
             self.contentType = contentType
             self.size = size
+            self.isMaterialized = isMaterialized
         }
     }
 
@@ -109,7 +116,8 @@ public actor MetadataStore {
         syncStatus: SyncStatus = .pending,
         parentKey: String? = nil,
         contentType: String? = nil,
-        size: Int64 = 0
+        size: Int64 = 0,
+        isMaterialized: Bool = false
     ) throws {
         if let existing = try findItem(byKey: s3Key, driveId: driveId) {
             // Phase 13.2 D-05/D-08 (Plan 09 / Schema V6): the thumbnailStatus
@@ -128,6 +136,9 @@ public actor MetadataStore {
             existing.parentKey = parentKey
             existing.contentType = contentType
             existing.size = size
+            if isMaterialized {
+                existing.isMaterialized = true
+            }
         } else {
             let item = SyncedItem(s3Key: s3Key, driveId: driveId, size: size, syncStatus: syncStatus.rawValue)
             item.etag = etag
@@ -135,6 +146,7 @@ public actor MetadataStore {
             item.localFileHash = localFileHash
             item.parentKey = parentKey
             item.contentType = contentType
+            item.isMaterialized = isMaterialized
             modelExecutor.modelContext.insert(item)
         }
     }
@@ -150,7 +162,8 @@ public actor MetadataStore {
                 syncStatus: data.syncStatus,
                 parentKey: data.parentKey,
                 contentType: data.contentType,
-                size: data.size
+                size: data.size,
+                isMaterialized: data.isMaterialized
             )
         }
         try modelExecutor.modelContext.save()
@@ -217,7 +230,12 @@ public actor MetadataStore {
     }
 
     /// Remove cached children of a folder that are no longer present in S3.
-    /// Only prunes items with `.synced` status — items being uploaded or in error are preserved.
+    /// Only prunes items with `.synced` status — items being uploaded or in error
+    /// are preserved. Working-set members (`isMaterialized == true`) are also
+    /// preserved so `WorkingSetEnumerator.enumerateChanges` retains the chance to
+    /// HEAD them and report deletions to the OS via `didDeleteItems`. Those rows
+    /// are then removed authoritatively from `WorkingSetEnumerator` after the
+    /// notification is sent.
     public func pruneChildren(parentKey: String?, driveId: UUID, keepKeys: Set<String>) throws {
         let context = modelExecutor.modelContext
         let syncedStatus = SyncStatus.synced.rawValue
@@ -235,7 +253,7 @@ public actor MetadataStore {
             items = try context.fetch(FetchDescriptor<SyncedItem>(predicate: predicate))
         }
 
-        let staleItems = items.filter { !keepKeys.contains($0.s3Key) }
+        let staleItems = items.filter { !keepKeys.contains($0.s3Key) && !$0.isMaterialized }
         for item in staleItems {
             context.delete(item)
         }

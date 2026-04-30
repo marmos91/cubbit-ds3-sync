@@ -116,7 +116,6 @@ enum TrayDriveGearMenu {
         menu.autoenablesItems = false
 
         let driveId = driveViewModel.drive.id
-        let isPaused = driveViewModel.driveStatus == .paused
         let s3Path = buildS3Path(for: driveViewModel)
 
         addAction(menu: menu, title: "Disconnect", systemImage: "eject") {
@@ -176,18 +175,6 @@ enum TrayDriveGearMenu {
 
         menu.addItem(.separator())
 
-        addAction(
-            menu: menu,
-            title: isPaused ? "Resume" : "Pause",
-            systemImage: isPaused ? "play" : "pause"
-        ) {
-            togglePause(
-                driveViewModel: driveViewModel,
-                ds3DriveManager: ds3DriveManager,
-                logger: logger
-            )
-        }
-
         addAction(menu: menu, title: "Copy S3 Path", systemImage: "doc.on.doc") {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(s3Path, forType: .string)
@@ -220,34 +207,5 @@ enum TrayDriveGearMenu {
             path += "/\(prefix)"
         }
         return path
-    }
-
-    @MainActor
-    private static func togglePause(
-        driveViewModel: DS3DriveViewModel,
-        ds3DriveManager: DS3DriveManager,
-        logger: Logger
-    ) {
-        let driveId = driveViewModel.drive.id
-        let isPaused = driveViewModel.driveStatus == .paused
-        do {
-            try SharedData.default().setDrivePaused(driveId, paused: !isPaused)
-
-            if isPaused {
-                driveViewModel.driveStatus = .sync
-                ds3DriveManager.notifyDriveResumedFromUI(driveId: driveId)
-
-                let domain = driveViewModel.fileProviderDomain()
-                let fpManager = NSFileProviderManager(for: domain)
-                Task {
-                    try? await fpManager?.signalEnumerator(for: .rootContainer)
-                }
-            } else {
-                driveViewModel.driveStatus = .paused
-                ds3DriveManager.notifyDrivePausedFromUI(driveId: driveId)
-            }
-        } catch {
-            logger.error("Error toggling pause state: \(error.localizedDescription)")
-        }
     }
 }

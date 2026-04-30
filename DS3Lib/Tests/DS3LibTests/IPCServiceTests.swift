@@ -245,9 +245,8 @@ final class IPCServiceTests: XCTestCase {
         let id = UUID()
 
         let cases: [IPCCommand] = [
-            .pauseDrive(driveId: id),
-            .resumeDrive(driveId: id),
             .refreshEnumeration(driveId: id),
+            .emptyTrash(driveId: id),
         ]
 
         let encoder = JSONEncoder()

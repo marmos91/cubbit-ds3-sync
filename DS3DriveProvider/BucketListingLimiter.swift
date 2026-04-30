@@ -2,10 +2,11 @@ import Foundation
 
 /// Actor-based per-bucket concurrency limiter for S3 ListObjectsV2 requests.
 ///
-/// On fresh mount, the cache warm-up pass, S3Enumerator, and TrashS3Enumerator
-/// all call `listObjectsV2` concurrently against the bucket root. S3 responds
-/// with HTTP 503 `SlowDown` when too many listings hit the same bucket at once,
-/// and the enumerator-level fallback path would silently drop folders (Gap 28).
+/// `S3Enumerator` and `TrashS3Enumerator` can both issue `listObjectsV2`
+/// concurrently against the same bucket while the user navigates. S3 responds
+/// with HTTP 503 `SlowDown` when too many listings hit one bucket at once,
+/// and the enumerator-level fallback path would silently drop folders
+/// (Gap 28).
 ///
 /// This actor caps concurrent listings per bucket to a small constant (default 4),
 /// forcing excess callers to await a fair FIFO slot. Combined with

@@ -38,11 +38,6 @@
             statusTask = Task { [weak self] in
                 guard let self else { return }
                 for await change in self.ipcService.statusUpdates {
-                    // While paused, ignore extension status updates (they'd be stale
-                    // .idle/.error from failed operations)
-                    if self.driveStatuses[change.driveId] == .paused, change.status != .paused {
-                        continue
-                    }
                     self.driveStatuses[change.driveId] = change.status
                 }
             }
@@ -70,24 +65,6 @@
             }
         }
 
-        /// Restores persisted pause state for all drives so it survives app restart.
-        func loadPersistedPauseState(drives: [DS3Drive]) {
-            for drive in drives where (try? SharedData.default().isDrivePaused(drive.id)) == true {
-                driveStatuses[drive.id] = .paused
-            }
-        }
-
-        /// Toggles pause/resume for a drive using SharedData persistence.
-        func togglePause(for driveId: UUID) {
-            let isPaused = driveStatuses[driveId] == .paused
-            do {
-                try SharedData.default().setDrivePaused(driveId, paused: !isPaused)
-                driveStatuses[driveId] = isPaused ? .idle : .paused
-            } catch {
-                // Silently fail — SharedData errors are non-fatal for UI
-            }
-        }
-
         // MARK: - Accessors
 
         func status(for driveId: UUID) -> DS3DriveStatus {
@@ -105,7 +82,6 @@
             case .idle: "Synced"
             case .sync: "Syncing"
             case .error: "Error"
-            case .paused: "Paused"
             }
         }
 
@@ -114,7 +90,6 @@
             case .idle: IOSColors.statusSynced
             case .sync: IOSColors.statusSyncing
             case .error: IOSColors.statusError
-            case .paused: IOSColors.statusPaused
             }
         }
 

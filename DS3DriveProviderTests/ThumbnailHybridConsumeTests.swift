@@ -17,7 +17,7 @@ import XCTest
 ///
 /// Production code in `+Thumbnails.swift` wires these closures to the real
 /// `S3Lib.downloadS3Item`, `ThumbnailRenderer.renderJPEG`, `s3Client.putThumbnail`,
-/// `SharedData.default().isDrivePaused`, and `manager.signalEnumerator(for:)`.
+/// `manager.signalEnumerator(for:)`.
 final class ThumbnailHybridConsumeTests: XCTestCase {
     // MARK: - Test 1 — Cache miss → render → bytes to Finder → background PUT
 
@@ -402,7 +402,6 @@ final class ThumbnailHybridConsumeTests: XCTestCase {
         putThumbnail: @escaping ThumbnailFallbackPutter = { _, _, _, _ in
             // Default: succeed silently. Tests that care override this.
         },
-        isPaused: @escaping ThumbnailPauseChecker = { _ in false },
         signalParentContainer: @escaping ThumbnailSignalContainer = { _ in
             // Default: no-op. Tests that care override this.
         }
@@ -412,7 +411,6 @@ final class ThumbnailHybridConsumeTests: XCTestCase {
             download: download,
             render: render,
             putThumbnail: putThumbnail,
-            isPaused: isPaused,
             signalParentContainer: signalParentContainer,
             logger: testLogger
         )

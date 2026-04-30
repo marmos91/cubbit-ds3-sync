@@ -13,9 +13,7 @@ public enum AggregateStatus: Equatable, Sendable {
     /// No drives are registered. The tray surfaces should hide the aggregate row.
     case noDrives
 
-    /// At least one drive exists and all are `.idle` (or a mix of idle and
-    /// paused that still qualifies as "everything is healthy and at rest" is
-    /// explicitly covered by `.allPaused` / `.mixed` — see reducer).
+    /// At least one drive exists and all are `.idle`.
     case allIdle
 
     /// At least one drive is actively `.sync`. Subsumes both transfer activity
@@ -28,9 +26,6 @@ public enum AggregateStatus: Equatable, Sendable {
     /// Every drive is in `.error`. `count` records how many so the UI can
     /// choose between "1 drive error" and "N drives error" copy.
     case error(count: Int)
-
-    /// Every drive is `.paused` (user-initiated). No automatic work will run.
-    case allPaused
 
     /// Mixed states that don't fit the above cleaner cases — e.g. one drive in
     /// `.error` and another still syncing / idle. The UI typically renders
@@ -45,18 +40,15 @@ public enum AggregateStatus: Equatable, Sendable {
     /// Priority order:
     ///  1. empty           → `.noDrives`
     ///  2. all `.error`    → `.error(count:)`
-    ///  3. all `.paused`   → `.allPaused`
-    ///  4. any `.error`    → `.mixed` (error coexists with a healthy state)
-    ///  5. any `.sync`     → `.syncing`
-    ///  6. otherwise       → `.allIdle`
+    ///  3. any `.error`    → `.mixed` (error coexists with a healthy state)
+    ///  4. any `.sync`     → `.syncing`
+    ///  5. otherwise       → `.allIdle`
     public static func from(statuses: [DS3DriveStatus]) -> AggregateStatus {
         if statuses.isEmpty { return .noDrives }
 
         let errorCount = statuses.count(where: { $0 == .error })
-        let pausedCount = statuses.count(where: { $0 == .paused })
 
         if errorCount == statuses.count { return .error(count: errorCount) }
-        if pausedCount == statuses.count { return .allPaused }
         if errorCount > 0 { return .mixed }
         if statuses.contains(.sync) { return .syncing }
         return .allIdle
@@ -72,7 +64,6 @@ public enum AggregateStatus: Equatable, Sendable {
         case .noDrives, .allIdle: .idle
         case .syncing: .syncing
         case .error, .mixed: .error
-        case .allPaused: .paused
         }
     }
 

@@ -141,41 +141,6 @@ final class SchemaV6MigrationTests: XCTestCase {
         XCTAssertEqual(anchors[0].consecutiveFailures, 1)
     }
 
-    /// The bottom-of-file `typealias SyncedItem` resolves to V6's class.
-    /// If this fails, the typealias is still pointing at V5 (or earlier).
-    func testTypealiasIsV6() throws {
-        XCTAssertTrue(
-            SyncedItem.self == SyncedItemSchemaV6.SyncedItem.self,
-            "typealias SyncedItem must resolve to SyncedItemSchemaV6.SyncedItem"
-        )
-    }
-
-    /// Open a V6-bound container and prove the container's SyncedItem schema
-    /// is V6 by inserting + reading back a row through the public `SyncedItem`
-    /// typealias. (V6 lacks `thumbnailStatus` — type system enforces it; we
-    /// don't need to assert "field is gone" at runtime.)
-    func testMetadataStoreV6BoundContainerRoundTrip() throws {
-        let schema = Schema(versionedSchema: SyncedItemSchemaV6.self)
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [config])
-        let context = ModelContext(container)
-
-        let driveId = UUID()
-        let item = SyncedItem(
-            s3Key: "v6-prove.jpg",
-            driveId: driveId,
-            size: 7,
-            syncStatus: SyncStatus.synced.rawValue
-        )
-        context.insert(item)
-        try context.save()
-
-        let fetched = try context.fetch(FetchDescriptor<SyncedItem>())
-        XCTAssertEqual(fetched.count, 1)
-        XCTAssertEqual(fetched[0].s3Key, "v6-prove.jpg")
-        XCTAssertEqual(fetched[0].syncStatus, SyncStatus.synced.rawValue)
-    }
-
     // MARK: - Helpers (mirror SchemaV5MigrationTests)
 
     private static func makeTempStoreURL() throws -> URL {

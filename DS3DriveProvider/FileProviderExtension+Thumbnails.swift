@@ -34,11 +34,6 @@ extension FileProviderExtension {
             )
         }
 
-        if isDrivePaused(drive.id, operation: "fetchContents") {
-            completionHandler(nil, nil, NSFileProviderError(.serverUnreachable) as NSError)
-            return Progress()
-        }
-
         let progress = Progress(totalUnitCount: 100)
         let metadataStore = self.metadataStore
         let completed = OSAllocatedUnfairLock(initialState: false)
@@ -228,16 +223,6 @@ extension FileProviderExtension {
 
             self.logger.info("fetchThumbnails: starting for \(itemIdentifiers.count) items (cache-first)")
 
-            // When paused, skip all thumbnail downloads — they require S3 network access.
-            if isDrivePaused(drive.id, operation: "fetchThumbnails") {
-                for identifier in itemIdentifiers {
-                    perThumbnailCompletionHandler(identifier, nil, nil)
-                }
-                completeFinal(nil)
-                progress.completedUnitCount = Int64(itemIdentifiers.count)
-                return progress
-            }
-
             let task = self.spawnCacheFirstThumbnailTask(
                 itemIdentifiers: itemIdentifiers,
                 drive: drive,
@@ -326,9 +311,6 @@ extension FileProviderExtension {
                     bucket: bucket, key: key, data: data, sourceETag: sourceETag
                 )
             }
-            let pauseFn: ThumbnailPauseChecker = { @Sendable driveId in
-                (try? SharedData.default().isDrivePaused(driveId)) == true
-            }
             let signalFn: ThumbnailSignalContainer = makeSignalParentContainer(
                 domain: domainCopy, logger: logger, label: "Fallback"
             )
@@ -342,7 +324,6 @@ extension FileProviderExtension {
                 download: downloadFn,
                 render: renderFn,
                 putThumbnail: putFn,
-                isPaused: pauseFn,
                 signalParentContainer: signalFn,
                 logger: logger
             )

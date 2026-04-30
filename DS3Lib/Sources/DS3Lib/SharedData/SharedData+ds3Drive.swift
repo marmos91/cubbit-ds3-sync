@@ -7,14 +7,8 @@ public extension SharedData {
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed. Other error can be thrown
     /// if reading and decoding fails
     func loadDS3DrivesFromPersistence() throws -> [DS3Drive] {
-        guard let sharedContainerURL = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup)
-        else {
-            throw SharedDataError.cannotAccessAppGroup
-        }
-
-        let drivesURL = sharedContainerURL.appendingPathComponent(DefaultSettings.FileNames.drivesFileName)
-
+        let containerURL = try sharedContainerURL()
+        let drivesURL = containerURL.appendingPathComponent(DefaultSettings.FileNames.drivesFileName)
         return try JSONDecoder().decode([DS3Drive].self, from: Data(contentsOf: drivesURL))
     }
 
@@ -58,31 +52,17 @@ public extension SharedData {
     func persistDS3Drives(
         ds3Drives: [DS3Drive]
     ) throws {
-        guard let sharedContainerURL = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup)
-        else {
-            throw SharedDataError.cannotAccessAppGroup
-        }
-
-        let drivesURL = sharedContainerURL.appendingPathComponent(DefaultSettings.FileNames.drivesFileName)
-
-        let encoder = JSONEncoder()
-        let encodedDrives = try encoder.encode(ds3Drives)
-
+        let containerURL = try sharedContainerURL()
+        let drivesURL = containerURL.appendingPathComponent(DefaultSettings.FileNames.drivesFileName)
+        let encodedDrives = try JSONEncoder().encode(ds3Drives)
         try encodedDrives.write(to: drivesURL)
     }
 
     /// Deletes the saved DS3 drives from shared container.
     /// - Throws: `SharedDataError.cannotAccessAppGroup` if the app group cannot be accessed.
     func deleteDS3DrivesFromPersistence() throws {
-        guard let sharedContainerURL = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: DefaultSettings.appGroup)
-        else {
-            throw SharedDataError.cannotAccessAppGroup
-        }
-
-        let drivesURL = sharedContainerURL.appendingPathComponent(DefaultSettings.FileNames.drivesFileName)
-
+        let containerURL = try sharedContainerURL()
+        let drivesURL = containerURL.appendingPathComponent(DefaultSettings.FileNames.drivesFileName)
         try FileManager.default.removeItem(at: drivesURL)
     }
 }

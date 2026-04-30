@@ -88,8 +88,6 @@ struct TrayMenuFooterView: View {
             StatusIcon(name: "arrow.triangle.2.circlepath", color: DS3Colors.statusSyncing)
         case .error:
             StatusIcon(name: "exclamationmark.triangle.fill", color: DS3Colors.statusError)
-        case .paused:
-            StatusIcon(name: "pause.circle.fill", color: DS3Colors.brandTextSecondary)
         case .offline:
             StatusIcon(name: "wifi.slash", color: DS3Colors.brandTextSecondary)
         case .info:

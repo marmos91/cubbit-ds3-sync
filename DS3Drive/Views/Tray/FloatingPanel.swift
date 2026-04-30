@@ -103,7 +103,6 @@ final class FloatingPanelManager {
         let panelWidth: CGFloat = 280
         let gap: CGFloat = 4
 
-        // Size to content, capped at the tray window height
         let wrappedContent = content()
             .frame(width: panelWidth)
             .fixedSize(horizontal: false, vertical: true)
@@ -112,7 +111,6 @@ final class FloatingPanelManager {
 
         let hostingController = NSHostingController(rootView: wrappedContent)
         let fittingSize = hostingController.view.fittingSize
-        let panelHeight = min(fittingSize.height, trayFrame.height)
 
         // Position panel: prefer left of tray, flip to right if off-screen
         let screenFrame = trayWindow?.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
@@ -120,10 +118,14 @@ final class FloatingPanelManager {
         let rightX = min(trayFrame.maxX + gap, screenFrame.maxX - panelWidth)
         let panelX = preferredX >= screenFrame.minX ? preferredX : rightX
 
-        // Vertical position: anchor to drive row top if provided, otherwise tray top.
-        // Panel extends downward from the anchor point, clamped to screen bounds.
+        // Anchor the panel TOP to the drive-row top (or tray top as fallback) and
+        // grow downward. Cap the height to the space between the anchor and the
+        // screen bottom so the top stays glued to the anchor — never shift up
+        // when the content is taller than the menu.
         let topY = anchorScreenFrame?.maxY ?? trayFrame.maxY
-        let originY = max(screenFrame.minY, topY - panelHeight)
+        let availableHeight = max(0, topY - screenFrame.minY)
+        let panelHeight = min(fittingSize.height, availableHeight)
+        let originY = topY - panelHeight
 
         let origin = NSPoint(
             x: panelX,
