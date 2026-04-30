@@ -4,28 +4,28 @@ import ImageIO
 import os
 import UniformTypeIdentifiers
 
+/// Sub-reason for a `renderJPEG` failure. Surfaces in logs at the call site
+/// so we can distinguish FileProvider-temp-URL eviction (`dataLoad`) from
+/// ImageIO concurrent-decode-pressure failures (`thumbnailCreate`) etc.
+public enum RenderFailure: String, Error, Sendable, Equatable {
+    /// `Data(contentsOf:.mappedIfSafe)` threw — file gone, sandbox eviction, IO error.
+    case dataLoad
+    /// `CGImageSourceCreateWithData` returned nil — bytes don't form a valid image source.
+    /// Not directly exercisable in unit tests (CGImageSource is permissive on invalid bytes); retained for
+    /// production diagnostic coverage.
+    case sourceCreate
+    /// UTI not in the raster allow-list (RAW, PDF, etc.).
+    case utiReject
+    /// `CGImageSourceCreateThumbnailAtIndex` returned nil — ImageIO decode failed.
+    case thumbnailCreate
+    /// JPEG encoder init or finalize failed.
+    /// Not directly exercisable in unit tests; retained for production diagnostic coverage.
+    case jpegEncode
+}
+
 // THUMB-07: whole-type `#if os(macOS)` gate so the iOS extension cannot link
 // ImageIO and blow its 20 MB jetsam budget. Body-level gating leaks the symbol.
 #if os(macOS)
-
-    /// Sub-reason for a `renderJPEG` failure. Surfaces in logs at the call site
-    /// so we can distinguish FileProvider-temp-URL eviction (`dataLoad`) from
-    /// ImageIO concurrent-decode-pressure failures (`thumbnailCreate`) etc.
-    public enum RenderFailure: String, Error, Sendable, Equatable {
-        /// `Data(contentsOf:.mappedIfSafe)` threw — file gone, sandbox eviction, IO error.
-        case dataLoad
-        /// `CGImageSourceCreateWithData` returned nil — bytes don't form a valid image source.
-        /// Not directly exercisable in unit tests (CGImageSource is permissive on invalid bytes); retained for
-        /// production diagnostic coverage.
-        case sourceCreate
-        /// UTI not in the raster allow-list (RAW, PDF, etc.).
-        case utiReject
-        /// `CGImageSourceCreateThumbnailAtIndex` returned nil — ImageIO decode failed.
-        case thumbnailCreate
-        /// JPEG encoder init or finalize failed.
-        /// Not directly exercisable in unit tests; retained for production diagnostic coverage.
-        case jpegEncode
-    }
 
     public struct ThumbnailRenderer {
         public let maxDimension: CGFloat

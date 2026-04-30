@@ -50,8 +50,10 @@ import os.log
 /// for this declaration) prevents SwiftFormat from stripping the conformance.
 struct ThumbnailUploadHookContext: Sendable {
     let originalKey: String
-    /// `nil` allowed for ETag races — putThumbnail accepts empty sourceETag
-    /// (see consumeThumbnailFallback's `etagForPut = sourceETag ?? ""`).
+    /// MUST be non-empty. The enqueue path rejects empty/nil eagerly
+    /// (the original PUT response always provides one). The Optional
+    /// type is retained on the context struct for call-site stability;
+    /// the precondition is enforced inside `enqueueThumbnailUpload`.
     let sourceETag: String?
     let drive: DS3Drive
     let s3Client: any DS3S3ClientProtocol
@@ -137,9 +139,8 @@ private func runUploadHook(
         //     read-after-write consistent for new objects. Errors logged + swallowed (D-06).
         let identifier = NSFileProviderItemIdentifier(originalKey)
         let downloadedURL: URL
-        let downloadedETag: String?
         do {
-            (downloadedURL, downloadedETag) = try await download(identifier, drive)
+            (downloadedURL, _) = try await download(identifier, drive)
         } catch {
             logger.error(
                 "Upload-hook: GET original failed for \(originalKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
@@ -163,15 +164,14 @@ private func runUploadHook(
             return
         }
 
-        // (d) PUT. Use the freshest available sourceETag — caller-supplied first,
-        //     fallback to whatever the GET surfaced, fallback to "" (matches
-        //     consume-path convention).
+        // (d) PUT. `sourceETag` is guaranteed non-empty by enqueueThumbnailUpload's
+        //     precondition (line ~225); no fallback needed.
         let bucket = drive.syncAnchor.bucket.name
         let drivePrefix = drive.syncAnchor.prefix
         let thumbKey = S3PathUtils.thumbnailKey(
             forOriginalKey: originalKey, drivePrefix: drivePrefix
         )
-        let etagForPut = sourceETag.isEmpty ? (downloadedETag ?? "") : sourceETag
+        let etagForPut = sourceETag
         do {
             _ = try await s3Client.putThumbnail(
                 bucket: bucket, key: thumbKey, data: jpegBytes, sourceETag: etagForPut

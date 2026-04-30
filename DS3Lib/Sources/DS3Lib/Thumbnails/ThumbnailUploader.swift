@@ -12,9 +12,10 @@ import os.log
 ///
 /// Failure semantics (D-06 fire-and-forget contract, Phase 13.2 D-05/D-08/D-19):
 ///   - Non-raster originalKey → log + return (caller pre-filters anyway).
-///   - Renderer returns nil → log only and return. No schema strike counter
-///     anymore (Schema V5 dropped `thumbnailFailCount`); the consume-path
-///     fallback's `ThumbnailFallbackLimiter` owns the in-memory 3-strike rule.
+///   - Renderer returns `.failure(reason)` → log the sub-reason and return.
+///     No schema strike counter anymore (Schema V5 dropped `thumbnailFailCount`);
+///     the consume-path fallback's `ThumbnailFallbackLimiter` owns the
+///     in-memory 3-strike rule.
 ///   - PUT throws → log + RETHROW (caller's `try? await ...` swallows). No
 ///     schema strike counter write.
 ///
