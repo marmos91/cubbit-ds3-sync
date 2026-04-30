@@ -170,15 +170,33 @@
                     .buttonStyle(.plain)
 
                     if showAdvanced {
-                        brandField(icon: "person", focus: .tenant) {
-                            TextField(
-                                "Tenant ID",
-                                text: $tenant,
-                                prompt: Text("Tenant ID")
-                                    .foregroundColor(IOSColors.brandTextSecondary)
-                            )
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
+                        VStack(alignment: .leading, spacing: 6) {
+                            brandField(icon: "person", focus: .tenant) {
+                                TextField(
+                                    "Tenant ID",
+                                    text: $tenant,
+                                    prompt: Text("Tenant ID")
+                                        .foregroundColor(IOSColors.brandTextSecondary)
+                                )
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                            }
+
+                            if let tenantsURL = URL(string: ComposerURLs.tenantsURL) {
+                                Link(destination: tenantsURL) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "questionmark.circle")
+                                            .font(.system(size: 11))
+                                        Text(
+                                            "Find your Tenant ID in the Composer dashboard, or contact your administrator."
+                                        )
+                                        .font(.custom("Figtree-Regular", size: 12))
+                                        .multilineTextAlignment(.leading)
+                                    }
+                                    .foregroundStyle(IOSColors.brandTextSecondary.opacity(0.7))
+                                }
+                                .padding(.horizontal, 4)
+                            }
                         }
 
                         brandField(icon: "globe", focus: .coordinator) {

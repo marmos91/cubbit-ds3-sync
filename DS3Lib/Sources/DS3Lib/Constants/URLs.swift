@@ -87,6 +87,12 @@ public enum ConsoleURLs {
     public static let profileURL = "\(ConsoleURLs.workspaceURL)/profile"
 }
 
+/// Cubbit Composer dashboard related URLs.
+public enum ComposerURLs {
+    public static let baseURL = "https://composer.cubbit.eu"
+    public static let tenantsURL = "\(ComposerURLs.baseURL)/tenants"
+}
+
 /// Cubbit docs related URLs.
 public enum DocsURLs {
     public static let baseURL = "https://docs.cubbit.io"
