@@ -839,7 +839,7 @@ private func friendlyErrorMessage(for error: Error) -> String {
     if isNetworkUnreachable {
         return NSLocalizedString(
             "error.gatewayUnreachable",
-            value: "Cannot reach the storage gateway. The service may be temporarily unavailable — contact your administrator.",
+            value: "Cannot reach the DS3 Gateway. The service may be temporarily unavailable — contact your administrator.",
             comment: "Error shown when the S3 gateway DNS lookup or connection fails"
         )
     }
