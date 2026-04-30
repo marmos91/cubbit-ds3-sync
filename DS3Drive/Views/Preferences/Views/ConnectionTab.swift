@@ -24,7 +24,7 @@ struct ConnectionTab: View {
                 )
                 ConnectionInfoRow(
                     icon: "person.2",
-                    label: NSLocalizedString("Tenant", comment: "Connection info label"),
+                    label: NSLocalizedString("Tenant ID", comment: "Connection info label"),
                     value: tenantName
                 )
                 ConnectionInfoRow(
@@ -57,7 +57,7 @@ struct ConnectionTab: View {
             coordinatorURL = (try? SharedData.default().loadCoordinatorURLFromPersistence())
                 ?? CubbitAPIURLs.defaultCoordinatorURL
             let tenant = (try? SharedData.default().loadTenantNameFromPersistence()) ?? ""
-            tenantName = tenant.isEmpty ? DefaultSettings.defaultTenantName : tenant
+            tenantName = tenant
         }
     }
 

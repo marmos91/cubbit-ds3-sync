@@ -144,7 +144,7 @@ struct LoginView: View {
                                 Image(systemName: "person")
                                     .foregroundStyle(DS3Colors.brandTextSecondary)
                                     .frame(width: 20)
-                                TextField("Tenant name", text: $tenant)
+                                TextField("Tenant ID", text: $tenant)
                                     .textFieldStyle(.plain)
                                     .font(DS3Typography.body)
                             }
@@ -221,7 +221,7 @@ struct LoginView: View {
 
         let viewModel = loginViewModel
         let auth = ds3Authentication
-        let tenantValue = (tenant.isEmpty || tenant == DefaultSettings.defaultTenantName) ? nil : tenant
+        let tenantValue = tenant.isEmpty ? nil : tenant
         Task {
             do {
                 try await viewModel.login(

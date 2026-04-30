@@ -172,9 +172,9 @@
                     if showAdvanced {
                         brandField(icon: "person", focus: .tenant) {
                             TextField(
-                                "Tenant name",
+                                "Tenant ID",
                                 text: $tenant,
-                                prompt: Text(DefaultSettings.defaultTenantName)
+                                prompt: Text("Tenant ID")
                                     .foregroundColor(IOSColors.brandTextSecondary)
                             )
                             .autocorrectionDisabled()
@@ -314,7 +314,7 @@
             UserDefaults.standard.set(tenant, forKey: DefaultSettings.UserDefaultsKeys.lastTenant)
             UserDefaults.standard.set(coordinatorURL, forKey: DefaultSettings.UserDefaultsKeys.lastCoordinatorURL)
 
-            let tenantValue = (tenant.isEmpty || tenant == DefaultSettings.defaultTenantName) ? nil : tenant
+            let tenantValue = tenant.isEmpty ? nil : tenant
             let viewModel = loginViewModel
             let auth = ds3Authentication
 

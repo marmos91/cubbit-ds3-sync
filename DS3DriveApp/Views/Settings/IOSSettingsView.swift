@@ -27,8 +27,7 @@
         }
 
         private var tenantName: String {
-            let tenant = (try? SharedData.default().loadTenantNameFromPersistence()) ?? ""
-            return tenant.isEmpty ? DefaultSettings.defaultTenantName : tenant
+            (try? SharedData.default().loadTenantNameFromPersistence()) ?? ""
         }
 
         private var coordinatorURL: String {
@@ -89,7 +88,7 @@
                         divider
                         infoRow(label: "Email", value: account.emails.first?.email ?? "")
                         divider
-                        infoRow(label: "Tenant", value: tenantName)
+                        infoRow(label: "Tenant ID", value: tenantName)
                         divider
 
                         Button {

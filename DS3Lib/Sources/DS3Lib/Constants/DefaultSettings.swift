@@ -41,8 +41,8 @@ public enum DefaultSettings {
     /// Max number of drives a user can create.
     public static let maxDrives = 3
 
-    /// Default tenant name shown in the UI when no tenant is configured.
-    public static let defaultTenantName = "NGC"
+    /// Sentinel used to detect "no tenant" state in the login form.
+    public static let defaultTenantName = ""
 
     /// User defaults keys used to store data. They can be changed without breaking the app.
     public enum UserDefaultsKeys {

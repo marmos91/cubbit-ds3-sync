@@ -236,7 +236,7 @@
 
             let viewModel = loginViewModel
             let auth = ds3Authentication
-            let tenantValue = (tenant.isEmpty || tenant == DefaultSettings.defaultTenantName) ? nil : tenant
+            let tenantValue = tenant.isEmpty ? nil : tenant
 
             Task {
                 try? await viewModel.login(
