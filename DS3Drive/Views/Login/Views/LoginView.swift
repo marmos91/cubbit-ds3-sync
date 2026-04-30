@@ -149,12 +149,15 @@ struct LoginView: View {
                                 TextField("Tenant ID", text: $tenant)
                                     .textFieldStyle(.plain)
                                     .font(DS3Typography.body)
-                                Image(systemName: "questionmark.circle")
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(DS3Colors.brandTextSecondary.opacity(0.6))
-                                    .help(
-                                        "Find your Tenant ID in the Tenants section of the Composer dashboard. If you don't have access, contact your administrator or support."
-                                    )
+                                Button { /* tooltip target */ } label: {
+                                    Image(systemName: "questionmark.circle")
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(DS3Colors.brandTextSecondary.opacity(0.6))
+                                }
+                                .buttonStyle(.plain)
+                                .help(
+                                    "Find your Tenant ID in the Tenants section of the Composer dashboard. If you don't have access, contact your administrator or support."
+                                )
                             }
                             .padding(DS3Spacing.md)
                             .background(
