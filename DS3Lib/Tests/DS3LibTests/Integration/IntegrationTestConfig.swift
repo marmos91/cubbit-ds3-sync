@@ -53,7 +53,7 @@ enum IntegrationTestConfig {
 class DS3IntegrationTestCase: XCTestCase {
     var authentication: DS3Authentication!
     var urls: CubbitAPIURLs!
-    private var tempContainerURL: URL?
+    var tempContainerURL: URL?
 
     override func setUp() async throws {
         try IntegrationTestConfig.skipIfNotConfigured()
@@ -99,8 +99,9 @@ class DS3S3IntegrationTestCase: DS3IntegrationTestCase {
 
         // Get API keys and create S3 client.
         // Uses the SDK API directly instead of loadOrCreateDS3APIKeys()
-        // to avoid coupling this test to the drive-management layer.
-        let sdk = DS3SDK(withAuthentication: authentication, urls: urls)
+        // to avoid creating a runtime dependency on drive-management state in S3 tests.
+        let sharedData = SharedData(testContainerURL: tempContainerURL!)
+        let sdk = DS3SDK(withAuthentication: authentication, urls: urls, sharedData: sharedData)
         let projects = try await sdk.getRemoteProjects()
         guard let project = projects.first else {
             throw XCTSkip("No projects found for test account — create one in the Cubbit console first")
