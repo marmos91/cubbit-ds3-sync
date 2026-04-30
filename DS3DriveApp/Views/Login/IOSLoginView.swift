@@ -20,7 +20,9 @@
         @State private var showPassword = false
         @State private var tenant: String = {
             let saved = UserDefaults.standard.string(forKey: DefaultSettings.UserDefaultsKeys.lastTenant) ?? ""
-            return saved.isEmpty ? DefaultSettings.defaultTenantName : saved
+            // Discard legacy tenant names (not UUIDs) saved before the tenant_id migration.
+            guard !saved.isEmpty, UUID(uuidString: saved) != nil else { return "" }
+            return saved
         }()
         @State private var coordinatorURL: String = UserDefaults.standard
             .string(forKey: DefaultSettings.UserDefaultsKeys.lastCoordinatorURL) ?? CubbitAPIURLs.defaultCoordinatorURL
@@ -182,21 +184,15 @@
                                 .textInputAutocapitalization(.never)
                             }
 
-                            if let tenantsURL = URL(string: ComposerURLs.tenantsURL) {
-                                Link(destination: tenantsURL) {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "questionmark.circle")
-                                            .font(.system(size: 11))
-                                        Text(
-                                            "Find your Tenant ID in the Composer dashboard, or contact your administrator."
-                                        )
-                                        .font(.custom("Figtree-Regular", size: 12))
-                                        .multilineTextAlignment(.leading)
-                                    }
-                                    .foregroundStyle(IOSColors.brandTextSecondary.opacity(0.7))
-                                }
-                                .padding(.horizontal, 4)
+                            HStack(spacing: 4) {
+                                Image(systemName: "questionmark.circle")
+                                    .font(.system(size: 11))
+                                Text("Find your Tenant ID in the Composer dashboard, or contact your administrator.")
+                                    .font(.custom("Figtree-Regular", size: 12))
+                                    .multilineTextAlignment(.leading)
                             }
+                            .foregroundStyle(IOSColors.brandTextSecondary.opacity(0.7))
+                            .padding(.horizontal, 4)
                         }
 
                         brandField(icon: "globe", focus: .coordinator) {
