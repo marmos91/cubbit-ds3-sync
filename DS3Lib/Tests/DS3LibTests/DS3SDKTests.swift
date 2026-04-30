@@ -68,6 +68,30 @@ final class DS3SDKTests: XCTestCase {
         XCTAssertNotNil(DS3SDKError.encodingError.errorDescription)
     }
 
+    // MARK: - SharedData Injection
+
+    func testSDKWithInjectedSharedDataWritesAPIKeysToGivenDirectory() throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let sharedData = SharedData(testContainerURL: tempDir)
+
+        let json = """
+        [{"name":"DS3Drive-for-macOS-user-project","api_key":"access-key-1","secret_key":"secret-1","created_at":"2024-01-01T00:00:00.000+00:00"}]
+        """
+        let keys = try JSONDecoder().decode([DS3ApiKey].self, from: Data(json.utf8))
+        try sharedData.persistDS3APIKeys(keys)
+
+        let loaded = try sharedData.loadDS3APIKeysFromPersistence()
+        XCTAssertEqual(loaded.count, 1)
+        XCTAssertEqual(loaded[0].apiKey, "access-key-1")
+
+        let credentialsFile = tempDir.appendingPathComponent(DefaultSettings.FileNames.credentialsFileName)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: credentialsFile.path))
+    }
+
     // MARK: - Authentication Error Descriptions
 
     func testDS3AuthenticationErrorDescriptions() {

@@ -28,14 +28,17 @@ public enum DS3SDKError: Error, LocalizedError {
 public final class DS3SDK: @unchecked Sendable {
     private var authentication: DS3Authentication
     private let urls: CubbitAPIURLs
+    private let sharedData: SharedData
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.auth.rawValue)
 
     public init(
         withAuthentication authentication: DS3Authentication,
-        urls: CubbitAPIURLs? = nil
+        urls: CubbitAPIURLs? = nil,
+        sharedData: SharedData = SharedData.default()
     ) {
         self.authentication = authentication
         self.urls = urls ?? authentication.urls
+        self.sharedData = sharedData
     }
 
     /// Validates an HTTP response status code, logging and throwing on failure.
@@ -160,7 +163,7 @@ public final class DS3SDK: @unchecked Sendable {
     ) async throws -> DS3ApiKey {
         let apiKeyName = DS3SDK.apiKeyName(forUser: user, projectName: ds3ProjectName)
 
-        let localApiKeys = (try? SharedData.default().loadDS3APIKeysFromPersistence()) ?? []
+        let localApiKeys = (try? sharedData.loadDS3APIKeysFromPersistence()) ?? []
         let localApiKey = localApiKeys.first(where: { $0.name == apiKeyName })
 
         let iamToken = try await authentication.forgeIAMToken(forIAMUser: user)
@@ -182,7 +185,7 @@ public final class DS3SDK: @unchecked Sendable {
 
         if let localApiKey, remoteApiKey == nil {
             self.logger.debug("Deleting local key since it is not found remotely")
-            try SharedData.default().deleteDS3APIKeyFromPersistence(withName: localApiKey.name)
+            try sharedData.deleteDS3APIKeyFromPersistence(withName: localApiKey.name)
         }
 
         return try await self.generateDS3APIKey(forIAMUser: user, iamToken: iamToken, apiKeyName: apiKeyName)
@@ -219,10 +222,10 @@ public final class DS3SDK: @unchecked Sendable {
         guard let newApiKey = try? JSONDecoder().decode(DS3ApiKey.self, from: responseData)
         else { throw DS3SDKError.jsonConversion }
 
-        var localApiKeys = (try? SharedData.default().loadDS3APIKeysFromPersistence()) ?? []
+        var localApiKeys = (try? sharedData.loadDS3APIKeysFromPersistence()) ?? []
         localApiKeys.append(newApiKey)
 
-        try SharedData.default().persistDS3APIKeys(localApiKeys)
+        try sharedData.persistDS3APIKeys(localApiKeys)
 
         return newApiKey
     }
