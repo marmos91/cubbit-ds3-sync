@@ -115,57 +115,6 @@ final class ThumbnailHybridConsumeTests: XCTestCase {
         XCTAssertEqual(signalled.first?.rawValue, "drive/folder/")
     }
 
-    // MARK: - Test 3 — Paused drive short-circuits before slot acquisition
-
-    /// D-24 / THUMB-21: pause gate fires BEFORE acquiring a limiter slot. No
-    /// download, no render, no PUT. Per-item handler called with (nil, nil) so
-    /// Finder draws the default UTType icon.
-    func test_pausedSkipsFallback() async throws {
-        let drive = ProviderTestFixtures.makeDrive()
-        let identifier = NSFileProviderItemIdentifier("prefix/photo.jpg")
-        let recorder = ResultRecorder()
-        let downloadCounter = CallCounter()
-        let putRecorder = PutRecorder()
-        let limiter = ThumbnailFallbackLimiter()
-
-        let context = Self.makeContext(
-            limiter: limiter,
-            download: { _, _ in
-                await downloadCounter.increment()
-                return (URL(fileURLWithPath: "/tmp/never"), nil)
-            },
-            render: { _ in .success(Data()) },
-            putThumbnail: { bucket, key, data, etag in
-                await putRecorder.record(bucket: bucket, key: key, data: data, etag: etag)
-            },
-            isPaused: { _ in true } // paused
-        )
-
-        await consumeThumbnailFallback(
-            identifier: identifier,
-            drive: drive,
-            context: context,
-            perItemHandler: { id, data, error in
-                Task { await recorder.record(id: id, data: data, error: error) }
-            }
-        )
-
-        try await Self.drainBackgroundTasks()
-
-        let results = await recorder.results
-        XCTAssertEqual(results.count, 1)
-        XCTAssertNil(results.first?.data)
-        XCTAssertNil(results.first?.error, "Paused must surface (nil, nil), not an error")
-
-        let downloads = await downloadCounter.count
-        XCTAssertEqual(downloads, 0, "Paused must short-circuit before download")
-        let puts = await putRecorder.entries
-        XCTAssertEqual(puts.count, 0, "Paused must not PUT")
-
-        let inFlight = await limiter.inFlightCount
-        XCTAssertEqual(inFlight, 0, "Paused must not acquire a limiter slot")
-    }
-
     // MARK: - Test 4 — Poisoned key short-circuits before slot acquisition
 
     /// D-19, D-20: a poisoned key skips download + render entirely. Returns

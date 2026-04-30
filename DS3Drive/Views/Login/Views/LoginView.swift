@@ -11,11 +11,14 @@ struct LoginView: View {
     @State private var password: String = ""
     @State private var tenant: String = {
         let saved = UserDefaults.standard.string(forKey: DefaultSettings.UserDefaultsKeys.lastTenant) ?? ""
-        return saved.isEmpty ? DefaultSettings.defaultTenantName : saved
+        // Discard legacy tenant names (not UUIDs) saved before the tenant_id migration.
+        guard !saved.isEmpty, UUID(uuidString: saved) != nil else { return "" }
+        return saved
     }()
     @State private var coordinatorURL: String = UserDefaults.standard
         .string(forKey: DefaultSettings.UserDefaultsKeys.lastCoordinatorURL) ?? CubbitAPIURLs.defaultCoordinatorURL
     @State private var showAdvanced: Bool = false
+    @State private var showTenantHint = false
     @FocusState private var focusedField: FocusedField?
 
     @State private var loginViewModel = LoginViewModel()
@@ -144,9 +147,26 @@ struct LoginView: View {
                                 Image(systemName: "person")
                                     .foregroundStyle(DS3Colors.brandTextSecondary)
                                     .frame(width: 20)
-                                TextField("Tenant name", text: $tenant)
+                                TextField("Tenant ID", text: $tenant)
                                     .textFieldStyle(.plain)
                                     .font(DS3Typography.body)
+                                Button { showTenantHint.toggle() } label: {
+                                    Image(systemName: "questionmark.circle")
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(DS3Colors.brandTextSecondary.opacity(0.6))
+                                }
+                                .buttonStyle(.plain)
+                                .popover(isPresented: $showTenantHint, arrowEdge: .bottom) {
+                                    Text(
+                                        "Find your Tenant ID in the Tenants section of the Composer dashboard. If you don't have access, contact your administrator or support."
+                                    )
+                                    .font(DS3Typography.caption)
+                                    .foregroundStyle(DS3Colors.brandTextPrimary)
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .padding(DS3Spacing.md)
+                                    .frame(width: 300)
+                                }
                             }
                             .padding(DS3Spacing.md)
                             .background(
@@ -221,7 +241,7 @@ struct LoginView: View {
 
         let viewModel = loginViewModel
         let auth = ds3Authentication
-        let tenantValue = (tenant.isEmpty || tenant == DefaultSettings.defaultTenantName) ? nil : tenant
+        let tenantValue = tenant.isEmpty ? nil : tenant
         Task {
             do {
                 try await viewModel.login(

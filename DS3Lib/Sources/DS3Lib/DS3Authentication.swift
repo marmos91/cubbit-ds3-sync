@@ -329,7 +329,15 @@ public final class DS3Authentication: @unchecked Sendable {
 
         let (responseData, response) = try await URLSession.shared.data(for: request)
 
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw DS3AuthenticationError.serverError }
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+            self.logger.error("Challenge request failed: HTTP \(statusCode, privacy: .public)")
+            #if DEBUG
+                let body = String(data: responseData, encoding: .utf8) ?? "<non-utf8>"
+                self.logger.error("Challenge response body: \(body, privacy: .private)")
+            #endif
+            throw DS3AuthenticationError.serverError
+        }
         guard let challenge = try? JSONDecoder().decode(Challenge.self, from: responseData)
         else { throw DS3AuthenticationError.jsonConversion }
 
@@ -403,6 +411,13 @@ public final class DS3Authentication: @unchecked Sendable {
         let (responseData, response) = try await URLSession.shared.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+            self.logger.error("Sign-in request failed: HTTP \(statusCode, privacy: .public)")
+            #if DEBUG
+                let body = String(data: responseData, encoding: .utf8) ?? "<non-utf8>"
+                self.logger.error("Sign-in response body: \(body, privacy: .private)")
+            #endif
+
             if let mfaResponse = try? JSONDecoder().decode(DS3Missing2FAResponse.self, from: responseData),
                mfaResponse.message == APIError.Missing2FA {
                 throw DS3AuthenticationError.missing2FA
@@ -516,6 +531,8 @@ public final class DS3Authentication: @unchecked Sendable {
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw DS3AuthenticationError.serverError }
         guard let account = try? JSONDecoder().decode(Account.self, from: responseData)
         else { throw DS3AuthenticationError.jsonConversion }
+
+        self.logger.info("accountInfo: endpoint_gateway=\(account.endpointGateway, privacy: .public)")
 
         return account
     }

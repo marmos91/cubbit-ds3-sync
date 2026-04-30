@@ -139,6 +139,11 @@ killall fileproviderd
 
 **IMPORTANT:** Never use `xcodebuild` with `CODE_SIGN_IDENTITY="-"` (ad-hoc signing) — it strips App Group entitlements and poisons all caches.
 
+## Git Worktrees
+
+- Worktree directory: `.worktrees/` (project-local, hidden, gitignored)
+- Create worktrees with: `git worktree add .worktrees/<branch-name> -b <branch-name>`
+
 ## Commit Guidelines
 
 - Don't mention Claude Code in commits or PRs

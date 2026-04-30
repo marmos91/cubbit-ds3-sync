@@ -20,7 +20,9 @@
         @State private var showPassword = false
         @State private var tenant: String = {
             let saved = UserDefaults.standard.string(forKey: DefaultSettings.UserDefaultsKeys.lastTenant) ?? ""
-            return saved.isEmpty ? DefaultSettings.defaultTenantName : saved
+            // Discard legacy tenant names (not UUIDs) saved before the tenant_id migration.
+            guard !saved.isEmpty, UUID(uuidString: saved) != nil else { return "" }
+            return saved
         }()
         @State private var coordinatorURL: String = UserDefaults.standard
             .string(forKey: DefaultSettings.UserDefaultsKeys.lastCoordinatorURL) ?? CubbitAPIURLs.defaultCoordinatorURL
@@ -170,15 +172,27 @@
                     .buttonStyle(.plain)
 
                     if showAdvanced {
-                        brandField(icon: "person", focus: .tenant) {
-                            TextField(
-                                "Tenant name",
-                                text: $tenant,
-                                prompt: Text(DefaultSettings.defaultTenantName)
-                                    .foregroundColor(IOSColors.brandTextSecondary)
-                            )
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
+                        VStack(alignment: .leading, spacing: 6) {
+                            brandField(icon: "person", focus: .tenant) {
+                                TextField(
+                                    "Tenant ID",
+                                    text: $tenant,
+                                    prompt: Text("Tenant ID")
+                                        .foregroundColor(IOSColors.brandTextSecondary)
+                                )
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                            }
+
+                            HStack(spacing: 4) {
+                                Image(systemName: "questionmark.circle")
+                                    .font(.system(size: 11))
+                                Text("Find your Tenant ID in the Composer dashboard, or contact your administrator.")
+                                    .font(.custom("Figtree-Regular", size: 12))
+                                    .multilineTextAlignment(.leading)
+                            }
+                            .foregroundStyle(IOSColors.brandTextSecondary.opacity(0.7))
+                            .padding(.horizontal, 4)
                         }
 
                         brandField(icon: "globe", focus: .coordinator) {
@@ -314,7 +328,7 @@
             UserDefaults.standard.set(tenant, forKey: DefaultSettings.UserDefaultsKeys.lastTenant)
             UserDefaults.standard.set(coordinatorURL, forKey: DefaultSettings.UserDefaultsKeys.lastCoordinatorURL)
 
-            let tenantValue = (tenant.isEmpty || tenant == DefaultSettings.defaultTenantName) ? nil : tenant
+            let tenantValue = tenant.isEmpty ? nil : tenant
             let viewModel = loginViewModel
             let auth = ds3Authentication
 

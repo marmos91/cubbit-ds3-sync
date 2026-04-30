@@ -103,7 +103,7 @@ struct MFAView: View {
     func loginWithMFA() {
         let viewModel = loginViewModel
         let auth = ds3Authentication
-        let tenantValue = (tenant.isEmpty || tenant == DefaultSettings.defaultTenantName) ? nil : tenant
+        let tenantValue = tenant.isEmpty ? nil : tenant
         Task {
             do {
                 try await viewModel.login(
