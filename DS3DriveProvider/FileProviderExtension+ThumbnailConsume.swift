@@ -179,10 +179,12 @@ let throttlingS3ErrorCodes: Set<String> = [
 typealias ThumbnailOriginalDownloader =
     @Sendable (NSFileProviderItemIdentifier, DS3Drive) async throws -> (URL, String?)
 
-/// Closure that renders a JPEG thumbnail from a local original. Returns nil
-/// when the bytes don't decode (corrupt file, unsupported UTI). Production
-/// wires this to `ThumbnailRenderer().renderJPEG(from:)`.
-typealias ThumbnailRendererFn = @Sendable (URL) -> Data?
+/// Closure that renders a JPEG thumbnail from a local original. Returns
+/// `.failure(RenderFailure)` when the bytes don't decode (corrupt file,
+/// unsupported UTI, etc.) — the failure case names the specific reason
+/// (see `RenderFailure` in DS3Lib). Production wires this to
+/// `ThumbnailRenderer().renderJPEG(from:)`.
+typealias ThumbnailRendererFn = @Sendable (URL) -> Result<Data, RenderFailure>
 
 /// Closure that PUTs the rendered JPEG to S3. Production wires this to
 /// `s3Client.putThumbnail(bucket:key:data:sourceETag:)`.
@@ -215,8 +217,8 @@ struct ThumbnailFallbackContext {
 ///    Cancellation maps to `NSUserCancelledError`.
 /// 3. **Download** original via the `download` closure. On throw → record
 ///    strike, map error via `mapThumbnailFetchError`, return mapped error.
-/// 4. **Render** via the `render` closure. nil result → record strike, return
-///    `.noSuchItem`.
+/// 4. **Render** via the `render` closure. `.failure(...)` → record strike,
+///    return `.noSuchItem`.
 /// 5. **Lane 2 (D-01 lane 2, D-04):** invoke `perItemHandler` with rendered
 ///    bytes BEFORE issuing the PUT — the user sees the thumbnail immediately.
 /// 6. **Lane 3 (D-01 lane 3, D-04, D-12):** fire-and-forget `Task.detached`
@@ -276,11 +278,18 @@ func consumeThumbnailFallback(
         let (fileURL, sourceETag) = try await context.download(identifier, drive)
         defer { try? FileManager.default.removeItem(at: fileURL) }
 
-        // Step 4 — Render. nil result records a strike but is NOT an error
+        // Step 4 — Render. A failure records a strike but is NOT an error
         // surfaced to Finder beyond `.noSuchItem` (Finder draws default icon).
-        guard let jpegBytes = context.render(fileURL) else {
+        let renderResult = context.render(fileURL)
+        let jpegBytes: Data
+        switch renderResult {
+        case let .success(bytes):
+            jpegBytes = bytes
+        case let .failure(reason):
             await limiter.recordFailure(key)
-            logger.info("Fallback: render returned nil for \(key, privacy: .public)")
+            logger.info(
+                "Fallback: render failed for \(key, privacy: .public) — reason=\(reason.rawValue, privacy: .public)"
+            )
             perItemHandler(identifier, nil, NSFileProviderError(.noSuchItem) as NSError)
             await limiter.release()
             return

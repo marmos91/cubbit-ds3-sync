@@ -4,6 +4,25 @@ import ImageIO
 import os
 import UniformTypeIdentifiers
 
+/// Sub-reason for a `renderJPEG` failure. Surfaces in logs at the call site
+/// so we can distinguish FileProvider-temp-URL eviction (`dataLoad`) from
+/// ImageIO concurrent-decode-pressure failures (`thumbnailCreate`) etc.
+public enum RenderFailure: String, Error, Sendable, Equatable {
+    /// `Data(contentsOf:.mappedIfSafe)` threw — file gone, sandbox eviction, IO error.
+    case dataLoad
+    /// `CGImageSourceCreateWithData` returned nil — bytes don't form a valid image source.
+    /// Not directly exercisable in unit tests (CGImageSource is permissive on invalid bytes); retained for
+    /// production diagnostic coverage.
+    case sourceCreate
+    /// UTI not in the raster allow-list (RAW, PDF, etc.).
+    case utiReject
+    /// `CGImageSourceCreateThumbnailAtIndex` returned nil — ImageIO decode failed.
+    case thumbnailCreate
+    /// JPEG encoder init or finalize failed.
+    /// Not directly exercisable in unit tests; retained for production diagnostic coverage.
+    case jpegEncode
+}
+
 // THUMB-07: whole-type `#if os(macOS)` gate so the iOS extension cannot link
 // ImageIO and blow its 20 MB jetsam budget. Body-level gating leaks the symbol.
 #if os(macOS)
@@ -20,13 +39,13 @@ import UniformTypeIdentifiers
             self.jpegQuality = jpegQuality
         }
 
-        public func renderJPEG(from fileURL: URL) -> Data? {
+        public func renderJPEG(from fileURL: URL) -> Result<Data, RenderFailure> {
             #if canImport(UIKit)
                 // Dead code under the outer macOS gate; kept as defense-in-depth
                 // in case the gate is ever loosened.
                 let availableMemory = os_proc_available_memory()
                 if availableMemory > 0, availableMemory < Self.minAvailableMemoryBytes {
-                    return nil
+                    return .failure(.dataLoad)
                 }
             #endif
 
@@ -47,7 +66,7 @@ import UniformTypeIdentifiers
                 do {
                     data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
                 } catch {
-                    return nil
+                    return .failure(.dataLoad)
                 }
 
                 let sourceOptions: [CFString: Any] = [
@@ -57,12 +76,12 @@ import UniformTypeIdentifiers
                     data as CFData,
                     sourceOptions as CFDictionary
                 )
-                else { return nil }
+                else { return .failure(.sourceCreate) }
 
                 // Reject RAW, PDF, etc. by UTI (file extension is unreliable).
                 guard let sourceType = CGImageSourceGetType(source),
                       Self.allowedRasterUTIs.contains(sourceType)
-                else { return nil }
+                else { return .failure(.utiReject) }
 
                 let options: [CFString: Any] = [
                     kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -74,9 +93,12 @@ import UniformTypeIdentifiers
                 guard let cgImage = CGImageSourceCreateThumbnailAtIndex(
                     source, 0, options as CFDictionary
                 )
-                else { return nil }
+                else { return .failure(.thumbnailCreate) }
 
-                return jpegData(from: cgImage)
+                guard let bytes = jpegData(from: cgImage) else {
+                    return .failure(.jpegEncode)
+                }
+                return .success(bytes)
             }
         }
 

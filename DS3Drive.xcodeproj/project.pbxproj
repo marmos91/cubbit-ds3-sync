@@ -106,6 +106,9 @@
 		A130601201000000A1306012 /* ThumbnailFetchLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130601001000000A1306010 /* ThumbnailFetchLimiter.swift */; };
 		A132010101000000A1320101 /* ThumbnailFallbackLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A132010001000000A1320100 /* ThumbnailFallbackLimiter.swift */; };
 		A132010201000000A1320102 /* ThumbnailFallbackLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A132010001000000A1320100 /* ThumbnailFallbackLimiter.swift */; };
+		A141010101000000A1410101 /* ThumbnailUploadLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A141010001000000A1410100 /* ThumbnailUploadLimiter.swift */; };
+		A141010201000000A1410102 /* ThumbnailUploadLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A141010001000000A1410100 /* ThumbnailUploadLimiter.swift */; };
+		A141010401000000A1410104 /* ThumbnailUploadLimiterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A141010301000000A1410103 /* ThumbnailUploadLimiterTests.swift */; };
 		A130601401000000A1306014 /* ThumbnailFetchLimiterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130601301000000A1306013 /* ThumbnailFetchLimiterTests.swift */; };
 		A132010401000000A1320104 /* ThumbnailFallbackLimiterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A132010301000000A1320103 /* ThumbnailFallbackLimiterTests.swift */; };
 		A132020201000000A1320202 /* ThumbnailHybridConsumeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A132020101000000A1320201 /* ThumbnailHybridConsumeTests.swift */; };
@@ -332,6 +335,8 @@
 		D51672A02F7A00000042AD93 /* BucketListingLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BucketListingLimiter.swift; sourceTree = "<group>"; };
 		A130601001000000A1306010 /* ThumbnailFetchLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailFetchLimiter.swift; sourceTree = "<group>"; };
 		A132010001000000A1320100 /* ThumbnailFallbackLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailFallbackLimiter.swift; sourceTree = "<group>"; };
+		A141010001000000A1410100 /* ThumbnailUploadLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailUploadLimiter.swift; sourceTree = "<group>"; };
+		A141010301000000A1410103 /* ThumbnailUploadLimiterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThumbnailUploadLimiterTests.swift; sourceTree = "<group>"; };
 		A130601301000000A1306013 /* ThumbnailFetchLimiterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThumbnailFetchLimiterTests.swift; sourceTree = "<group>"; };
 		A132010301000000A1320103 /* ThumbnailFallbackLimiterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThumbnailFallbackLimiterTests.swift; sourceTree = "<group>"; };
 		A132020101000000A1320201 /* ThumbnailHybridConsumeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThumbnailHybridConsumeTests.swift; sourceTree = "<group>"; };
@@ -640,6 +645,7 @@
 				154C907172E95FD06C8615BD /* S3ItemTests.swift */,
 				A130601301000000A1306013 /* ThumbnailFetchLimiterTests.swift */,
 				A132010301000000A1320103 /* ThumbnailFallbackLimiterTests.swift */,
+				A141010301000000A1410103 /* ThumbnailUploadLimiterTests.swift */,
 				A132020101000000A1320201 /* ThumbnailHybridConsumeTests.swift */,
 				A132040301000000A1320403 /* ThumbnailFallbackMemorySmokeTests.swift */,
 				A130603001000000A1306030 /* FetchThumbnailsTests.swift */,
@@ -950,6 +956,7 @@
 				D51672A02F7A00000042AD93 /* BucketListingLimiter.swift */,
 				A130601001000000A1306010 /* ThumbnailFetchLimiter.swift */,
 				A132010001000000A1320100 /* ThumbnailFallbackLimiter.swift */,
+				A141010001000000A1410100 /* ThumbnailUploadLimiter.swift */,
 				D540029D2B5EAEB000B54E97 /* S3Lib.swift */,
 				A10203032F6300000042AD93 /* WorkingSetEnumerator.swift */,
 				D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */,
@@ -1306,8 +1313,10 @@
 				D51672A12F7A00000042AD93 /* BucketListingLimiter.swift in Sources */,
 				A130601201000000A1306012 /* ThumbnailFetchLimiter.swift in Sources */,
 				A132010201000000A1320102 /* ThumbnailFallbackLimiter.swift in Sources */,
+				A141010201000000A1410102 /* ThumbnailUploadLimiter.swift in Sources */,
 				A130601401000000A1306014 /* ThumbnailFetchLimiterTests.swift in Sources */,
 				A132010401000000A1320104 /* ThumbnailFallbackLimiterTests.swift in Sources */,
+				A141010401000000A1410104 /* ThumbnailUploadLimiterTests.swift in Sources */,
 				A132020201000000A1320202 /* ThumbnailHybridConsumeTests.swift in Sources */,
 				A132040401000000A1320404 /* ThumbnailFallbackMemorySmokeTests.swift in Sources */,
 				347AA53C0831D587C66D0445 /* FileProviderExtension+Create.swift in Sources */,
@@ -1445,6 +1454,7 @@
 				D51672A22F7A00000042AD93 /* BucketListingLimiter.swift in Sources */,
 				A130601101000000A1306011 /* ThumbnailFetchLimiter.swift in Sources */,
 				A132010101000000A1320101 /* ThumbnailFallbackLimiter.swift in Sources */,
+				A141010101000000A1410101 /* ThumbnailUploadLimiter.swift in Sources */,
 				D5A4E0AB2B630A9800D7560B /* NotificationsManager.swift in Sources */,
 				D5A2228B2B5721CC00F1413B /* S3Item+Metadata.swift in Sources */,
 			);

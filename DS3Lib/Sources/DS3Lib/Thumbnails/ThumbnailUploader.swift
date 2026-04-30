@@ -12,11 +12,19 @@ import os.log
 ///
 /// Failure semantics (D-06 fire-and-forget contract, Phase 13.2 D-05/D-08/D-19):
 ///   - Non-raster originalKey → log + return (caller pre-filters anyway).
-///   - Renderer returns nil → log only and return. No schema strike counter
-///     anymore (Schema V5 dropped `thumbnailFailCount`); the consume-path
-///     fallback's `ThumbnailFallbackLimiter` owns the in-memory 3-strike rule.
+///   - Renderer returns `.failure(reason)` → log the sub-reason and return.
+///     No schema strike counter anymore (Schema V5 dropped `thumbnailFailCount`);
+///     the consume-path fallback's `ThumbnailFallbackLimiter` owns the
+///     in-memory 3-strike rule.
 ///   - PUT throws → log + RETHROW (caller's `try? await ...` swallows). No
 ///     schema strike counter write.
+///
+/// NOTE: This DS3Lib-side helper is the legacy localURL-based path
+/// (still used by call sites that haven't migrated). The eager-path
+/// `runUploadHook` in DS3DriveProvider is the canonical post-#141
+/// implementation and uses different error semantics (logs + swallows
+/// PUT errors per D-06; does not rethrow). Don't unify their
+/// behavior without revisiting the eager-path D-06 contract.
 ///
 /// Phase 13.2 Plan 09 (D-08, D-23): all `thumbnailStatus` writes removed in
 /// the same plan that ships Schema V6 — the field is gone from `SyncedItem`,
@@ -67,9 +75,14 @@ public struct ThumbnailUploader: Sendable {
             // (b) Render — the renderer's allow-list (UTI-based, magic-byte sniffed) is
             // stricter than the extension allow-list, so this branch fires for files with
             // a raster extension whose bytes don't decode (corrupt JPEGs, unknown UTI).
-            guard let data = ThumbnailRenderer().renderJPEG(from: localURL) else {
+            let renderResult = ThumbnailRenderer().renderJPEG(from: localURL)
+            let data: Data
+            switch renderResult {
+            case let .success(bytes):
+                data = bytes
+            case let .failure(reason):
                 logger.info(
-                    "Uploader: render returned nil for \(originalKey, privacy: .public)"
+                    "Uploader: render failed for \(originalKey, privacy: .public) — reason=\(reason.rawValue, privacy: .public)"
                 )
                 // Phase 13.2 D-05/D-19: no schema strike counter anymore. The
                 // consume-path fallback's `ThumbnailFallbackLimiter` (in-memory)

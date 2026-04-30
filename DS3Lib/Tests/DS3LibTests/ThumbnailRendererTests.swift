@@ -55,8 +55,8 @@ import XCTest
             let renderer = ThumbnailRenderer(maxDimension: thumbnailSize)
             let result = renderer.renderJPEG(from: pdfURL)
 
-            XCTAssertNil(
-                result,
+            XCTAssertEqual(
+                result, .failure(.utiReject),
                 "PDF (UTI com.adobe.pdf) must be rejected by the raster allow-list"
             )
         }
@@ -82,9 +82,10 @@ import XCTest
 
             for index in 0 ..< iterations {
                 let result = renderer.renderJPEG(from: pngURL)
-                XCTAssertNotNil(
-                    result, "iteration \(index): expected non-nil thumbnail for PNG fixture"
-                )
+                guard case .success = result else {
+                    XCTFail("iteration \(index): expected .success, got \(result)")
+                    return
+                }
             }
 
             let elapsed = Date().timeIntervalSince(startedAt)
@@ -111,10 +112,11 @@ import XCTest
             defer { try? FileManager.default.removeItem(at: sourceURL) }
 
             let renderer = ThumbnailRenderer(maxDimension: thumbnailSize)
-            let thumbnailData = try XCTUnwrap(
-                renderer.renderJPEG(from: sourceURL),
-                "expected a thumbnail for the EXIF-6 landscape JPEG"
-            )
+            let renderResult = renderer.renderJPEG(from: sourceURL)
+            guard case .success(let thumbnailData) = renderResult else {
+                XCTFail("expected .success, got \(renderResult)")
+                return
+            }
 
             // Decode the generated JPEG and inspect its pixel geometry.
             let decodedSource = try XCTUnwrap(
@@ -147,10 +149,11 @@ import XCTest
             )
 
             let renderer = ThumbnailRenderer()
-            let thumbnailData = try XCTUnwrap(
-                renderer.renderJPEG(from: pngURL),
-                "default renderer must produce a non-nil thumbnail"
-            )
+            let renderResult = renderer.renderJPEG(from: pngURL)
+            guard case .success(let thumbnailData) = renderResult else {
+                XCTFail("default renderer must produce a non-nil thumbnail, got \(renderResult)")
+                return
+            }
 
             // Confirm we got a JPEG (not just any bytes).
             let decodedSource = try XCTUnwrap(
@@ -194,7 +197,10 @@ import XCTest
             // bulk-paste scenario where 8 different files are rendered in parallel.
             // Reading the same URL from multiple tasks would mask URL/page-cache
             // contention bugs that only surface across distinct backing files.
-            let results = await withTaskGroup(of: Data?.self, returning: [Data?].self) { group in
+            let results = await withTaskGroup(
+                of: Result<Data, RenderFailure>.self,
+                returning: [Result<Data, RenderFailure>].self
+            ) { group in
                 for _ in 0..<8 {
                     group.addTask {
                         let copy = tempDir.appendingPathComponent("fanout-\(UUID().uuidString).png")
@@ -204,15 +210,15 @@ import XCTest
                         return renderer.renderJPEG(from: copy)
                     }
                 }
-                var collected: [Data?] = []
+                var collected: [Result<Data, RenderFailure>] = []
                 for await result in group { collected.append(result) }
                 return collected
             }
 
             XCTAssertEqual(results.count, 8)
-            let nonNilCount = results.compactMap { $0 }.count
+            let successCount = results.filter { if case .success = $0 { return true } else { return false } }.count
             XCTAssertEqual(
-                nonNilCount, 8,
+                successCount, 8,
                 "All 8 concurrent renders must succeed (audit baseline: 2/8 — should be 8/8 after Finding 2 fix)"
             )
         }
@@ -228,16 +234,21 @@ import XCTest
             let renderer = ThumbnailRenderer(maxDimension: thumbnailSize)
 
             let firstResult = renderer.renderJPEG(from: heicURL)
-            XCTAssertNotNil(firstResult, "First render of HEIC must succeed")
+            guard case .success = firstResult else {
+                XCTFail("First render of HEIC must succeed, got \(firstResult)")
+                return
+            }
 
             // 200ms delay simulates the user re-paste timing in the audit.
             try await Task.sleep(for: .milliseconds(200))
 
             let secondResult = renderer.renderJPEG(from: heicURL)
-            XCTAssertNotNil(
-                secondResult,
-                "Second render of identical HEIC bytes must succeed (audit symptom: nil on repeat)"
-            )
+            guard case .success = secondResult else {
+                XCTFail(
+                    "Second render of identical HEIC bytes must succeed (audit symptom: nil on repeat), got \(secondResult)"
+                )
+                return
+            }
         }
 
         /// Backfill path: renderer reads from a renderer-owned temp file that the
@@ -260,10 +271,40 @@ import XCTest
             let renderer = ThumbnailRenderer(maxDimension: thumbnailSize)
             let result = renderer.renderJPEG(from: tempURL)
 
-            XCTAssertNotNil(
-                result,
-                "Render from coordinator-owned temp file must succeed (audit symptom: nil on backfill path)"
+            guard case .success = result else {
+                XCTFail(
+                    "Render from coordinator-owned temp file must succeed (audit symptom: nil on backfill path), got \(result)"
+                )
+                return
+            }
+        }
+
+        // MARK: - RenderFailure Sub-reason Coverage (#141 Task 1)
+
+        /// Missing file → `Data(contentsOf:.mappedIfSafe)` throws → `.dataLoad`.
+        func testRenderJPEGReturnsDataLoadFailureForMissingFile() {
+            let missing = URL(fileURLWithPath: "/tmp/does-not-exist-\(UUID().uuidString).jpg")
+            let result = ThumbnailRenderer().renderJPEG(from: missing)
+            XCTAssertEqual(result, .failure(.dataLoad))
+        }
+
+        /// Garbage bytes whose UTI cannot be sniffed → `.utiReject`.
+        ///
+        /// (`.sourceCreate` is left uncovered here because in practice
+        /// `CGImageSourceCreateWithData` is extremely permissive — it
+        /// returns a non-nil source even for empty / random CFData and
+        /// fails later at the `GetType` step, surfacing as `.utiReject`.
+        /// The PDF allow-list test exercises the same code path with a
+        /// real image source, and the missing-file test pins `.dataLoad`.)
+        func testRenderJPEGReturnsUTIRejectForGarbageBytes() throws {
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent(
+                "garbage-\(UUID().uuidString).bin"
             )
+            let garbage = Data(repeating: 0xFF, count: 1024)
+            try garbage.write(to: url)
+            defer { try? FileManager.default.removeItem(at: url) }
+            let result = ThumbnailRenderer().renderJPEG(from: url)
+            XCTAssertEqual(result, .failure(.utiReject))
         }
 
         // MARK: - EXIF-6 Fixture Synthesis
