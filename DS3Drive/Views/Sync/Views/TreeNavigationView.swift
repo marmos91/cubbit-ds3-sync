@@ -260,7 +260,10 @@ class TreeNavigationViewModel {
             )
 
             // Filter .thumbnails/ and .trash/ from wizard folder browser (Phase 11)
-            let visibleFolderPrefixes = result.commonPrefixes.filter { S3KeyFilter.isUserVisible(key: $0, drivePrefix: prefix) }
+            let visibleFolderPrefixes = result.commonPrefixes.filter { S3KeyFilter.isUserVisible(
+                key: $0,
+                drivePrefix: prefix
+            ) }
             node.children = visibleFolderPrefixes.map { decoded -> TreeNode in
                 let displayName = folderDisplayName(fullPrefix: decoded, parentPrefix: prefix)
                 return TreeNode(
@@ -623,7 +626,7 @@ struct TreeNavigationView: View {
             // so the wizard is no longer a dead end.
             if let error = viewModel.error {
                 VStack(spacing: DS3Spacing.sm) {
-                    Text(error.localizedDescription)
+                    Text(friendlyErrorMessage(for: error))
                         .font(DS3Typography.caption)
                         .foregroundStyle(DS3Colors.statusError)
 
@@ -815,4 +818,30 @@ struct TreeNavigationView: View {
         copy.onSyncAnchorSelected = action
         return copy
     }
+}
+
+// MARK: - Error helpers
+
+private func friendlyErrorMessage(for error: Error) -> String {
+    let nsError = error as NSError
+    // DNS failure (NWError -65554 NoSuchRecord) or host not found — the storage
+    // gateway is unreachable. Surface a human-readable message instead of the
+    // raw NWError code.
+    let isNetworkUnreachable =
+        nsError.domain == "Network.NWError" ||
+        (nsError.domain == NSURLErrorDomain && [
+            NSURLErrorCannotFindHost,
+            NSURLErrorCannotConnectToHost,
+            NSURLErrorNetworkConnectionLost,
+            NSURLErrorNotConnectedToInternet,
+            NSURLErrorDNSLookupFailed
+        ].contains(nsError.code))
+    if isNetworkUnreachable {
+        return NSLocalizedString(
+            "error.gatewayUnreachable",
+            value: "Cannot reach the storage gateway. The service may be temporarily unavailable — contact your administrator.",
+            comment: "Error shown when the S3 gateway DNS lookup or connection fails"
+        )
+    }
+    return error.localizedDescription
 }
