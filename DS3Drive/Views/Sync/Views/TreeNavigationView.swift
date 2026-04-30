@@ -629,6 +629,13 @@ struct TreeNavigationView: View {
                     Text(friendlyErrorMessage(for: error))
                         .font(DS3Typography.caption)
                         .foregroundStyle(DS3Colors.statusError)
+                        .multilineTextAlignment(.center)
+
+                    let nsError = error as NSError
+                    Text("\(nsError.domain) \(nsError.code)")
+                        .font(DS3Typography.footnote)
+                        .foregroundStyle(DS3Colors.secondaryText)
+                        .textSelection(.enabled)
 
                     if error is DS3AuthenticationError {
                         Button(NSLocalizedString(
@@ -642,6 +649,7 @@ struct TreeNavigationView: View {
                         .buttonStyle(OutlineButtonStyle())
                     }
                 }
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, DS3Spacing.lg)
                 .padding(.bottom, DS3Spacing.sm)
             }
