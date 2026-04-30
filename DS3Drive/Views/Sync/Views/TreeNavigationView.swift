@@ -632,7 +632,7 @@ struct TreeNavigationView: View {
                         .multilineTextAlignment(.center)
 
                     let nsError = error as NSError
-                    Text("\(nsError.domain) \(nsError.code)")
+                    Text("\(nsError.domain) \(String(nsError.code))")
                         .font(DS3Typography.footnote)
                         .foregroundStyle(DS3Colors.secondaryText)
                         .textSelection(.enabled)
