@@ -56,6 +56,9 @@ public enum DefaultSettings {
         public static let lastUpdateCheck = "io.cubbit.DS3Drive.userDefaults.lastUpdateCheck"
         /// App Group UserDefaults key for the global cellular-download opt-in for thumbnail generation.
         public static let thumbnailCellularOptIn = "io.cubbit.DS3Drive.thumbnailCellularOptIn"
+        /// Standard (non-app-group) UserDefaults key tracking whether the generate-now bandwidth warning has been
+        /// shown. Intentionally stored per-device in the main app's standard suite — the extension never reads it.
+        public static let thumbnailGenerateNowWarningShown = "io.cubbit.DS3Drive.thumbnailGenerateNowWarningShown"
     }
 
     /// A unique identifier for the app. It is used to identify the specific app instance when creating API keys.
