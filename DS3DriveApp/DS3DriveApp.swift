@@ -11,6 +11,9 @@ struct DS3DriveApp: App {
     @State private var appStatusManager: AppStatusManager
     @State private var hasStartedRefreshTimer = false
     @State private var updateChecker = UpdateChecker()
+    #if os(iOS)
+        @State private var thumbnailBackfillDriver: ForegroundBackfillDriver
+    #endif
 
     var body: some Scene {
         WindowGroup {
@@ -28,6 +31,9 @@ struct DS3DriveApp: App {
                     } else if newPhase == .background {
                         BackgroundRefreshManager.scheduleNextRefresh()
                     }
+                    #if os(iOS)
+                        thumbnailBackfillDriver.handleScenePhase(newPhase)
+                    #endif
                 }
                 .onAppear {
                     if !hasStartedRefreshTimer, ds3Authentication.isLogged {
@@ -62,6 +68,10 @@ struct DS3DriveApp: App {
             .defaultCoordinatorURL
         let urls = CubbitAPIURLs(coordinatorURL: coordinatorURL)
         _ds3Authentication = State(initialValue: DS3Authentication.loadFromPersistenceOrCreateNew(urls: urls))
-        _ds3DriveManager = State(initialValue: DS3DriveManager(appStatusManager: appStatusManager))
+        let driveManager = DS3DriveManager(appStatusManager: appStatusManager)
+        _ds3DriveManager = State(initialValue: driveManager)
+        #if os(iOS)
+            _thumbnailBackfillDriver = State(initialValue: ForegroundBackfillDriver(driveManager: driveManager))
+        #endif
     }
 }

@@ -68,11 +68,27 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         let fetchSemaphore = AsyncSemaphore(value: 20)
     #endif
 
-    /// Bounds concurrent thumbnail GETs from `fetchThumbnails` (Phase 13 D-12,
-    /// THUMB-14). macOS=4. Mirror of `BucketListingLimiter` for the consume
-    /// path. Upload generator and backfill coordinator do NOT route through
-    /// this limiter (Pitfall 4).
-    let thumbnailFetchLimiter = ThumbnailFetchLimiter(maxSlots: 4)
+    // Bounds concurrent thumbnail GETs from `fetchThumbnails` (Phase 13 D-12,
+    // THUMB-14). macOS=4, iOS=2 (tighter jetsam ceiling). Upload generator
+    // and backfill coordinator do NOT route through this limiter (Pitfall 4).
+    #if os(iOS)
+        let thumbnailFetchLimiter = ThumbnailFetchLimiter(maxSlots: 2)
+    #else
+        let thumbnailFetchLimiter = ThumbnailFetchLimiter(maxSlots: 4)
+    #endif
+
+    // iOS-only in-flight coalescing cache for thumbnail bytes. Prevents
+    // duplicate S3 GETs when Files.app fans out multiple requests for the
+    // same key in one `fetchThumbnails` batch. NSCache evicts under memory
+    // pressure — safe for the 20 MB extension jetsam ceiling.
+    #if os(iOS)
+        let thumbnailMemoCache: NSCache<NSString, NSData> = {
+            let cache = NSCache<NSString, NSData>()
+            cache.totalCostLimit = 1 * 1024 * 1024
+            cache.name = "ThumbnailConsumeCoalesce"
+            return cache
+        }()
+    #endif
 
     /// Phase 13.2 D-02: 2-slot limiter for the cache-miss fallback render path.
     /// Strict separation from the 4-slot `thumbnailFetchLimiter` (cached-thumb

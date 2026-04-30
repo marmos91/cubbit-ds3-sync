@@ -125,3 +125,9 @@ private final class Box: @unchecked Sendable {
         self.callback = callback
     }
 }
+
+public extension DarwinNotificationCenter {
+    /// Darwin notification name posted by the extension to wake the main app's
+    /// ForegroundBackfillDriver when a new thumbnail render request is enqueued.
+    static let thumbnailRenderRequest = "io.cubbit.DS3Drive.thumbnailRenderRequest"
+}

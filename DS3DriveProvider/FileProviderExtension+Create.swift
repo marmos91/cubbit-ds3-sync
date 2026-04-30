@@ -276,6 +276,20 @@ extension FileProviderExtension {
                     )
                 }
 
+                #if os(iOS)
+                    // Phase 14 Part 2: enqueue raster uploads for background rendering.
+                    if !s3Item.isFolder, S3PathUtils.isRasterExtension((key as NSString).pathExtension) {
+                        let driveID = drive.id
+                        let s3KeyCopy = key
+                        Task.detached(priority: .background) {
+                            await ThumbnailRenderQueue.shared.append(
+                                ThumbnailRenderQueueItem(driveID: driveID, s3Key: s3KeyCopy)
+                            )
+                            DarwinNotificationCenter.shared.post(name: DarwinNotificationCenter.thumbnailRenderRequest)
+                        }
+                    }
+                #endif
+
                 // Clear parent error badge if this item was previously in error
                 if let parentCleared = try? await self.metadataStore?.clearParentErrorIfResolved(
                     childKey: key, driveId: drive.id
