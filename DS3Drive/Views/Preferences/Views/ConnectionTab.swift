@@ -57,7 +57,7 @@ struct ConnectionTab: View {
             coordinatorURL = (try? SharedData.default().loadCoordinatorURLFromPersistence())
                 ?? CubbitAPIURLs.defaultCoordinatorURL
             let tenant = (try? SharedData.default().loadTenantNameFromPersistence()) ?? ""
-            tenantName = tenant
+            tenantName = tenant.isEmpty ? NSLocalizedString("N/A", comment: "Not available") : tenant
         }
     }
 

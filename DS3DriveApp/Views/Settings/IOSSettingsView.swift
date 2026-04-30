@@ -27,7 +27,8 @@
         }
 
         private var tenantName: String {
-            (try? SharedData.default().loadTenantNameFromPersistence()) ?? ""
+            let saved = (try? SharedData.default().loadTenantNameFromPersistence()) ?? ""
+            return saved.isEmpty ? "Not set" : saved
         }
 
         private var coordinatorURL: String {
