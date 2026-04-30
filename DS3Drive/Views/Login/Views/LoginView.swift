@@ -162,8 +162,10 @@ struct LoginView: View {
                                     )
                                     .font(DS3Typography.caption)
                                     .foregroundStyle(DS3Colors.brandTextPrimary)
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(horizontal: false, vertical: true)
                                     .padding(DS3Spacing.md)
-                                    .frame(maxWidth: 260)
+                                    .frame(width: 300)
                                 }
                             }
                             .padding(DS3Spacing.md)
