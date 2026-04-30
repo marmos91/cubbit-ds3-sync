@@ -530,7 +530,7 @@ public final class DS3Authentication: @unchecked Sendable {
         guard let account = try? JSONDecoder().decode(Account.self, from: responseData)
         else { throw DS3AuthenticationError.jsonConversion }
 
-        self.logger.debug("accountInfo: endpoint_gateway=\(account.endpointGateway, privacy: .public)")
+        self.logger.info("accountInfo: endpoint_gateway=\(account.endpointGateway, privacy: .public)")
 
         return account
     }
