@@ -18,6 +18,7 @@ struct LoginView: View {
     @State private var coordinatorURL: String = UserDefaults.standard
         .string(forKey: DefaultSettings.UserDefaultsKeys.lastCoordinatorURL) ?? CubbitAPIURLs.defaultCoordinatorURL
     @State private var showAdvanced: Bool = false
+    @State private var showTenantHint = false
     @FocusState private var focusedField: FocusedField?
 
     @State private var loginViewModel = LoginViewModel()
@@ -149,15 +150,21 @@ struct LoginView: View {
                                 TextField("Tenant ID", text: $tenant)
                                     .textFieldStyle(.plain)
                                     .font(DS3Typography.body)
-                                Button { /* tooltip target */ } label: {
+                                Button { showTenantHint.toggle() } label: {
                                     Image(systemName: "questionmark.circle")
                                         .font(.system(size: 13))
                                         .foregroundStyle(DS3Colors.brandTextSecondary.opacity(0.6))
                                 }
                                 .buttonStyle(.plain)
-                                .help(
-                                    "Find your Tenant ID in the Tenants section of the Composer dashboard. If you don't have access, contact your administrator or support."
-                                )
+                                .popover(isPresented: $showTenantHint, arrowEdge: .bottom) {
+                                    Text(
+                                        "Find your Tenant ID in the Tenants section of the Composer dashboard. If you don't have access, contact your administrator or support."
+                                    )
+                                    .font(DS3Typography.caption)
+                                    .foregroundStyle(DS3Colors.brandTextPrimary)
+                                    .padding(DS3Spacing.md)
+                                    .frame(maxWidth: 260)
+                                }
                             }
                             .padding(DS3Spacing.md)
                             .background(
