@@ -50,6 +50,7 @@
 		9659EB9202B95BD6A9520860 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 63DAE38129B73666BC61012E /* Assets.xcassets */; };
 		9783D898595F0FCD77B116E6 /* IOSDriveViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AFAE49D6C5787515C65EE4 /* IOSDriveViewModel.swift */; };
 		13F7A1F20E98472D947978BB /* ForegroundBackfillDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 423AAB1887E54807AF0FBD77 /* ForegroundBackfillDriver.swift */; };
+		1FF9FB927E2A4928A486A64E /* ThumbnailBackfillTaskHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F291137750247769947C80E /* ThumbnailBackfillTaskHandler.swift */; };
 		98DDAFC1510A4C63AD7FCDBE /* S3Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A222802B5721CC00F1413B /* S3Item.swift */; };
 		9CEA174F0E2844919898555F /* FileProviderExtension+Modify.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93BEB14CBD064F639C861742 /* FileProviderExtension+Modify.swift */; };
 		A10203042F6300000042AD93 /* WorkingSetEnumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10203032F6300000042AD93 /* WorkingSetEnumerator.swift */; };
@@ -287,6 +288,7 @@
 		830D73D29DDAA6E68151FC62 /* DriveDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DriveDetailView.swift; sourceTree = "<group>"; };
 		83AFAE49D6C5787515C65EE4 /* IOSDriveViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDriveViewModel.swift; sourceTree = "<group>"; };
 		423AAB1887E54807AF0FBD77 /* ForegroundBackfillDriver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ForegroundBackfillDriver.swift; sourceTree = "<group>"; };
+		0F291137750247769947C80E /* ThumbnailBackfillTaskHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThumbnailBackfillTaskHandler.swift; sourceTree = "<group>"; };
 		909BB02752B9D019AB353BDB /* IOSDriveViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSDriveViewModelTests.swift; sourceTree = "<group>"; };
 		92782ABCB6F9964E5FC56C71 /* DriveListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DriveListView.swift; sourceTree = "<group>"; };
 		93BEB14CBD064F639C861742 /* FileProviderExtension+Modify.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+Modify.swift"; sourceTree = "<group>"; };
@@ -565,6 +567,7 @@
 				44A645B8D9BDD9E87A9C55A6 /* Views */,
 				96811E45DB40205283CCB6CB /* ViewModels */,
 				58D7B11E3167F877F313A3AD /* Helpers */,
+				67CD2995203C4817A1EC3744 /* BackgroundTasks */,
 			);
 			path = DS3DriveApp;
 			sourceTree = "<group>";
@@ -585,6 +588,14 @@
 				423AAB1887E54807AF0FBD77 /* ForegroundBackfillDriver.swift */,
 			);
 			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		67CD2995203C4817A1EC3744 /* BackgroundTasks */ = {
+			isa = PBXGroup;
+			children = (
+				0F291137750247769947C80E /* ThumbnailBackfillTaskHandler.swift */,
+			);
+			path = BackgroundTasks;
 			sourceTree = "<group>";
 		};
 		9F1D3B4136D4DDC8626ECCBC /* Settings */ = {
@@ -1302,6 +1313,7 @@
 				BCEEF72CA17699E9AE656942 /* IOSSettingsView.swift in Sources */,
 				9783D898595F0FCD77B116E6 /* IOSDriveViewModel.swift in Sources */,
 				13F7A1F20E98472D947978BB /* ForegroundBackfillDriver.swift in Sources */,
+				1FF9FB927E2A4928A486A64E /* ThumbnailBackfillTaskHandler.swift in Sources */,
 				4A20FD708E0B4A54CD5FCC70 /* OrientationLock.swift in Sources */,
 				8865FDA6BC93E8AC9A1462CC /* BackgroundRefreshManager.swift in Sources */,
 				AED31D6C586582649FEA832B /* CacheManager.swift in Sources */,

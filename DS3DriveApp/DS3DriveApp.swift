@@ -13,6 +13,7 @@ struct DS3DriveApp: App {
     @State private var updateChecker = UpdateChecker()
     #if os(iOS)
         @State private var thumbnailBackfillDriver: ForegroundBackfillDriver
+        private let thumbnailBackfillHandler: ThumbnailBackfillTaskHandler
     #endif
 
     var body: some Scene {
@@ -30,6 +31,9 @@ struct DS3DriveApp: App {
                         Task { await updateChecker.checkForUpdates() }
                     } else if newPhase == .background {
                         BackgroundRefreshManager.scheduleNextRefresh()
+                        #if os(iOS)
+                            thumbnailBackfillHandler.schedule()
+                        #endif
                     }
                     #if os(iOS)
                         thumbnailBackfillDriver.handleScenePhase(newPhase)
@@ -71,7 +75,11 @@ struct DS3DriveApp: App {
         let driveManager = DS3DriveManager(appStatusManager: appStatusManager)
         _ds3DriveManager = State(initialValue: driveManager)
         #if os(iOS)
-            _thumbnailBackfillDriver = State(initialValue: ForegroundBackfillDriver(driveManager: driveManager))
+            let backfillDriver = ForegroundBackfillDriver(driveManager: driveManager)
+            _thumbnailBackfillDriver = State(initialValue: backfillDriver)
+            let handler = ThumbnailBackfillTaskHandler(driver: backfillDriver)
+            thumbnailBackfillHandler = handler
+            handler.register()
         #endif
     }
 }

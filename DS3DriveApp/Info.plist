@@ -32,6 +32,7 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>io.cubbit.DS3Drive.refreshDrives</string>
+		<string>io.cubbit.DS3Drive.thumbnailBackfill</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>

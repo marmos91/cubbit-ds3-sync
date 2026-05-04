@@ -92,23 +92,36 @@
         }
 
         private func drainLoop() async {
-            let queue = ThumbnailRenderQueue.shared
-
             while !Task.isCancelled {
-                let batch = await queue.dequeue(maxItems: 1)
-
-                if batch.isEmpty {
+                let processed = await drainBatch(maxItems: Int.max)
+                if processed == 0 {
                     try? await Task.sleep(for: .seconds(2))
-                    pendingCount = await queue.pendingCount
-                    continue
+                    pendingCount = await ThumbnailRenderQueue.shared.pendingCount
                 }
-
-                await renderOne(batch[0])
-                pendingCount = await queue.pendingCount
             }
 
             isRunning = false
             drainTask = nil
+        }
+
+        /// Processes up to `maxItems` pending thumbnail items. Returns the number actually processed.
+        ///
+        /// Called by both the foreground drain loop and the background processing task handler
+        /// (`BGProcessingTask`). Passing `Int.max` from the drain loop is equivalent to the
+        /// original unbounded behaviour.
+        func drainBatch(maxItems: Int) async -> Int {
+            let queue = ThumbnailRenderQueue.shared
+            var processed = 0
+
+            while processed < maxItems {
+                let batch = await queue.dequeue(maxItems: 1)
+                guard let item = batch.first else { break }
+                await renderOne(item)
+                processed += 1
+                pendingCount = await queue.pendingCount
+            }
+
+            return processed
         }
 
         // swiftlint:disable:next function_body_length
