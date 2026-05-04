@@ -59,6 +59,13 @@
             )
 
             await cleanupOrphanedMultiparts()
+
+            // Schedule S3-side orphan scan (rate-limited to once per 24h)
+            let cleaner = UploadOrphanCleaner(s3Client: s3Client)
+            Task { [weak self] in
+                guard self != nil else { return }
+                await cleaner.runIfDue(forDrive: drive, store: store)
+            }
         }
 
         /// Called when `BackgroundUploadSession` reports every part of a multipart

@@ -131,6 +131,8 @@
 		A150020201000000A1500202 /* IOSUploadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A150020001000000A1500200 /* IOSUploadCoordinator.swift */; };
 		A150030101000000A1500301 /* FileProviderExtension+IOSUpload.swift in Sources */ = {isa = PBXBuildFile; fileRef = A150030001000000A1500300 /* FileProviderExtension+IOSUpload.swift */; };
 		A150030201000000A1500302 /* FileProviderExtension+IOSUpload.swift in Sources */ = {isa = PBXBuildFile; fileRef = A150030001000000A1500300 /* FileProviderExtension+IOSUpload.swift */; };
+		A150040101000000A1500401 /* UploadOrphanCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A150040001000000A1500400 /* UploadOrphanCleaner.swift */; };
+		A150040201000000A1500402 /* UploadOrphanCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A150040001000000A1500400 /* UploadOrphanCleaner.swift */; };
 		A130608401000000A1306084 /* CascadeDeleteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130608301000000A1306083 /* CascadeDeleteTests.swift */; };
 		A130608601000000A1306086 /* CascadeRenameTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A130608501000000A1306085 /* CascadeRenameTests.swift */; };
 		A131006001000000A1310060 /* ProgressFinalizationOnErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A131006001000000A1310061 /* ProgressFinalizationOnErrorTests.swift */; };
@@ -361,6 +363,7 @@
 		A130608001000000A1306080 /* FileProviderExtension+ThumbnailCascade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+ThumbnailCascade.swift"; sourceTree = "<group>"; };
 		A150010001000000A1500100 /* BackgroundUploadSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BackgroundUploadSession.swift; path = "iOS/BackgroundUploadSession.swift"; sourceTree = "<group>"; };
 		A150020001000000A1500200 /* IOSUploadCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = IOSUploadCoordinator.swift; path = "iOS/IOSUploadCoordinator.swift"; sourceTree = "<group>"; };
+		A150040001000000A1500400 /* UploadOrphanCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UploadOrphanCleaner.swift; path = "iOS/UploadOrphanCleaner.swift"; sourceTree = "<group>"; };
 		A150030001000000A1500300 /* FileProviderExtension+IOSUpload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileProviderExtension+IOSUpload.swift"; sourceTree = "<group>"; };
 		A130608301000000A1306083 /* CascadeDeleteTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CascadeDeleteTests.swift; sourceTree = "<group>"; };
 		A130608501000000A1306085 /* CascadeRenameTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CascadeRenameTests.swift; sourceTree = "<group>"; };
@@ -973,6 +976,7 @@
 				A130608001000000A1306080 /* FileProviderExtension+ThumbnailCascade.swift */,
 				A150010001000000A1500100 /* BackgroundUploadSession.swift */,
 				A150020001000000A1500200 /* IOSUploadCoordinator.swift */,
+				A150040001000000A1500400 /* UploadOrphanCleaner.swift */,
 				A150030001000000A1500300 /* FileProviderExtension+IOSUpload.swift */,
 				593F2D8CD4BF43B084F95A95 /* S3Lib+Transfers.swift */,
 				AD84A687F1EB4A8F9C45AEAA /* S3Lib+Trash.swift */,
@@ -1366,6 +1370,7 @@
 				A150010201000000A1500102 /* BackgroundUploadSession.swift in Sources */,
 				A150030201000000A1500302 /* FileProviderExtension+IOSUpload.swift in Sources */,
 				A150020201000000A1500202 /* IOSUploadCoordinator.swift in Sources */,
+				A150040201000000A1500402 /* UploadOrphanCleaner.swift in Sources */,
 				A130603101000000A1306031 /* FetchThumbnailsTests.swift in Sources */,
 				A130604101000000A1306041 /* FetchThumbnailsErrorMappingTests.swift in Sources */,
 				A130607401000000A1306074 /* UploadHookTests.swift in Sources */,
@@ -1482,6 +1487,7 @@
 				A150010101000000A1500101 /* BackgroundUploadSession.swift in Sources */,
 				A150030101000000A1500301 /* FileProviderExtension+IOSUpload.swift in Sources */,
 				A150020101000000A1500201 /* IOSUploadCoordinator.swift in Sources */,
+				A150040101000000A1500401 /* UploadOrphanCleaner.swift in Sources */,
 				016234D433404D56AD1E6417 /* S3Lib+Transfers.swift in Sources */,
 				CBC4B9775BD14315A22AA731 /* S3Lib+Trash.swift in Sources */,
 				D11103010000000000000001 /* S3Lib+Thumbnails.swift in Sources */,

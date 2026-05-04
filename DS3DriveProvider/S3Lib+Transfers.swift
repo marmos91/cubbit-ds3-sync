@@ -173,7 +173,13 @@ extension S3Lib {
         if size < DefaultSettings.S3.multipartThreshold || s3Item.contentType == .folder {
             return try await self.putS3ItemStandard(s3Item, fileURL: fileURL, withProgress: progress)
         }
-        return try await self.putS3ItemMultipart(s3Item, fileURL: fileURL, withProgress: progress)
+        #if os(iOS)
+            // On iOS large files are routed through the background-upload pipeline before
+            // putS3Item is called; this path should never be reached at runtime.
+            return try await self.putS3ItemStandard(s3Item, fileURL: fileURL, withProgress: progress)
+        #else
+            return try await self.putS3ItemMultipart(s3Item, fileURL: fileURL, withProgress: progress)
+        #endif
     }
 
     /// Performs a standard PUT request for a given S3Item
@@ -227,58 +233,61 @@ extension S3Lib {
         return etag
     }
 
-    /// Performs a multipart upload for a given S3Item using parallel part uploads.
-    private func putS3ItemMultipart(
-        _ s3Item: S3Item,
-        fileURL: URL? = nil,
-        withProgress progress: Progress? = nil
-    ) async throws -> String? {
-        guard let fileURL else {
-            throw FileProviderExtensionError.fileNotFound
-        }
+    #if !os(iOS)
+        /// Performs a multipart upload for a given S3Item using parallel part uploads.
+        /// Not used on iOS — the background-upload pipeline handles multipart there.
+        private func putS3ItemMultipart(
+            _ s3Item: S3Item,
+            fileURL: URL? = nil,
+            withProgress progress: Progress? = nil
+        ) async throws -> String? {
+            guard let fileURL else {
+                throw FileProviderExtensionError.fileNotFound
+            }
 
-        let key = s3Item.itemIdentifier.rawValue
-        let documentTotalSize = Int64(truncating: s3Item.documentSize ?? 0)
-        let driveId = s3Item.drive.id
-        let nm = self.notificationManager
-        let filename = s3Item.filename
+            let key = s3Item.itemIdentifier.rawValue
+            let documentTotalSize = Int64(truncating: s3Item.documentSize ?? 0)
+            let driveId = s3Item.drive.id
+            let nm = self.notificationManager
+            let filename = s3Item.filename
 
-        // Send an initial notification so the file appears in the tray immediately
-        await nm.sendTransferSpeedNotification(
-            DriveTransferStats(
-                driveId: driveId, size: 0, duration: 0, direction: .upload,
-                filename: filename, totalSize: documentTotalSize
+            // Send an initial notification so the file appears in the tray immediately
+            await nm.sendTransferSpeedNotification(
+                DriveTransferStats(
+                    driveId: driveId, size: 0, duration: 0, direction: .upload,
+                    filename: filename, totalSize: documentTotalSize
+                )
             )
-        )
 
-        do {
-            return try await client.putObjectMultipart(
-                bucket: s3Item.drive.syncAnchor.bucket.name,
-                key: key,
-                fileURL: fileURL,
-                totalSize: documentTotalSize,
-                pendingUploadStore: pendingUploadStore,
-                driveId: driveId,
-                onPartComplete: { _ in
-                    progress?.completedUnitCount += 1
-                },
-                onProgress: { transferProgress in
-                    let stats = DriveTransferStats(
-                        driveId: driveId,
-                        size: transferProgress.bytesTransferred,
-                        duration: transferProgress.duration,
-                        direction: .upload,
-                        filename: filename,
-                        totalSize: documentTotalSize
-                    )
-                    Task { await nm.sendTransferSpeedNotification(stats) }
-                }
-            )
-        } catch DS3ClientError.missingETag {
-            self.logger.error("Multipart upload returned no ETag for key \(key, privacy: .public)")
-            throw FileProviderExtensionError.uploadValidationFailed
+            do {
+                return try await client.putObjectMultipart(
+                    bucket: s3Item.drive.syncAnchor.bucket.name,
+                    key: key,
+                    fileURL: fileURL,
+                    totalSize: documentTotalSize,
+                    pendingUploadStore: pendingUploadStore,
+                    driveId: driveId,
+                    onPartComplete: { _ in
+                        progress?.completedUnitCount += 1
+                    },
+                    onProgress: { transferProgress in
+                        let stats = DriveTransferStats(
+                            driveId: driveId,
+                            size: transferProgress.bytesTransferred,
+                            duration: transferProgress.duration,
+                            direction: .upload,
+                            filename: filename,
+                            totalSize: documentTotalSize
+                        )
+                        Task { await nm.sendTransferSpeedNotification(stats) }
+                    }
+                )
+            } catch DS3ClientError.missingETag {
+                self.logger.error("Multipart upload returned no ETag for key \(key, privacy: .public)")
+                throw FileProviderExtensionError.uploadValidationFailed
+            }
         }
-    }
+    #endif
 
     /// Aborts a multipart upload for a given S3Item and uploadId
     func abortS3MultipartUpload(
