@@ -24,6 +24,11 @@
         private var drainTask: Task<Void, Never>?
         private var darwinObservation: DarwinNotificationObservation?
 
+        /// One DS3Client per drive UUID. Reusing the client avoids spawning new NIO event loops
+        /// and HTTP client threads for every thumbnail render when the backlog is large.
+        /// Call `invalidateS3Client(for:)` when a drive is disconnected to release the event loop.
+        private var ds3ClientCache: [UUID: DS3Client] = [:]
+
         init(driveManager: DS3DriveManager) {
             self.driveManager = driveManager
             darwinObservation = DarwinNotificationCenter.shared.addObserver(
@@ -63,6 +68,29 @@
             startDrain()
         }
 
+        /// Returns a cached DS3Client for the given drive, creating one if needed.
+        ///
+        /// Reusing a single client per drive avoids spawning fresh NIO event loops and
+        /// HTTP connection pools for every thumbnail in a large backfill batch.
+        private func cachedDS3Client(for drive: DS3Drive) throws -> DS3Client {
+            if let cached = ds3ClientCache[drive.id] {
+                return cached
+            }
+            let client = try DS3Client(drive: drive)
+            ds3ClientCache[drive.id] = client
+            return client
+        }
+
+        /// Shuts down and removes the cached DS3Client for the given drive.
+        ///
+        /// Call this when a drive is disconnected (e.g., from `DriveDetailView.disconnectDrive`)
+        /// so the underlying NIO event loop is released promptly.
+        func invalidateS3Client(for driveId: UUID) {
+            if let client = ds3ClientCache.removeValue(forKey: driveId) {
+                client.shutdown()
+            }
+        }
+
         private func drainLoop() async {
             let queue = ThumbnailRenderQueue.shared
 
@@ -100,10 +128,11 @@
                 return
             }
 
-            // 3. S3 client
+            // 3. S3 client — reuse the cached DS3Client for this drive to avoid spawning new
+            //    NIO event loops and HTTP connection pools on every render iteration.
             let s3Client: DS3S3Client
             do {
-                let ds3Client = try DS3Client(drive: drive)
+                let ds3Client = try cachedDS3Client(for: drive)
                 guard let client = ds3Client.driveS3Client else {
                     logger.error("Backfill: no S3 client for \(item.s3Key, privacy: .public)")
                     await queue.fail(item)
@@ -118,15 +147,22 @@
                 return
             }
 
-            // 4. Download original to temp file
+            // 4. Download original to temp file (stream directly to disk — no 2× memory peak)
             let ext = (item.s3Key as NSString).pathExtension
             let tempURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent(UUID().uuidString + (ext.isEmpty ? "" : "." + ext))
+            // defer MUST be registered before any early return so the temp file is always cleaned up.
+            defer { try? FileManager.default.removeItem(at: tempURL) }
 
             let bucket = drive.syncAnchor.bucket.name
+            // Create an empty file so FileHandle(forWritingTo:) can open it.
+            guard FileManager.default.createFile(atPath: tempURL.path, contents: nil) else {
+                logger.error("Backfill: could not create temp file for \(item.s3Key, privacy: .public)")
+                await queue.fail(item)
+                return
+            }
             do {
-                let data = try await s3Client.getObjectData(bucket: bucket, key: item.s3Key)
-                try data.write(to: tempURL)
+                _ = try await s3Client.getObject(bucket: bucket, key: item.s3Key, toFile: tempURL)
             } catch {
                 logger.error(
                     "Backfill: download failed for \(item.s3Key, privacy: .public): \(error.localizedDescription, privacy: .public)"
@@ -134,7 +170,6 @@
                 await queue.fail(item)
                 return
             }
-            defer { try? FileManager.default.removeItem(at: tempURL) }
 
             // 5. Render JPEG off main thread — CPU-intensive
             let renderResult = await Task.detached(priority: .utility) {
