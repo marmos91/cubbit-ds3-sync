@@ -401,19 +401,32 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         return progress
     }
 
-    /// Signals the system to re-enumerate changes after a local CRUD operation.
-    func signalChanges() {
+    func signalChanges(andParent parentKey: String? = nil) {
         guard let manager = NSFileProviderManager(for: self.domain) else {
-            logger
-                .warning(
-                    "Cannot signal enumerator: no manager for domain \(self.domain.identifier.rawValue, privacy: .public)"
-                )
+            logger.warning(
+                "Cannot signal enumerator: no manager for domain \(self.domain.identifier.rawValue, privacy: .public)"
+            )
             return
         }
 
         manager.signalEnumerator(for: .workingSet) { [weak self] error in
             if let error {
                 self?.logger.error("Failed to signal working set: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+
+        if let parentKey {
+            let parentId: NSFileProviderItemIdentifier = parentKey.isEmpty
+                ? .rootContainer
+                : NSFileProviderItemIdentifier(rawValue: parentKey)
+            manager.signalEnumerator(for: parentId) { [weak self] error in
+                if let error {
+                    self?.logger.error(
+                        "Failed to signal parent \(parentKey, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
+                } else {
+                    self?.logger.debug("Signalled parent enumerator: \(parentKey, privacy: .public)")
+                }
             }
         }
     }

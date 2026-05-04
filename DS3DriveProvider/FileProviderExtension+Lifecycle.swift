@@ -30,7 +30,12 @@ extension FileProviderExtension {
             for await command in ipcService.commands {
                 guard !Task.isCancelled, self != nil else { break }
                 switch command {
-                case .refreshEnumeration, .emptyTrash:
+                case let .refreshEnumeration(_, parentKey):
+                    self?.logger.notice(
+                        "IPC: refreshEnumeration parent=\(parentKey ?? "<root>", privacy: .public) — signalling"
+                    )
+                    self?.signalChanges(andParent: parentKey)
+                case .emptyTrash:
                     continue
                 }
             }
