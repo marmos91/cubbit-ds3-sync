@@ -227,6 +227,17 @@ public actor PendingUploadStore {
         Set(uploads.values.map(\.uploadId))
     }
 
+    /// All pending uploads whose `expectedPartCount` is known and all parts have
+    /// completed (i.e. `completedPartETags.count == expectedPartCount`).
+    /// Caller is responsible for finalizing (CompleteMultipartUpload) and then
+    /// invoking `remove(forKey:)` so the upload is not re-emitted.
+    public func allCompletedUploads() -> [PendingUpload] {
+        uploads.values.filter { upload in
+            upload.expectedPartCount > 0 &&
+                upload.completedPartETags.count == upload.expectedPartCount
+        }
+    }
+
     // MARK: - Lookup / removal
 
     /// Get the pending upload for a key, if any.

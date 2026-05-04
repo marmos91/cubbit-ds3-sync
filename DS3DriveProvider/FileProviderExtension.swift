@@ -110,6 +110,18 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
     let systemService: any SystemService
     let ipcService: any IPCService
 
+    #if os(iOS)
+        // iOS-only: background upload infrastructure (Phase 4 — Task 4.4).
+        // Soto cannot drive a background URLSession, so the iOS extension splits
+        // multipart uploads: control plane via Soto (DS3S3Client), data plane via
+        // URLSession.background tasks managed by `BackgroundUploadSession`.
+        // Properties are wired in `setupIOSUploadInfrastructure()` (lives in
+        // `FileProviderExtension+IOSUpload.swift`), hence module-internal access.
+        var pendingUploadStore: PendingUploadStore?
+        var backgroundUploadSession: BackgroundUploadSession?
+        var iosUploadCoordinator: IOSUploadCoordinator?
+    #endif
+
     required init(domain: NSFileProviderDomain) {
         self.enabled = false
         self.domain = domain
@@ -162,6 +174,12 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         self.startCommandListener()
         self.startWorkingSetSignaller()
 
+        #if os(iOS)
+            Task { @MainActor [weak self] in
+                await self?.setupIOSUploadInfrastructure()
+            }
+        #endif
+
         logMemoryUsage(label: "init-complete", logger: logger)
     }
 
@@ -188,6 +206,12 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         if let s3Lib = self.s3Lib {
             Task { try? await s3Lib.shutdown() }
         }
+
+        // NOTE: do NOT invalidate `backgroundUploadSession.session` here. The iOS
+        // background URLSession lives in `nsurlsessiond` and MUST outlive any
+        // single extension instance — invalidating it would cancel in-flight
+        // multipart uploads when the FP system reaps us mid-transfer. The session
+        // is reattached by identifier when a fresh extension instance is spawned.
     }
 
     // MARK: - Pure async business logic
