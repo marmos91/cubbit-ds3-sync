@@ -97,7 +97,41 @@ public struct ThumbnailRenderer {
         }
     }
 
+    /// Strips the alpha channel from `source` by redrawing into an opaque RGB context.
+    ///
+    /// JPEG does not support alpha — passing an RGBA image directly to
+    /// `CGImageDestinationAddImage` produces `AlphaPremulLast` warnings from ImageIO
+    /// and wastes encoder cycles on a channel that is discarded. This helper removes
+    /// alpha before encoding.
+    ///
+    /// If `source` already has no alpha (`alphaInfo` is `.none`, `.noneSkipFirst`, or
+    /// `.noneSkipLast`) the original image is returned unchanged (zero extra allocation).
+    func stripAlpha(from source: CGImage) -> CGImage {
+        let alpha = source.alphaInfo
+        guard alpha != .none,
+              alpha != .noneSkipFirst,
+              alpha != .noneSkipLast
+        else { return source }
+
+        let colorSpace = source.colorSpace ?? CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
+        guard let context = CGContext(
+            data: nil,
+            width: source.width,
+            height: source.height,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo.rawValue
+        )
+        else { return source }
+
+        context.draw(source, in: CGRect(x: 0, y: 0, width: source.width, height: source.height))
+        return context.makeImage() ?? source
+    }
+
     private func jpegData(from cgImage: CGImage) -> Data? {
+        let opaqueImage = stripAlpha(from: cgImage)
         let data = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(
             data as CFMutableData,
@@ -108,7 +142,7 @@ public struct ThumbnailRenderer {
         else { return nil }
         CGImageDestinationAddImage(
             dest,
-            cgImage,
+            opaqueImage,
             [kCGImageDestinationLossyCompressionQuality: Double(self.jpegQuality)] as CFDictionary
         )
         guard CGImageDestinationFinalize(dest) else { return nil }
