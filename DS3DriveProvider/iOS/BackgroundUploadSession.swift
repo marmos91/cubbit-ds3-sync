@@ -35,12 +35,13 @@
         private let pendingStore: PendingUploadStore
         private let onAllPartsComplete:
             @Sendable (PendingUploadStore.PendingUpload) async -> Void
+        private let onAbortMultipartUpload:
+            @Sendable (PendingUploadStore.PendingUpload) async -> Void
 
         /// Keys of uploads we've already dispatched to `onAllPartsComplete`. Guards
-        /// against the case where two parts of the same upload finish almost
-        /// simultaneously — both delegate callbacks would observe the same
-        /// "all parts complete" snapshot before the finalizer has had a chance to
-        /// call `pendingStore.remove(forKey:)`.
+        /// against two parts of the same upload finishing almost simultaneously
+        /// inside a single extension lifetime. The persisted `isCompleting` flag
+        /// on `PendingUpload` covers the cross-respawn case.
         private var finalizingKeys: Set<String> = []
 
         /// Lazily constructed background session. Background sessions cannot be
@@ -66,10 +67,13 @@
         init(
             pendingStore: PendingUploadStore,
             onAllPartsComplete:
+            @escaping @Sendable (PendingUploadStore.PendingUpload) async -> Void,
+            onAbortMultipartUpload:
             @escaping @Sendable (PendingUploadStore.PendingUpload) async -> Void
         ) {
             self.pendingStore = pendingStore
             self.onAllPartsComplete = onAllPartsComplete
+            self.onAbortMultipartUpload = onAbortMultipartUpload
         }
     }
 
@@ -158,9 +162,19 @@
             let completed = await pendingStore.allCompletedUploads()
             for upload in completed {
                 guard !finalizingKeys.contains(upload.key) else {
-                    // Another delegate callback is already finalizing this upload
-                    // (or has just finalized it but `remove(forKey:)` hasn't yet
-                    // settled). Skip to avoid double-finalization.
+                    // Another delegate callback in this extension lifetime is
+                    // already finalizing this upload. Skip to avoid double-fire.
+                    continue
+                }
+                // Persisted guard against re-entry from a respawned extension.
+                // `markCompleting` returns false if the flag was already set.
+                guard await pendingStore.markCompleting(forKey: upload.key) else {
+                    logger.info(
+                        """
+                        Skipping finalize for \(upload.key, privacy: .public) — \
+                        already marked completing (likely respawn)
+                        """
+                    )
                     continue
                 }
                 finalizingKeys.insert(upload.key)
@@ -170,25 +184,56 @@
 
                 let key = upload.key
                 let handler = onAllPartsComplete
-                // Dispatch finalization on a Task so the delegate queue stays
-                // responsive. The finalizer is responsible for calling
-                // `pendingStore.remove(forKey:)` on success/failure, after which
-                // the upload will not appear in `allCompletedUploads()` again.
+                // Re-fetch with isCompleting=true so the finalizer sees the
+                // persisted flag if it inspects state on disk.
+                let snapshot = await pendingStore.pendingUpload(forKey: key) ?? upload
                 Task { @MainActor [weak self] in
-                    await handler(upload)
+                    await handler(snapshot)
                     self?.finalizingKeys.remove(key)
                 }
             }
         }
 
+        /// Best-effort cleanup when a single part task fails. Removes the part
+        /// record and chunk file, cancels sibling part tasks for the same
+        /// multipart upload, asks the host to issue `AbortMultipartUpload` against
+        /// S3, and finally drops the parent pending record.
         private func abortUploadForTask(_ taskId: Int) async {
             guard
                 let record = await pendingStore.partRecord(forTaskIdentifier: taskId)
             else { return }
-            // Best-effort cleanup of the temp chunk file. The S3-level multipart
-            // upload abort is owned by the orphan reconciler invoked at extension
-            // init time (see Lifecycle).
-            try? FileManager.default.removeItem(at: record.tempFileURL)
+            let key = record.key
+
+            // 1. Drop the failing part record + temp file.
+            await pendingStore.markPartFailed(taskIdentifier: taskId)
+
+            // 2. Cancel every sibling URLSessionTask for the same upload key,
+            //    then drop their part records too.
+            let siblings = await pendingStore.partRecords(forKey: key)
+            let siblingTaskIds = Set(siblings.map(\.taskIdentifier))
+            if !siblingTaskIds.isEmpty {
+                let liveTasks = await session.allTasks
+                for task in liveTasks where siblingTaskIds.contains(task.taskIdentifier) {
+                    task.cancel()
+                }
+                for sibling in siblings {
+                    await pendingStore.markPartFailed(taskIdentifier: sibling.taskIdentifier)
+                }
+            }
+
+            // 3. Ask the host to abort the multipart upload on S3 (best effort).
+            //    Then drop the parent record so the orphan reconciler has nothing
+            //    to do.
+            if let upload = await pendingStore.pendingUpload(forKey: key) {
+                logger.warning(
+                    """
+                    Aborting multipart upload for \(key, privacy: .public) \
+                    uploadId=\(upload.uploadId, privacy: .public)
+                    """
+                )
+                await onAbortMultipartUpload(upload)
+                await pendingStore.remove(forKey: key)
+            }
         }
     }
 #endif
