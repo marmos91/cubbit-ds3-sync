@@ -78,6 +78,17 @@ func consumeThumbnail(
             // can route into `consumeThumbnailFallback` (Phase 13.2 Plan 02).
             // `mapThumbnailFetchError` never returns `.noSuchItem`, so this
             // sentinel is unambiguous.
+            #if os(iOS)
+                // Phase 14 Part 2: enqueue for background rendering in the main app.
+                // Synchronous: extension can be reaped immediately after responding
+                // to fetchThumbnails, so a detached Task would lose its work. We're
+                // already in async context, the append is a small file write, and
+                // perItemHandler still fires before this function returns.
+                await ThumbnailRenderQueue.shared.append(
+                    ThumbnailRenderQueueItem(driveID: drive.id, s3Key: identifier.rawValue)
+                )
+                DarwinNotificationCenter.shared.post(name: DarwinNotificationCenter.thumbnailRenderRequest)
+            #endif
             perItemHandler(identifier, nil, NSFileProviderError(.noSuchItem) as NSError)
         }
     } catch {

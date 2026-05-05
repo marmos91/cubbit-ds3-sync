@@ -252,6 +252,74 @@ public extension DS3S3Client {
         _ = try await s3.abortMultipartUpload(request)
     }
 
+    /// Lists all in-progress multipart uploads for a bucket.
+    /// Used by the iOS reconciler at extension launch to find orphans.
+    /// - Returns: Array of (key, uploadId) pairs for each in-progress upload
+    func listMultipartUploads(bucket: String) async throws -> [(key: String, uploadId: String)] {
+        let request = S3.ListMultipartUploadsRequest(bucket: bucket)
+        let response = try await s3.listMultipartUploads(request)
+        return (response.uploads ?? []).compactMap { upload in
+            guard let key = upload.key, let uploadId = upload.uploadId else { return nil }
+            return (key: key, uploadId: uploadId)
+        }
+    }
+
+    /// Generates a presigned PUT URLRequest for an S3 multipart UploadPart call.
+    ///
+    /// Used exclusively by the iOS background-upload path: the FP extension
+    /// presigns each part via Soto SigV4, then hands the request to a
+    /// `URLSessionUploadTask` for the actual transfer (Soto cannot drive a
+    /// background URLSession — see Soto Discussion #484).
+    ///
+    /// - Parameters:
+    ///   - bucket: The bucket name
+    ///   - key: The S3 object key
+    ///   - uploadId: The multipart upload ID returned by `createMultipartUpload`
+    ///   - partNumber: Sequential part number (1-based, max 10,000)
+    ///   - expiresIn: Seconds until the URL expires; must be in (0, 604800]
+    /// - Returns: A signed `URLRequest` with `httpMethod = "PUT"`
+    /// - Throws: `PresignError.invalidPresignExpiry` for out-of-range expiry,
+    ///           `PresignError.invalidObjectURL` if no custom endpoint is configured
+    func presignUploadPart(
+        bucket: String,
+        key: String,
+        uploadId: String,
+        partNumber: Int,
+        expiresIn: TimeInterval
+    ) async throws -> URLRequest {
+        let expirySeconds = Int64(expiresIn)
+        guard expirySeconds > 0, expirySeconds <= 604_800 else {
+            throw PresignError.invalidPresignExpiry
+        }
+        guard let endpoint = customEndpoint else {
+            throw PresignError.invalidObjectURL
+        }
+
+        // Build path-style URL with required query params.
+        // S3 UploadPart spec: PUT /<bucket>/<key>?partNumber=N&uploadId=ID
+        let baseURL = try Self.buildObjectURL(endpoint: endpoint, bucket: bucket, key: key)
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            throw PresignError.invalidObjectURL
+        }
+        components.queryItems = [
+            URLQueryItem(name: "partNumber", value: String(partNumber)),
+            URLQueryItem(name: "uploadId", value: uploadId)
+        ]
+        guard let urlWithQuery = components.url else {
+            throw PresignError.invalidObjectURL
+        }
+
+        let signedURL = try await s3.signURL(
+            url: urlWithQuery,
+            httpMethod: .PUT,
+            expires: .seconds(expirySeconds)
+        )
+
+        var request = URLRequest(url: signedURL)
+        request.httpMethod = "PUT"
+        return request
+    }
+
     /// Performs a full multipart upload with concurrent parts, resume via PendingUploadStore, and abort on failure.
     func putObjectMultipart(
         bucket: String,

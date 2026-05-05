@@ -89,3 +89,32 @@ public extension DS3S3ClientProtocol {
         )
     }
 }
+
+#if os(iOS)
+    public extension DS3S3Client {
+        /// iOS-only: fetches thumbnail bytes via URLSessionDownloadTask (writes to disk,
+        /// then mmap-maps the file) to stay within the extension's 20 MB jetsam ceiling.
+        /// Returns nil on HTTP 404 (cache miss). Throws URLError on other failures so
+        /// callers can map via `mapThumbnailFetchError`.
+        func getThumbnailBytesViaDownloadTask(bucket: String, key: String) async throws -> Data? {
+            let signedURL = try await presignedGetURL(bucket: bucket, key: key, expiresIn: 300)
+            let (tempURL, response) = try await URLSession.shared.download(from: signedURL)
+            defer { try? FileManager.default.removeItem(at: tempURL) }
+
+            guard let http = response as? HTTPURLResponse else {
+                throw URLError(.resourceUnavailable)
+            }
+
+            switch http.statusCode {
+            case 404:
+                return nil
+            case 200 ..< 300:
+                return try autoreleasepool {
+                    try Data(contentsOf: tempURL, options: .alwaysMapped)
+                }
+            default:
+                throw URLError(.resourceUnavailable)
+            }
+        }
+    }
+#endif

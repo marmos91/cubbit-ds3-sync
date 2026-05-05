@@ -74,7 +74,7 @@
 
         private(set) var lastUsedDriveId: UUID?
         private var lastUsedFolderPrefix: String?
-        private let appGroupDefaults = UserDefaults(suiteName: "group.X889956QSM.io.cubbit.DS3Drive")
+        private let appGroupDefaults = UserDefaults(suiteName: DefaultSettings.appGroup)
 
         private var uploadTask: Task<Void, Never>?
 
@@ -376,12 +376,24 @@
             if files.allSatisfy({ $0.status == .completed }) {
                 state = .complete
                 logger.info("All \(self.files.count) files uploaded successfully")
+                if let drive = selectedDrive {
+                    await signalFileProvider(for: drive, parentKey: selectedFolderPrefix)
+                }
                 try? await Task.sleep(for: .milliseconds(500))
                 NotificationCenter.default.post(name: .shareExtensionComplete, object: nil)
             } else {
                 state = .partialFailure
                 logger.warning("\(self.failedCount) of \(self.files.count) files failed to upload")
             }
+        }
+
+        /// Signals the File Provider extension to re-enumerate the destination folder.
+        private func signalFileProvider(for drive: DS3Drive, parentKey: String?) async {
+            let ipc = makeDefaultIPCService()
+            await ipc.postCommand(.refreshEnumeration(driveId: drive.id, parentKey: parentKey))
+            logger.notice(
+                "Posted refreshEnumeration IPC for \(drive.name, privacy: .public) parent=\(parentKey ?? "<root>", privacy: .public)"
+            )
         }
 
         // MARK: - Retry

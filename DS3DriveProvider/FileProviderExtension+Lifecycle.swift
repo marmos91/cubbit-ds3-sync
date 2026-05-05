@@ -30,7 +30,19 @@ extension FileProviderExtension {
             for await command in ipcService.commands {
                 guard !Task.isCancelled, self != nil else { break }
                 switch command {
-                case .refreshEnumeration, .emptyTrash:
+                case let .refreshEnumeration(driveId, parentKey):
+                    // Filter to commands targeted at this domain. The iOS IPC
+                    // channel is shared across drives, so a sibling extension
+                    // would otherwise re-list its bucket on every signal.
+                    guard let selfDriveId = self?.drive?.id, selfDriveId == driveId else {
+                        continue
+                    }
+                    self?.logger.notice(
+                        "IPC: refreshEnumeration parent=\(parentKey ?? "<root>", privacy: .public) — refreshing"
+                    )
+                    await self?.refreshMetadataForParent(parentKey: parentKey)
+                    self?.signalChanges(andParent: parentKey)
+                case .emptyTrash:
                     continue
                 }
             }
@@ -229,4 +241,137 @@ private class MaterializedItemObserver: NSObject, NSFileProviderEnumerationObser
     func finishEnumeratingWithError(_ error: Error) {
         onError?(error)
     }
+}
+
+extension FileProviderExtension {
+    /// Re-lists S3 for the given parent prefix and updates MetadataStore so
+    /// `currentSyncAnchor` returns a fresh hash. Without this, signalEnumerator
+    /// is a no-op for items added by other processes (Share extension, web)
+    /// because the cached SyncAnchor matches the stale MetadataStore state.
+    func refreshMetadataForParent(parentKey: String?) async {
+        guard let drive = self.drive,
+              let s3Lib = self.s3Lib,
+              let metadataStore = self.metadataStore
+        else { return }
+
+        let normalizedPrefix: String? = {
+            guard let parentKey, !parentKey.isEmpty else { return nil }
+            return parentKey
+        }()
+
+        do {
+            var token: String?
+            var allItems: [S3Item] = []
+            repeat {
+                let (items, nextToken) = try await s3Lib.listS3Items(
+                    forDrive: drive,
+                    withPrefix: normalizedPrefix,
+                    recursively: false,
+                    withContinuationToken: token
+                )
+                allItems.append(contentsOf: items)
+                token = nextToken
+            } while token != nil
+
+            let visibleItems = allItems.filter {
+                S3Lib.isUserVisible($0.itemIdentifier.rawValue, drive: drive)
+            }
+            let upsertData = visibleItems.map {
+                MetadataStore.ItemUpsertData(from: $0, isMaterialized: true)
+            }
+            if !upsertData.isEmpty {
+                try? await metadataStore.batchUpsertItems(upsertData)
+            }
+            let parentForPrune = normalizedPrefix ?? ""
+            let allKeys = Set(upsertData.map(\.s3Key))
+            try? await metadataStore.pruneChildren(
+                parentKey: parentForPrune, driveId: drive.id, keepKeys: allKeys
+            )
+            self.logger.info(
+                "refreshMetadataForParent: \(visibleItems.count, privacy: .public) items reconciled for parent=\(parentKey ?? "<root>", privacy: .public)"
+            )
+
+            #if os(iOS)
+                await self.enqueueMissingThumbnails(visibleItems: visibleItems, drive: drive)
+            #endif
+        } catch {
+            self.logger.warning(
+                "refreshMetadataForParent failed for \(parentKey ?? "<root>", privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
+            )
+        }
+    }
+
+    #if os(iOS)
+        /// Proactively enqueues raster items whose `.thumbnails/<file>.jpg` sidecar
+        /// is not yet on S3. Lists the parent's `.thumbnails/` prefix once to avoid
+        /// HEAD-per-item, then enqueues anything missing. The render queue dedups,
+        /// so duplicate appends are cheap. Drain runs whenever DS3DriveApp is
+        /// foreground (or BGProcessingTask fires).
+        func enqueueMissingThumbnails(visibleItems: [S3Item], drive: DS3Drive) async {
+            guard let s3Lib = self.s3Lib else { return }
+
+            let rasterItems = visibleItems.filter {
+                !$0.isFolder &&
+                    S3PathUtils.isRasterExtension(
+                        ($0.itemIdentifier.rawValue as NSString).pathExtension
+                    )
+            }
+            guard !rasterItems.isEmpty else { return }
+
+            // Group items by their `.thumbnails/` prefix so each distinct
+            // directory is listed once. Single-folder refresh = one entry.
+            // Root-level refresh = one entry per top-level subfolder.
+            var prefixes: Set<String> = []
+            for item in rasterItems {
+                let thumbKey = S3PathUtils.thumbnailKey(forOriginalKey: item.itemIdentifier.rawValue)
+                prefixes.insert((thumbKey as NSString).deletingLastPathComponent + "/")
+            }
+
+            var existing: Set<String> = []
+            for prefix in prefixes {
+                do {
+                    var token: String?
+                    repeat {
+                        let (items, nextToken) = try await s3Lib.listS3Items(
+                            forDrive: drive,
+                            withPrefix: prefix,
+                            recursively: false,
+                            withContinuationToken: token
+                        )
+                        for item in items where !item.isFolder {
+                            existing.insert(item.itemIdentifier.rawValue)
+                        }
+                        token = nextToken
+                    } while token != nil
+                } catch {
+                    // List failed for one prefix — fall through and enqueue
+                    // everything in it; the render queue's dedup keeps us from
+                    // spamming, and if the sidecar already exists the renderer
+                    // just overwrites with the same bytes.
+                    self.logger.info(
+                        "enqueueMissingThumbnails: list \(prefix, privacy: .public) failed — enqueuing all under it"
+                    )
+                }
+            }
+
+            var enqueued = 0
+            for item in rasterItems {
+                let key = item.itemIdentifier.rawValue
+                let expectedThumb = S3PathUtils.thumbnailKey(forOriginalKey: key)
+                guard !existing.contains(expectedThumb) else { continue }
+                await ThumbnailRenderQueue.shared.append(
+                    ThumbnailRenderQueueItem(driveID: drive.id, s3Key: key)
+                )
+                enqueued += 1
+            }
+            if enqueued > 0 {
+                DarwinNotificationCenter.shared.post(
+                    name: DarwinNotificationCenter.thumbnailRenderRequest
+                )
+                self.logger.info(
+                    "enqueueMissingThumbnails: enqueued \(enqueued, privacy: .public) of \(rasterItems.count, privacy: .public) raster items across \(prefixes.count, privacy: .public) prefix(es)"
+                )
+            }
+        }
+    #endif
 }

@@ -42,12 +42,20 @@ extension FileProviderExtension {
         // Trashing flows through modifyItem(parent: .trashContainer) → performMoveToTrash,
         // never createItem. Reject directly so the system retries the right path
         // and we never write a sentinel-prefixed key into S3.
+        //
+        // Use .featureUnsupported (NSCocoaErrorDomain) instead of .noSuchItem.
+        // iOS Files.app retries .noSuchItem indefinitely, thrashing the extension.
+        // .featureUnsupported tells the system "this operation isn't supported
+        // through this code path" and it stops the loop.
         if itemTemplate.parentItemIdentifier == .trashContainer {
             self.logger
                 .warning(
                     "Rejecting createItem with .trashContainer parent for \(itemTemplate.filename, privacy: .public)"
                 )
-            completionHandler(nil, [], false, NSFileProviderError(.noSuchItem) as NSError)
+            completionHandler(
+                nil, [], false,
+                NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError)
+            )
             return Progress()
         }
 
@@ -228,6 +236,64 @@ extension FileProviderExtension {
                 }
                 // --- End conflict detection ---
 
+                #if os(iOS)
+                    // Phase 4 — Task 4.4: route file uploads through the
+                    // background URLSession on iOS so the FP extension can be
+                    // reaped without aborting the transfer. Folders still take
+                    // the synchronous PUT path (zero-byte create).
+                    if !s3Item.isFolder, let coordinator = self.iosUploadCoordinator,
+                       let sourceURL = url {
+                        do {
+                            try await coordinator.startUpload(
+                                s3Item: s3Item,
+                                sourceFileURL: sourceURL,
+                                drive: drive,
+                                progress: uploadProgress
+                            )
+
+                            // Persist provisional metadata so enumerators surface
+                            // the in-flight item; etag/lastModified will be
+                            // patched by `finalizeMultipartCompletion`.
+                            try? await self.metadataStore?.upsertItem(
+                                s3Key: key,
+                                driveId: drive.id,
+                                etag: nil,
+                                lastModified: Date(),
+                                syncStatus: .syncing,
+                                parentKey: parentKey,
+                                contentType: nil,
+                                size: Int64(itemSize)
+                            )
+
+                            // Return provisional item immediately — completion
+                            // arrives later via BackgroundUploadSession callbacks.
+                            self.signalChanges()
+                            completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
+                            return
+                        } catch {
+                            self.logger.error(
+                                """
+                                iOS background upload start failed for \
+                                \(key, privacy: .public): \
+                                \(error.localizedDescription, privacy: .public)
+                                """
+                            )
+                            progress.completedUnitCount = progress.totalUnitCount
+                            await self.markItemAndParentAsError(
+                                itemKey: key, driveId: drive.id, metadataStore: self.metadataStore
+                            )
+                            await nm.sendDriveChangedNotificationWithDebounce(status: .error)
+                            completionHandler(
+                                nil,
+                                NSFileProviderItemFields(),
+                                false,
+                                NSFileProviderError(.serverUnreachable) as NSError
+                            )
+                            return
+                        }
+                    }
+                #endif
+
                 let createETag = try await self.withAPIKeyRecovery {
                     try await s3Lib.putS3Item(s3Item, fileURL: url, withProgress: uploadProgress)
                 }
@@ -275,6 +341,19 @@ extension FileProviderExtension {
                         download: downloadFn
                     )
                 }
+
+                #if os(iOS)
+                    // Phase 14 Part 2: enqueue raster uploads for background rendering.
+                    // Synchronous await — same rationale as consumeThumbnail: extension
+                    // can be reaped immediately after this Task returns, so a detached
+                    // Task would lose its file write.
+                    if !s3Item.isFolder, S3PathUtils.isRasterExtension((key as NSString).pathExtension) {
+                        await ThumbnailRenderQueue.shared.append(
+                            ThumbnailRenderQueueItem(driveID: drive.id, s3Key: key)
+                        )
+                        DarwinNotificationCenter.shared.post(name: DarwinNotificationCenter.thumbnailRenderRequest)
+                    }
+                #endif
 
                 // Clear parent error badge if this item was previously in error
                 if let parentCleared = try? await self.metadataStore?.clearParentErrorIfResolved(

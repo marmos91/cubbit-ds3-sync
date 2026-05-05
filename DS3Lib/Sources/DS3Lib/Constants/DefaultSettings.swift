@@ -54,6 +54,8 @@ public enum DefaultSettings {
         public static let lastCoordinatorURL = "io.cubbit.DS3Drive.userDefaults.lastCoordinatorURL"
         public static let autoCheckUpdates = "io.cubbit.DS3Drive.userDefaults.autoCheckUpdates"
         public static let lastUpdateCheck = "io.cubbit.DS3Drive.userDefaults.lastUpdateCheck"
+        /// App Group UserDefaults key for the global cellular-download opt-in for thumbnail generation.
+        public static let thumbnailCellularOptIn = "io.cubbit.DS3Drive.thumbnailCellularOptIn"
     }
 
     /// A unique identifier for the app. It is used to identify the specific app instance when creating API keys.
@@ -159,6 +161,9 @@ public enum DefaultSettings {
 
         /// The name of the file used to store per-drive thumbnail settings.
         public static let thumbnailSettingsFileName = "thumbnailSettings.json"
+
+        /// The name of the file used to store the iOS thumbnail render queue.
+        public static let thumbnailRenderQueueFileName = "thumbnailRenderQueue.json"
     }
 
     /// Group of settings related to the S3 client.

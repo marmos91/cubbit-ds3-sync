@@ -68,11 +68,27 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         let fetchSemaphore = AsyncSemaphore(value: 20)
     #endif
 
-    /// Bounds concurrent thumbnail GETs from `fetchThumbnails` (Phase 13 D-12,
-    /// THUMB-14). macOS=4. Mirror of `BucketListingLimiter` for the consume
-    /// path. Upload generator and backfill coordinator do NOT route through
-    /// this limiter (Pitfall 4).
-    let thumbnailFetchLimiter = ThumbnailFetchLimiter(maxSlots: 4)
+    // Bounds concurrent thumbnail GETs from `fetchThumbnails` (Phase 13 D-12,
+    // THUMB-14). macOS=4, iOS=2 (tighter jetsam ceiling). Upload generator
+    // and backfill coordinator do NOT route through this limiter (Pitfall 4).
+    #if os(iOS)
+        let thumbnailFetchLimiter = ThumbnailFetchLimiter(maxSlots: 2)
+    #else
+        let thumbnailFetchLimiter = ThumbnailFetchLimiter(maxSlots: 4)
+    #endif
+
+    // iOS-only in-flight coalescing cache for thumbnail bytes. Prevents
+    // duplicate S3 GETs when Files.app fans out multiple requests for the
+    // same key in one `fetchThumbnails` batch. NSCache evicts under memory
+    // pressure — safe for the 20 MB extension jetsam ceiling.
+    #if os(iOS)
+        let thumbnailMemoCache: NSCache<NSString, NSData> = {
+            let cache = NSCache<NSString, NSData>()
+            cache.totalCostLimit = 1 * 1024 * 1024
+            cache.name = "ThumbnailConsumeCoalesce"
+            return cache
+        }()
+    #endif
 
     /// Phase 13.2 D-02: 2-slot limiter for the cache-miss fallback render path.
     /// Strict separation from the 4-slot `thumbnailFetchLimiter` (cached-thumb
@@ -93,6 +109,18 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
     let temporaryDirectory: URL?
     let systemService: any SystemService
     let ipcService: any IPCService
+
+    #if os(iOS)
+        // iOS-only: background upload infrastructure (Phase 4 — Task 4.4).
+        // Soto cannot drive a background URLSession, so the iOS extension splits
+        // multipart uploads: control plane via Soto (DS3S3Client), data plane via
+        // URLSession.background tasks managed by `BackgroundUploadSession`.
+        // Properties are wired in `setupIOSUploadInfrastructure()` (lives in
+        // `FileProviderExtension+IOSUpload.swift`), hence module-internal access.
+        var pendingUploadStore: PendingUploadStore?
+        var backgroundUploadSession: BackgroundUploadSession?
+        var iosUploadCoordinator: IOSUploadCoordinator?
+    #endif
 
     required init(domain: NSFileProviderDomain) {
         self.enabled = false
@@ -146,6 +174,12 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         self.startCommandListener()
         self.startWorkingSetSignaller()
 
+        #if os(iOS)
+            Task { @MainActor [weak self] in
+                await self?.setupIOSUploadInfrastructure()
+            }
+        #endif
+
         logMemoryUsage(label: "init-complete", logger: logger)
     }
 
@@ -172,6 +206,12 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         if let s3Lib = self.s3Lib {
             Task { try? await s3Lib.shutdown() }
         }
+
+        // NOTE: do NOT invalidate `backgroundUploadSession.session` here. The iOS
+        // background URLSession lives in `nsurlsessiond` and MUST outlive any
+        // single extension instance — invalidating it would cancel in-flight
+        // multipart uploads when the FP system reaps us mid-transfer. The session
+        // is reattached by identifier when a fresh extension instance is spawned.
     }
 
     // MARK: - Pure async business logic
@@ -385,19 +425,32 @@ class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension,
         return progress
     }
 
-    /// Signals the system to re-enumerate changes after a local CRUD operation.
-    func signalChanges() {
+    func signalChanges(andParent parentKey: String? = nil) {
         guard let manager = NSFileProviderManager(for: self.domain) else {
-            logger
-                .warning(
-                    "Cannot signal enumerator: no manager for domain \(self.domain.identifier.rawValue, privacy: .public)"
-                )
+            logger.warning(
+                "Cannot signal enumerator: no manager for domain \(self.domain.identifier.rawValue, privacy: .public)"
+            )
             return
         }
 
         manager.signalEnumerator(for: .workingSet) { [weak self] error in
             if let error {
                 self?.logger.error("Failed to signal working set: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+
+        if let parentKey {
+            let parentId: NSFileProviderItemIdentifier = parentKey.isEmpty
+                ? .rootContainer
+                : NSFileProviderItemIdentifier(rawValue: parentKey)
+            manager.signalEnumerator(for: parentId) { [weak self] error in
+                if let error {
+                    self?.logger.error(
+                        "Failed to signal parent \(parentKey, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
+                } else {
+                    self?.logger.debug("Signalled parent enumerator: \(parentKey, privacy: .public)")
+                }
             }
         }
     }

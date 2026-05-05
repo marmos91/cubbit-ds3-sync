@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import DS3Lib
 @preconcurrency import FileProvider
 import os.log
@@ -156,13 +157,14 @@ extension FileProviderExtension {
 // MARK: - Thumbnails (Phase 13 cache-first consume path)
 
 extension FileProviderExtension {
-    /// `NSFileProviderThumbnailing` entry point. Cache-first: reads
-    /// `.thumbnails/<key>.jpg` from S3 and returns bytes; on 404, marks the
-    /// item `.pending` for backfill and returns `.noSuchItem` so Finder draws
-    /// the default UTType icon and retries on next browse.
-    ///
-    /// Phase 13 D-11, D-12, D-13: this path NEVER renders, NEVER downloads
-    /// originals, and NEVER returns custom error domains across the boundary.
+    // NSFileProviderThumbnailing entry point. Cache-first: reads
+    // `.thumbnails/<key>.jpg` from S3 and returns bytes; on 404, marks the
+    // item `.pending` for backfill and returns `.noSuchItem` so Finder draws
+    // the default UTType icon and retries on next browse.
+    //
+    // Phase 13 D-11, D-12, D-13: this path NEVER renders, NEVER downloads
+    // originals, and NEVER returns custom error domains across the boundary.
+    // swiftlint:disable:next function_body_length
     func fetchThumbnails(
         for itemIdentifiers: [NSFileProviderItemIdentifier],
         requestedSize _: CGSize,
@@ -172,16 +174,53 @@ extension FileProviderExtension {
         let progress = Progress(totalUnitCount: Int64(itemIdentifiers.count))
 
         #if os(iOS)
-            // On iOS, skip all thumbnail generation to stay within the 20MB memory limit.
-            // Each thumbnail requires S3 HEAD + download + image processing which quickly
-            // exhausts the extension's memory budget, causing jetsam kills. iOS has its
-            // own consume path (Phase 14) that will read `.thumbnails/` once Phase 13
-            // generation has populated the prefix.
-            for identifier in itemIdentifiers {
-                perThumbnailCompletionHandler(identifier, nil, nil)
+            let completed = OSAllocatedUnfairLock(initialState: false)
+            let boxedFinalCb = UncheckedBox(value: completionHandler)
+
+            @Sendable
+            func completeFinal(_ error: Error?) {
+                let shouldCall = completed.withLock { flag -> Bool in
+                    guard !flag else { return false }
+                    flag = true
+                    return true
+                }
+                guard shouldCall else { return }
+                boxedFinalCb.value(error)
             }
-            completionHandler(nil)
-            progress.completedUnitCount = Int64(itemIdentifiers.count)
+
+            guard self.enabled else {
+                for identifier in itemIdentifiers {
+                    perThumbnailCompletionHandler(identifier, nil, nil)
+                }
+                progress.completedUnitCount = Int64(itemIdentifiers.count)
+                completeFinal(NSFileProviderError(.notAuthenticated) as NSError)
+                return progress
+            }
+
+            guard let drive = self.drive, let s3Client = self.s3Client else {
+                for identifier in itemIdentifiers {
+                    perThumbnailCompletionHandler(identifier, nil, nil)
+                }
+                progress.completedUnitCount = Int64(itemIdentifiers.count)
+                completeFinal(NSFileProviderError(.cannotSynchronize) as NSError)
+                return progress
+            }
+
+            self.logger.info("fetchThumbnails: starting for \(itemIdentifiers.count) items (cache-first, iOS)")
+
+            let task = self.spawnCacheFirstThumbnailTaskIOS(
+                itemIdentifiers: itemIdentifiers,
+                drive: drive,
+                s3Client: s3Client,
+                progress: progress,
+                perThumbnailCompletionHandler: perThumbnailCompletionHandler,
+                completeFinal: completeFinal
+            )
+
+            progress.cancellationHandler = {
+                task.cancel()
+            }
+
             return progress
         #else
 
@@ -383,6 +422,98 @@ extension FileProviderExtension {
                                     perItemHandler: perItemCb
                                 )
                             }
+                            await limiter.release()
+                            progress.completedUnitCount += 1
+                        }
+                    }
+                }
+                completeFinal(nil)
+            }
+        }
+    #endif
+
+    #if os(iOS)
+        /// iOS-only cache-first consume helper. Structurally mirrors the macOS
+        /// `spawnCacheFirstThumbnailTask` but drops the fallback render/PUT
+        /// pipeline (rendering is impossible under the 20 MB jetsam ceiling).
+        /// Cache misses return `.serverUnreachable` so Files.app retries on
+        /// next browse without requiring a `contentVersion` bump (Phase 14).
+        private func spawnCacheFirstThumbnailTaskIOS(
+            itemIdentifiers: [NSFileProviderItemIdentifier],
+            drive: DS3Drive,
+            s3Client: DS3S3Client,
+            progress: Progress,
+            perThumbnailCompletionHandler: @escaping (NSFileProviderItemIdentifier, Data?, Error?) -> Void,
+            completeFinal: @escaping @Sendable (Error?) -> Void
+        ) -> Task<Void, Never> {
+            let limiter = self.thumbnailFetchLimiter
+            let boxedMemoCache = UncheckedBox(value: self.thumbnailMemoCache)
+            let boxedPerItemCb = UncheckedBox(value: perThumbnailCompletionHandler)
+
+            let fetchBytes: ThumbnailByteFetcher = { @Sendable bucket, key in
+                let cache = boxedMemoCache.value
+                if let cached = cache.object(forKey: key as NSString) {
+                    return cached as Data
+                }
+                let data = try await s3Client.getThumbnailBytesViaDownloadTask(bucket: bucket, key: key)
+                if let data {
+                    cache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
+                }
+                return data
+            }
+
+            let perItemCb: PerThumbnailCompletionHandler = { id, data, error in
+                boxedPerItemCb.value(id, data, error)
+            }
+
+            return Task {
+                await withTaskGroup(of: Void.self) { group in
+                    for identifier in itemIdentifiers {
+                        group.addTask {
+                            do {
+                                try await limiter.acquire()
+                            } catch is CancellationError {
+                                perItemCb(
+                                    identifier, nil,
+                                    NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)
+                                )
+                                return
+                            } catch {
+                                perItemCb(
+                                    identifier, nil,
+                                    NSFileProviderError(.cannotSynchronize) as NSError
+                                )
+                                return
+                            }
+
+                            // Remap the `.noSuchItem` cache-miss sentinel to
+                            // `.serverUnreachable` on iOS so Files.app retries
+                            // naturally on the next folder browse. There is no
+                            // inline fallback on iOS (rendering would breach the
+                            // jetsam ceiling); generation is deferred to the main
+                            // app via ThumbnailRenderQueue (Phase 14 Part 2).
+                            let noSuchItemCode = NSFileProviderError.Code.noSuchItem.rawValue
+                            let interceptor: PerThumbnailCompletionHandler = { id, data, error in
+                                if data == nil,
+                                   let nsErr = error as? NSError,
+                                   nsErr.domain == NSFileProviderErrorDomain,
+                                   nsErr.code == noSuchItemCode {
+                                    perItemCb(
+                                        id, nil,
+                                        NSFileProviderError(.serverUnreachable) as NSError
+                                    )
+                                } else {
+                                    perItemCb(id, data, error)
+                                }
+                            }
+
+                            await consumeThumbnail(
+                                identifier: identifier,
+                                drive: drive,
+                                fetchBytes: fetchBytes,
+                                perItemHandler: interceptor
+                            )
+
                             await limiter.release()
                             progress.completedUnitCount += 1
                         }
