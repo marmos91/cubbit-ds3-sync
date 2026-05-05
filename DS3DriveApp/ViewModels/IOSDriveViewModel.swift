@@ -79,9 +79,9 @@
 
         static func statusLabel(for status: DS3DriveStatus) -> String {
             switch status {
-            case .idle: "Synced"
-            case .sync: "Syncing"
-            case .error: "Error"
+            case .idle: String(localized: "Synced")
+            case .sync: String(localized: "Syncing")
+            case .error: String(localized: "Error")
             }
         }
 

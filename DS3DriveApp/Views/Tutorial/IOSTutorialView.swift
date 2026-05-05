@@ -7,8 +7,8 @@
     private struct IOSTutorialSlide: Identifiable {
         let id = UUID()
         let imageName: String
-        let title: String
-        let description: String
+        let title: LocalizedStringKey
+        let description: LocalizedStringKey
     }
 
     // MARK: - Tutorial View
@@ -103,8 +103,14 @@
                         }
                     } label: {
                         HStack(spacing: 8) {
-                            Text(isLastSlide ? "Get Started" : "Next")
-                                .font(.custom("Figtree-SemiBold", size: 17))
+                            Group {
+                                if isLastSlide {
+                                    Text("Get Started")
+                                } else {
+                                    Text("Next")
+                                }
+                            }
+                            .font(.custom("Figtree-SemiBold", size: 17))
                             Image(systemName: isLastSlide ? "arrow.right.circle.fill" : "arrow.right")
                                 .font(.system(size: 16, weight: .semibold))
                         }

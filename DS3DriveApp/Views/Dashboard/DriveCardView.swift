@@ -52,7 +52,9 @@
                     .stroke(IOSColors.brandBorderSubtle, lineWidth: 1)
             )
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Drive \(drive.name), status \(statusLabel), bucket \(drive.syncAnchor.bucket.name)")
+            .accessibilityLabel(
+                Text("Drive \(drive.name), status \(statusLabel), bucket \(drive.syncAnchor.bucket.name)")
+            )
         }
 
         // MARK: - Icon with status badge

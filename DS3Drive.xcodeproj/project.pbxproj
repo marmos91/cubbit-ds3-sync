@@ -162,6 +162,7 @@
 		D5A222362B571FEE00F1413B /* Signature.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221FB2B571FED00F1413B /* Signature.swift */; };
 		D5A222372B571FEE00F1413B /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A221FD2B571FED00F1413B /* LoginView.swift */; };
 		D5A222382B571FEE00F1413B /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = D5A221FF2B571FEE00F1413B /* Localizable.xcstrings */; };
+		43FD101B93E86DAE71CA8883 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = D5A221FF2B571FEE00F1413B /* Localizable.xcstrings */; };
 		D5A222392B571FEE00F1413B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D5A222002B571FEE00F1413B /* Assets.xcassets */; };
 		D5A2223A2B571FEE00F1413B /* Nunito-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D5A222022B571FEE00F1413B /* Nunito-Regular.ttf */; };
 		D5A2223B2B571FEE00F1413B /* Nunito-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D5A222032B571FEE00F1413B /* Nunito-Bold.ttf */; };
@@ -1258,6 +1259,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9659EB9202B95BD6A9520860 /* Assets.xcassets in Resources */,
+				43FD101B93E86DAE71CA8883 /* Localizable.xcstrings in Resources */,
 				A10519010000000000000001 /* Figtree-Regular.ttf in Resources */,
 				A10519010000000000000002 /* Figtree-Medium.ttf in Resources */,
 				A10519010000000000000003 /* Figtree-SemiBold.ttf in Resources */,
