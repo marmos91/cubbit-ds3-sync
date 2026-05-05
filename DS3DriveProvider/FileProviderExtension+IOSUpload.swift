@@ -35,12 +35,19 @@
                     await self?.finalizeMultipartCompletion(upload)
                 },
                 onAbortMultipartUpload: { [weak self] upload in
-                    guard let s3Client = self?.s3Client else { return }
-                    try? await s3Client.abortMultipartUpload(
-                        bucket: upload.bucket,
-                        key: upload.key,
-                        uploadId: upload.uploadId
-                    )
+                    guard let s3Client = self?.s3Client else { return false }
+                    do {
+                        try await s3Client.abortMultipartUpload(
+                            bucket: upload.bucket,
+                            key: upload.key,
+                            uploadId: upload.uploadId
+                        )
+                        return true
+                    } catch {
+                        // Surfaced to BackgroundUploadSession so it keeps the
+                        // pending record for startup retry instead of leaking.
+                        return false
+                    }
                 }
             )
             self.backgroundUploadSession = session

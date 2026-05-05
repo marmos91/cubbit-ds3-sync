@@ -35,14 +35,24 @@
         private let pendingStore: PendingUploadStore
         private let onAllPartsComplete:
             @Sendable (PendingUploadStore.PendingUpload) async -> Void
+        /// Returns `true` when the host-issued `AbortMultipartUpload` succeeded.
+        /// On `false` the session keeps the pending record alive so startup
+        /// reconciliation (`cleanupOrphanedMultiparts` / `UploadOrphanCleaner`)
+        /// can retry the abort instead of dropping our only handle.
         private let onAbortMultipartUpload:
-            @Sendable (PendingUploadStore.PendingUpload) async -> Void
+            @Sendable (PendingUploadStore.PendingUpload) async -> Bool
 
         /// Keys of uploads we've already dispatched to `onAllPartsComplete`. Guards
         /// against two parts of the same upload finishing almost simultaneously
         /// inside a single extension lifetime. The persisted `isCompleting` flag
         /// on `PendingUpload` covers the cross-respawn case.
         private var finalizingKeys: Set<String> = []
+
+        /// Keys for which `abortUploadForTask` is in progress. Other delegate
+        /// callbacks (e.g. a sibling part finishing while we're awaiting the
+        /// network abort) must short-circuit so they don't reorder operations
+        /// or attempt to finalize a doomed upload.
+        private var abortingKeys: Set<String> = []
 
         /// Lazily constructed background session. Background sessions cannot be
         /// re-initialised with the same identifier in a single process, so this
@@ -69,7 +79,7 @@
             onAllPartsComplete:
             @escaping @Sendable (PendingUploadStore.PendingUpload) async -> Void,
             onAbortMultipartUpload:
-            @escaping @Sendable (PendingUploadStore.PendingUpload) async -> Void
+            @escaping @Sendable (PendingUploadStore.PendingUpload) async -> Bool
         ) {
             self.pendingStore = pendingStore
             self.onAllPartsComplete = onAllPartsComplete
@@ -147,6 +157,18 @@
                 return
             }
 
+            // If a sibling part already triggered an abort for this upload's
+            // key, treat this late-arriving success as a no-op: we're tearing
+            // the multipart down server-side, finalizing now would race the
+            // abort.
+            if let record = await pendingStore.partRecord(forTaskIdentifier: taskId),
+               abortingKeys.contains(record.key) {
+                logger.debug(
+                    "Task \(taskId) completed for aborting upload \(record.key, privacy: .public) — ignoring"
+                )
+                return
+            }
+
             // Mark the part complete. This persists the etag against the parent
             // PendingUpload and removes the per-task record + temp file.
             await pendingStore.markPartCompleted(
@@ -164,6 +186,10 @@
                 guard !finalizingKeys.contains(upload.key) else {
                     // Another delegate callback in this extension lifetime is
                     // already finalizing this upload. Skip to avoid double-fire.
+                    continue
+                }
+                guard !abortingKeys.contains(upload.key) else {
+                    // Upload is being torn down — don't start finalize.
                     continue
                 }
                 // Persisted guard against re-entry from a respawned extension.
@@ -196,13 +222,20 @@
 
         /// Best-effort cleanup when a single part task fails. Removes the part
         /// record and chunk file, cancels sibling part tasks for the same
-        /// multipart upload, asks the host to issue `AbortMultipartUpload` against
-        /// S3, and finally drops the parent pending record.
+        /// multipart upload, and asks the host to issue `AbortMultipartUpload`
+        /// against S3. Only drops the parent pending record when the host abort
+        /// succeeds — on transient abort failure we keep the record so startup
+        /// reconciliation can retry instead of leaking server-side state.
         private func abortUploadForTask(_ taskId: Int) async {
             guard
                 let record = await pendingStore.partRecord(forTaskIdentifier: taskId)
             else { return }
             let key = record.key
+
+            // Mark BEFORE any awaits so concurrent delegate callbacks for
+            // sibling parts of the same upload short-circuit.
+            abortingKeys.insert(key)
+            defer { abortingKeys.remove(key) }
 
             // 1. Drop the failing part record + temp file.
             await pendingStore.markPartFailed(taskIdentifier: taskId)
@@ -221,9 +254,10 @@
                 }
             }
 
-            // 3. Ask the host to abort the multipart upload on S3 (best effort).
-            //    Then drop the parent record so the orphan reconciler has nothing
-            //    to do.
+            // 3. Ask the host to abort the multipart upload on S3. Only drop the
+            //    parent record on success — on failure keep the record so the
+            //    next startup pass (`cleanupOrphanedMultiparts` /
+            //    `UploadOrphanCleaner`) can retry the abort.
             if let upload = await pendingStore.pendingUpload(forKey: key) {
                 logger.warning(
                     """
@@ -231,8 +265,18 @@
                     uploadId=\(upload.uploadId, privacy: .public)
                     """
                 )
-                await onAbortMultipartUpload(upload)
-                await pendingStore.remove(forKey: key)
+                let aborted = await onAbortMultipartUpload(upload)
+                if aborted {
+                    await pendingStore.remove(forKey: key)
+                } else {
+                    logger.warning(
+                        """
+                        Host abort failed for \(key, privacy: .public) \
+                        uploadId=\(upload.uploadId, privacy: .public) — \
+                        keeping record for startup retry
+                        """
+                    )
+                }
             }
         }
     }
