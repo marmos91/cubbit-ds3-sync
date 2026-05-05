@@ -264,19 +264,22 @@ public extension MetadataStore {
 
     /// Clear `thumbnailReadyAt` for a batch of keys after they have been
     /// reported via `enumerateChanges`. Counterpart to `markThumbnailReady`.
+    ///
+    /// Fetches each row by key (mirrors `batchDeleteItems`) instead of
+    /// scanning every `SyncedItem` for the drive — this runs on every
+    /// `enumerateChanges` tick (~30s) and the working set can be large.
     func clearThumbnailReady(forKeys keys: [String], driveId: UUID) throws {
         guard !keys.isEmpty else { return }
-        let context = modelExecutor.modelContext
-        let keySet = Set(keys)
-        let predicate = #Predicate<SyncedItem> { $0.driveId == driveId }
-        let rows = try context.fetch(FetchDescriptor<SyncedItem>(predicate: predicate))
         var changed = false
-        for row in rows where keySet.contains(row.s3Key) && row.thumbnailReadyAt != nil {
+        for key in keys {
+            guard let row = try findItem(byKey: key, driveId: driveId),
+                  row.thumbnailReadyAt != nil
+            else { continue }
             row.thumbnailReadyAt = nil
             changed = true
         }
         if changed {
-            try context.save()
+            try modelExecutor.modelContext.save()
         }
     }
 
