@@ -60,10 +60,14 @@ public actor ThumbnailRenderQueue {
     public func append(_ item: ThumbnailRenderQueueItem) {
         loadIfNeeded()
         guard !items.contains(where: { $0.driveID == item.driveID && $0.s3Key == item.s3Key }) else {
+            queueLogger.info("Queue.append: duplicate \(item.s3Key, privacy: .public) — skip")
             return
         }
         items.append(item)
         persist()
+        queueLogger.info(
+            "Queue.append: \(item.s3Key, privacy: .public) → total=\(self.items.count, privacy: .public) file=\(self.fileURL?.path ?? "nil", privacy: .public)"
+        )
     }
 
     /// Returns up to `maxItems` pending items (attempts < maxAttempts).
@@ -118,7 +122,12 @@ public actor ThumbnailRenderQueue {
     /// the same App Group file. A one-shot load flag would let one process
     /// silently overwrite the other's writes.
     private func loadIfNeeded() {
-        guard let url = fileURL, FileManager.default.fileExists(atPath: url.path) else {
+        guard let url = fileURL else {
+            queueLogger.error("Queue.load: no fileURL (no App Group container?)")
+            items = []
+            return
+        }
+        guard FileManager.default.fileExists(atPath: url.path) else {
             items = []
             return
         }
@@ -127,7 +136,7 @@ public actor ThumbnailRenderQueue {
             items = try JSONDecoder().decode([ThumbnailRenderQueueItem].self, from: data)
         } catch {
             queueLogger.error(
-                "ThumbnailRenderQueue: load failed (\(error.localizedDescription, privacy: .public)) — starting empty"
+                "Queue.load failed (\(error.localizedDescription, privacy: .public)) — file=\(url.path, privacy: .public)"
             )
             items = []
         }

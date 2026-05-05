@@ -92,16 +92,12 @@
                     "Background multipart complete: \(upload.key, privacy: .public)"
                 )
                 if S3PathUtils.isRasterExtension((upload.key as NSString).pathExtension) {
-                    let driveID = upload.driveId
-                    let s3Key = upload.key
-                    Task.detached(priority: .background) {
-                        await ThumbnailRenderQueue.shared.append(
-                            ThumbnailRenderQueueItem(driveID: driveID, s3Key: s3Key)
-                        )
-                        DarwinNotificationCenter.shared.post(
-                            name: DarwinNotificationCenter.thumbnailRenderRequest
-                        )
-                    }
+                    await ThumbnailRenderQueue.shared.append(
+                        ThumbnailRenderQueueItem(driveID: upload.driveId, s3Key: upload.key)
+                    )
+                    DarwinNotificationCenter.shared.post(
+                        name: DarwinNotificationCenter.thumbnailRenderRequest
+                    )
                 }
             } catch {
                 logger.error(

@@ -80,16 +80,14 @@ func consumeThumbnail(
             // sentinel is unambiguous.
             #if os(iOS)
                 // Phase 14 Part 2: enqueue for background rendering in the main app.
-                // Fire-and-forget — perItemHandler fires immediately with .noSuchItem
-                // (iOS interceptor remaps to .serverUnreachable so Files.app retries).
-                let driveID = drive.id
-                let s3KeyToEnqueue = identifier.rawValue
-                Task.detached(priority: .background) {
-                    await ThumbnailRenderQueue.shared.append(
-                        ThumbnailRenderQueueItem(driveID: driveID, s3Key: s3KeyToEnqueue)
-                    )
-                    DarwinNotificationCenter.shared.post(name: DarwinNotificationCenter.thumbnailRenderRequest)
-                }
+                // Synchronous: extension can be reaped immediately after responding
+                // to fetchThumbnails, so a detached Task would lose its work. We're
+                // already in async context, the append is a small file write, and
+                // perItemHandler still fires before this function returns.
+                await ThumbnailRenderQueue.shared.append(
+                    ThumbnailRenderQueueItem(driveID: drive.id, s3Key: identifier.rawValue)
+                )
+                DarwinNotificationCenter.shared.post(name: DarwinNotificationCenter.thumbnailRenderRequest)
             #endif
             perItemHandler(identifier, nil, NSFileProviderError(.noSuchItem) as NSError)
         }
