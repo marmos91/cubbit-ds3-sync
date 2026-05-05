@@ -90,6 +90,57 @@ final class DS3S3ClientThumbnailsTests: XCTestCase {
         XCTAssertNil(mock.lastPutObjectDataBytes, "Oversize input must NOT reach the underlying PUT")
     }
 
+    func testPutThumbnailOmitsSourceETagKeyWhenNil() async throws {
+        // Issue #155: nil `sourceETag` (backfill of pre-existing object with no
+        // recorded source ETag) MUST omit the `x-amz-meta-source-etag` key
+        // entirely. Absence is the unknown-source signal — emitting an empty
+        // value would be indistinguishable from a real (broken) ETag in S3.
+        let mock = makeMock()
+        mock.putObjectDataEtag = "etag"
+
+        _ = try await mock.putThumbnail(
+            bucket: "b",
+            key: "k",
+            data: Data([0x01, 0x02]),
+            sourceETag: nil
+        )
+
+        XCTAssertNil(
+            mock.lastPutObjectDataMetadata?[DefaultSettings.Thumbnail.sourceETagMetadataKey],
+            "nil sourceETag must NOT add x-amz-meta-source-etag to metadata"
+        )
+        XCTAssertEqual(
+            mock.lastPutObjectDataMetadata,
+            [DefaultSettings.Thumbnail.formatVersionMetadataKey: "\(DefaultSettings.Thumbnail.formatVersion)"],
+            "metadata should contain only the format-version key when sourceETag is nil"
+        )
+    }
+
+    func testPutThumbnailOmitsSourceETagKeyWhenEmpty() async throws {
+        // Empty string is treated identically to nil — same omission semantics.
+        // The CR/LF strip can also reduce a string to empty (e.g., "\r\n"); the
+        // omission must apply to that path too.
+        let mock = makeMock()
+        mock.putObjectDataEtag = "etag"
+
+        _ = try await mock.putThumbnail(
+            bucket: "b",
+            key: "k",
+            data: Data([0x01, 0x02]),
+            sourceETag: ""
+        )
+
+        XCTAssertNil(
+            mock.lastPutObjectDataMetadata?[DefaultSettings.Thumbnail.sourceETagMetadataKey],
+            "empty sourceETag must NOT add x-amz-meta-source-etag to metadata"
+        )
+        XCTAssertEqual(
+            mock.lastPutObjectDataMetadata,
+            [DefaultSettings.Thumbnail.formatVersionMetadataKey: "\(DefaultSettings.Thumbnail.formatVersion)"],
+            "metadata should contain only the format-version key when sourceETag is empty"
+        )
+    }
+
     func testPutThumbnailStripsCRLFFromSourceETag() async throws {
         let mock = makeMock()
         mock.putObjectDataEtag = "etag"
