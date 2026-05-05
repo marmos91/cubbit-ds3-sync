@@ -166,11 +166,9 @@
         private func renderOne(_ item: ThumbnailRenderQueueItem) async {
             let queue = ThumbnailRenderQueue.shared
 
-            // 1. Cellular gate
-            guard ThumbnailNetworkPolicy.shared.isAllowed() else {
-                logger.info("Backfill: skipping \(item.s3Key, privacy: .public) — cellular blocked")
-                return
-            }
+            // Cellular gate is checked once per drainBatch — the network state
+            // does not flip between dequeue and renderOne, so re-checking here
+            // would only duplicate the path-monitor lookup. (1)
 
             // 2. Drive lookup
             guard let drive = driveManager.driveWithID(item.driveID) else {

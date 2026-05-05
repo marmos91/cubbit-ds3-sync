@@ -12,7 +12,7 @@ private let queueLogger = Logger(
 public struct ThumbnailRenderQueueItem: Codable, Sendable, Equatable {
     public let driveID: UUID
     public let s3Key: String
-    public let addedAt: Date
+    public var addedAt: Date
     public var attempts: Int
 
     public init(driveID: UUID, s3Key: String, addedAt: Date = Date(), attempts: Int = 0) {
@@ -37,6 +37,12 @@ public actor ThumbnailRenderQueue {
     /// Maximum render attempts before an item is considered poison.
     public static let maxAttempts = 3
 
+    /// Minimum age before a poisoned item can be revived by a new `append` call.
+    /// Prevents thrashing when an item keeps failing for a real reason: each
+    /// burst of cache-misses from Files.app would otherwise reset attempts and
+    /// drain it again, paying the download+render cost on every browse.
+    public static let revivalCooldownSeconds: TimeInterval = 3600
+
     /// Shared singleton backed by the App Group container.
     public static let shared = ThumbnailRenderQueue()
 
@@ -57,13 +63,19 @@ public actor ThumbnailRenderQueue {
     // MARK: - Queue Operations
 
     /// Appends an item if (driveID, s3Key) is not already present. If a duplicate
-    /// exists with `attempts >= maxAttempts` (poisoned), its attempts are reset to
-    /// zero — caller is asking for the item to be processed again, so honor that.
+    /// exists with `attempts >= maxAttempts` (poisoned) AND was added more than
+    /// `revivalCooldownSeconds` ago, its attempts are reset and `addedAt` is
+    /// stamped now — caller asked for it again and enough time has passed that
+    /// transient conditions may have changed. Within cooldown, the duplicate is
+    /// a no-op so a busy folder browse does not thrash known-failing items.
     public func append(_ item: ThumbnailRenderQueueItem) {
         loadIfNeeded()
         if let idx = items.firstIndex(where: { $0.driveID == item.driveID && $0.s3Key == item.s3Key }) {
-            if items[idx].attempts >= Self.maxAttempts {
+            let existing = items[idx]
+            let age = Date().timeIntervalSince(existing.addedAt)
+            if existing.attempts >= Self.maxAttempts, age >= Self.revivalCooldownSeconds {
                 items[idx].attempts = 0
+                items[idx].addedAt = Date()
                 persist()
                 queueLogger.info(
                     "Queue.append: revived poisoned \(item.s3Key, privacy: .public) — attempts reset"

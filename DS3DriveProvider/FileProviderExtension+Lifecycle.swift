@@ -312,35 +312,40 @@ extension FileProviderExtension {
             }
             guard !rasterItems.isEmpty else { return }
 
-            // Build the .thumbnails/ prefix for the parent. All raster items
-            // under one parent share the same prefix, so list once.
-            let firstKey = rasterItems[0].itemIdentifier.rawValue
-            let firstThumbKey = S3PathUtils.thumbnailKey(forOriginalKey: firstKey)
-            let thumbPrefix = (firstThumbKey as NSString).deletingLastPathComponent + "/"
+            // Group items by their `.thumbnails/` prefix so each distinct
+            // directory is listed once. Single-folder refresh = one entry.
+            // Root-level refresh = one entry per top-level subfolder.
+            var prefixes: Set<String> = []
+            for item in rasterItems {
+                let thumbKey = S3PathUtils.thumbnailKey(forOriginalKey: item.itemIdentifier.rawValue)
+                prefixes.insert((thumbKey as NSString).deletingLastPathComponent + "/")
+            }
 
             var existing: Set<String> = []
-            do {
-                var token: String?
-                repeat {
-                    let (items, nextToken) = try await s3Lib.listS3Items(
-                        forDrive: drive,
-                        withPrefix: thumbPrefix,
-                        recursively: false,
-                        withContinuationToken: token
+            for prefix in prefixes {
+                do {
+                    var token: String?
+                    repeat {
+                        let (items, nextToken) = try await s3Lib.listS3Items(
+                            forDrive: drive,
+                            withPrefix: prefix,
+                            recursively: false,
+                            withContinuationToken: token
+                        )
+                        for item in items where !item.isFolder {
+                            existing.insert(item.itemIdentifier.rawValue)
+                        }
+                        token = nextToken
+                    } while token != nil
+                } catch {
+                    // List failed for one prefix — fall through and enqueue
+                    // everything in it; the render queue's dedup keeps us from
+                    // spamming, and if the sidecar already exists the renderer
+                    // just overwrites with the same bytes.
+                    self.logger.info(
+                        "enqueueMissingThumbnails: list \(prefix, privacy: .public) failed — enqueuing all under it"
                     )
-                    for item in items where !item.isFolder {
-                        existing.insert(item.itemIdentifier.rawValue)
-                    }
-                    token = nextToken
-                } while token != nil
-            } catch {
-                // S3 list failed — fall through and enqueue everything; the
-                // render queue's dedup keeps us from spamming, and if the
-                // sidecar already exists the renderer just overwrites with
-                // the same bytes. Better than missing items.
-                self.logger.info(
-                    "enqueueMissingThumbnails: list \(thumbPrefix, privacy: .public) failed — enqueuing all raster items"
-                )
+                }
             }
 
             var enqueued = 0
@@ -358,7 +363,7 @@ extension FileProviderExtension {
                     name: DarwinNotificationCenter.thumbnailRenderRequest
                 )
                 self.logger.info(
-                    "enqueueMissingThumbnails: enqueued \(enqueued, privacy: .public) of \(rasterItems.count, privacy: .public) raster items (prefix=\(thumbPrefix, privacy: .public))"
+                    "enqueueMissingThumbnails: enqueued \(enqueued, privacy: .public) of \(rasterItems.count, privacy: .public) raster items across \(prefixes.count, privacy: .public) prefix(es)"
                 )
             }
         }
