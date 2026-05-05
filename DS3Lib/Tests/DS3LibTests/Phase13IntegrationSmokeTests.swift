@@ -258,7 +258,7 @@ import XCTest
 
         override func setUp() async throws {
             // V6 schema (Phase 13.2 Plan 09 dropped `thumbnailStatus`).
-            let schema = Schema(versionedSchema: SyncedItemSchemaV6.self)
+            let schema = Schema(versionedSchema: SyncedItemSchemaV7.self)
             let config = ModelConfiguration(isStoredInMemoryOnly: true)
             container = try ModelContainer(for: schema, configurations: [config])
             metadataStore = MetadataStore(modelContainer: container)

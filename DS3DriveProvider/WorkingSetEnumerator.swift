@@ -46,10 +46,23 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked
         Task {
             let members = await (try? metadataStore?.fetchWorkingSetMembers(driveId: driveId)) ?? []
             let anchor = NSFileProviderSyncAnchor(
-                SyncAnchorHash.compute(over: members.map { ($0.s3Key, $0.etag) })
+                SyncAnchorHash.computeWorkingSet(over: members.map(WorkingSetEnumerator.entry(from:)))
             )
             boxedCb.value(anchor)
         }
+    }
+
+    /// Maps a cached working-set member to the Sendable struct expected by
+    /// `SyncAnchorHash.computeWorkingSet(over:)`. Extracted so anchor sites
+    /// stay one-liners and SwiftLint's large-tuple rule never fires.
+    fileprivate static func entry(
+        from member: MetadataStore.CachedChildItem
+    ) -> SyncAnchorHash.WorkingSetEntry {
+        SyncAnchorHash.WorkingSetEntry(
+            key: member.s3Key,
+            etag: member.etag,
+            thumbnailReadyAt: member.thumbnailReadyAt
+        )
     }
 
     // MARK: - enumerateItems
@@ -116,57 +129,23 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked
                 let members = try await metadataStore.fetchWorkingSetMembers(driveId: self.drive.id)
                 guard !members.isEmpty else {
                     let emptyAnchor = NSFileProviderSyncAnchor(
-                        SyncAnchorHash.compute(over: [])
+                        SyncAnchorHash.computeWorkingSet(over: [])
                     )
                     observer.finishEnumeratingChanges(upTo: emptyAnchor, moreComing: false)
                     return
                 }
 
                 let refreshed = await self.refreshMembers(members)
-
-                let updatedItems = refreshed.updated.map { remote in
-                    S3Item(
-                        identifier: NSFileProviderItemIdentifier(remote.itemIdentifier.rawValue),
-                        drive: self.drive,
-                        objectMetadata: remote.metadata
-                    )
-                }
-                if !updatedItems.isEmpty {
-                    let upsertData = updatedItems.map { MetadataStore.ItemUpsertData(from: $0) }
-                    do {
-                        try await metadataStore.batchUpsertItems(upsertData)
-                    } catch {
-                        self.logger.warning(
-                            "WorkingSetEnumerator: failed to persist updated items: \(error.localizedDescription, privacy: .public)"
-                        )
-                    }
-                    observer.didUpdate(updatedItems)
-                }
-                if !refreshed.deleted.isEmpty {
-                    // Remove rows from MetadataStore BEFORE notifying the
-                    // observer so the post-refresh anchor below excludes them.
-                    // Without this cleanup, the next 30s cycle re-HEADs the
-                    // same gone-forever keys and re-reports `didDeleteItems`
-                    // indefinitely.
-                    let driveId = self.drive.id
-                    let deletedKeys = refreshed.deleted
-                    do {
-                        try await metadataStore.batchDeleteItems(
-                            deletedKeys.map { (s3Key: $0, driveId: driveId) }
-                        )
-                    } catch {
-                        self.logger.error(
-                            "WorkingSetEnumerator: failed to remove deleted keys from store: \(error.localizedDescription, privacy: .public)"
-                        )
-                    }
-                    observer.didDeleteItems(
-                        withIdentifiers: deletedKeys.map { NSFileProviderItemIdentifier($0) }
-                    )
-                }
+                await self.applyEtagDrift(refreshed: refreshed, observer: observer, store: metadataStore)
+                await self.applyThumbnailReady(
+                    members: members, refreshed: refreshed,
+                    observer: observer, store: metadataStore
+                )
+                await self.applyDeletions(refreshed: refreshed, observer: observer, store: metadataStore)
 
                 let postRefresh = await (try? metadataStore.fetchWorkingSetMembers(driveId: self.drive.id)) ?? []
                 let newAnchor = NSFileProviderSyncAnchor(
-                    SyncAnchorHash.compute(over: postRefresh.map { ($0.s3Key, $0.etag) })
+                    SyncAnchorHash.computeWorkingSet(over: postRefresh.map(WorkingSetEnumerator.entry(from:)))
                 )
                 observer.finishEnumeratingChanges(upTo: newAnchor, moreComing: false)
             } catch {
@@ -176,6 +155,102 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked
                 observer.finishEnumeratingWithError(NSFileProviderError(.cannotSynchronize) as NSError)
             }
         }
+    }
+
+    /// Persist + emit items whose remote ETag has drifted from our cache.
+    private func applyEtagDrift(
+        refreshed: (updated: [S3Item], deleted: [String]),
+        observer: NSFileProviderChangeObserver,
+        store: MetadataStore
+    ) async {
+        let updatedItems = refreshed.updated.map { remote in
+            S3Item(
+                identifier: NSFileProviderItemIdentifier(remote.itemIdentifier.rawValue),
+                drive: self.drive,
+                objectMetadata: remote.metadata
+            )
+        }
+        guard !updatedItems.isEmpty else { return }
+        let upsertData = updatedItems.map { MetadataStore.ItemUpsertData(from: $0) }
+        do {
+            try await store.batchUpsertItems(upsertData)
+        } catch {
+            self.logger.warning(
+                "WorkingSetEnumerator: failed to persist updated items: \(error.localizedDescription, privacy: .public)"
+            )
+        }
+        observer.didUpdate(updatedItems)
+    }
+
+    /// Issue #153: re-emit rows whose `thumbnailReadyAt` was set by the iOS
+    /// foreground backfill driver after a sidecar PUT, so Files.app
+    /// invalidates its per-item thumbnail cache. The HEAD-driven `applyEtagDrift`
+    /// path only fires when the original's etag drifts; sidecar landings
+    /// don't change the original, so this side-channel is required.
+    /// After emitting, clears the one-shot flag.
+    private func applyThumbnailReady(
+        members: [MetadataStore.CachedChildItem],
+        refreshed: (updated: [S3Item], deleted: [String]),
+        observer: NSFileProviderChangeObserver,
+        store: MetadataStore
+    ) async {
+        let updatedKeys = Set(refreshed.updated.map(\.itemIdentifier.rawValue))
+        let readyMembers = members.filter {
+            $0.thumbnailReadyAt != nil && !updatedKeys.contains($0.s3Key)
+        }
+        guard !readyMembers.isEmpty else { return }
+        let readyItems = readyMembers.map { member in
+            S3Item(
+                identifier: NSFileProviderItemIdentifier(member.s3Key),
+                drive: self.drive,
+                objectMetadata: S3Item.Metadata(
+                    etag: member.etag,
+                    contentType: member.contentType,
+                    lastModified: member.lastModified,
+                    size: NSNumber(value: member.size),
+                    syncStatus: member.syncStatus
+                )
+            )
+        }
+        observer.didUpdate(readyItems)
+        self.logger.info(
+            "WorkingSetEnumerator: re-emitted \(readyItems.count, privacy: .public) after sidecar render (#153)"
+        )
+        let driveId = self.drive.id
+        let clearedKeys = readyMembers.map(\.s3Key)
+        do {
+            try await store.clearThumbnailReady(forKeys: clearedKeys, driveId: driveId)
+        } catch {
+            self.logger.warning(
+                "WorkingSetEnumerator: failed to clear thumbnailReadyAt: \(error.localizedDescription, privacy: .public)"
+            )
+        }
+    }
+
+    /// Persist + emit deletions for keys that returned 404 to HEAD. Removes
+    /// rows from the metadata store BEFORE notifying so the post-refresh
+    /// anchor excludes them; otherwise the next 30 s tick re-HEADs the same
+    /// gone-forever keys and re-reports `didDeleteItems` indefinitely.
+    private func applyDeletions(
+        refreshed: (updated: [S3Item], deleted: [String]),
+        observer: NSFileProviderChangeObserver,
+        store: MetadataStore
+    ) async {
+        guard !refreshed.deleted.isEmpty else { return }
+        let driveId = self.drive.id
+        let deletedKeys = refreshed.deleted
+        do {
+            try await store.batchDeleteItems(
+                deletedKeys.map { (s3Key: $0, driveId: driveId) }
+            )
+        } catch {
+            self.logger.error(
+                "WorkingSetEnumerator: failed to remove deleted keys from store: \(error.localizedDescription, privacy: .public)"
+            )
+        }
+        observer.didDeleteItems(
+            withIdentifiers: deletedKeys.map { NSFileProviderItemIdentifier($0) }
+        )
     }
 
     /// Per-member HEAD against S3 to detect remote ETag drift or deletion.

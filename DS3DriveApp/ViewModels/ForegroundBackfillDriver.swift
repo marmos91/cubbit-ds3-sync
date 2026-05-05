@@ -29,6 +29,20 @@
         /// Call `invalidateS3Client(for:)` when a drive is disconnected to release the event loop.
         private var ds3ClientCache: [UUID: DS3Client] = [:]
 
+        /// MetadataStore handle, used by `renderOne` to stamp
+        /// `thumbnailReadyAt` on the row after each sidecar PUT (issue #153).
+        /// Set asynchronously by `setupMetadataStore()` after init returns —
+        /// `ModelContainer` creation/migration touches disk, so we keep it
+        /// off the main thread at app launch. Until setup completes (or if
+        /// it fails), `markThumbnailReady` no-ops; backfill still completes
+        /// and the Files.app cache invalidation degrades to "wait until next
+        /// etag drift / user tap".
+        ///
+        /// `@ObservationIgnored` because this is private state never consumed
+        /// by SwiftUI views; skipping accessor synthesis avoids spurious
+        /// re-renders on the main app's drives list every time backfill writes.
+        @ObservationIgnored private var metadataStore: MetadataStore?
+
         init(driveManager: DS3DriveManager) {
             self.driveManager = driveManager
             darwinObservation = DarwinNotificationCenter.shared.addObserver(
@@ -36,6 +50,27 @@
             ) { [weak self] in
                 Task { @MainActor in self?.wakeIfIdle() }
             }
+            // Build the SwiftData container off the main thread — schema
+            // migration and disk I/O can block on cold launch. The store is
+            // optional, so until this completes `markThumbnailReady` no-ops
+            // (the call site already tolerates a nil store).
+            Task.detached(priority: .utility) { [weak self] in
+                let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.thumbnail.rawValue)
+                do {
+                    let container = try MetadataStore.createContainer()
+                    let store = MetadataStore(modelContainer: container)
+                    await self?.assignMetadataStore(store)
+                } catch {
+                    logger.warning(
+                        // swiftlint:disable:next line_length
+                        "Backfill: MetadataStore unavailable, thumbnailReadyAt signalling disabled: \(error.localizedDescription, privacy: .public)"
+                    )
+                }
+            }
+        }
+
+        private func assignMetadataStore(_ store: MetadataStore) {
+            metadataStore = store
         }
 
         /// Call from scenePhase onChange in the app root.
@@ -265,6 +300,23 @@
                 )
                 await queue.fail(item)
                 return
+            }
+
+            // 6.5. Stamp `thumbnailReadyAt` on the MetadataStore row so
+            //      `WorkingSetEnumerator.enumerateChanges` re-emits the item
+            //      and Files.app invalidates its per-item thumbnail cache
+            //      (issue #153). Errors logged + swallowed: the working-set
+            //      signal below is still useful as a fallback for items
+            //      whose row was purged between enqueue and PUT.
+            if let metadataStore {
+                do {
+                    try await metadataStore.markThumbnailReady(s3Key: item.s3Key, driveId: drive.id)
+                } catch {
+                    logger.warning(
+                        // swiftlint:disable:next line_length
+                        "Backfill: markThumbnailReady failed for \(item.s3Key, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
+                }
             }
 
             // 7. Signal File Provider so iOS Files re-fetches thumbnails for this drive.
