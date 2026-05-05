@@ -42,12 +42,20 @@ extension FileProviderExtension {
         // Trashing flows through modifyItem(parent: .trashContainer) → performMoveToTrash,
         // never createItem. Reject directly so the system retries the right path
         // and we never write a sentinel-prefixed key into S3.
+        //
+        // Use .featureUnsupported (NSCocoaErrorDomain) instead of .noSuchItem.
+        // iOS Files.app retries .noSuchItem indefinitely, thrashing the extension.
+        // .featureUnsupported tells the system "this operation isn't supported
+        // through this code path" and it stops the loop.
         if itemTemplate.parentItemIdentifier == .trashContainer {
             self.logger
                 .warning(
                     "Rejecting createItem with .trashContainer parent for \(itemTemplate.filename, privacy: .public)"
                 )
-            completionHandler(nil, [], false, NSFileProviderError(.noSuchItem) as NSError)
+            completionHandler(
+                nil, [], false,
+                NSError(domain: NSCocoaErrorDomain, code: NSFeatureUnsupportedError)
+            )
             return Progress()
         }
 
