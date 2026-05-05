@@ -46,15 +46,15 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked
         Task {
             let members = await (try? metadataStore?.fetchWorkingSetMembers(driveId: driveId)) ?? []
             let anchor = NSFileProviderSyncAnchor(
-                SyncAnchorHash.compute(over: members.map(WorkingSetEnumerator.entry(from:)))
+                SyncAnchorHash.computeWorkingSet(over: members.map(WorkingSetEnumerator.entry(from:)))
             )
             boxedCb.value(anchor)
         }
     }
 
     /// Maps a cached working-set member to the Sendable struct expected by
-    /// `SyncAnchorHash.compute(over:)`. Extracted so anchor sites stay
-    /// one-liners and SwiftLint's large-tuple rule never fires.
+    /// `SyncAnchorHash.computeWorkingSet(over:)`. Extracted so anchor sites
+    /// stay one-liners and SwiftLint's large-tuple rule never fires.
     fileprivate static func entry(
         from member: MetadataStore.CachedChildItem
     ) -> SyncAnchorHash.WorkingSetEntry {
@@ -129,7 +129,7 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked
                 let members = try await metadataStore.fetchWorkingSetMembers(driveId: self.drive.id)
                 guard !members.isEmpty else {
                     let emptyAnchor = NSFileProviderSyncAnchor(
-                        SyncAnchorHash.compute(over: [SyncAnchorHash.WorkingSetEntry]())
+                        SyncAnchorHash.computeWorkingSet(over: [])
                     )
                     observer.finishEnumeratingChanges(upTo: emptyAnchor, moreComing: false)
                     return
@@ -145,7 +145,7 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked
 
                 let postRefresh = await (try? metadataStore.fetchWorkingSetMembers(driveId: self.drive.id)) ?? []
                 let newAnchor = NSFileProviderSyncAnchor(
-                    SyncAnchorHash.compute(over: postRefresh.map(WorkingSetEnumerator.entry(from:)))
+                    SyncAnchorHash.computeWorkingSet(over: postRefresh.map(WorkingSetEnumerator.entry(from:)))
                 )
                 observer.finishEnumeratingChanges(upTo: newAnchor, moreComing: false)
             } catch {

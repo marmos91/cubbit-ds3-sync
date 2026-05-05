@@ -61,7 +61,11 @@ public enum SyncAnchorHash {
     /// form: per-folder thumbnail signalling is handled by the explicit
     /// `signalEnumerator(for: parentId)` call in the backfill driver, not
     /// by anchor drift.
-    public static func compute(over entries: [WorkingSetEntry]) -> Data {
+    ///
+    /// Named distinctly from the 2-tuple `compute(over:)` so call sites with
+    /// `[]` are unambiguous (Swift can't infer between the tuple-array and
+    /// `[WorkingSetEntry]` overloads otherwise).
+    public static func computeWorkingSet(over entries: [WorkingSetEntry]) -> Data {
         let sorted = entries
             .map { entry in
                 let stamp = entry.thumbnailReadyAt.map { String($0.timeIntervalSince1970) } ?? ""
