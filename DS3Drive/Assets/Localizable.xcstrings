@@ -2070,39 +2070,6 @@
         }
       }
     },
-    "%.0f B/s": {
-      "extractionState": "manual",
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%.0f B/s"
-          }
-        }
-      }
-    },
-    "%.1f KB/s": {
-      "extractionState": "manual",
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%.1f KB/s"
-          }
-        }
-      }
-    },
-    "%.1f MB/s": {
-      "extractionState": "manual",
-      "localizations": {
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%.1f MB/s"
-          }
-        }
-      }
-    },
     "A drive with this bucket and prefix already exists. You can still create another.": {
       "extractionState": "manual",
       "localizations": {
