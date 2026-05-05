@@ -247,16 +247,30 @@
                 return
             }
 
-            // 7. Signal File Provider so iOS Files re-fetches thumbnails for this drive
+            // 7. Signal File Provider so iOS Files re-fetches thumbnails for this drive.
+            //    Working-set signal alone is not enough — Files.app caches per-container
+            //    thumbnail responses, so the parent container must also be invalidated.
             let domain = NSFileProviderDomain(
                 identifier: NSFileProviderDomainIdentifier(rawValue: drive.id.uuidString),
                 displayName: drive.name
             )
+            let manager = NSFileProviderManager(for: domain)
             do {
-                try await NSFileProviderManager(for: domain)?.signalEnumerator(for: .workingSet)
+                try await manager?.signalEnumerator(for: .workingSet)
             } catch {
                 logger.warning(
-                    "Backfill: signalEnumerator failed for \(drive.name, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    "Backfill: signalEnumerator(workingSet) failed: \(error.localizedDescription, privacy: .public)"
+                )
+            }
+            let parentKey = (item.s3Key as NSString).deletingLastPathComponent
+            let parentId: NSFileProviderItemIdentifier = parentKey.isEmpty
+                ? .rootContainer
+                : NSFileProviderItemIdentifier(rawValue: parentKey + "/")
+            do {
+                try await manager?.signalEnumerator(for: parentId)
+            } catch {
+                logger.warning(
+                    "Backfill: signalEnumerator(\(parentKey, privacy: .public)) failed: \(error.localizedDescription, privacy: .public)"
                 )
             }
 
