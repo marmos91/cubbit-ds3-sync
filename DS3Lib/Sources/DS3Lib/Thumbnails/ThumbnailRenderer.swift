@@ -111,8 +111,11 @@ public struct ThumbnailRenderer {
     /// instantiate for sources with incompatible bitmap layouts (e.g. 16-bit-per-channel
     /// HEIC, ProRAW, certain TIFFs). Returning the alpha-alive source in that case
     /// produces visually wrong colors out of the JPEG encoder (AlphaPremulLast artifacts
-    /// on transparent regions). Retry once with a known-good 8-bit RGBA layout before
-    /// falling back to the source.
+    /// on transparent regions). Retry once with a known-good 8-bit *opaque* RGBX layout
+    /// (alpha discarded, explicit big-endian byte order) before falling back to the
+    /// source. The retry MUST stay opaque — returning a premultiplied-last image here
+    /// would re-introduce the alpha channel and trigger the very ImageIO JPEG warnings
+    /// we are trying to avoid.
     func stripAlpha(from source: CGImage) -> CGImage {
         let alpha = source.alphaInfo
         guard alpha != .none,
@@ -140,12 +143,15 @@ public struct ThumbnailRenderer {
             if let image = context.makeImage() { return image }
         }
 
-        // Retry path: known-good 8-bit RGBA (premultiplied last, byte-order 32-big).
+        // Retry path: known-good 8-bit opaque RGBX (alpha discarded via noneSkipLast,
+        // explicit big-endian byte order). This stays opaque — the previous version
+        // used `premultipliedLast` which kept the alpha channel and re-triggered the
+        // ImageIO JPEG `AlphaPremulLast` warnings the helper is meant to prevent.
         // Use sRGB as a safe color space if the source space is not RGB-compatible.
         let retrySpace: CGColorSpace = (colorSpace.model == .rgb)
             ? colorSpace
             : CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
-        let retryBitmap = CGImageAlphaInfo.premultipliedLast.rawValue
+        let retryBitmap = CGImageAlphaInfo.noneSkipLast.rawValue
             | CGBitmapInfo.byteOrder32Big.rawValue
         if let context = CGContext(
             data: nil,
@@ -163,7 +169,7 @@ public struct ThumbnailRenderer {
         // Last resort: return alpha-alive source. The JPEG encoder will produce
         // visually wrong colors on transparent regions, but better than no thumbnail.
         Logger(subsystem: LogSubsystem.app, category: LogCategory.thumbnail.rawValue)
-            .warning("stripAlpha: both primary and RGBA-retry contexts failed; returning alpha-alive source")
+            .warning("stripAlpha: both primary and RGBX-retry contexts failed; returning alpha-alive source")
         return source
     }
 
