@@ -29,7 +29,7 @@
                 let inflight = try await s3Client.listMultipartUploads(
                     bucket: drive.syncAnchor.bucket.name
                 )
-                let known = store.allKnownUploadIds()
+                let known = await store.allKnownUploadIds()
                 for (key, uploadId) in inflight where !known.contains(uploadId) {
                     logger.warning(
                         "Aborting unknown multipart \(uploadId, privacy: .public) for \(key, privacy: .public)"

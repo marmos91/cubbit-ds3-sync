@@ -344,15 +344,14 @@ extension FileProviderExtension {
 
                 #if os(iOS)
                     // Phase 14 Part 2: enqueue raster uploads for background rendering.
+                    // Synchronous await — same rationale as consumeThumbnail: extension
+                    // can be reaped immediately after this Task returns, so a detached
+                    // Task would lose its file write.
                     if !s3Item.isFolder, S3PathUtils.isRasterExtension((key as NSString).pathExtension) {
-                        let driveID = drive.id
-                        let s3KeyCopy = key
-                        Task.detached(priority: .background) {
-                            await ThumbnailRenderQueue.shared.append(
-                                ThumbnailRenderQueueItem(driveID: driveID, s3Key: s3KeyCopy)
-                            )
-                            DarwinNotificationCenter.shared.post(name: DarwinNotificationCenter.thumbnailRenderRequest)
-                        }
+                        await ThumbnailRenderQueue.shared.append(
+                            ThumbnailRenderQueueItem(driveID: drive.id, s3Key: key)
+                        )
+                        DarwinNotificationCenter.shared.post(name: DarwinNotificationCenter.thumbnailRenderRequest)
                     }
                 #endif
 

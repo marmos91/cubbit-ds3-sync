@@ -145,6 +145,23 @@
             return processed
         }
 
+        /// Signals an enumerator on `manager` and logs warnings on failure.
+        /// The label is used purely for log output (the parent key, or
+        /// `"workingSet"`).
+        private func signalEnumerator(
+            _ manager: NSFileProviderManager?,
+            container: NSFileProviderItemIdentifier,
+            label: String
+        ) async {
+            do {
+                try await manager?.signalEnumerator(for: container)
+            } catch {
+                logger.warning(
+                    "Backfill: signalEnumerator(\(label, privacy: .public)) failed: \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+
         // swiftlint:disable:next function_body_length
         private func renderOne(_ item: ThumbnailRenderQueueItem) async {
             let queue = ThumbnailRenderQueue.shared
@@ -255,24 +272,12 @@
                 displayName: drive.name
             )
             let manager = NSFileProviderManager(for: domain)
-            do {
-                try await manager?.signalEnumerator(for: .workingSet)
-            } catch {
-                logger.warning(
-                    "Backfill: signalEnumerator(workingSet) failed: \(error.localizedDescription, privacy: .public)"
-                )
-            }
             let parentKey = (item.s3Key as NSString).deletingLastPathComponent
             let parentId: NSFileProviderItemIdentifier = parentKey.isEmpty
                 ? .rootContainer
                 : NSFileProviderItemIdentifier(rawValue: parentKey + "/")
-            do {
-                try await manager?.signalEnumerator(for: parentId)
-            } catch {
-                logger.warning(
-                    "Backfill: signalEnumerator(\(parentKey, privacy: .public)) failed: \(error.localizedDescription, privacy: .public)"
-                )
-            }
+            await signalEnumerator(manager, container: .workingSet, label: "workingSet")
+            await signalEnumerator(manager, container: parentId, label: parentKey)
 
             // 8. Mark complete
             await queue.complete(item)
