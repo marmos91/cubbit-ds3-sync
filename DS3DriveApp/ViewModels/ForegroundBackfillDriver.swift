@@ -40,6 +40,7 @@
 
         /// Call from scenePhase onChange in the app root.
         func handleScenePhase(_ phase: ScenePhase) {
+            logger.info("Backfill: scenePhase=\(String(describing: phase), privacy: .public)")
             if phase == .active {
                 startDrain()
             } else {
@@ -50,7 +51,11 @@
         // MARK: - Private
 
         private func startDrain() {
-            guard drainTask == nil else { return }
+            guard drainTask == nil else {
+                logger.info("Backfill: startDrain skipped — already running")
+                return
+            }
+            logger.info("Backfill: starting drain loop")
             isRunning = true
             drainTask = Task { @MainActor [weak self] in
                 await self?.drainLoop()
@@ -58,12 +63,14 @@
         }
 
         private func stopDrain() {
+            logger.info("Backfill: stopping drain loop")
             drainTask?.cancel()
             drainTask = nil
             isRunning = false
         }
 
         private func wakeIfIdle() {
+            logger.info("Backfill: Darwin wake — drainTask=\(self.drainTask == nil ? "nil" : "live", privacy: .public)")
             guard drainTask == nil || drainTask?.isCancelled == true else { return }
             startDrain()
         }
@@ -118,7 +125,13 @@
             // skip → dequeue (renderOne returns early without completing the
             // item, so the same key would be redelivered forever).
             guard ThumbnailNetworkPolicy.shared.isAllowed() else {
+                logger.info("Backfill: drainBatch blocked by cellular gate")
                 return 0
+            }
+
+            let initial = await queue.pendingCount
+            if initial > 0 {
+                logger.info("Backfill: drainBatch starting — pending=\(initial, privacy: .public)")
             }
 
             while processed < maxItems {
