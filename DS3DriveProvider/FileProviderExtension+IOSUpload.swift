@@ -33,6 +33,21 @@
                 pendingStore: store,
                 onAllPartsComplete: { [weak self] upload in
                     await self?.finalizeMultipartCompletion(upload)
+                },
+                onAbortMultipartUpload: { [weak self] upload in
+                    guard let s3Client = self?.s3Client else { return false }
+                    do {
+                        try await s3Client.abortMultipartUpload(
+                            bucket: upload.bucket,
+                            key: upload.key,
+                            uploadId: upload.uploadId
+                        )
+                        return true
+                    } catch {
+                        // Surfaced to BackgroundUploadSession so it keeps the
+                        // pending record for startup retry instead of leaking.
+                        return false
+                    }
                 }
             )
             self.backgroundUploadSession = session
@@ -86,19 +101,10 @@
                     parts: parts
                 )
                 await store.remove(forKey: upload.key)
-                let parentKey = parentKeyForS3Key(upload.key)
-                signalChanges(andParent: parentKey)
+                await applyPostMultipartCompletionSideEffects(upload)
                 logger.info(
                     "Background multipart complete: \(upload.key, privacy: .public)"
                 )
-                if S3PathUtils.isRasterExtension((upload.key as NSString).pathExtension) {
-                    await ThumbnailRenderQueue.shared.append(
-                        ThumbnailRenderQueueItem(driveID: upload.driveId, s3Key: upload.key)
-                    )
-                    DarwinNotificationCenter.shared.post(
-                        name: DarwinNotificationCenter.thumbnailRenderRequest
-                    )
-                }
             } catch {
                 logger.error(
                     """
@@ -113,13 +119,38 @@
             }
         }
 
+        /// Local-only post-completion side effects: signal the parent enumerator
+        /// and enqueue a thumbnail render if appropriate. Extracted so the
+        /// reconciler can replay these when it discovers an upload that already
+        /// finished server-side but never ran the local steps (extension
+        /// reaped between `CompleteMultipartUpload` and these calls).
+        @MainActor
+        private func applyPostMultipartCompletionSideEffects(
+            _ upload: PendingUploadStore.PendingUpload
+        ) async {
+            let parentKey = parentKeyForS3Key(upload.key)
+            signalChanges(andParent: parentKey)
+            if S3PathUtils.isRasterExtension((upload.key as NSString).pathExtension) {
+                await ThumbnailRenderQueue.shared.append(
+                    ThumbnailRenderQueueItem(driveID: upload.driveId, s3Key: upload.key)
+                )
+                DarwinNotificationCenter.shared.post(
+                    name: DarwinNotificationCenter.thumbnailRenderRequest
+                )
+            }
+        }
+
         /// Aborts any multipart uploads whose part records reference URLSession task
-        /// IDs that are no longer in flight. Run once at extension startup.
+        /// IDs that are no longer in flight, and reconciles `isCompleting` state
+        /// against S3 so a finalizer interrupted mid-`CompleteMultipartUpload` can
+        /// be retried. Run once at extension startup.
         @MainActor
         func cleanupOrphanedMultiparts() async {
             guard let store = self.pendingUploadStore,
                   let session = self.backgroundUploadSession
             else { return }
+
+            await reconcileCompletingUploads(store: store)
 
             let allRecords = await store.allPendingPartRecords()
             guard !allRecords.isEmpty else { return }
@@ -147,6 +178,63 @@
                     )
                 }
                 await store.remove(forKey: upload.key)
+            }
+        }
+
+        /// Walks pending uploads marked `isCompleting`. If S3 still lists the
+        /// multipart upload, the previous finalizer attempt did not reach
+        /// `CompleteMultipartUpload`; clear the flag so the next "all parts
+        /// complete" trigger can retry. Otherwise the upload completed and we
+        /// just need to drop the now-stale record.
+        @MainActor
+        private func reconcileCompletingUploads(store: PendingUploadStore) async {
+            let candidates = await store.allCompletedUploads()
+                .filter(\.isCompleting)
+            guard !candidates.isEmpty, let s3Client = self.s3Client else { return }
+
+            // Group by bucket so we issue one ListMultipartUploads per bucket.
+            let byBucket = Dictionary(grouping: candidates, by: \.bucket)
+            for (bucket, uploads) in byBucket {
+                let inflight: Set<String>
+                do {
+                    let entries = try await s3Client.listMultipartUploads(bucket: bucket)
+                    inflight = Set(entries.map(\.uploadId))
+                } catch {
+                    logger.error(
+                        """
+                        listMultipartUploads failed for \(bucket, privacy: .public): \
+                        \(error.localizedDescription, privacy: .public)
+                        """
+                    )
+                    continue
+                }
+                for upload in uploads {
+                    if inflight.contains(upload.uploadId) {
+                        logger.warning(
+                            """
+                            Resuming finalize for \(upload.key, privacy: .public) — \
+                            multipart still live on S3
+                            """
+                        )
+                        await store.clearCompleting(forKey: upload.key)
+                    } else {
+                        // Multipart is no longer in flight on S3 → previous
+                        // attempt reached `CompleteMultipartUpload` (or S3
+                        // garbage-collected the upload). Replay local-only
+                        // post-completion side effects in case the previous
+                        // finalizer was reaped between S3 success and the
+                        // local steps. Idempotent: signalling and thumbnail
+                        // enqueue are safe to re-run.
+                        logger.info(
+                            """
+                            Replaying post-completion side effects for \
+                            \(upload.key, privacy: .public) — multipart no longer on S3
+                            """
+                        )
+                        await applyPostMultipartCompletionSideEffects(upload)
+                        await store.remove(forKey: upload.key)
+                    }
+                }
             }
         }
 

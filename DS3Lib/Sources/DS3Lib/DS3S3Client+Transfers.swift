@@ -252,16 +252,36 @@ public extension DS3S3Client {
         _ = try await s3.abortMultipartUpload(request)
     }
 
-    /// Lists all in-progress multipart uploads for a bucket.
-    /// Used by the iOS reconciler at extension launch to find orphans.
+    /// Lists all in-progress multipart uploads for a bucket. Pages internally
+    /// until `isTruncated == false` so callers see the full inventory — state-
+    /// deleting decisions in the iOS reconciler depend on completeness.
     /// - Returns: Array of (key, uploadId) pairs for each in-progress upload
     func listMultipartUploads(bucket: String) async throws -> [(key: String, uploadId: String)] {
-        let request = S3.ListMultipartUploadsRequest(bucket: bucket)
-        let response = try await s3.listMultipartUploads(request)
-        return (response.uploads ?? []).compactMap { upload in
-            guard let key = upload.key, let uploadId = upload.uploadId else { return nil }
-            return (key: key, uploadId: uploadId)
-        }
+        var results: [(key: String, uploadId: String)] = []
+        var keyMarker: String?
+        var uploadIdMarker: String?
+        repeat {
+            let request = S3.ListMultipartUploadsRequest(
+                bucket: bucket,
+                keyMarker: keyMarker,
+                uploadIdMarker: uploadIdMarker
+            )
+            let response = try await s3.listMultipartUploads(request)
+            for upload in response.uploads ?? [] {
+                guard let key = upload.key, let uploadId = upload.uploadId else { continue }
+                results.append((key: key, uploadId: uploadId))
+            }
+            if response.isTruncated == true {
+                keyMarker = response.nextKeyMarker
+                uploadIdMarker = response.nextUploadIdMarker
+                // Defensive: stop if S3 returns truncated=true without markers
+                // to avoid an infinite loop.
+                if keyMarker == nil, uploadIdMarker == nil { break }
+            } else {
+                break
+            }
+        } while true
+        return results
     }
 
     /// Generates a presigned PUT URLRequest for an S3 multipart UploadPart call.

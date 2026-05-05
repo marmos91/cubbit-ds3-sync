@@ -18,6 +18,10 @@ public actor PendingUploadStore {
         /// Total number of parts expected for this upload. `0` means unknown
         /// (e.g. legacy entry persisted before this field was introduced).
         public let expectedPartCount: Int
+        /// `true` once the finalizer has begun `CompleteMultipartUpload` for this
+        /// key. Persisted so a respawned extension does not fire the finalizer a
+        /// second time when the in-memory `finalizingKeys` set is empty.
+        public var isCompleting: Bool
 
         public init(
             uploadId: String,
@@ -33,6 +37,7 @@ public actor PendingUploadStore {
             self.completedPartETags = [:]
             self.createdAt = Date()
             self.expectedPartCount = expectedPartCount
+            self.isCompleting = false
         }
 
         /// Custom decoding so legacy on-disk entries without `expectedPartCount`
@@ -47,6 +52,7 @@ public actor PendingUploadStore {
                 .decodeIfPresent([Int: String].self, forKey: .completedPartETags) ?? [:]
             self.createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
             self.expectedPartCount = try container.decodeIfPresent(Int.self, forKey: .expectedPartCount) ?? 0
+            self.isCompleting = try container.decodeIfPresent(Bool.self, forKey: .isCompleting) ?? false
         }
     }
 
@@ -214,6 +220,46 @@ public actor PendingUploadStore {
     public func allPartsComplete(forKey key: String) -> Bool {
         guard let upload = uploads[key], upload.expectedPartCount > 0 else { return false }
         return upload.completedPartETags.count == upload.expectedPartCount
+    }
+
+    /// Drop a part record (e.g. after the URLSession task failed). Best-effort
+    /// removes the temp chunk file. Does NOT touch the parent upload — callers
+    /// that want to abort the whole multipart should follow up with `remove(forKey:)`.
+    public func markPartFailed(taskIdentifier: Int) {
+        guard let record = partRecords.removeValue(forKey: taskIdentifier) else { return }
+        try? FileManager.default.removeItem(at: record.tempFileURL)
+        saveToDisk()
+    }
+
+    /// All in-flight part records for a single upload key. Used by the upload
+    /// session to find sibling tasks when one part has failed and the whole
+    /// multipart upload must be aborted.
+    public func partRecords(forKey key: String) -> [PartUploadRecord] {
+        partRecords.values.filter { $0.key == key }
+    }
+
+    /// Mark a pending upload as in the middle of `CompleteMultipartUpload`.
+    /// Persisted so a respawned extension does not run the finalizer a second
+    /// time. Returns `true` if the flag was newly set; `false` if the upload
+    /// was already marked completing (caller should skip).
+    @discardableResult
+    public func markCompleting(forKey key: String) -> Bool {
+        guard var upload = uploads[key] else { return false }
+        if upload.isCompleting { return false }
+        upload.isCompleting = true
+        uploads[key] = upload
+        saveToDisk()
+        return true
+    }
+
+    /// Clear the `isCompleting` flag (e.g. after determining a previously-marked
+    /// upload still has a live multipart on S3 and needs to be retried).
+    public func clearCompleting(forKey key: String) {
+        guard var upload = uploads[key] else { return }
+        guard upload.isCompleting else { return }
+        upload.isCompleting = false
+        uploads[key] = upload
+        saveToDisk()
     }
 
     /// All in-flight part records across all uploads.
