@@ -77,8 +77,16 @@
         ) async throws {
             let bucket = drive.syncAnchor.bucket.name
             let key = s3Item.itemIdentifier.rawValue
-            let fileSize = (try? FileManager.default
-                .attributesOfItem(atPath: sourceFileURL.path)[.size] as? Int64) ?? 0
+            // Read size strictly. Falling back to 0 would create an empty
+            // multipart upload with one zero-byte part — a silent corruption.
+            let attrs = try FileManager.default.attributesOfItem(atPath: sourceFileURL.path)
+            guard let fileSize = attrs[.size] as? Int64, fileSize > 0 else {
+                throw NSError(
+                    domain: NSCocoaErrorDomain,
+                    code: NSFileReadUnknownError,
+                    userInfo: [NSLocalizedDescriptionKey: "Cannot read file size for \(key)"]
+                )
+            }
             let partCount = max(1, Int((fileSize + partSize - 1) / partSize))
 
             logger.info(

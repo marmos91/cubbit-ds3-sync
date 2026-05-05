@@ -52,7 +52,7 @@
             )
             // Persist temp files / state inside the App Group container so any
             // future extension instance can reach them.
-            config.sharedContainerIdentifier = "group.X889956QSM.io.cubbit.DS3Drive"
+            config.sharedContainerIdentifier = DefaultSettings.appGroup
             config.isDiscretionary = false
             config.sessionSendsLaunchEvents = true
             config.allowsCellularAccess = true

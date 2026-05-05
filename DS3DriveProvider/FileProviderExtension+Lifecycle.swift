@@ -30,7 +30,13 @@ extension FileProviderExtension {
             for await command in ipcService.commands {
                 guard !Task.isCancelled, self != nil else { break }
                 switch command {
-                case let .refreshEnumeration(_, parentKey):
+                case let .refreshEnumeration(driveId, parentKey):
+                    // Filter to commands targeted at this domain. The iOS IPC
+                    // channel is shared across drives, so a sibling extension
+                    // would otherwise re-list its bucket on every signal.
+                    guard let selfDriveId = self?.drive?.id, selfDriveId == driveId else {
+                        continue
+                    }
                     self?.logger.notice(
                         "IPC: refreshEnumeration parent=\(parentKey ?? "<root>", privacy: .public) — refreshing"
                     )
