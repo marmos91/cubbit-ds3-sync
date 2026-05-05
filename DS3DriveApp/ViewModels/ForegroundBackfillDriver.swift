@@ -247,9 +247,14 @@
                 forOriginalKey: item.s3Key,
                 drivePrefix: drive.syncAnchor.prefix
             )
+            // Backfill has no fresh source ETag (the original was uploaded long
+            // before this driver ran). Pass nil so `putThumbnail` omits the
+            // `x-amz-meta-source-etag` field entirely — absence signals
+            // "unknown source" (Issue #155) instead of writing an empty string
+            // that defeats stale-thumbnail detection.
             do {
                 _ = try await s3Client.putThumbnail(
-                    bucket: bucket, key: thumbKey, data: jpegBytes, sourceETag: ""
+                    bucket: bucket, key: thumbKey, data: jpegBytes, sourceETag: nil
                 )
             } catch is CancellationError {
                 logger.info("Backfill: PUT cancelled for \(thumbKey, privacy: .public) — leaving in queue")
