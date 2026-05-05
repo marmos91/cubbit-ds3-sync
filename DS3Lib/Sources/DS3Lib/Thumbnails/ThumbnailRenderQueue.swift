@@ -56,11 +56,21 @@ public actor ThumbnailRenderQueue {
 
     // MARK: - Queue Operations
 
-    /// Appends an item if (driveID, s3Key) is not already present. No-op if duplicate.
+    /// Appends an item if (driveID, s3Key) is not already present. If a duplicate
+    /// exists with `attempts >= maxAttempts` (poisoned), its attempts are reset to
+    /// zero — caller is asking for the item to be processed again, so honor that.
     public func append(_ item: ThumbnailRenderQueueItem) {
         loadIfNeeded()
-        guard !items.contains(where: { $0.driveID == item.driveID && $0.s3Key == item.s3Key }) else {
-            queueLogger.info("Queue.append: duplicate \(item.s3Key, privacy: .public) — skip")
+        if let idx = items.firstIndex(where: { $0.driveID == item.driveID && $0.s3Key == item.s3Key }) {
+            if items[idx].attempts >= Self.maxAttempts {
+                items[idx].attempts = 0
+                persist()
+                queueLogger.info(
+                    "Queue.append: revived poisoned \(item.s3Key, privacy: .public) — attempts reset"
+                )
+            } else {
+                queueLogger.info("Queue.append: duplicate \(item.s3Key, privacy: .public) — skip")
+            }
             return
         }
         items.append(item)
