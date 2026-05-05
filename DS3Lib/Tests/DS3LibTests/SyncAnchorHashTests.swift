@@ -9,8 +9,8 @@ final class SyncAnchorHashTests: XCTestCase {
     }
 
     func testEmptyInputProducesStableAnchor() {
-        let a = SyncAnchorHash.compute(over: [])
-        let b = SyncAnchorHash.compute(over: [])
+        let a = SyncAnchorHash.compute(over: [(key: String, etag: String?)]())
+        let b = SyncAnchorHash.compute(over: [(key: String, etag: String?)]())
         XCTAssertEqual(a, b)
     }
 
