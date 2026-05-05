@@ -23,6 +23,9 @@ struct DS3DriveApp: App {
                 .environment(ds3DriveManager)
                 .environment(appStatusManager)
                 .environment(updateChecker)
+            #if os(iOS)
+                .environment(thumbnailBackfillDriver)
+            #endif
                 .font(IOSTypography.body)
                 .onChange(of: scenePhase, initial: true) { _, newPhase in
                     #if os(iOS)

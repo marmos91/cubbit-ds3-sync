@@ -10,16 +10,21 @@
         @Environment(DS3Authentication.self) private var ds3Authentication
         @Environment(DS3DriveManager.self) private var ds3DriveManager
         @Environment(UpdateChecker.self) private var updateChecker
+        @Environment(ForegroundBackfillDriver.self) private var thumbnailBackfillDriver
         @Environment(\.openURL) private var openURL
 
         @State private var showLogoutAlert = false
         @State private var showClearCacheAlert = false
+        @State private var showGenerateNowAlert = false
         @State private var cacheSize: Int64 = 0
         @State private var isClearingCache = false
         @State private var isLoggingOut = false
+        @State private var cellularEnabled: Bool = ThumbnailNetworkPolicy.shared.cellularOptIn
         @AppStorage("syncNotificationsEnabled") private var syncNotificationsEnabled = false
         @AppStorage(DefaultSettings.UserDefaultsKeys.tutorial) private var tutorialShown: Bool = DefaultSettings
             .tutorialShown
+        @AppStorage("io.cubbit.DS3Drive.thumbnailGenerateNowWarningShown")
+        private var generateNowWarningShown: Bool = false
         @State private var copiedFieldId: String?
 
         private var account: Account? {
@@ -44,6 +49,7 @@
                     VStack(spacing: 24) {
                         accountSection
                         generalSection
+                        thumbnailsSection
                         updatesSection
                         onboardingSection
                         aboutSection
@@ -71,6 +77,18 @@
                 Button("Cancel", role: .cancel) { /* dismiss */ }
             } message: {
                 Text("This will remove all downloaded files. They will be re-downloaded when you open them.")
+            }
+            .alert("Generate Thumbnails", isPresented: $showGenerateNowAlert) {
+                Button("Generate") {
+                    generateNowWarningShown = true
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    DarwinNotificationCenter.shared.post(name: DarwinNotificationCenter.thumbnailRenderRequest)
+                }
+                Button("Cancel", role: .cancel) { /* dismiss */ }
+            } message: {
+                Text(
+                    "This will use data to generate thumbnails for all images. Thumbnails are small JPEG files (10–50 KB each)."
+                )
             }
             .task {
                 cacheSize = await CacheManager.calculateCacheSize()
@@ -215,6 +233,88 @@
                     .padding(.vertical, 14)
                 }
                 .background(cardBackground)
+            }
+        }
+
+        // MARK: - Thumbnails Section
+
+        private var thumbnailsSection: some View {
+            VStack(alignment: .leading, spacing: 12) {
+                sectionHeader("THUMBNAILS", systemImage: "photo.on.rectangle.angled")
+
+                VStack(spacing: 0) {
+                    HStack(alignment: .center, spacing: 12) {
+                        Text(
+                            thumbnailBackfillDriver.pendingCount > 0
+                                ? "\(thumbnailBackfillDriver.pendingCount) thumbnails pending"
+                                : "All thumbnails up to date"
+                        )
+                        .font(.custom("Figtree-SemiBold", size: 15))
+                        .foregroundStyle(IOSColors.brandTextPrimary)
+
+                        Spacer(minLength: 8)
+
+                        if thumbnailBackfillDriver.isRunning {
+                            ProgressView().controlSize(.small)
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 16)
+
+                    divider
+
+                    HStack(alignment: .center, spacing: 12) {
+                        Text("Allow on Cellular")
+                            .font(.custom("Figtree-SemiBold", size: 15))
+                            .foregroundStyle(IOSColors.brandTextPrimary)
+
+                        Spacer(minLength: 8)
+
+                        Toggle("", isOn: $cellularEnabled)
+                            .labelsHidden()
+                            .tint(IOSColors.brandPrimary)
+                            .onChange(of: cellularEnabled) { _, newValue in
+                                ThumbnailNetworkPolicy.shared.cellularOptIn = newValue
+                            }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 12)
+
+                    divider
+
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        if generateNowWarningShown {
+                            DarwinNotificationCenter.shared.post(
+                                name: DarwinNotificationCenter.thumbnailRenderRequest
+                            )
+                        } else {
+                            showGenerateNowAlert = true
+                        }
+                    } label: {
+                        HStack(alignment: .center, spacing: 12) {
+                            Text("Generate Thumbnails Now")
+                                .font(.custom("Figtree-SemiBold", size: 15))
+                                .foregroundStyle(IOSColors.brandPrimary)
+                            Spacer(minLength: 8)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(IOSColors.brandPrimary)
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 16)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .background(cardBackground)
+
+                Text(
+                    "Thumbnail generation runs while the app is open. Force-quitting the app stops background generation until next launch."
+                )
+                .font(.custom("Figtree-Regular", size: 12))
+                .foregroundStyle(IOSColors.brandTextSecondary)
+                .padding(.horizontal, 4)
             }
         }
 
