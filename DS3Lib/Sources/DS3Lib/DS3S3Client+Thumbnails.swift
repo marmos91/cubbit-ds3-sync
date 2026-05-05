@@ -5,11 +5,16 @@ public extension DS3S3ClientProtocol {
     /// Single-part PUT. Throws `DS3ClientError.thumbnailTooLarge` if `data.count`
     /// exceeds `DefaultSettings.Thumbnail.maxSinglePartBytes` so callers can
     /// recover (skip + mark `.failed`) instead of crashing the host process.
+    ///
+    /// Issue #155: when `sourceETag` is nil or empty, the `x-amz-meta-source-etag`
+    /// metadata field is omitted entirely. Absence is the unknown-source signal
+    /// that defeats stale-thumbnail detection in a debuggable way (an empty value
+    /// in S3 looks like a bug; a missing key signals "backfilled with no source").
     func putThumbnail(
         bucket: String,
         key: String,
         data: Data,
-        sourceETag: String
+        sourceETag: String?
     ) async throws -> String {
         let maxBytes = DefaultSettings.Thumbnail.maxSinglePartBytes
         // Inclusive upper bound: `maxSinglePartBytes` is the largest size we
@@ -19,17 +24,22 @@ public extension DS3S3ClientProtocol {
             throw DS3ClientError.thumbnailTooLarge(size: data.count, limit: maxBytes)
         }
 
+        var metadata: [String: String] = [
+            DefaultSettings.Thumbnail.formatVersionMetadataKey: "\(DefaultSettings.Thumbnail.formatVersion)"
+        ]
+
+        // Only emit `x-amz-meta-source-etag` when we actually know the source.
         // Strip CR/LF defensively — a hostile S3-compatible endpoint could
         // return an ETag containing control chars and we forward it as a
         // user-metadata header.
-        let safeETag = sourceETag
-            .replacingOccurrences(of: "\r", with: "")
-            .replacingOccurrences(of: "\n", with: "")
-
-        let metadata: [String: String] = [
-            DefaultSettings.Thumbnail.sourceETagMetadataKey: safeETag,
-            DefaultSettings.Thumbnail.formatVersionMetadataKey: "\(DefaultSettings.Thumbnail.formatVersion)"
-        ]
+        if let rawETag = sourceETag {
+            let safeETag = rawETag
+                .replacingOccurrences(of: "\r", with: "")
+                .replacingOccurrences(of: "\n", with: "")
+            if !safeETag.isEmpty {
+                metadata[DefaultSettings.Thumbnail.sourceETagMetadataKey] = safeETag
+            }
+        }
 
         guard let etag = try await putObjectData(
             bucket: bucket, key: key, data: data, metadata: metadata
