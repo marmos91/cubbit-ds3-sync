@@ -39,8 +39,8 @@ import XCTest
         override func setUp() async throws {
             // In-memory MetadataStore bound to V6 (Phase 13.2 Plan 09 dropped
             // `thumbnailStatus`). `SyncedItem` resolves to
-            // `SyncedItemSchemaV6.SyncedItem`.
-            let schema = Schema(versionedSchema: SyncedItemSchemaV6.self)
+            // `SyncedItemSchemaV7.SyncedItem`.
+            let schema = Schema(versionedSchema: SyncedItemSchemaV7.self)
             let config = ModelConfiguration(isStoredInMemoryOnly: true)
             container = try ModelContainer(for: schema, configurations: [config])
             metadataStore = MetadataStore(modelContainer: container)

@@ -45,6 +45,31 @@ public extension MetadataStore {
         public let size: Int64
         public let syncStatus: String?
         public let isMaterialized: Bool
+        /// Set by the iOS foreground backfill driver after a sidecar PUT;
+        /// consumed by `WorkingSetEnumerator.enumerateChanges` to invalidate
+        /// the Files.app per-item thumbnail cache (issue #153). Always nil
+        /// for non-iOS or pre-V7 stores.
+        public let thumbnailReadyAt: Date?
+
+        public init(
+            s3Key: String,
+            etag: String?,
+            lastModified: Date?,
+            contentType: String?,
+            size: Int64,
+            syncStatus: String?,
+            isMaterialized: Bool,
+            thumbnailReadyAt: Date? = nil
+        ) {
+            self.s3Key = s3Key
+            self.etag = etag
+            self.lastModified = lastModified
+            self.contentType = contentType
+            self.size = size
+            self.syncStatus = syncStatus
+            self.isMaterialized = isMaterialized
+            self.thumbnailReadyAt = thumbnailReadyAt
+        }
     }
 
     /// Fetch all children of a given parent key within a drive.
@@ -79,7 +104,8 @@ public extension MetadataStore {
                 contentType: $0.contentType,
                 size: $0.size,
                 syncStatus: $0.syncStatus,
-                isMaterialized: $0.isMaterialized
+                isMaterialized: $0.isMaterialized,
+                thumbnailReadyAt: $0.thumbnailReadyAt
             )
         }
     }
@@ -193,7 +219,8 @@ public extension MetadataStore {
                 contentType: $0.contentType,
                 size: $0.size,
                 syncStatus: $0.syncStatus,
-                isMaterialized: $0.isMaterialized
+                isMaterialized: $0.isMaterialized,
+                thumbnailReadyAt: $0.thumbnailReadyAt
             )
         }
     }
@@ -214,6 +241,42 @@ public extension MetadataStore {
         }
         if changed {
             try modelExecutor.modelContext.save()
+        }
+    }
+
+    // MARK: - Thumbnail Cache Invalidation (issue #153)
+
+    /// Stamp `thumbnailReadyAt = at` on the row for `s3Key`. Called by the iOS
+    /// foreground backfill driver right after a sidecar PUT lands. The row
+    /// must already exist; if it doesn't (extension purged it between the
+    /// enqueue and the PUT), this is a no-op so we don't materialise empty
+    /// rows just for thumbnail signalling.
+    ///
+    /// Read by `WorkingSetEnumerator.enumerateChanges`, which re-emits the
+    /// item as `didUpdate` so Files.app invalidates its per-item thumbnail
+    /// cache. After reporting, the enumerator clears the field via
+    /// `clearThumbnailReady` to keep the flag one-shot.
+    func markThumbnailReady(s3Key: String, driveId: UUID, at: Date = Date()) throws {
+        guard let item = try findItem(byKey: s3Key, driveId: driveId) else { return }
+        item.thumbnailReadyAt = at
+        try modelExecutor.modelContext.save()
+    }
+
+    /// Clear `thumbnailReadyAt` for a batch of keys after they have been
+    /// reported via `enumerateChanges`. Counterpart to `markThumbnailReady`.
+    func clearThumbnailReady(forKeys keys: [String], driveId: UUID) throws {
+        guard !keys.isEmpty else { return }
+        let context = modelExecutor.modelContext
+        let keySet = Set(keys)
+        let predicate = #Predicate<SyncedItem> { $0.driveId == driveId }
+        let rows = try context.fetch(FetchDescriptor<SyncedItem>(predicate: predicate))
+        var changed = false
+        for row in rows where keySet.contains(row.s3Key) && row.thumbnailReadyAt != nil {
+            row.thumbnailReadyAt = nil
+            changed = true
+        }
+        if changed {
+            try context.save()
         }
     }
 
