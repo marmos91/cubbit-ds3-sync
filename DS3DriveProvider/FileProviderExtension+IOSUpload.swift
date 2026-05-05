@@ -101,19 +101,10 @@
                     parts: parts
                 )
                 await store.remove(forKey: upload.key)
-                let parentKey = parentKeyForS3Key(upload.key)
-                signalChanges(andParent: parentKey)
+                await applyPostMultipartCompletionSideEffects(upload)
                 logger.info(
                     "Background multipart complete: \(upload.key, privacy: .public)"
                 )
-                if S3PathUtils.isRasterExtension((upload.key as NSString).pathExtension) {
-                    await ThumbnailRenderQueue.shared.append(
-                        ThumbnailRenderQueueItem(driveID: upload.driveId, s3Key: upload.key)
-                    )
-                    DarwinNotificationCenter.shared.post(
-                        name: DarwinNotificationCenter.thumbnailRenderRequest
-                    )
-                }
             } catch {
                 logger.error(
                     """
@@ -125,6 +116,27 @@
                     bucket: upload.bucket, key: upload.key, uploadId: upload.uploadId
                 )
                 await store.remove(forKey: upload.key)
+            }
+        }
+
+        /// Local-only post-completion side effects: signal the parent enumerator
+        /// and enqueue a thumbnail render if appropriate. Extracted so the
+        /// reconciler can replay these when it discovers an upload that already
+        /// finished server-side but never ran the local steps (extension
+        /// reaped between `CompleteMultipartUpload` and these calls).
+        @MainActor
+        private func applyPostMultipartCompletionSideEffects(
+            _ upload: PendingUploadStore.PendingUpload
+        ) async {
+            let parentKey = parentKeyForS3Key(upload.key)
+            signalChanges(andParent: parentKey)
+            if S3PathUtils.isRasterExtension((upload.key as NSString).pathExtension) {
+                await ThumbnailRenderQueue.shared.append(
+                    ThumbnailRenderQueueItem(driveID: upload.driveId, s3Key: upload.key)
+                )
+                DarwinNotificationCenter.shared.post(
+                    name: DarwinNotificationCenter.thumbnailRenderRequest
+                )
             }
         }
 
@@ -206,12 +218,20 @@
                         )
                         await store.clearCompleting(forKey: upload.key)
                     } else {
+                        // Multipart is no longer in flight on S3 → previous
+                        // attempt reached `CompleteMultipartUpload` (or S3
+                        // garbage-collected the upload). Replay local-only
+                        // post-completion side effects in case the previous
+                        // finalizer was reaped between S3 success and the
+                        // local steps. Idempotent: signalling and thumbnail
+                        // enqueue are safe to re-run.
                         logger.info(
                             """
-                            Dropping stale isCompleting record for \
+                            Replaying post-completion side effects for \
                             \(upload.key, privacy: .public) — multipart no longer on S3
                             """
                         )
+                        await applyPostMultipartCompletionSideEffects(upload)
                         await store.remove(forKey: upload.key)
                     }
                 }
