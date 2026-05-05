@@ -122,4 +122,119 @@ final class PendingUploadStoreBackgroundTests: XCTestCase {
         let ids = await store.allKnownUploadIds()
         XCTAssertEqual(ids, Set(["u7a", "u7b"]))
     }
+
+    // MARK: - isCompleting flag
+
+    func test_legacyDecode_missingIsCompleting_decodesAsFalse() async throws {
+        // JSON without `isCompleting` field — must decode to false.
+        let driveId = testDriveId
+        let legacyJSON = """
+        {"uploads":{"k8/file.jpg":{"uploadId":"u8","bucket":"b","key":"k8/file.jpg","driveId":"\(driveId.uuidString)","completedPartETags":{},"expectedPartCount":2}},"partRecords":{}}
+        """.data(using: .utf8)!
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".json")
+        try legacyJSON.write(to: tempURL)
+        let storeFromDisk = PendingUploadStore(fileURL: tempURL)
+        let upload = await storeFromDisk.pendingUpload(forKey: "k8/file.jpg")
+        XCTAssertNotNil(upload)
+        XCTAssertEqual(upload?.isCompleting, false, "Missing isCompleting must default to false")
+    }
+
+    func test_markCompleting_isIdempotent_andPersisted() async throws {
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".json")
+        let store = PendingUploadStore(fileURL: tempURL)
+        await store.register(
+            uploadId: "u9", bucket: "b", key: "k9/file.jpg",
+            driveId: testDriveId, expectedPartCount: 1
+        )
+
+        // First call sets the flag → returns true.
+        let first = await store.markCompleting(forKey: "k9/file.jpg")
+        XCTAssertTrue(first, "First markCompleting must return true")
+
+        // Second call sees flag already set → returns false (idempotent).
+        let second = await store.markCompleting(forKey: "k9/file.jpg")
+        XCTAssertFalse(second, "Second markCompleting must return false")
+
+        // Persisted: a fresh store loaded from the same URL must see isCompleting=true.
+        let reloaded = PendingUploadStore(fileURL: tempURL)
+        let upload = await reloaded.pendingUpload(forKey: "k9/file.jpg")
+        XCTAssertEqual(upload?.isCompleting, true, "isCompleting must be persisted to disk")
+
+        // clearCompleting flips it back and is also persisted.
+        await store.clearCompleting(forKey: "k9/file.jpg")
+        let reloaded2 = PendingUploadStore(fileURL: tempURL)
+        let upload2 = await reloaded2.pendingUpload(forKey: "k9/file.jpg")
+        XCTAssertEqual(upload2?.isCompleting, false, "clearCompleting must be persisted")
+    }
+
+    // MARK: - markPartFailed
+
+    func test_markPartFailed_removesRecord_andDeletesTempFile() async throws {
+        // Create a real temp file backing the part record.
+        let tempFile = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".bin")
+        try Data("payload".utf8).write(to: tempFile)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tempFile.path))
+
+        await store.register(
+            uploadId: "u10", bucket: "b", key: "k10/file.jpg",
+            driveId: testDriveId, expectedPartCount: 2
+        )
+        await store.recordPartTask(
+            forKey: "k10/file.jpg", partNumber: 1,
+            taskIdentifier: 1000, tempFileURL: tempFile
+        )
+
+        // Sanity: record present.
+        let before = await store.partRecord(forTaskIdentifier: 1000)
+        XCTAssertNotNil(before)
+
+        await store.markPartFailed(taskIdentifier: 1000)
+
+        // Record gone, temp file deleted.
+        let after = await store.partRecord(forTaskIdentifier: 1000)
+        XCTAssertNil(after, "Part record must be removed after markPartFailed")
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: tempFile.path),
+            "Temp chunk file must be deleted"
+        )
+
+        // markPartFailed for an unknown taskId is a no-op (must not crash).
+        await store.markPartFailed(taskIdentifier: 9999)
+    }
+
+    // MARK: - partRecords(forKey:)
+
+    func test_partRecordsForKey_returnsOnlyMatchingKey() async throws {
+        await store.register(
+            uploadId: "u11a", bucket: "b", key: "k11a",
+            driveId: testDriveId, expectedPartCount: 2
+        )
+        await store.register(
+            uploadId: "u11b", bucket: "b", key: "k11b",
+            driveId: testDriveId, expectedPartCount: 1
+        )
+        await store.recordPartTask(
+            forKey: "k11a", partNumber: 1, taskIdentifier: 1101,
+            tempFileURL: URL(fileURLWithPath: "/tmp/a1.bin")
+        )
+        await store.recordPartTask(
+            forKey: "k11a", partNumber: 2, taskIdentifier: 1102,
+            tempFileURL: URL(fileURLWithPath: "/tmp/a2.bin")
+        )
+        await store.recordPartTask(
+            forKey: "k11b", partNumber: 1, taskIdentifier: 1103,
+            tempFileURL: URL(fileURLWithPath: "/tmp/b1.bin")
+        )
+
+        let aRecords = await store.partRecords(forKey: "k11a")
+        XCTAssertEqual(aRecords.count, 2)
+        XCTAssertEqual(Set(aRecords.map(\.taskIdentifier)), Set([1101, 1102]))
+
+        let bRecords = await store.partRecords(forKey: "k11b")
+        XCTAssertEqual(bRecords.count, 1)
+        XCTAssertEqual(bRecords.first?.taskIdentifier, 1103)
+    }
 }
