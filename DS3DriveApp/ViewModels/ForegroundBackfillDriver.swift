@@ -113,6 +113,14 @@
             let queue = ThumbnailRenderQueue.shared
             var processed = 0
 
+            // Cellular gate: check once per drain. If blocked, return 0 so the
+            // outer loop sleeps instead of spinning on dequeue → renderOne →
+            // skip → dequeue (renderOne returns early without completing the
+            // item, so the same key would be redelivered forever).
+            guard ThumbnailNetworkPolicy.shared.isAllowed() else {
+                return 0
+            }
+
             while processed < maxItems {
                 let batch = await queue.dequeue(maxItems: 1)
                 guard let item = batch.first else { break }

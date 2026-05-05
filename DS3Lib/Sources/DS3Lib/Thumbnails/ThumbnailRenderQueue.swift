@@ -42,7 +42,6 @@ public actor ThumbnailRenderQueue {
 
     private var items: [ThumbnailRenderQueueItem] = []
     private let fileURL: URL?
-    private var loaded = false
 
     private init() {
         fileURL = FileManager.default
@@ -114,10 +113,15 @@ public actor ThumbnailRenderQueue {
 
     // MARK: - Private
 
+    /// Always reads the latest state from disk before each operation.
+    /// Cross-process consistency: extension appends and main app drains touch
+    /// the same App Group file. A one-shot load flag would let one process
+    /// silently overwrite the other's writes.
     private func loadIfNeeded() {
-        guard !loaded else { return }
-        loaded = true
-        guard let url = fileURL, FileManager.default.fileExists(atPath: url.path) else { return }
+        guard let url = fileURL, FileManager.default.fileExists(atPath: url.path) else {
+            items = []
+            return
+        }
         do {
             let data = try Data(contentsOf: url)
             items = try JSONDecoder().decode([ThumbnailRenderQueueItem].self, from: data)

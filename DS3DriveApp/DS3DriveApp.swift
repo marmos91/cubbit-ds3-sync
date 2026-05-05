@@ -24,7 +24,12 @@ struct DS3DriveApp: App {
                 .environment(appStatusManager)
                 .environment(updateChecker)
                 .font(IOSTypography.body)
-                .onChange(of: scenePhase) { _, newPhase in
+                .onChange(of: scenePhase, initial: true) { _, newPhase in
+                    #if os(iOS)
+                        // Drive must always observe scene phase, even before login,
+                        // so cold-launch + later login also kicks the drain.
+                        thumbnailBackfillDriver.handleScenePhase(newPhase)
+                    #endif
                     guard ds3Authentication.isLogged else { return }
                     if newPhase == .active {
                         Task { await BackgroundRefreshManager.signalAllDrives() }
@@ -35,9 +40,6 @@ struct DS3DriveApp: App {
                             thumbnailBackfillHandler.schedule()
                         #endif
                     }
-                    #if os(iOS)
-                        thumbnailBackfillDriver.handleScenePhase(newPhase)
-                    #endif
                 }
                 .onAppear {
                     if !hasStartedRefreshTimer, ds3Authentication.isLogged {
@@ -49,6 +51,12 @@ struct DS3DriveApp: App {
                     if isLogged, !hasStartedRefreshTimer {
                         _ = ds3Authentication.startProactiveRefreshTimer()
                         hasStartedRefreshTimer = true
+                        #if os(iOS)
+                            // Login may complete after scenePhase already became
+                            // .active, missing the .onChange transition. Kick the
+                            // drain now that a drive is available.
+                            thumbnailBackfillDriver.handleScenePhase(scenePhase)
+                        #endif
                     } else if !isLogged {
                         // Timer exits on its own when the refresh token is rejected;
                         // reset the latch so re-login spins up a fresh timer.
