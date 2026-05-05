@@ -31,9 +31,12 @@
 
         /// MetadataStore handle, used by `renderOne` to stamp
         /// `thumbnailReadyAt` on the row after each sidecar PUT (issue #153).
-        /// Failure to construct the store is logged once and the field is left
-        /// nil — backfill still completes; only the Files.app cache invalidation
-        /// degrades to "wait until next etag drift / user tap".
+        /// Set asynchronously by `setupMetadataStore()` after init returns —
+        /// `ModelContainer` creation/migration touches disk, so we keep it
+        /// off the main thread at app launch. Until setup completes (or if
+        /// it fails), `markThumbnailReady` no-ops; backfill still completes
+        /// and the Files.app cache invalidation degrades to "wait until next
+        /// etag drift / user tap".
         ///
         /// `@ObservationIgnored` because this is private state never consumed
         /// by SwiftUI views; skipping accessor synthesis avoids spurious
@@ -42,22 +45,32 @@
 
         init(driveManager: DS3DriveManager) {
             self.driveManager = driveManager
-            do {
-                let container = try MetadataStore.createContainer()
-                self.metadataStore = MetadataStore(modelContainer: container)
-            } catch {
-                self.metadataStore = nil
-                let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.thumbnail.rawValue)
-                logger.warning(
-                    // swiftlint:disable:next line_length
-                    "Backfill: MetadataStore unavailable, thumbnailReadyAt signalling disabled: \(error.localizedDescription, privacy: .public)"
-                )
-            }
             darwinObservation = DarwinNotificationCenter.shared.addObserver(
                 name: DarwinNotificationCenter.thumbnailRenderRequest
             ) { [weak self] in
                 Task { @MainActor in self?.wakeIfIdle() }
             }
+            // Build the SwiftData container off the main thread — schema
+            // migration and disk I/O can block on cold launch. The store is
+            // optional, so until this completes `markThumbnailReady` no-ops
+            // (the call site already tolerates a nil store).
+            Task.detached(priority: .utility) { [weak self] in
+                let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.thumbnail.rawValue)
+                do {
+                    let container = try MetadataStore.createContainer()
+                    let store = MetadataStore(modelContainer: container)
+                    await self?.assignMetadataStore(store)
+                } catch {
+                    logger.warning(
+                        // swiftlint:disable:next line_length
+                        "Backfill: MetadataStore unavailable, thumbnailReadyAt signalling disabled: \(error.localizedDescription, privacy: .public)"
+                    )
+                }
+            }
+        }
+
+        private func assignMetadataStore(_ store: MetadataStore) {
+            metadataStore = store
         }
 
         /// Call from scenePhase onChange in the app root.
