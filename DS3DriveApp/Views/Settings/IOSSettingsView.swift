@@ -244,11 +244,13 @@
 
                 VStack(spacing: 0) {
                     HStack(alignment: .center, spacing: 12) {
-                        Text(
-                            thumbnailBackfillDriver.pendingCount > 0
-                                ? "\(thumbnailBackfillDriver.pendingCount) thumbnails pending"
-                                : "All thumbnails up to date"
-                        )
+                        Group {
+                            if thumbnailBackfillDriver.pendingCount > 0 {
+                                Text("\(thumbnailBackfillDriver.pendingCount) thumbnails pending")
+                            } else {
+                                Text("All thumbnails up to date")
+                            }
+                        }
                         .font(.custom("Figtree-SemiBold", size: 15))
                         .foregroundStyle(IOSColors.brandTextPrimary)
 
@@ -467,7 +469,7 @@
     // MARK: - Row Builders + Actions
 
     private extension IOSSettingsView {
-        func sectionHeader(_ text: String, systemImage: String) -> some View {
+        func sectionHeader(_ text: LocalizedStringKey, systemImage: String) -> some View {
             HStack(spacing: 6) {
                 Image(systemName: systemImage)
                     .font(.system(size: 12, weight: .semibold))
@@ -479,7 +481,7 @@
             .padding(.leading, 4)
         }
 
-        func infoRow(label: String, value: String) -> some View {
+        func infoRow(label: LocalizedStringKey, value: String) -> some View {
             HStack(alignment: .center, spacing: 12) {
                 Text(label)
                     .font(.custom("Figtree-SemiBold", size: 15))
@@ -495,7 +497,7 @@
             .padding(.vertical, 16)
         }
 
-        func navActionRow(title: String, trailing: String, action: @escaping () -> Void) -> some View {
+        func navActionRow(title: LocalizedStringKey, trailing: String, action: @escaping () -> Void) -> some View {
             Button {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 action()
@@ -516,7 +518,7 @@
             .buttonStyle(.plain)
         }
 
-        func destructiveActionRow(title: String, action: @escaping () -> Void) -> some View {
+        func destructiveActionRow(title: LocalizedStringKey, action: @escaping () -> Void) -> some View {
             Button {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 action()

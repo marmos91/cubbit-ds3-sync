@@ -191,7 +191,7 @@
         }
 
         private func summaryRow(
-            label: String,
+            label: LocalizedStringKey,
             @ViewBuilder content: () -> some View
         ) -> some View {
             HStack(alignment: .center, spacing: 12) {
@@ -321,7 +321,7 @@
             )
         }
 
-        private func statusBanner(message: String, color: Color) -> some View {
+        private func statusBanner(message: LocalizedStringKey, color: Color) -> some View {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 14))

@@ -225,17 +225,27 @@
                 }
 
                 VStack(spacing: 8) {
-                    Text(isAuthError ? "Session Expired" : "Couldn't Load Buckets")
-                        .font(.custom("Figtree-SemiBold", size: 20))
-                        .foregroundStyle(IOSColors.brandTextPrimary)
+                    Group {
+                        if isAuthError {
+                            Text("Session Expired")
+                        } else {
+                            Text("Couldn't Load Buckets")
+                        }
+                    }
+                    .font(.custom("Figtree-SemiBold", size: 20))
+                    .foregroundStyle(IOSColors.brandTextPrimary)
 
-                    Text(isAuthError
-                        ? "Your session has expired. Please log in again."
-                        : "Check your connection and try again.")
-                        .font(.custom("Figtree-Regular", size: 15))
-                        .foregroundStyle(IOSColors.brandTextSecondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
+                    Group {
+                        if isAuthError {
+                            Text("Your session has expired. Please log in again.")
+                        } else {
+                            Text("Check your connection and try again.")
+                        }
+                    }
+                    .font(.custom("Figtree-Regular", size: 15))
+                    .foregroundStyle(IOSColors.brandTextSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
                 }
 
                 Button {
@@ -246,15 +256,21 @@
                         Task { await anchorVM?.loadBuckets() }
                     }
                 } label: {
-                    Text(isAuthError ? "Log Out" : "Retry")
-                        .font(.custom("Figtree-SemiBold", size: 17))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 54)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(IOSColors.brandPrimary)
-                        )
+                    Group {
+                        if isAuthError {
+                            Text("Log Out")
+                        } else {
+                            Text("Retry")
+                        }
+                    }
+                    .font(.custom("Figtree-SemiBold", size: 17))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(IOSColors.brandPrimary)
+                    )
                 }
                 .buttonStyle(SetupRowPressStyle())
                 .frame(maxWidth: 320)
@@ -284,17 +300,27 @@
                 }
 
                 VStack(spacing: 8) {
-                    Text(searchText.isEmpty ? "No Buckets Yet" : "No Matches")
-                        .font(.custom("Figtree-SemiBold", size: 20))
-                        .foregroundStyle(IOSColors.brandTextPrimary)
+                    Group {
+                        if searchText.isEmpty {
+                            Text("No Buckets Yet")
+                        } else {
+                            Text("No Matches")
+                        }
+                    }
+                    .font(.custom("Figtree-SemiBold", size: 20))
+                    .foregroundStyle(IOSColors.brandTextPrimary)
 
-                    Text(searchText.isEmpty
-                        ? "Create a bucket in the DS3 Console to get started."
-                        : "Try a different search term.")
-                        .font(.custom("Figtree-Regular", size: 15))
-                        .foregroundStyle(IOSColors.brandTextSecondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
+                    Group {
+                        if searchText.isEmpty {
+                            Text("Create a bucket in the DS3 Console to get started.")
+                        } else {
+                            Text("Try a different search term.")
+                        }
+                    }
+                    .font(.custom("Figtree-Regular", size: 15))
+                    .foregroundStyle(IOSColors.brandTextSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
                 }
 
                 Spacer()

@@ -136,7 +136,7 @@
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(showPassword ? "Hide password" : "Show password")
+                        .accessibilityLabel(showPassword ? Text("Hide password") : Text("Show password"))
                     }
                 }
 

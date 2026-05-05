@@ -172,7 +172,7 @@
             }
         }
 
-        private func detailRow(label: String, @ViewBuilder content: () -> some View) -> some View {
+        private func detailRow(label: LocalizedStringKey, @ViewBuilder content: () -> some View) -> some View {
             HStack(spacing: 12) {
                 Text(label)
                     .font(.custom("Figtree-Medium", size: 12))
@@ -253,7 +253,7 @@
         private func actionRow(
             icon: String,
             tint: Color,
-            title: String,
+            title: LocalizedStringKey,
             trailingSymbol: String? = nil,
             isLoading: Bool = false,
             action: @escaping () -> Void
@@ -323,7 +323,7 @@
 
         // MARK: - Shared
 
-        private func sectionHeader(_ text: String) -> some View {
+        private func sectionHeader(_ text: LocalizedStringKey) -> some View {
             Text(text)
                 .font(.custom("Figtree-Medium", size: 12))
                 .foregroundStyle(IOSColors.brandTextSecondary)

@@ -79,9 +79,9 @@
 
         static func statusLabel(for status: DS3DriveStatus) -> String {
             switch status {
-            case .idle: "Synced"
-            case .sync: "Syncing"
-            case .error: "Error"
+            case .idle: String(localized: "Synced")
+            case .sync: String(localized: "Syncing")
+            case .error: String(localized: "Error")
             }
         }
 
@@ -104,14 +104,14 @@
             let megabyte = kilobyte * kilobyte
 
             if bytesPerSecond >= megabyte {
-                return String(format: "%.1f MB/s", bytesPerSecond / megabyte)
+                return String(format: String(localized: "%.1f MB/s"), bytesPerSecond / megabyte)
             }
 
             if bytesPerSecond >= kilobyte {
-                return String(format: "%.1f KB/s", bytesPerSecond / kilobyte)
+                return String(format: String(localized: "%.1f KB/s"), bytesPerSecond / kilobyte)
             }
 
-            return String(format: "%.0f B/s", bytesPerSecond)
+            return String(format: String(localized: "%.0f B/s"), bytesPerSecond)
         }
     }
 #endif
