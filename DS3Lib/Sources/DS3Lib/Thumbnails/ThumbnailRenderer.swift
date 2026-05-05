@@ -106,6 +106,13 @@ public struct ThumbnailRenderer {
     ///
     /// If `source` already has no alpha (`alphaInfo` is `.none`, `.noneSkipFirst`, or
     /// `.noneSkipLast`) the original image is returned unchanged (zero extra allocation).
+    ///
+    /// Issue #151: the primary 8-bit-per-component opaque RGB context can fail to
+    /// instantiate for sources with incompatible bitmap layouts (e.g. 16-bit-per-channel
+    /// HEIC, ProRAW, certain TIFFs). Returning the alpha-alive source in that case
+    /// produces visually wrong colors out of the JPEG encoder (AlphaPremulLast artifacts
+    /// on transparent regions). Retry once with a known-good 8-bit RGBA layout before
+    /// falling back to the source.
     func stripAlpha(from source: CGImage) -> CGImage {
         let alpha = source.alphaInfo
         guard alpha != .none,
@@ -114,20 +121,50 @@ public struct ThumbnailRenderer {
         else { return source }
 
         let colorSpace = source.colorSpace ?? CGColorSpaceCreateDeviceRGB()
-        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
-        guard let context = CGContext(
+        let width = source.width
+        let height = source.height
+
+        // Primary path: opaque RGB (alpha discarded). 8-bit-per-component
+        // downsamples 16-bit sources, which is acceptable since JPEG is 8-bit.
+        let primaryBitmap = CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
+        if let context = CGContext(
             data: nil,
-            width: source.width,
-            height: source.height,
+            width: width,
+            height: height,
             bitsPerComponent: 8,
             bytesPerRow: 0,
             space: colorSpace,
-            bitmapInfo: bitmapInfo.rawValue
-        )
-        else { return source }
+            bitmapInfo: primaryBitmap.rawValue
+        ) {
+            context.draw(source, in: CGRect(x: 0, y: 0, width: width, height: height))
+            if let image = context.makeImage() { return image }
+        }
 
-        context.draw(source, in: CGRect(x: 0, y: 0, width: source.width, height: source.height))
-        return context.makeImage() ?? source
+        // Retry path: known-good 8-bit RGBA (premultiplied last, byte-order 32-big).
+        // Use sRGB as a safe color space if the source space is not RGB-compatible.
+        let retrySpace: CGColorSpace = (colorSpace.model == .rgb)
+            ? colorSpace
+            : CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        let retryBitmap = CGImageAlphaInfo.premultipliedLast.rawValue
+            | CGBitmapInfo.byteOrder32Big.rawValue
+        if let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: retrySpace,
+            bitmapInfo: retryBitmap
+        ) {
+            context.draw(source, in: CGRect(x: 0, y: 0, width: width, height: height))
+            if let image = context.makeImage() { return image }
+        }
+
+        // Last resort: return alpha-alive source. The JPEG encoder will produce
+        // visually wrong colors on transparent regions, but better than no thumbnail.
+        Logger(subsystem: LogSubsystem.app, category: LogCategory.thumbnail.rawValue)
+            .warning("stripAlpha: both primary and RGBA-retry contexts failed; returning alpha-alive source")
+        return source
     }
 
     private func jpegData(from cgImage: CGImage) -> Data? {
