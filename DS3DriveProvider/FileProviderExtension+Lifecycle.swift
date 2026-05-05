@@ -32,8 +32,9 @@ extension FileProviderExtension {
                 switch command {
                 case let .refreshEnumeration(_, parentKey):
                     self?.logger.notice(
-                        "IPC: refreshEnumeration parent=\(parentKey ?? "<root>", privacy: .public) — signalling"
+                        "IPC: refreshEnumeration parent=\(parentKey ?? "<root>", privacy: .public) — refreshing"
                     )
+                    await self?.refreshMetadataForParent(parentKey: parentKey)
                     self?.signalChanges(andParent: parentKey)
                 case .emptyTrash:
                     continue
@@ -233,5 +234,60 @@ private class MaterializedItemObserver: NSObject, NSFileProviderEnumerationObser
 
     func finishEnumeratingWithError(_ error: Error) {
         onError?(error)
+    }
+}
+
+extension FileProviderExtension {
+    /// Re-lists S3 for the given parent prefix and updates MetadataStore so
+    /// `currentSyncAnchor` returns a fresh hash. Without this, signalEnumerator
+    /// is a no-op for items added by other processes (Share extension, web)
+    /// because the cached SyncAnchor matches the stale MetadataStore state.
+    func refreshMetadataForParent(parentKey: String?) async {
+        guard let drive = self.drive,
+              let s3Lib = self.s3Lib,
+              let metadataStore = self.metadataStore
+        else { return }
+
+        let normalizedPrefix: String? = {
+            guard let parentKey, !parentKey.isEmpty else { return nil }
+            return parentKey
+        }()
+
+        do {
+            var token: String?
+            var allItems: [S3Item] = []
+            repeat {
+                let (items, nextToken) = try await s3Lib.listS3Items(
+                    forDrive: drive,
+                    withPrefix: normalizedPrefix,
+                    recursively: false,
+                    withContinuationToken: token
+                )
+                allItems.append(contentsOf: items)
+                token = nextToken
+            } while token != nil
+
+            let visibleItems = allItems.filter {
+                S3Lib.isUserVisible($0.itemIdentifier.rawValue, drive: drive)
+            }
+            let upsertData = visibleItems.map {
+                MetadataStore.ItemUpsertData(from: $0, isMaterialized: true)
+            }
+            if !upsertData.isEmpty {
+                try? await metadataStore.batchUpsertItems(upsertData)
+            }
+            let parentForPrune = normalizedPrefix ?? ""
+            let allKeys = Set(upsertData.map(\.s3Key))
+            try? await metadataStore.pruneChildren(
+                parentKey: parentForPrune, driveId: drive.id, keepKeys: allKeys
+            )
+            self.logger.info(
+                "refreshMetadataForParent: \(visibleItems.count, privacy: .public) items reconciled for parent=\(parentKey ?? "<root>", privacy: .public)"
+            )
+        } catch {
+            self.logger.warning(
+                "refreshMetadataForParent failed for \(parentKey ?? "<root>", privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
+            )
+        }
     }
 }

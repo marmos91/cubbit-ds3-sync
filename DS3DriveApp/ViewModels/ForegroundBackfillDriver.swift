@@ -197,6 +197,11 @@
             }
             do {
                 _ = try await s3Client.getObject(bucket: bucket, key: item.s3Key, toFile: tempURL)
+            } catch is CancellationError {
+                // Drain task cancelled (scenePhase → background). Don't burn an
+                // attempt — the item should retry on next foreground tick.
+                logger.info("Backfill: download cancelled for \(item.s3Key, privacy: .public) — leaving in queue")
+                return
             } catch {
                 logger.error(
                     "Backfill: download failed for \(item.s3Key, privacy: .public): \(error.localizedDescription, privacy: .public)"
@@ -231,6 +236,9 @@
                 _ = try await s3Client.putThumbnail(
                     bucket: bucket, key: thumbKey, data: jpegBytes, sourceETag: ""
                 )
+            } catch is CancellationError {
+                logger.info("Backfill: PUT cancelled for \(thumbKey, privacy: .public) — leaving in queue")
+                return
             } catch {
                 logger.error(
                     "Backfill: PUT failed for \(thumbKey, privacy: .public): \(error.localizedDescription, privacy: .public)"
