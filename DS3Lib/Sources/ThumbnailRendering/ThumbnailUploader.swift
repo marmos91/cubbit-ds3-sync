@@ -7,9 +7,9 @@ import os.log
 ///
 /// Per D-07 the type is a `Sendable struct` (NOT actor) — the caller already
 /// provides isolation via `Task.detached`, so layering an actor here would only
-/// add an unnecessary hop. The render call is whole-function macOS-gated
-/// (D-09); the type itself is cross-platform Sendable so iOS extension targets
-/// can hold a reference but compile out the body.
+/// add an unnecessary hop. The render call is whole-function macOS-gated (D-09);
+/// the iOS extension does not link `ThumbnailRendering`, so the gate exists for
+/// other macOS-only API surface (CoreGraphics/ImageIO) called from this module.
 ///
 /// Failure semantics (D-06 fire-and-forget contract, Phase 13.2 D-05/D-08/D-19):
 ///   - Non-raster originalKey → log + return (caller pre-filters anyway).

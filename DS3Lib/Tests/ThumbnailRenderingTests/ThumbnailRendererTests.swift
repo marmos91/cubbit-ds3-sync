@@ -6,8 +6,8 @@ import ImageIO
 import UniformTypeIdentifiers
 import XCTest
 
-/// Tests for `ThumbnailRenderer` — the Phase 12 extraction of the Phase 11-hardened
-/// image thumbnail generator into DS3Lib. Covers the four memory-safety / correctness
+/// Tests for `ThumbnailRenderer` — the hardened image thumbnail generator that lives
+/// in the `ThumbnailRendering` product. Covers the four memory-safety / correctness
 /// invariants that must hold for the renderer to be usable from the macOS file
 /// provider extension and Phase 13's cache-first thumbnail flow:
 ///

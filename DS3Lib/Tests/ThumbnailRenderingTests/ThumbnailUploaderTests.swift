@@ -22,8 +22,8 @@ import XCTest
 ///   5. PUT key matches `S3PathUtils.thumbnailKey(...)` (canonical key, no ad-hoc concat).
 ///
 /// Per D-09 the `generateAndUpload` function is `#if os(macOS)`-gated, so the whole
-/// test class is gated too. iOS test runs (DS3LibTests platform=iOS) compile this
-/// file as an empty translation unit.
+/// test class is gated too. On iOS test runs this file compiles as an empty
+/// translation unit.
 #if os(macOS)
     final class ThumbnailUploaderTests: XCTestCase {
         // MARK: - Fixtures
