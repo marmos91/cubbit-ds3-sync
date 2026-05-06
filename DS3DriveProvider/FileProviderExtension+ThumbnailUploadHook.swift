@@ -2,6 +2,9 @@ import DS3Lib
 @preconcurrency import FileProvider
 import Foundation
 import os.log
+#if os(macOS)
+    import ThumbnailRendering
+#endif
 
 // MARK: - Upload-time thumbnail hook (Phase 13 D-06, D-08, D-09, D-10; THUMB-06; #141)
 

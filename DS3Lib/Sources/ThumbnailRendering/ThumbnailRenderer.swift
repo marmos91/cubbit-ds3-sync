@@ -1,4 +1,5 @@
 import CoreGraphics
+import DS3Lib
 import Foundation
 import ImageIO
 import os

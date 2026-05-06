@@ -2,6 +2,9 @@
 import DS3Lib
 @preconcurrency import FileProvider
 import os.log
+#if os(macOS)
+    import ThumbnailRendering
+#endif
 
 // MARK: - Fetch Contents
 

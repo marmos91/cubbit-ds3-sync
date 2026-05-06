@@ -1,13 +1,13 @@
 import CoreGraphics
+import DS3Lib
 import Foundation
 import ImageIO
+@testable import ThumbnailRendering
 import UniformTypeIdentifiers
 import XCTest
 
-@testable import DS3Lib
-
-/// Tests for `ThumbnailRenderer` — the Phase 12 extraction of the Phase 11-hardened
-/// image thumbnail generator into DS3Lib. Covers the four memory-safety / correctness
+/// Tests for `ThumbnailRenderer` — the hardened image thumbnail generator that lives
+/// in the `ThumbnailRendering` product. Covers the four memory-safety / correctness
 /// invariants that must hold for the renderer to be usable from the macOS file
 /// provider extension and Phase 13's cache-first thumbnail flow:
 ///
@@ -44,7 +44,7 @@ final class ThumbnailRendererTests: XCTestCase {
     func testRenderJPEGRejectsPDFByUTIAllowList() throws {
         let pdfURL = try XCTUnwrap(
             fixtureURL(name: "unsupported", ext: "pdf"),
-            "unsupported.pdf fixture missing — check DS3LibTests resources(.process(\"Fixtures\"))"
+            "unsupported.pdf fixture missing — check ThumbnailRenderingTests resources(.process(\"Fixtures\"))"
         )
 
         let renderer = ThumbnailRenderer(maxDimension: thumbnailSize)

@@ -1,8 +1,7 @@
 import CoreGraphics
 import Foundation
+@testable import ThumbnailRendering
 import XCTest
-
-@testable import DS3Lib
 
 final class ThumbnailAlphaStrippingTests: XCTestCase {
     func test_stripAlpha_returnsOpaqueImage_whenSourceHasAlpha() throws {

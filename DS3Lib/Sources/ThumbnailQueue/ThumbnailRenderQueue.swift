@@ -1,3 +1,4 @@
+import DS3Lib
 import Foundation
 import os.log
 
@@ -6,7 +7,7 @@ private let queueLogger = Logger(
     category: LogCategory.thumbnail.rawValue
 )
 
-/// Represents one item in the iOS thumbnail render backlog.
+/// One item in the thumbnail render backlog used by the iOS extension/main-app handoff.
 /// The extension appends when it gets a cache miss (or after a new raster upload).
 /// The main app drains by downloading the original, rendering a JPEG, and PUTting to S3.
 public struct ThumbnailRenderQueueItem: Codable, Sendable, Equatable {

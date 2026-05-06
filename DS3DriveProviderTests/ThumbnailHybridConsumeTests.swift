@@ -2,6 +2,7 @@
 import FileProvider
 import Foundation
 import os.log
+@testable import ThumbnailRendering
 import XCTest
 
 /// Tests the Phase 13.2 cache-miss fallback fork in `fetchThumbnails`
