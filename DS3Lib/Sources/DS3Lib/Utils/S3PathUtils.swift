@@ -159,7 +159,7 @@ public enum S3PathUtils {
 
     /// Suffix-based allow-list for raster image formats Phase 13 will generate thumbnails for.
     /// MUST agree with the platform renderer's UTI allow-list (e.g. `ThumbnailRenderer`
-    /// in `DS3Thumbnails`) — both gate the same set.
+    /// in the `DS3ThumbnailRendering` product / `ThumbnailRendering` module) — both gate the same set.
     /// Reads from the canonical `DefaultSettings.Thumbnail.rasterExtensions` set so the
     /// upload-hook pre-filter (D-08) and the consume-path pre-filter share one source of truth.
     /// Case-insensitive; tolerates a leading dot. Returns false for empty / unknown extensions.
