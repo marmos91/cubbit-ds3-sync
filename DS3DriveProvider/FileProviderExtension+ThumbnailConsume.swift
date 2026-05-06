@@ -192,6 +192,9 @@ let throttlingS3ErrorCodes: Set<String> = [
 /// Closure that downloads the original S3 object backing `identifier` to a
 /// local file URL and returns `(fileURL, sourceETag?)`. Production wires this
 /// to `S3Lib.downloadS3Item`; tests inject a stub.
+///
+/// Cross-platform: also referenced by the upload-hook (`+ThumbnailUploadHook.swift`),
+/// whose signature compiles on iOS even though its body is macOS-only.
 typealias ThumbnailOriginalDownloader =
     @Sendable (NSFileProviderItemIdentifier, DS3Drive) async throws -> (URL, String?)
 
@@ -202,18 +205,16 @@ typealias ThumbnailOriginalDownloader =
     /// (see `RenderFailure` in `ThumbnailRendering`). Production wires this to
     /// `ThumbnailRenderer().renderJPEG(from:)`.
     typealias ThumbnailRendererFn = @Sendable (URL) -> Result<Data, RenderFailure>
-#endif
 
-/// Closure that PUTs the rendered JPEG to S3. Production wires this to
-/// `s3Client.putThumbnail(bucket:key:data:sourceETag:)`.
-typealias ThumbnailFallbackPutter =
-    @Sendable (_ bucket: String, _ key: String, _ data: Data, _ sourceETag: String) async throws -> Void
+    /// Closure that PUTs the rendered JPEG to S3. Production wires this to
+    /// `s3Client.putThumbnail(bucket:key:data:sourceETag:)`.
+    typealias ThumbnailFallbackPutter =
+        @Sendable (_ bucket: String, _ key: String, _ data: Data, _ sourceETag: String) async throws -> Void
 
-/// Closure that signals a parent container to re-enumerate (D-12). Production
-/// wires this to `NSFileProviderManager(for: domain).signalEnumerator(for:)`.
-typealias ThumbnailSignalContainer = @Sendable (NSFileProviderItemIdentifier) -> Void
+    /// Closure that signals a parent container to re-enumerate (D-12). Production
+    /// wires this to `NSFileProviderManager(for: domain).signalEnumerator(for:)`.
+    typealias ThumbnailSignalContainer = @Sendable (NSFileProviderItemIdentifier) -> Void
 
-#if os(macOS)
     /// Bundle of closure-based dependencies for `consumeThumbnailFallback`.
     /// Keeps the function under the SwiftLint parameter-count limit and keeps
     /// the production wiring (in `+Thumbnails.swift`) explicit + Sendable.

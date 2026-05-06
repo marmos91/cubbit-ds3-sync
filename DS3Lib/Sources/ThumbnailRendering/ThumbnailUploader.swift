@@ -20,8 +20,8 @@ import os.log
 ///   - PUT throws → log + RETHROW (caller's `try? await ...` swallows). No
 ///     schema strike counter write.
 ///
-/// NOTE: This DS3Lib-side helper is the legacy localURL-based path
-/// (still used by call sites that haven't migrated). The eager-path
+/// NOTE: This `ThumbnailRendering`-product helper is the legacy localURL-based
+/// path (still used by call sites that haven't migrated). The eager-path
 /// `runUploadHook` in DS3DriveProvider is the canonical post-#141
 /// implementation and uses different error semantics (logs + swallows
 /// PUT errors per D-06; does not rethrow). Don't unify their
