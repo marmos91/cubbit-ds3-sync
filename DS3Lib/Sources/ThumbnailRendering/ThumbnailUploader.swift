@@ -1,3 +1,4 @@
+import DS3Lib
 import Foundation
 import os.log
 

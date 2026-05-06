@@ -1,5 +1,6 @@
+import DS3Lib
+@testable import ThumbnailQueue
 import XCTest
-@testable import DS3Lib
 
 final class ThumbnailRenderQueueTests: XCTestCase {
     func testCrossProcessAppendIsVisibleToSecondInstance() async throws {

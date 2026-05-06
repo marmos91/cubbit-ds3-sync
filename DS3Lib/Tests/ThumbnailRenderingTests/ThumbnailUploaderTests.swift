@@ -1,8 +1,8 @@
+@testable import DS3Lib
 import Foundation
 import SwiftData
+@testable import ThumbnailRendering
 import XCTest
-
-@testable import DS3Lib
 
 /// Tests for `ThumbnailUploader` — the Phase 13 / Plan 13-02 render+PUT pipeline
 /// invoked by the upload-hook in `createItem`/`modifyItem` (Plan 13-07 wiring).

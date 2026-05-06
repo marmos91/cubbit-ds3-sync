@@ -1,6 +1,9 @@
 import DS3Lib
 @preconcurrency import FileProvider
 import os.log
+#if os(iOS)
+    import ThumbnailQueue
+#endif
 import UniformTypeIdentifiers
 
 extension FileProviderExtension {

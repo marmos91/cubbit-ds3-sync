@@ -1,9 +1,8 @@
-import Foundation
-import SotoS3
-import SwiftData
-import XCTest
-
 @testable import DS3Lib
+import Foundation
+import SwiftData
+@testable import ThumbnailRendering
+import XCTest
 
 /// Phase-13 integration smoke tests (Plan 13-11, D-34).
 ///
@@ -150,7 +149,7 @@ import XCTest
                 if !didRemove {
                     // Mirror Soto's NoSuchKey for absent keys so deleteThumbnail's
                     // silent-on-404 contract gets exercised end-to-end.
-                    throw SotoS3.S3ErrorType.noSuchKey
+                    throw S3ErrorType.noSuchKey
                 }
             }
 
@@ -168,7 +167,7 @@ import XCTest
             ) async throws {
                 record("copyObject(\(sourceKey)->\(destinationKey))")
                 guard let src = storedObject(forKey: sourceKey) else {
-                    throw SotoS3.S3ErrorType.noSuchKey
+                    throw S3ErrorType.noSuchKey
                 }
                 // metadata: nil → preserve source metadata (AWS COPY default).
                 setObject(src, forKey: destinationKey)
@@ -180,7 +179,7 @@ import XCTest
             ) async throws -> S3DownloadResult {
                 record("getObject(\(key))")
                 guard let payload = storedObject(forKey: key)?.data else {
-                    throw SotoS3.S3ErrorType.noSuchKey
+                    throw S3ErrorType.noSuchKey
                 }
                 // Write the stored bytes (or a deliberate non-decodable payload
                 // for the strike-rule fixture) so the coordinator's
@@ -203,7 +202,7 @@ import XCTest
             func getObjectData(bucket _: String, key: String) async throws -> Data {
                 record("getObjectData(\(key))")
                 guard let payload = storedObject(forKey: key)?.data else {
-                    throw SotoS3.S3ErrorType.noSuchKey
+                    throw S3ErrorType.noSuchKey
                 }
                 return payload
             }

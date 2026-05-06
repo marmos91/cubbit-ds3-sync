@@ -2,6 +2,7 @@
     import DS3Lib
     @preconcurrency import FileProvider
     import os.log
+    import ThumbnailQueue
 
     /// iOS background-upload glue (Phase 4 — Task 4.4).
     ///

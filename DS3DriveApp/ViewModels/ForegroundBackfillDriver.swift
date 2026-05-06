@@ -4,6 +4,8 @@
     import Foundation
     import os.log
     import SwiftUI
+    import ThumbnailQueue
+    import ThumbnailRendering
 
     /// Drains the iOS thumbnail render queue while the app is in the foreground.
     ///

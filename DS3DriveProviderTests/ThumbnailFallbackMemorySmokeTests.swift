@@ -2,6 +2,7 @@ import CoreImage
 @testable import DS3Lib
 import Foundation
 import ImageIO
+@testable import ThumbnailRendering
 import UniformTypeIdentifiers
 import XCTest
 

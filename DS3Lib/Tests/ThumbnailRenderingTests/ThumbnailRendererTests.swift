@@ -1,10 +1,10 @@
 import CoreGraphics
+import DS3Lib
 import Foundation
 import ImageIO
+@testable import ThumbnailRendering
 import UniformTypeIdentifiers
 import XCTest
-
-@testable import DS3Lib
 
 /// Tests for `ThumbnailRenderer` — the Phase 12 extraction of the Phase 11-hardened
 /// image thumbnail generator into DS3Lib. Covers the four memory-safety / correctness
