@@ -44,7 +44,7 @@ final class ThumbnailRendererTests: XCTestCase {
     func testRenderJPEGRejectsPDFByUTIAllowList() throws {
         let pdfURL = try XCTUnwrap(
             fixtureURL(name: "unsupported", ext: "pdf"),
-            "unsupported.pdf fixture missing — check DS3LibTests resources(.process(\"Fixtures\"))"
+            "unsupported.pdf fixture missing — check ThumbnailRenderingTests resources(.process(\"Fixtures\"))"
         )
 
         let renderer = ThumbnailRenderer(maxDimension: thumbnailSize)
