@@ -48,7 +48,7 @@ let package = Package(
         ),
         .testTarget(
             name: "ThumbnailQueueTests",
-            dependencies: ["ThumbnailQueue", "DS3Lib"]
+            dependencies: ["ThumbnailQueue"]
         ),
         .testTarget(
             name: "ThumbnailRenderingTests",

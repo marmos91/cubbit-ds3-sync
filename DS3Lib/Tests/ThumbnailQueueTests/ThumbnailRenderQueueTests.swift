@@ -1,5 +1,4 @@
-import DS3Lib
-@testable import ThumbnailQueue
+import ThumbnailQueue
 import XCTest
 
 final class ThumbnailRenderQueueTests: XCTestCase {

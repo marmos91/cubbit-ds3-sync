@@ -4,8 +4,7 @@ import Foundation
 import os.log
 #if os(iOS)
     import ThumbnailQueue
-#endif
-#if os(macOS)
+#elseif os(macOS)
     import ThumbnailRendering
 #endif
 
