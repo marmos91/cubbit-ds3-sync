@@ -75,7 +75,7 @@ public actor ThumbnailRenderQueue {
     /// transient conditions may have changed. Within cooldown, the duplicate is
     /// a no-op so a busy folder browse does not thrash known-failing items.
     public func append(_ item: ThumbnailRenderQueueItem) {
-        withFileLock {
+        withWriteLock {
             loadIfNeeded()
             if let idx = items.firstIndex(where: { $0.driveID == item.driveID && $0.s3Key == item.s3Key }) {
                 let existing = items[idx]
@@ -103,7 +103,7 @@ public actor ThumbnailRenderQueue {
     /// Returns up to `maxItems` pending items (attempts < maxAttempts).
     /// Does NOT remove them — call `complete` or `fail` after processing.
     public func dequeue(maxItems: Int) -> [ThumbnailRenderQueueItem] {
-        withFileLock {
+        withReadLock {
             loadIfNeeded()
             return Array(items.filter { $0.attempts < Self.maxAttempts }.prefix(maxItems))
         }
@@ -111,7 +111,7 @@ public actor ThumbnailRenderQueue {
 
     /// Removes a successfully processed item from the queue.
     public func complete(_ item: ThumbnailRenderQueueItem) {
-        withFileLock {
+        withWriteLock {
             loadIfNeeded()
             items.removeAll { $0.driveID == item.driveID && $0.s3Key == item.s3Key }
             persist()
@@ -120,7 +120,7 @@ public actor ThumbnailRenderQueue {
 
     /// Bumps attempts. Items reaching `maxAttempts` are poisoned (excluded from future dequeues).
     public func fail(_ item: ThumbnailRenderQueueItem) {
-        withFileLock {
+        withWriteLock {
             loadIfNeeded()
             if let idx = items.firstIndex(where: { $0.driveID == item.driveID && $0.s3Key == item.s3Key }) {
                 items[idx].attempts += 1
@@ -131,7 +131,7 @@ public actor ThumbnailRenderQueue {
 
     /// Returns (pending, poison) counts for a specific drive.
     public func count(driveID: UUID) -> (pending: Int, poison: Int) {
-        withFileLock {
+        withReadLock {
             loadIfNeeded()
             let driveItems = items.filter { $0.driveID == driveID }
             let pending = driveItems.count(where: { $0.attempts < Self.maxAttempts })
@@ -142,7 +142,7 @@ public actor ThumbnailRenderQueue {
 
     /// Removes all items for a drive (Settings "Reset" and drive deletion).
     public func clearAll(driveID: UUID) {
-        withFileLock {
+        withWriteLock {
             loadIfNeeded()
             items.removeAll { $0.driveID == driveID }
             persist()
@@ -151,7 +151,7 @@ public actor ThumbnailRenderQueue {
 
     /// Total pending items across all drives.
     public var pendingCount: Int {
-        withFileLock {
+        withReadLock {
             loadIfNeeded()
             return items.count(where: { $0.attempts < Self.maxAttempts })
         }
@@ -196,29 +196,54 @@ public actor ThumbnailRenderQueue {
         }
     }
 
-    /// Cross-process exclusion via `flock(LOCK_EX)` on a sidecar lockfile. The
-    /// lockfile is created lazily next to the queue JSON. Without this, the
-    /// extension's append could load `[A,B]`, the main app could load+complete A
-    /// and write `[B]`, then the extension persists its stale `[A,B,C]` and
-    /// silently revives the completed item (and loses the completion record).
-    /// If the lockfile cannot be opened (no App Group container in tests, etc.)
-    /// the body still runs — actor serialization at least preserves single-process
-    /// correctness.
-    private func withFileLock<T>(_ body: () -> T) -> T {
-        guard let lockURL else { return body() }
-        let lockFD = open(lockURL.path, O_RDWR | O_CREAT, 0o644)
+    /// Cross-process exclusion for mutating ops. The lockfile is created lazily
+    /// next to the queue JSON. Without the lock, the extension's append could
+    /// load `[A,B]`, the main app could load+complete A and write `[B]`, then
+    /// the extension persists its stale `[A,B,C]` — silently reviving the
+    /// completed item.
+    ///
+    /// Fail-closed: if the lockfile cannot be opened or `flock` fails, the body
+    /// is **not** executed. Dropping a write is preferable to corrupting the
+    /// on-disk state by running unlocked.
+    private func withWriteLock(_ body: () -> Void) {
+        guard let lockFD = acquireExclusiveLock() else { return }
+        defer { releaseLock(lockFD) }
+        body()
+    }
+
+    /// Read variant. On lock failure the body still runs unlocked — readers can
+    /// tolerate a slightly stale snapshot, and `.atomic` writes guarantee they
+    /// never see a half-written file. The lock just keeps readers from observing
+    /// state that a concurrent writer is about to overwrite anyway.
+    private func withReadLock<T>(_ body: () -> T) -> T {
+        guard let lockFD = acquireExclusiveLock() else { return body() }
+        defer { releaseLock(lockFD) }
+        return body()
+    }
+
+    /// Opens the sidecar lockfile with `O_CLOEXEC` (so the fd does not leak into
+    /// any child process across `exec`) and calls `flock(LOCK_EX)`. Returns the
+    /// fd on success, or `nil` on any failure (caller decides whether that means
+    /// skip-the-write or run-unlocked).
+    private func acquireExclusiveLock() -> Int32? {
+        guard let lockURL else { return nil }
+        let lockFD = open(lockURL.path, O_RDWR | O_CREAT | O_CLOEXEC, 0o644)
         guard lockFD >= 0 else {
             queueLogger.error(
                 "Queue.lock: open failed errno=\(errno, privacy: .public) path=\(lockURL.path, privacy: .public)"
             )
-            return body()
+            return nil
         }
-        defer { close(lockFD) }
         if flock(lockFD, LOCK_EX) != 0 {
             queueLogger.error("Queue.lock: flock(LOCK_EX) failed errno=\(errno, privacy: .public)")
-            return body()
+            close(lockFD)
+            return nil
         }
-        defer { _ = flock(lockFD, LOCK_UN) }
-        return body()
+        return lockFD
+    }
+
+    private func releaseLock(_ lockFD: Int32) {
+        _ = flock(lockFD, LOCK_UN)
+        close(lockFD)
     }
 }
