@@ -1234,6 +1234,7 @@
 			mainGroup = D54775BA2B57181D00DABCD4;
 			packageReferences = (
 				ABCDEF012B57203A00000001 /* XCLocalSwiftPackageReference "DS3Lib" */,
+				ABCDEF012B57203A00000010 /* XCLocalSwiftPackageReference "DS3Thumbnails" */,
 			);
 			productRefGroup = D54775C42B57181D00DABCD4 /* Products */;
 			projectDirPath = "";
@@ -2189,17 +2190,21 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = DS3Lib;
 		};
+		ABCDEF012B57203A00000010 /* XCLocalSwiftPackageReference "DS3Thumbnails" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = DS3Thumbnails;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		973E24C04E44F7378078B4BD /* DS3ThumbnailRendering */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = ABCDEF012B57203A00000001 /* XCLocalSwiftPackageReference "DS3Lib" */;
+			package = ABCDEF012B57203A00000010 /* XCLocalSwiftPackageReference "DS3Thumbnails" */;
 			productName = DS3ThumbnailRendering;
 		};
 		9FE491E1AC061DE8F6F88CD7 /* DS3ThumbnailQueue */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = ABCDEF012B57203A00000001 /* XCLocalSwiftPackageReference "DS3Lib" */;
+			package = ABCDEF012B57203A00000010 /* XCLocalSwiftPackageReference "DS3Thumbnails" */;
 			productName = DS3ThumbnailQueue;
 		};
 		ABCDEF012B57203A00000002 /* DS3Lib */ = {
