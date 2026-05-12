@@ -25,6 +25,9 @@ final class S3ItemWireKeyTests: XCTestCase {
         _ = folder.wireKey
         XCTAssertEqual(folder.itemIdentifier.rawValue, "prefix/keep/")
         XCTAssertTrue(folder.isFolder)
+        // Parent resolution must still see the folder under the drive prefix
+        // (real invariant — not just identifier text equality).
+        XCTAssertEqual(folder.parentItemIdentifier, .rootContainer)
     }
 
     func testWireKeyForNestedFolder() {

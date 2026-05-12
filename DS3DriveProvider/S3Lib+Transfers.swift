@@ -189,7 +189,9 @@ extension S3Lib {
         withProgress progress: Progress? = nil
     ) async throws -> String? {
         // Phase A: folder PUTs target the hidden .ds3keep marker; files keep
-        // their identifier key. See `S3Item.wireKey`.
+        // their identifier key. See `S3Item.wireKey`. Folders never go multipart
+        // (zero bytes < 5MB threshold), so putS3ItemMultipart stays on the
+        // identifier key.
         let key = s3Item.wireKey
         let size: Int64
 
