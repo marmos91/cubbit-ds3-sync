@@ -157,6 +157,25 @@ public enum S3PathUtils {
         return parent + filename
     }
 
+    // MARK: - DS3Keep Folder Marker
+
+    /// Returns true if the key is a `.ds3keep` folder marker (final path
+    /// segment equals `markerFileName`). The marker is hidden from
+    /// user-visible enumerations via `S3KeyFilter.isUserVisible`.
+    public static func isDS3KeepMarkerKey(_ key: String) -> Bool {
+        let marker = DefaultSettings.S3.markerFileName
+        if key == marker { return true }
+        return key.hasSuffix(String(DefaultSettings.S3.delimiter) + marker)
+    }
+
+    /// Computes the `.ds3keep` marker key for a folder key.
+    /// Appends the delimiter if `folderKey` does not already end with one.
+    public static func markerKey(forFolderKey folderKey: String) -> String {
+        let delimiter = String(DefaultSettings.S3.delimiter)
+        let normalized = folderKey.hasSuffix(delimiter) ? folderKey : folderKey + delimiter
+        return normalized + DefaultSettings.S3.markerFileName
+    }
+
     /// Suffix-based allow-list for raster image formats Phase 13 will generate thumbnails for.
     /// MUST agree with the platform renderer's UTI allow-list (e.g. `ThumbnailRenderer`
     /// in the `DS3ThumbnailRendering` product / `ThumbnailRendering` module) — both gate the same set.

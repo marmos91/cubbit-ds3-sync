@@ -210,6 +210,12 @@ public enum DefaultSettings {
         /// S3 key prefix used for the thumbnails folder inside each drive's prefix.
         public static let thumbnailsPrefix = ".thumbnails/"
 
+        /// Hidden marker filename used to materialize an empty folder on S3.
+        /// Folder create PUTs `<folder>/.ds3keep` (zero bytes) instead of the
+        /// legacy zero-byte `<folder>/` placeholder. The marker is hidden from
+        /// user enumerations via `S3KeyFilter.isUserVisible`. Phase A.
+        public static let markerFileName = ".ds3keep"
+
         /// Maximum long-edge dimension for generated thumbnails (pixels).
         public static let thumbnailMaxDimension = 512
 
