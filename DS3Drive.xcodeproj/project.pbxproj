@@ -204,6 +204,7 @@
 		F75002765637761956B1A1A7 /* IOSAppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 614D568B5F5473C487A2AF1A /* IOSAppRootView.swift */; };
 		F925913B1F8DAB84DB7C0A4D /* DS3ThumbnailRendering in Frameworks */ = {isa = PBXBuildFile; productRef = 973E24C04E44F7378078B4BD /* DS3ThumbnailRendering */; };
 		FCB705EB41FEBBE14B166EA4 /* S3ItemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 154C907172E95FD06C8615BD /* S3ItemTests.swift */; };
+		A1D53EEF01000000A1D53EEF /* S3ItemWireKeyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D53EEE01000000A1D53EEE /* S3ItemWireKeyTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -281,6 +282,7 @@
 		0EFDB9DD618CCBAF1879D46E /* DS3DriveProviderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DS3DriveProviderTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0F291137750247769947C80E /* ThumbnailBackfillTaskHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThumbnailBackfillTaskHandler.swift; sourceTree = "<group>"; };
 		154C907172E95FD06C8615BD /* S3ItemTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = S3ItemTests.swift; sourceTree = "<group>"; };
+		A1D53EEE01000000A1D53EEE /* S3ItemWireKeyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = S3ItemWireKeyTests.swift; sourceTree = "<group>"; };
 		1823D7B17115B90E2FD9181D /* IOSSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSSettingsView.swift; sourceTree = "<group>"; };
 		2C71C4FFADB8DDE9EC58F5E2 /* SyncSetupViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncSetupViewModelTests.swift; sourceTree = "<group>"; };
 		39439872734512266C6F7F51 /* IOSMainTabView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSMainTabView.swift; sourceTree = "<group>"; };
@@ -683,6 +685,7 @@
 			children = (
 				496BF81D5E82D003EAE34C62 /* S3EnumeratorTests.swift */,
 				154C907172E95FD06C8615BD /* S3ItemTests.swift */,
+				A1D53EEE01000000A1D53EEE /* S3ItemWireKeyTests.swift */,
 				A130601301000000A1306013 /* ThumbnailFetchLimiterTests.swift */,
 				A132010301000000A1320103 /* ThumbnailFallbackLimiterTests.swift */,
 				A141010301000000A1410103 /* ThumbnailUploadLimiterTests.swift */,
@@ -1408,6 +1411,7 @@
 				DF9BD918ADDC4D8FA46F2445 /* TrashS3Enumerator.swift in Sources */,
 				D85CF5F485CD7C6EF799921B /* S3EnumeratorTests.swift in Sources */,
 				FCB705EB41FEBBE14B166EA4 /* S3ItemTests.swift in Sources */,
+				A1D53EEF01000000A1D53EEF /* S3ItemWireKeyTests.swift in Sources */,
 				7FE55AB1B1E1D9BE5865060E /* TestFixtures.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
