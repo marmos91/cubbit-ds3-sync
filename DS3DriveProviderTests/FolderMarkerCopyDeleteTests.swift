@@ -24,6 +24,7 @@ final class FolderMarkerCopyDeleteTests: XCTestCase {
         )
         XCTAssertEqual(mock.copiedFrom, "prefix/src/.ds3keep")
         XCTAssertEqual(mock.copiedTo, "prefix/dst/.ds3keep")
+        XCTAssertEqual(mock.copiedBucket, "bucket")
         XCTAssertNil(mock.putKey, "PUT must not be issued when copy succeeded")
     }
 
@@ -59,8 +60,32 @@ final class FolderMarkerCopyDeleteTests: XCTestCase {
                 logger: logger()
             )
             XCTFail("Expected non-NotFound error to propagate")
-        } catch {
+        } catch let error as NSError {
+            XCTAssertEqual(error.domain, "S3", "Original error domain must survive")
+            XCTAssertEqual(error.code, 500, "Original error code must survive")
             XCTAssertNil(mock.putKey, "PUT must not be issued on non-NotFound error")
+        }
+    }
+
+    func testFallbackPutFailurePropagates() async {
+        let mock = MarkerCopyMockS3Client()
+        mock.copyObjectError = S3ErrorType.noSuchKey
+        mock.putObjectError = NSError(
+            domain: "S3", code: 403,
+            userInfo: [NSLocalizedDescriptionKey: "AccessDenied"]
+        )
+        do {
+            try await materializeEmptyFolderMarker(
+                sourcePrefix: "prefix/src/",
+                destinationPrefix: "prefix/dst/",
+                bucket: "bucket",
+                client: mock,
+                logger: logger()
+            )
+            XCTFail("Expected PUT failure to propagate after copy NotFound")
+        } catch let error as NSError {
+            XCTAssertEqual(error.domain, "S3")
+            XCTAssertEqual(error.code, 403)
         }
     }
 }
@@ -72,6 +97,7 @@ final class FolderMarkerCopyDeleteTests: XCTestCase {
 /// methods stubbed to throw or return empty — see `HookMockS3Client` in
 /// `UploadHookTests.swift` for the canonical stub list.
 final class MarkerCopyMockS3Client: DS3S3ClientProtocol, @unchecked Sendable {
+    var copiedBucket: String?
     var copiedFrom: String?
     var copiedTo: String?
     var copyObjectError: Error?
@@ -104,10 +130,11 @@ final class MarkerCopyMockS3Client: DS3S3ClientProtocol, @unchecked Sendable {
     }
 
     func copyObject(
-        bucket _: String, sourceKey: String,
+        bucket: String, sourceKey: String,
         destinationKey: String, metadata _: [String: String]?
     ) async throws {
         if let copyObjectError { throw copyObjectError }
+        copiedBucket = bucket
         copiedFrom = sourceKey
         copiedTo = destinationKey
     }
