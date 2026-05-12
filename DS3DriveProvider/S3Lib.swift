@@ -395,9 +395,16 @@ actor S3Lib {
         } while continuationToken != nil
 
         if items.isEmpty {
-            self.logger.debug("Copying enclosing folder \(sourcePrefix, privacy: .public)")
-            let newKey = s3Item.identifier.rawValue.replacingOccurrences(of: sourcePrefix, with: destinationPrefix)
-            try await self.copyS3Item(s3Item, toKey: newKey, withProgress: progress, force: true)
+            // Phase A: an empty source folder has at most a `.ds3keep` marker.
+            // Copy it to the destination, or PUT a fresh marker if the source
+            // has none (legacy `<folder>/` placeholder or fresh-empty folder).
+            try await materializeEmptyFolderMarker(
+                sourcePrefix: sourcePrefix,
+                destinationPrefix: destinationPrefix,
+                bucket: s3Item.drive.syncAnchor.bucket.name,
+                client: self.client,
+                logger: self.logger
+            )
         }
     }
 }
