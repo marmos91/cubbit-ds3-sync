@@ -250,9 +250,29 @@
             do {
                 _ = try await s3Client.getObject(bucket: bucket, key: item.s3Key, toFile: tempURL)
             } catch is CancellationError {
-                // Drain task cancelled (scenePhase → background). Don't burn an
-                // attempt — the item should retry on next foreground tick.
-                logger.info("Backfill: download cancelled for \(item.s3Key, privacy: .public) — leaving in queue")
+                // Distinguish outer-task cancel from in-flight request cancel.
+                // Outer cancel (scenePhase → background): leave item untouched,
+                // drain loop will exit on the `while !Task.isCancelled` check.
+                // In-flight cancel while drain still alive (Soto/NIO stream
+                // reset, GOAWAY, credential rotation): without progress, the
+                // queue redelivers the same key on the very next iteration
+                // and we spin. Bump attempts so the item poisons after
+                // `maxAttempts`, rebuild the cached client so the next try
+                // gets a fresh NIO loop + connection pool, and breathe for
+                // 500ms to avoid log/CPU churn.
+                if Task.isCancelled {
+                    logger.info(
+                        "Backfill: download cancelled (outer task) for \(item.s3Key, privacy: .public)"
+                    )
+                    return
+                }
+                logger.info(
+                    // swiftlint:disable:next line_length
+                    "Backfill: download cancelled (in-flight) for \(item.s3Key, privacy: .public) — rebuilding client"
+                )
+                invalidateS3Client(for: drive.id)
+                await queue.fail(item)
+                try? await Task.sleep(for: .milliseconds(500))
                 return
             } catch {
                 logger.error(
@@ -294,7 +314,22 @@
                     bucket: bucket, key: thumbKey, data: jpegBytes, sourceETag: nil
                 )
             } catch is CancellationError {
-                logger.info("Backfill: PUT cancelled for \(thumbKey, privacy: .public) — leaving in queue")
+                // Same rationale as the download cancel path above: if the
+                // outer drain task is still alive, the queue would redeliver
+                // this key on the next iteration and tight-loop. Bump
+                // attempts + rebuild client + backoff to break the spin.
+                if Task.isCancelled {
+                    logger.info(
+                        "Backfill: PUT cancelled (outer task) for \(thumbKey, privacy: .public)"
+                    )
+                    return
+                }
+                logger.info(
+                    "Backfill: PUT cancelled (in-flight) for \(thumbKey, privacy: .public) — rebuilding client"
+                )
+                invalidateS3Client(for: drive.id)
+                await queue.fail(item)
+                try? await Task.sleep(for: .milliseconds(500))
                 return
             } catch {
                 logger.error(
