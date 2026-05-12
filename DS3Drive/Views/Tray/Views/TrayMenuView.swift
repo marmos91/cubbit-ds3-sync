@@ -254,8 +254,7 @@ struct TrayMenuView: View {
             // matches the per-drive rows and the menu bar icon (Gap 15).
             menuFooter(
                 status: ds3DriveManager.aggregateAppStatus.toString(),
-                aggregateStatus: ds3DriveManager.aggregateAppStatus,
-                embedSpeed: true
+                aggregateStatus: ds3DriveManager.aggregateAppStatus
             )
         }
     }
@@ -356,8 +355,7 @@ struct TrayMenuView: View {
 
     private func menuFooter(
         status: String,
-        aggregateStatus: AppStatus = .idle,
-        embedSpeed: Bool = false
+        aggregateStatus: AppStatus = .idle
     ) -> some View {
         Group {
             Spacer()
@@ -367,8 +365,7 @@ struct TrayMenuView: View {
                 build: DefaultSettings.appBuild,
                 updateAvailable: updateManager.updateAvailable,
                 latestVersion: updateManager.latestVersion,
-                aggregateStatus: aggregateStatus,
-                driveViewModels: embedSpeed ? driveViewModels : []
+                aggregateStatus: aggregateStatus
             )
         }
     }

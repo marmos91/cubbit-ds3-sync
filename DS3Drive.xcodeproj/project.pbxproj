@@ -64,7 +64,6 @@
 		A10503052F6500000042AD93 /* GeneralTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10503042F6500000042AD93 /* GeneralTab.swift */; };
 		A10503072F6500000042AD93 /* AccountTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10503062F6500000042AD93 /* AccountTab.swift */; };
 		A10503092F6500000042AD93 /* SyncTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10503082F6500000042AD93 /* SyncTab.swift */; };
-		A10504012F6500000042AD93 /* SpeedSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10504002F6500000042AD93 /* SpeedSummaryView.swift */; };
 		A10504032F6500000042AD93 /* RecentFilesPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10504022F6500000042AD93 /* RecentFilesPanel.swift */; };
 		A10510010001000000000010 /* ConnectionTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10510020001000000000010 /* ConnectionTab.swift */; };
 		A10517010000000000000001 /* Figtree-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10517000000000000000001 /* Figtree-Regular.ttf */; };
@@ -320,7 +319,6 @@
 		A10503042F6500000042AD93 /* GeneralTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralTab.swift; sourceTree = "<group>"; };
 		A10503062F6500000042AD93 /* AccountTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountTab.swift; sourceTree = "<group>"; };
 		A10503082F6500000042AD93 /* SyncTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncTab.swift; sourceTree = "<group>"; };
-		A10504002F6500000042AD93 /* SpeedSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedSummaryView.swift; sourceTree = "<group>"; };
 		A10504022F6500000042AD93 /* RecentFilesPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFilesPanel.swift; sourceTree = "<group>"; };
 		A10510020001000000000010 /* ConnectionTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionTab.swift; sourceTree = "<group>"; };
 		A10517000000000000000001 /* Figtree-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Figtree-Regular.ttf"; sourceTree = "<group>"; };
@@ -852,7 +850,6 @@
 				A10518B20000000000000002 /* TrayDriveGearMenu.swift */,
 				D5A221BE2B571FED00F1413B /* TrayMenuItem.swift */,
 				D5A221BF2B571FED00F1413B /* TrayMenuFooterView.swift */,
-				A10504002F6500000042AD93 /* SpeedSummaryView.swift */,
 				A10504022F6500000042AD93 /* RecentFilesPanel.swift */,
 				A10518B10000000000000004 /* EmptyDrivesHint.swift */,
 			);
@@ -1481,7 +1478,6 @@
 				A10501032F6500000042AD93 /* DS3Typography.swift in Sources */,
 				A10501052F6500000042AD93 /* DS3Spacing.swift in Sources */,
 				A10501072F6500000042AD93 /* ShimmerModifier.swift in Sources */,
-				A10504012F6500000042AD93 /* SpeedSummaryView.swift in Sources */,
 				A10504032F6500000042AD93 /* RecentFilesPanel.swift in Sources */,
 				A1D31EBB2F6500000042AD93 /* FloatingPanel.swift in Sources */,
 			);
