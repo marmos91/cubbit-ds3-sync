@@ -64,7 +64,7 @@ final class DS3AuthenticationTests: XCTestCase {
         XCTAssertNil(auth.account)
     }
 
-    func testLogoutClearsState() throws {
+    func testLogoutClearsState() async throws {
         let token = try TestHelpers.makeToken(expiringAt: Date().addingTimeInterval(3600))
         let session = AccountSession(token: token, refreshToken: "refresh")
         let account = Account(
@@ -78,24 +78,24 @@ final class DS3AuthenticationTests: XCTestCase {
         let auth = DS3Authentication(accountSession: session, account: account, isLogged: true)
         XCTAssertTrue(auth.isLogged)
 
-        auth.logout()
+        await auth.logout()
 
         XCTAssertFalse(auth.isLogged)
         XCTAssertNil(auth.accountSession)
         XCTAssertNil(auth.account)
     }
 
-    func testLogoutWhenAlreadyLoggedOutIsNoOp() {
+    func testLogoutWhenAlreadyLoggedOutIsNoOp() async {
         let auth = DS3Authentication()
         XCTAssertFalse(auth.isLogged)
 
         // Should not crash
-        auth.logout()
+        await auth.logout()
 
         XCTAssertFalse(auth.isLogged)
     }
 
-    func testLogoutDeletesFilesFromInjectedSharedData() throws {
+    func testLogoutDeletesFilesFromInjectedSharedData() async throws {
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
@@ -128,11 +128,52 @@ final class DS3AuthenticationTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: accountFile.path), "account should exist before logout")
         XCTAssertTrue(FileManager.default.fileExists(atPath: apiKeysFile.path), "apiKeys should exist before logout")
 
-        auth.logout()
+        await auth.logout()
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: sessionFile.path), "session should be deleted after logout")
         XCTAssertFalse(FileManager.default.fileExists(atPath: accountFile.path), "account should be deleted after logout")
         XCTAssertFalse(FileManager.default.fileExists(atPath: apiKeysFile.path), "apiKeys should be deleted after logout")
+    }
+
+    /// Regression: logout must also clear drives.json. Leaving drive entries
+    /// behind after credentials are wiped creates a `drives.json` ↔ `credentials.json`
+    /// mismatch — the extension can construct the drive but fails to build a
+    /// `DS3Client` because the matching API key is gone, entering a fileproviderd
+    /// crash loop at next launch.
+    func testLogoutDeletesDrivesJSON() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let sharedData = SharedData(testContainerURL: tempDir)
+        let token = try TestHelpers.makeToken(expiringAt: Date().addingTimeInterval(3600))
+        let session = AccountSession(token: token, refreshToken: "refresh")
+        let account = Account(
+            id: "acc-1", firstName: "Test", lastName: "User",
+            isInternal: false, isBanned: false, createdAt: "2023-01-01",
+            maxAllowedProjects: 5,
+            emails: [], isTwoFactorEnabled: false, tenantId: "t-1",
+            endpointGateway: "https://s3.cubbit.eu", authProvider: "cubbit"
+        )
+
+        let auth = DS3Authentication(
+            accountSession: session, account: account,
+            isLogged: true, sharedData: sharedData
+        )
+        try auth.persist()
+        try sharedData.persistDS3APIKeys([])
+        try sharedData.persistDS3Drives(ds3Drives: [])
+
+        let drivesFile = tempDir.appendingPathComponent(DefaultSettings.FileNames.drivesFileName)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: drivesFile.path), "drives.json should exist before logout")
+
+        await auth.logout()
+
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: drivesFile.path),
+            "drives.json must be deleted on logout to keep the credentials↔drives invariant"
+        )
     }
 
     // MARK: - shouldRefreshToken

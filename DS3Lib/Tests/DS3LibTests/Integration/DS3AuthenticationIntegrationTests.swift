@@ -33,7 +33,7 @@ final class DS3AuthenticationIntegrationTests: XCTestCase {
         XCTAssertFalse(auth.accountSession!.token.token.isEmpty)
         XCTAssertFalse(auth.accountSession!.refreshToken.isEmpty)
 
-        auth.logout()
+        await auth.logout()
     }
 
     func testLoginWithInvalidPassword() async throws {
@@ -83,7 +83,7 @@ final class DS3AuthenticationIntegrationTests: XCTestCase {
         XCTAssertFalse(account.emails.isEmpty)
         XCTAssertFalse(account.endpointGateway.isEmpty)
 
-        auth.logout()
+        await auth.logout()
     }
 
     // MARK: - Token Refresh
@@ -109,7 +109,7 @@ final class DS3AuthenticationIntegrationTests: XCTestCase {
         // The token may or may not change, but the session should remain valid
         _ = originalToken
 
-        auth.logout()
+        await auth.logout()
     }
 
     // MARK: - Logout
@@ -123,7 +123,7 @@ final class DS3AuthenticationIntegrationTests: XCTestCase {
         )
         XCTAssertTrue(auth.isLogged)
 
-        auth.logout()
+        await auth.logout()
 
         XCTAssertFalse(auth.isLogged)
         XCTAssertNil(auth.accountSession)
@@ -154,7 +154,7 @@ final class DS3AuthenticationIntegrationTests: XCTestCase {
             }
         }
 
-        auth.logout()
+        await auth.logout()
     }
 
     // MARK: - Challenge

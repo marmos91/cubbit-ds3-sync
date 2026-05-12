@@ -558,7 +558,7 @@
         func performLogout() async {
             isLoggingOut = true
             try? await ds3DriveManager.cleanFileProvider()
-            ds3Authentication.logout()
+            await ds3Authentication.logout(driveManager: ds3DriveManager)
             isLoggingOut = false
         }
 

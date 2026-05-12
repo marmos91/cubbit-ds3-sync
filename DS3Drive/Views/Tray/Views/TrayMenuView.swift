@@ -417,21 +417,14 @@ struct TrayMenuView: View {
             $0.identifier?.rawValue.hasPrefix("io.cubbit.DS3Drive.main") == true && $0.isVisible
         }
 
-        // Disconnect drives FIRST (while credentials still exist) so the extension
-        // can handle cleanup gracefully, then delete credentials.
+        // `logout(driveManager:)` disconnects drives FIRST (while credentials still
+        // exist) so the extension can handle cleanup gracefully, then clears
+        // credentials and drives.json — keeping the invariant that every drive
+        // in drives.json has a matching key in credentials.json.
         Task {
-            do {
-                try await ds3DriveManager.disconnectAll()
-            } catch {
-                logger
-                    .error(
-                        "Failed to disconnect drives during sign out: \(error.localizedDescription, privacy: .public)"
-                    )
-            }
+            await ds3Authentication.logout(driveManager: ds3DriveManager)
 
             await MainActor.run {
-                ds3Authentication.logout()
-
                 if !mainWindowExists {
                     openWindow(id: "io.cubbit.DS3Drive.main")
                 }

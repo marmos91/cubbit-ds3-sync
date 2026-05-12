@@ -74,7 +74,7 @@ class DS3IntegrationTestCase: XCTestCase {
     }
 
     override func tearDown() async throws {
-        authentication?.logout()
+        await authentication?.logout()
         authentication = nil
         urls = nil
         if let tempContainerURL {

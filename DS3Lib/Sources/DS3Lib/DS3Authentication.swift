@@ -213,7 +213,7 @@ public final class DS3Authentication: @unchecked Sendable {
                         // return a new access token. Clear local session so the UI routes
                         // the user back to login, then exit the timer.
                         self.logger.error("Refresh token rejected by server — forcing logout")
-                        self.logout()
+                        await self.logout()
                         return
                     } catch {
                         self.logger.error("Proactive token refresh failed: \(error.localizedDescription)")
@@ -288,11 +288,28 @@ public final class DS3Authentication: @unchecked Sendable {
         self.account = try await self.accountInfo()
     }
 
-    /// Logs out from Cubbit's IAM service
-    public func logout() {
+    /// Logs out from Cubbit's IAM service.
+    ///
+    /// Pass a `DS3DriveManager` so the active File Provider domains are
+    /// disconnected **before** credentials are deleted — the extension needs
+    /// valid API keys to handle the cleanup hand-off. Callers that omit it
+    /// (background timer paths that don't hold a reference) still get a clean
+    /// on-disk state: `deleteFromDisk()` clears `drives.json` so the next launch
+    /// reconciles to an empty set.
+    public func logout(driveManager: DS3DriveManager? = nil) async {
         guard self.isLogged else { return }
 
         self.logger.debug("Logging out...")
+
+        if let driveManager {
+            do {
+                try await driveManager.disconnectAll()
+            } catch {
+                self.logger.warning(
+                    "Drive disconnect during logout failed: \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
 
         self.accountSession = nil
         self.account = nil
@@ -493,15 +510,22 @@ public final class DS3Authentication: @unchecked Sendable {
         }
     }
 
-    /// Deletes all persisted authentication data from disk.
-    /// Does NOT delete drives.json — drive config is owned by DS3DriveManager.
-    /// Callers that want a full sign-out should call DS3DriveManager.disconnectAll()
-    /// before this (TrayMenuView.signOut already does this).
+    /// Deletes all persisted authentication data from disk, including the drive
+    /// list. The drive list goes too because the credentials it depends on are
+    /// being deleted in the same call: keeping a `drives.json` entry whose
+    /// matching `DS3ApiKey` no longer exists in `credentials.json` puts the
+    /// extension into a crash loop at next launch (it can construct the drive
+    /// from disk but cannot build a `DS3Client` without the key).
+    ///
+    /// Callers that own a `DS3DriveManager` should prefer `logout(driveManager:)`
+    /// so the File Provider domains are removed cleanly — this method only
+    /// clears the on-disk record and does not deregister NSFileProviderDomains.
     public func deleteFromDisk() throws {
         UserDefaults.standard.removeObject(forKey: DefaultSettings.UserDefaultsKeys.tutorial)
         try sharedData.deleteAccountSessionFromPersistence()
         try sharedData.deleteAccountFromPersistence()
         try sharedData.deleteDS3APIKeysFromPersistence()
+        try? sharedData.deleteDS3DrivesFromPersistence()
     }
 
     // MARK: - Account

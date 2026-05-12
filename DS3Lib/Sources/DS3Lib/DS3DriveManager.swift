@@ -265,6 +265,54 @@ public final class DS3DriveManager: @unchecked Sendable {
         try SharedData.default().persistDS3Drives(ds3Drives: self.drives)
     }
 
+    /// Repairs the invariant `every drive in drives.json has a matching DS3ApiKey
+    /// in credentials.json`. If credentials.json went missing (e.g. a partial
+    /// cleanup, an aborted signout, switching between builds) the File Provider
+    /// extension cannot construct its `DS3Client` and enters a crash loop —
+    /// every call from `fileproviderd` triggers `Extension init failed: The file
+    /// "credentials.json" couldn't be opened`.
+    ///
+    /// For each drive whose API key is missing locally, this method asks the
+    /// `DS3SDK` to load-or-create the key (re-fetching from the IAM service and
+    /// reconciling with the remote list). On success, `credentials.json` is
+    /// rewritten and the extension's next init succeeds. Drives whose
+    /// reconciliation fails (no network, IAM rejected, project deleted) are
+    /// left in the list — the user will still see the "Signed Out" UI for
+    /// those domains and can re-run setup explicitly.
+    ///
+    /// Safe to call at every app launch: it short-circuits when the local key
+    /// is already present.
+    public func repairCredentials(authentication: DS3Authentication) async {
+        let sharedData = SharedData.default()
+        let sdk = DS3SDK(withAuthentication: authentication)
+        for drive in self.drives {
+            let user = drive.syncAnchor.IAMUser
+            let projectName = drive.syncAnchor.project.name
+            let hasLocalKey = (try? sharedData.loadDS3APIKeyFromPersistence(
+                forUser: user,
+                projectName: projectName
+            )) != nil
+            guard !hasLocalKey else { continue }
+            self.logger.warning(
+                "Repairing missing credentials for drive \(drive.name, privacy: .public)"
+            )
+            do {
+                _ = try await sdk.loadOrCreateDS3APIKeys(
+                    forIAMUser: user,
+                    ds3ProjectName: projectName
+                )
+                self.logger.info(
+                    "Credentials repaired for drive \(drive.name, privacy: .public)"
+                )
+            } catch {
+                let errorMessage = error.localizedDescription
+                self.logger.error(
+                    "Credential repair failed for drive \(drive.name, privacy: .public): \(errorMessage, privacy: .public)"
+                )
+            }
+        }
+    }
+
     /// Loads the drives from disk or creates a new empty array
     /// - Returns: a list of DS3Drives, if it can load them from disk, otherwise a new empty array
     public static func loadFromDiskOrCreateNew() -> [DS3Drive] {
