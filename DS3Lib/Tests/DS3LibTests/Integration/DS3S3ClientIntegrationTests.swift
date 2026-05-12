@@ -319,12 +319,24 @@ final class DS3S3ClientIntegrationTests: DS3S3IntegrationTestCase {
 
     // MARK: - Folder Operations
 
-    func testCreateFolderMarker() async throws {
-        let key = testPrefix + "new-folder/"
-        _ = try await s3Client.putObject(bucket: bucket, key: key, fileURL: nil)
+    func testCreateDS3KeepMarker() async throws {
+        let folderKey = testPrefix + "new-folder/"
+        let markerKey = S3PathUtils.markerKey(forFolderKey: folderKey)
+        _ = try await s3Client.putObject(bucket: bucket, key: markerKey, fileURL: nil)
 
-        let metadata = try await s3Client.headObject(bucket: bucket, key: key)
+        let metadata = try await s3Client.headObject(bucket: bucket, key: markerKey)
         XCTAssertEqual(metadata.contentLength, 0)
+
+        // The folder prefix must surface via CommonPrefix on a delimited list
+        // because the marker object sits inside it. This is the load-bearing
+        // property Phase A relies on for folder visibility.
+        let listing = try await s3Client.listObjects(
+            bucket: bucket, prefix: testPrefix, delimiter: "/"
+        )
+        XCTAssertTrue(
+            listing.commonPrefixes.contains(folderKey),
+            "Marker inside <folder> must surface <folder>/ as a CommonPrefix; got: \(listing.commonPrefixes)"
+        )
     }
 
     // MARK: - Special Characters in Keys
