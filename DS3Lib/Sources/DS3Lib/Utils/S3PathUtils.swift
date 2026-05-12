@@ -162,6 +162,9 @@ public enum S3PathUtils {
     /// Returns true if the key is a `.ds3keep` folder marker (final path
     /// segment equals `markerFileName`). The marker is hidden from
     /// user-visible enumerations via `S3KeyFilter.isUserVisible`.
+    /// The marker is identity-bearing on its own — its scope is the folder it
+    /// lives in, not a drive-wide prefix. No `drivePrefix` parameter is needed
+    /// (unlike `isThumbnailKey` / `isTrashedKey`).
     public static func isDS3KeepMarkerKey(_ key: String) -> Bool {
         let marker = DefaultSettings.S3.markerFileName
         if key == marker { return true }
@@ -170,6 +173,9 @@ public enum S3PathUtils {
 
     /// Computes the `.ds3keep` marker key for a folder key.
     /// Appends the delimiter if `folderKey` does not already end with one.
+    /// Example: "prefix/photos" or "prefix/photos/" → "prefix/photos/.ds3keep"
+    /// - Parameter folderKey: The folder's S3 key, with or without trailing delimiter.
+    /// - Returns: The marker key inside that folder.
     public static func markerKey(forFolderKey folderKey: String) -> String {
         let delimiter = String(DefaultSettings.S3.delimiter)
         let normalized = folderKey.hasSuffix(delimiter) ? folderKey : folderKey + delimiter

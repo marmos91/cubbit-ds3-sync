@@ -368,6 +368,11 @@ final class S3PathUtilsTests: XCTestCase {
         XCTAssertFalse(S3PathUtils.isDS3KeepMarkerKey("prefix/notds3keep"))
     }
 
+    func testIsDS3KeepMarkerKeyFalseForDS3KeepPrefix() {
+        // Substring at start of last segment, no leading delimiter for marker.
+        XCTAssertFalse(S3PathUtils.isDS3KeepMarkerKey("prefix/.ds3keepfoo"))
+    }
+
     func testMarkerKeyForFolder() {
         XCTAssertEqual(
             S3PathUtils.markerKey(forFolderKey: "prefix/photos/"),
