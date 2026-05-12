@@ -2,10 +2,21 @@ import ThumbnailQueue
 import XCTest
 
 final class ThumbnailRenderQueueTests: XCTestCase {
-    func testCrossProcessAppendIsVisibleToSecondInstance() async throws {
+    /// Test helper: temp queue JSON URL plus a cleanup closure that removes both
+    /// the JSON file and its `.lock` sidecar. Centralizing this prevents the
+    /// `*.json.lock` artifacts from polluting the temp directory across runs.
+    private func makeTempQueueURL() -> (url: URL, cleanup: () -> Void) {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("queue-\(UUID().uuidString).json")
-        defer { try? FileManager.default.removeItem(at: url) }
+        return (url, {
+            try? FileManager.default.removeItem(at: url)
+            try? FileManager.default.removeItem(at: url.appendingPathExtension("lock"))
+        })
+    }
+
+    func testCrossProcessAppendIsVisibleToSecondInstance() async throws {
+        let (url, cleanup) = makeTempQueueURL()
+        defer { cleanup() }
 
         let producer = ThumbnailRenderQueue(testFileURL: url)
         let consumer = ThumbnailRenderQueue(testFileURL: url)
@@ -26,9 +37,8 @@ final class ThumbnailRenderQueueTests: XCTestCase {
     }
 
     func testAppendRevivesPoisonedItemAfterCooldown() async throws {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("queue-\(UUID().uuidString).json")
-        defer { try? FileManager.default.removeItem(at: url) }
+        let (url, cleanup) = makeTempQueueURL()
+        defer { cleanup() }
 
         let queue = ThumbnailRenderQueue(testFileURL: url)
         let driveID = UUID()
@@ -49,9 +59,8 @@ final class ThumbnailRenderQueueTests: XCTestCase {
     }
 
     func testAppendDoesNotRevivePoisonedItemWithinCooldown() async throws {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("queue-\(UUID().uuidString).json")
-        defer { try? FileManager.default.removeItem(at: url) }
+        let (url, cleanup) = makeTempQueueURL()
+        defer { cleanup() }
 
         let queue = ThumbnailRenderQueue(testFileURL: url)
         let driveID = UUID()
@@ -67,10 +76,50 @@ final class ThumbnailRenderQueueTests: XCTestCase {
         XCTAssertTrue(dequeued.isEmpty, "poisoned item still within cooldown should remain poisoned")
     }
 
+    /// Regression for #152: extension's stale in-memory snapshot must not
+    /// resurrect an item the main app already completed.
+    ///
+    /// Before the flock fix, this sequence would leave A in the queue:
+    ///   ext.loadIfNeeded() -> [A]
+    ///   app.complete(A)    -> [] on disk
+    ///   ext.append(B)      -> persists [A, B] from stale snapshot
+    ///
+    /// Single-shot `async let` only proves the lock holds for one scheduling
+    /// outcome. Loop the race many times so a regression that depends on
+    /// scheduler luck is forced to manifest.
+    func testAppendDoesNotResurrectCompletedItem() async throws {
+        let iterations = 100
+        for _ in 0..<iterations {
+            let (url, cleanup) = makeTempQueueURL()
+            defer { cleanup() }
+
+            let ext = ThumbnailRenderQueue(testFileURL: url)
+            let app = ThumbnailRenderQueue(testFileURL: url)
+            let driveID = UUID()
+            let itemA = ThumbnailRenderQueueItem(driveID: driveID, s3Key: "Foo/a.JPG")
+            let itemB = ThumbnailRenderQueueItem(driveID: driveID, s3Key: "Foo/b.JPG")
+
+            // Seed disk with [A] and warm both instances' in-memory state.
+            await ext.append(itemA)
+            _ = await ext.dequeue(maxItems: 10)
+            _ = await app.dequeue(maxItems: 10)
+
+            // Race: main app completes A, extension appends B concurrently.
+            async let completeTask: Void = app.complete(itemA)
+            async let appendTask: Void = ext.append(itemB)
+            _ = await (completeTask, appendTask)
+
+            // Final state on disk must be [B]. A fresh instance ensures we read
+            // the on-disk JSON, not a cached `items` snapshot.
+            let verifier = ThumbnailRenderQueue(testFileURL: url)
+            let final = await verifier.dequeue(maxItems: 10).map(\.s3Key).sorted()
+            XCTAssertEqual(final, ["Foo/b.JPG"], "completed item must not be resurrected")
+        }
+    }
+
     func testCompleteFromOneInstanceVisibleToOther() async throws {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("queue-\(UUID().uuidString).json")
-        defer { try? FileManager.default.removeItem(at: url) }
+        let (url, cleanup) = makeTempQueueURL()
+        defer { cleanup() }
 
         let a = ThumbnailRenderQueue(testFileURL: url)
         let b = ThumbnailRenderQueue(testFileURL: url)
