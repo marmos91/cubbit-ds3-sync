@@ -93,4 +93,29 @@ final class S3KeyFilterTests: XCTestCase {
             key: "NSFileProviderTrashFooBar.txt", drivePrefix: nil
         ))
     }
+
+    // MARK: - DS3Keep Marker
+
+    func testRejectsDS3KeepMarkerInSubfolder() {
+        XCTAssertFalse(S3KeyFilter.isUserVisible(key: "prefix/photos/.ds3keep", drivePrefix: "prefix/"))
+    }
+
+    func testRejectsDS3KeepMarkerAtPrefixRoot() {
+        XCTAssertFalse(S3KeyFilter.isUserVisible(key: "prefix/.ds3keep", drivePrefix: "prefix/"))
+    }
+
+    func testRejectsDS3KeepMarkerWithNilDrivePrefix() {
+        XCTAssertFalse(S3KeyFilter.isUserVisible(key: ".ds3keep", drivePrefix: nil))
+        XCTAssertFalse(S3KeyFilter.isUserVisible(key: "photos/.ds3keep", drivePrefix: nil))
+    }
+
+    func testAllowsLookalikeFilename() {
+        XCTAssertTrue(S3KeyFilter.isUserVisible(key: "prefix/notes/my.ds3keep.txt", drivePrefix: "prefix/"))
+    }
+
+    func testStillAllowsLegacyFolderPlaceholder() {
+        // The trailing-slash placeholder remains user-visible (it surfaces as a
+        // folder via CommonPrefix). Marker filter must not regress this.
+        XCTAssertTrue(S3KeyFilter.isUserVisible(key: "prefix/photos/", drivePrefix: "prefix/"))
+    }
 }

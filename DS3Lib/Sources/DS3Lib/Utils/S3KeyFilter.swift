@@ -24,6 +24,7 @@ public enum S3KeyFilter {
     public static func isUserVisible(key: String, drivePrefix: String?) -> Bool {
         !S3PathUtils.isTrashedKey(key, drivePrefix: drivePrefix)
             && !S3PathUtils.isThumbnailKey(key, drivePrefix: drivePrefix)
+            && !S3PathUtils.isDS3KeepMarkerKey(key)
             && !isSentinelPoisonedKey(key, drivePrefix: drivePrefix)
     }
 
