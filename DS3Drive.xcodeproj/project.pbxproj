@@ -206,6 +206,9 @@
 		FCB705EB41FEBBE14B166EA4 /* S3ItemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 154C907172E95FD06C8615BD /* S3ItemTests.swift */; };
 		A1D53EEF01000000A1D53EEF /* S3ItemWireKeyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D53EEE01000000A1D53EEE /* S3ItemWireKeyTests.swift */; };
 		A1D5400101000000A1D54001 /* FolderMarkerEnumeratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D5400001000000A1D54000 /* FolderMarkerEnumeratorTests.swift */; };
+		A1D5410101000000A1D54101 /* S3LibFolderMarker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D5410001000000A1D54100 /* S3LibFolderMarker.swift */; };
+		A1D5410201000000A1D54102 /* S3LibFolderMarker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D5410001000000A1D54100 /* S3LibFolderMarker.swift */; };
+		A1D5420101000000A1D54201 /* FolderMarkerCopyDeleteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D5420001000000A1D54200 /* FolderMarkerCopyDeleteTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -285,6 +288,8 @@
 		154C907172E95FD06C8615BD /* S3ItemTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = S3ItemTests.swift; sourceTree = "<group>"; };
 		A1D53EEE01000000A1D53EEE /* S3ItemWireKeyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = S3ItemWireKeyTests.swift; sourceTree = "<group>"; };
 		A1D5400001000000A1D54000 /* FolderMarkerEnumeratorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FolderMarkerEnumeratorTests.swift; sourceTree = "<group>"; };
+		A1D5410001000000A1D54100 /* S3LibFolderMarker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = S3LibFolderMarker.swift; sourceTree = "<group>"; };
+		A1D5420001000000A1D54200 /* FolderMarkerCopyDeleteTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FolderMarkerCopyDeleteTests.swift; sourceTree = "<group>"; };
 		1823D7B17115B90E2FD9181D /* IOSSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSSettingsView.swift; sourceTree = "<group>"; };
 		2C71C4FFADB8DDE9EC58F5E2 /* SyncSetupViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncSetupViewModelTests.swift; sourceTree = "<group>"; };
 		39439872734512266C6F7F51 /* IOSMainTabView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IOSMainTabView.swift; sourceTree = "<group>"; };
@@ -689,6 +694,7 @@
 				154C907172E95FD06C8615BD /* S3ItemTests.swift */,
 				A1D53EEE01000000A1D53EEE /* S3ItemWireKeyTests.swift */,
 				A1D5400001000000A1D54000 /* FolderMarkerEnumeratorTests.swift */,
+				A1D5420001000000A1D54200 /* FolderMarkerCopyDeleteTests.swift */,
 				A130601301000000A1306013 /* ThumbnailFetchLimiterTests.swift */,
 				A132010301000000A1320103 /* ThumbnailFallbackLimiterTests.swift */,
 				A141010301000000A1410103 /* ThumbnailUploadLimiterTests.swift */,
@@ -1007,6 +1013,7 @@
 				A132010001000000A1320100 /* ThumbnailFallbackLimiter.swift */,
 				A141010001000000A1410100 /* ThumbnailUploadLimiter.swift */,
 				D540029D2B5EAEB000B54E97 /* S3Lib.swift */,
+				A1D5410001000000A1D54100 /* S3LibFolderMarker.swift */,
 				A10203032F6300000042AD93 /* WorkingSetEnumerator.swift */,
 				D5A4E0AA2B630A9800D7560B /* NotificationsManager.swift */,
 				D5A222832B5721CC00F1413B /* DS3DriveProvider.xcassets */,
@@ -1383,6 +1390,7 @@
 				00A29005A29C16FC0B76EE84 /* FileProviderExtension+Credentials.swift in Sources */,
 				ADDE1D3663E34D3A2797278B /* FileProviderExtension+CustomActions.swift in Sources */,
 				B0A1F2E3C4D5678901234567 /* PresignNotificationHelper.swift in Sources */,
+				A1D5410101000000A1D54101 /* S3LibFolderMarker.swift in Sources */,
 				37FF0E6BEF0FCD66E7FE33B2 /* FileProviderExtension+Delete.swift in Sources */,
 				940CBDCF75DFEF60358EC4C9 /* FileProviderExtension+Errors.swift in Sources */,
 				6CF01D385F9585BD7C7C9677 /* FileProviderExtension+Lifecycle.swift in Sources */,
@@ -1416,6 +1424,7 @@
 				FCB705EB41FEBBE14B166EA4 /* S3ItemTests.swift in Sources */,
 				A1D53EEF01000000A1D53EEF /* S3ItemWireKeyTests.swift in Sources */,
 				A1D5400101000000A1D54001 /* FolderMarkerEnumeratorTests.swift in Sources */,
+				A1D5420101000000A1D54201 /* FolderMarkerCopyDeleteTests.swift in Sources */,
 				7FE55AB1B1E1D9BE5865060E /* TestFixtures.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1500,6 +1509,7 @@
 				D5A222492B57211500F1413B /* FileProviderExtension.swift in Sources */,
 				CE070E323BF098B9EFD808B7 /* FileProviderExtension+CustomActions.swift in Sources */,
 				B0A1F2E3C4D5678901234568 /* PresignNotificationHelper.swift in Sources */,
+				A1D5410201000000A1D54102 /* S3LibFolderMarker.swift in Sources */,
 				EA386D36D3094AAD861680EF /* FileProviderExtension+Create.swift in Sources */,
 				AA5925C80F664603A033C348 /* FileProviderExtension+Credentials.swift in Sources */,
 				A578B1B62D014D6E9BE6EA75 /* FileProviderExtension+Delete.swift in Sources */,
