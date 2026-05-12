@@ -97,6 +97,21 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
         return identifier.rawValue
     }
 
+    /// The S3 key to use when PUTting this item to S3.
+    /// - For files, this is the identifier's raw value (the object key).
+    /// - For folders, this is the hidden `.ds3keep` marker key inside the
+    ///   folder. The identifier itself stays `<folder>/` so
+    ///   `parentItemIdentifier`, `isFolder`, etc. continue to work — only the
+    ///   on-the-wire PUT target changes. Phase A.
+    ///
+    /// Forced-trash semantics already live in `s3Key`; this property is the
+    /// equivalent boundary for the create/upload path.
+    var wireKey: String {
+        isFolder
+            ? S3PathUtils.markerKey(forFolderKey: identifier.rawValue)
+            : identifier.rawValue
+    }
+
     var parentItemIdentifier: NSFileProviderItemIdentifier {
         if identifier == .trashContainer {
             return .rootContainer

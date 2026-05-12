@@ -188,7 +188,9 @@ extension S3Lib {
         fileURL: URL? = nil,
         withProgress progress: Progress? = nil
     ) async throws -> String? {
-        let key = s3Item.itemIdentifier.rawValue
+        // Phase A: folder PUTs target the hidden .ds3keep marker; files keep
+        // their identifier key. See `S3Item.wireKey`.
+        let key = s3Item.wireKey
         let size: Int64
 
         if let fileURL {
