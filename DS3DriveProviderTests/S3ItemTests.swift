@@ -9,9 +9,12 @@ final class S3ItemTests: XCTestCase {
 
     private func makeItem(
         key: String, drive: DS3Drive? = nil, etag: String? = nil,
-        size: Int64 = 0, syncStatus: String? = nil
+        lastModified: Date? = nil, size: Int64 = 0, syncStatus: String? = nil
     ) -> S3Item {
-        ProviderTestFixtures.makeItem(key: key, drive: drive, etag: etag, size: size, syncStatus: syncStatus)
+        ProviderTestFixtures.makeItem(
+            key: key, drive: drive, etag: etag,
+            lastModified: lastModified, size: size, syncStatus: syncStatus
+        )
     }
 
     // MARK: - Identifier Mapping
@@ -133,6 +136,54 @@ final class S3ItemTests: XCTestCase {
     func testDocumentSizeForFolder() {
         let item = makeItem(key: "prefix/docs/")
         XCTAssertNil(item.documentSize, "Folders should have nil documentSize")
+    }
+
+    // MARK: - Content Modification Date
+
+    func testContentModificationDateForFile() {
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        let item = makeItem(key: "prefix/file.txt", lastModified: date)
+        XCTAssertEqual(item.contentModificationDate, date)
+    }
+
+    func testContentModificationDateForFileWithoutLastModified() {
+        let item = makeItem(key: "prefix/file.txt")
+        XCTAssertNil(item.contentModificationDate)
+    }
+
+    func testContentModificationDateForFolderWithLastModified() {
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        let item = makeItem(key: "prefix/docs/", lastModified: date)
+        XCTAssertEqual(
+            item.contentModificationDate, date,
+            "Folders with lastModified from S3 should use that date"
+        )
+    }
+
+    func testContentModificationDateForFolderWithoutLastModified() {
+        let item = makeItem(key: "prefix/docs/")
+        XCTAssertEqual(
+            item.contentModificationDate, S3Item.folderFallbackDate,
+            "Folders without lastModified should return the stable fallback date, not nil"
+        )
+    }
+
+    func testContentModificationDateForFolderIsStable() {
+        let item1 = makeItem(key: "prefix/docs/")
+        let item2 = makeItem(key: "prefix/docs/")
+        XCTAssertEqual(
+            item1.contentModificationDate,
+            item2.contentModificationDate,
+            "Folder fallback date must be identical across instances"
+        )
+    }
+
+    func testFolderFallbackDateIsCocoaReferenceDate() {
+        XCTAssertEqual(
+            S3Item.folderFallbackDate,
+            Date(timeIntervalSinceReferenceDate: 0),
+            "Fallback should be Jan 1 2001 (Cocoa reference date)"
+        )
     }
 
     // MARK: - Item Version
