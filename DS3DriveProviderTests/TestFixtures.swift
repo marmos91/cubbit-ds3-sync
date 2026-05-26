@@ -34,6 +34,7 @@ enum ProviderTestFixtures {
         key: String,
         drive: DS3Drive? = nil,
         etag: String? = nil,
+        lastModified: Date? = nil,
         size: Int64 = 0,
         syncStatus: String? = nil
     ) -> S3Item {
@@ -43,6 +44,7 @@ enum ProviderTestFixtures {
             drive: resolvedDrive,
             objectMetadata: S3Item.Metadata(
                 etag: etag,
+                lastModified: lastModified,
                 size: NSNumber(value: size),
                 syncStatus: syncStatus
             )
