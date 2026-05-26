@@ -1,28 +1,26 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: macOS App
-status: executing
-stopped_at: Phase 13.2 context gathered
-last_updated: "2026-04-28T07:47:46.195Z"
-last_activity: 2026-04-28
+milestone: v2.0.0
+milestone_name: Cross-Platform Rewrite
+status: planning
+last_updated: "2026-05-26T16:41:50.667Z"
+last_activity: 2026-05-26
 progress:
-  total_phases: 7
-  completed_phases: 3
-  total_plans: 40
-  completed_plans: 28
-  percent: 70
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: --phase (13.2) — EXECUTING
-Plan: 1 of --name
-**Milestone:** v3.1 Thumbnails
-**Status:** Executing Phase --phase
-**Last activity:** 2026-04-28
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-26 — Milestone v2.0.0 started
 
 ## Progress
 
