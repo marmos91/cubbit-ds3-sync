@@ -1,118 +1,126 @@
-# Requirements: DS3 Drive
+# Requirements: DS3 Drive v2.0.0
 
-**Defined:** 2026-04-11
-**Core Value:** Files sync reliably and transparently between the user's Mac, iPhone, iPad and Cubbit DS3, with zero friction
+**Defined:** 2026-05-26
+**Core Value:** Files sync reliably and transparently between Mac, iPhone, iPad, Windows PC and Cubbit DS3, with zero friction on every platform.
 
-## v3.1 Requirements (Thumbnails)
+## v2.0.0 Requirements
 
-Closes GitHub issue #109. Image files in Finder (macOS) and the iOS Files app show real thumbnail previews, backed by a `.thumbnails/` S3 prefix that is transparent to the user. Both macOS and iOS can independently generate thumbnails — no platform is a required peer.
+### Rust Core
 
-### Foundation & Storage
+- [ ] **CORE-01**: Cargo workspace with ds3-models, ds3-http, ds3-auth, ds3-s3, ds3-sync, ds3-ffi crates
+- [ ] **CORE-02**: User can authenticate via Rust core (challenge-response, JWT, 2FA, token refresh)
+- [ ] **CORE-03**: User can list/upload/download/delete S3 objects via Rust core (aws-sdk-s3)
+- [ ] **CORE-04**: User can perform multipart uploads (>5MB) via Rust core with progress callbacks
+- [ ] **CORE-05**: Rust core handles .ds3keep folder markers (probe, create, copy, delete)
+- [ ] **CORE-06**: Rust core computes sync diff (remote vs local tree) and generates conflict keys
+- [ ] **CORE-07**: UniFFI generates Swift XCFramework (arm64-darwin + arm64-ios + x86_64-ios-sim)
+- [ ] **CORE-08**: csbindgen generates C# P/Invoke bindings from extern "C" exports
+- [ ] **CORE-09**: Integration tests pass against real Cubbit S3 endpoint
+- [ ] **CORE-10**: FFI patterns established: session handle, panic guards, string contract, progress callbacks
 
-- [ ] **THUMB-01**: `.thumbnails/` S3 prefix is invisible to users — filtered from every enumeration code path via a centralized `S3KeyFilter.isUserVisible(key:)` in DS3Lib
-- [ ] **THUMB-02**: Drive setup refuses to enable thumbnails if the bucket has pre-existing incompatible `.thumbnails/` content (collision protection)
-- [ ] **THUMB-03**: Thumbnail S3 key layout mirrors original with `.jpg` appended, not substituted (`photos/a.heic` → `photos/.thumbnails/a.heic.jpg`)
-- [ ] **THUMB-04**: `SyncedItem` tracks per-item thumbnail status (`.notApplicable` / `.pending` / `.uploaded` / `.failed`) via Schema V3 migration
-- [ ] **THUMB-05**: Single fixed thumbnail size — 512 px long edge, JPEG quality 0.7, stored as constants in `DefaultSettings.S3`
+### Apple Swap
 
-### Generation
+- [ ] **APPLE-01**: DS3S3Client internals replaced with Rust via UniFFI (DS3S3ClientProtocol conformance)
+- [ ] **APPLE-02**: DS3Authentication internals replaced with Rust (challenge, sign, refresh, forge)
+- [ ] **APPLE-03**: DS3SDK internals replaced with Rust (projects, API keys)
+- [ ] **APPLE-04**: Soto and CryptoKit removed from DS3Lib dependencies
+- [ ] **APPLE-05**: Full test suite passes with identical FileProvider behavior
+- [ ] **APPLE-06**: Existing drives.json/credentials.json schemas read transparently (no migration needed)
 
-- [x] **THUMB-06**: macOS File Provider extension generates thumbnails inline during upload in `createItem` / `modifyItem` (fire-and-forget, decoupled from upload lifecycle — failures never propagate to user-visible file upload)
-- [ ] **THUMB-07**: iOS File Provider extension is strictly consume-only — it never calls ImageIO / CoreImage / UIImage; enforced with `#if os(macOS)` gates on the generator type
-- [ ] **THUMB-08**: Generated thumbnails correctly apply EXIF orientation so portrait iPhone photos display right-side up
-- [ ] **THUMB-09**: Generator supports raster formats: jpg, jpeg, png, heic, heif, webp, gif, tiff. Unsupported formats are silently skipped (no error, no user-visible spinner)
-- [ ] **THUMB-10**: Thumbnail PUT is always single-part (thumbnails always <500 KB — never multipart); thumbnails are written with `x-amz-meta-source-etag` and `x-amz-meta-ds3drive-thumb-version` for staleness detection and format versioning
+### Windows Shell
 
-### Consumption
+- [ ] **WIN-01**: User can log in via WinUI 3 native form (auth via Rust, credentials via DPAPI)
+- [ ] **WIN-02**: User can set up a drive via wizard (project, bucket, prefix selection)
+- [ ] **WIN-03**: Drive appears in Explorer sidebar via cfapi sync root registration
+- [ ] **WIN-04**: User can open files that hydrate on-demand (FETCH_DATA via Rust download with streaming)
+- [ ] **WIN-05**: User can save/create files that upload to S3 (NOTIFY_FILE_CLOSE_COMPLETION trigger)
+- [ ] **WIN-06**: Remote changes sync to local placeholders via periodic polling and diff
+- [ ] **WIN-07**: System tray icon shows sync status (idle/syncing/error)
+- [ ] **WIN-08**: Hydration progress shown in Explorer (CfReportProviderProgress)
+- [ ] **WIN-09**: WiX MSI installer with silent install support and auto-start
 
-- [ ] **THUMB-11**: User sees real thumbnails in Finder (macOS) and iOS Files app for image files, including cloud-only files, without triggering a full-file download
-- [ ] **THUMB-12**: Thumbnails coexist with existing sync status badges — cloud / synced / syncing / error overlays still render correctly on top of thumbnails
-- [ ] **THUMB-13**: Missing or failed thumbnails fall back gracefully to the default UTType icon — errors returned from `fetchThumbnails` are always in `NSFileProviderErrorDomain` or `NSCocoaErrorDomain`, never custom domains
-- [ ] **THUMB-14**: Concurrent thumbnail fetches are bounded (macOS 4, iOS 2) via a `ThumbnailFetchLimiter` to prevent S3 `SlowDown` under folder-browse fanout
+### Polish
 
-### Backfill & Lifecycle
+- [ ] **POL-01**: Cross-FFI logging bridges Rust tracing to os_log (Apple) and ETW (Windows)
+- [ ] **POL-02**: Rust errors map to NSFileProviderErrorDomain (Apple) and C# exceptions (Windows)
+- [ ] **POL-03**: Windows credentials stored via DPAPI (never plaintext)
+- [ ] **POL-04**: User can manage up to 3 drives on Windows (multiple cfapi sync roots)
+- [ ] **POL-05**: Auto-update mechanism on Windows (Squirrel.Windows or WiX bootstrapper)
+- [ ] **POL-06**: ARM64 Windows target in cross-compilation matrix
+- [ ] **POL-07**: Tray flyout with activity center, pause/resume, settings
+- [ ] **POL-08**: Conflict resolution on Windows (conflict copies via ds3-sync)
 
-- [x] **THUMB-15**: macOS extension backfills existing and externally-added images opportunistically during BFS enumeration passes (budgeted per pass, thermal-state gated)
-- [ ] **THUMB-16**: iOS main app backfills via `BGProcessingTask` (overnight, charging, idle) and via a foreground driver that runs while the app is in `ScenePhase.active`
-- [x] **THUMB-17**: Deleting an image cascades to delete its thumbnail (delete-after-original ordering; orphan sweep backstops failures)
-- [x] **THUMB-18**: Renaming or moving an image cascades to the thumbnail (server-side S3 copy to new key, then delete old)
-- [x] **THUMB-19**: Periodic orphan sweep removes `.thumbnails/` entries whose originals no longer exist
-- [x] **THUMB-20**: Reconciliation loop terminates — items that fail 3 times with permanent errors enter a negative cache and are counted as "done — N skipped" in UI, not "99%"
-- [x] **THUMB-21**: Thumbnail backfill respects the existing per-drive pause/resume state
-- [ ] **THUMB-22**: iOS thumbnail backfill is gated off cellular / metered connections by default (opt-in setting required to enable on cellular)
-- [x] **THUMB-23**: No eager full-bucket scan on feature launch — backfill is opportunistic; existing-content processing runs only when users browse folders or trigger the manual action
+## Future Requirements
 
-### UI Feedback & Control
+### Android (deferred)
 
-- [ ] **THUMB-25**: Settings (macOS and iOS) expose a manual "Generate thumbnails now" action for power users, with an explicit bandwidth / cost warning on first use
-- [ ] **THUMB-26**: iOS settings UI shows backfill progress and user-facing copy explaining the force-quit caveat for background generation
+- **ANDROID-01**: User can log in via Compose UI
+- **ANDROID-02**: User can browse drives via DocumentsProvider
+- **ANDROID-03**: Files sync via WorkManager background jobs
 
-> **THUMB-24 dropped** (2026-04-25 during Phase 13 discuss): macOS ships fully silent end-to-end per user decision. Terminating reconciliation (3-strike) still ships from THUMB-20 for retry-cap reasons, just without a UI surface. See `.planning/phases/13-macos-generation-consumption-lifecycle/13-CONTEXT.md` `<scope_changes>`.
+### Other (deferred)
 
-## Future Requirements (deferred beyond v3.1)
-
-- RAW file thumbnail support (memory-intensive ImageIO path; defer to dedicated milestone)
-- PDF thumbnail support (PDFKit path; separate format matrix)
-- Video thumbnail support (AVFoundation frame extraction; memory-heavy)
-- Multiple thumbnail sizes / size pyramid
-- EXIF-embedded thumbnail fast path (range GET first ~64 KB for JPEG/HEIC thumbnail metadata)
-- PushKit-triggered thumbnail generation wake-up (depends on PushKit infrastructure not yet built)
-- PNG fallback for line-art / screenshot content (JPEG Q0.7 ringing artifacts — known limitation for v3.1)
-- Generalizing `BucketListingLimiter` → `S3RequestLimiter` to back `ThumbnailFetchLimiter`
+- **OTHER-01**: OAuth login (Google, Microsoft) based on tenant configuration
+- **OTHER-02**: v3 organization-based authentication
+- **OTHER-03**: Bandwidth throttling (user-configurable limits)
+- **OTHER-04**: iOS home screen widgets (WidgetKit)
 
 ## Out of Scope
 
-- **In-app photo viewer / gallery grid** — Files.app and Finder are already the file browser; PROJECT.md out-of-scopes in-app file browser
-- **Server-side thumbnail generation (Lambda, worker, cloud function)** — PROJECT.md hard constraint: no custom backend; contradicts on-device privacy positioning
-- **Face detection, auto-tagging, smart albums, search by content** — ML models are jetsam-hostile on iOS extension; not a sync-client feature; PROJECT.md out-of-scopes camera upload / document scanning
-- **Camera roll import / auto photo backup** — separate product domain; Share Extension is the correct level of integration
-- **Pre-generating thumbnails at drive setup (blocking)** — makes setup feel broken; backfill must always be async
-- **User-facing thumbnail quality slider** — trivial choice, zero value; hardcode 80% JPEG
-- **Multiple thumbnail sizes** — 5× storage and CPU cost; single 512 px satisfies Finder icon view + Quick Look
-- **Sibling-file thumbnail layout** (`photo.jpg.thumb`) — pollutes listings, complicates filter; `.thumbnails/` prefix is the correct pattern
-- **Separate thumbnail encryption** — inherits bucket-level encryption; future zero-knowledge drives use same per-drive key
-- **Regeneration on metadata-only changes** — EXIF edits don't change pixels; invalidate via ETag only
-
-## Previous Milestones
-
-See `.planning/milestones/v1.0-REQUIREMENTS.md` and `.planning/milestones/v2.0-REQUIREMENTS.md` for previously-validated requirements.
+| Feature | Reason |
+|---------|--------|
+| Linux client | Windows and Apple first; Linux deferred |
+| In-app file browser | OS handles file operations; sync client only |
+| Real-time collaboration | S3 has no locking; conflict copies pattern |
+| FUSE/WinFsp | cfapi is the native Windows pattern |
+| Custom minifilter driver | cfapi handles file system integration |
+| MSIX-only distribution | Enterprise needs MSI; cfapi needs full-trust |
+| Always-sync-everything | On-demand sync is the pattern |
+| Interactive merge dialog | Conflict copies, not merge |
 
 ## Traceability
 
-Maps each v3.1 requirement to the phase that will deliver it. 26/26 requirements mapped — no orphans, no duplicates.
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| CORE-01 | — | Pending |
+| CORE-02 | — | Pending |
+| CORE-03 | — | Pending |
+| CORE-04 | — | Pending |
+| CORE-05 | — | Pending |
+| CORE-06 | — | Pending |
+| CORE-07 | — | Pending |
+| CORE-08 | — | Pending |
+| CORE-09 | — | Pending |
+| CORE-10 | — | Pending |
+| APPLE-01 | — | Pending |
+| APPLE-02 | — | Pending |
+| APPLE-03 | — | Pending |
+| APPLE-04 | — | Pending |
+| APPLE-05 | — | Pending |
+| APPLE-06 | — | Pending |
+| WIN-01 | — | Pending |
+| WIN-02 | — | Pending |
+| WIN-03 | — | Pending |
+| WIN-04 | — | Pending |
+| WIN-05 | — | Pending |
+| WIN-06 | — | Pending |
+| WIN-07 | — | Pending |
+| WIN-08 | — | Pending |
+| WIN-09 | — | Pending |
+| POL-01 | — | Pending |
+| POL-02 | — | Pending |
+| POL-03 | — | Pending |
+| POL-04 | — | Pending |
+| POL-05 | — | Pending |
+| POL-06 | — | Pending |
+| POL-07 | — | Pending |
+| POL-08 | — | Pending |
 
-| Requirement | Phase | Category | Status |
-|-------------|-------|----------|--------|
-| THUMB-01 | Phase 11: Foundation & Filtering | Foundation & Storage | Pending |
-| THUMB-02 | Phase 11: Foundation & Filtering | Foundation & Storage | Pending |
-| THUMB-03 | Phase 11: Foundation & Filtering | Foundation & Storage | Pending |
-| THUMB-05 | Phase 11: Foundation & Filtering | Foundation & Storage | Pending |
-| THUMB-04 | Phase 12: Renderer, Storage & Schema | Foundation & Storage | Pending |
-| THUMB-07 | Phase 12: Renderer, Storage & Schema | Generation | Pending |
-| THUMB-08 | Phase 12: Renderer, Storage & Schema | Generation | Pending |
-| THUMB-09 | Phase 12: Renderer, Storage & Schema | Generation | Pending |
-| THUMB-10 | Phase 12: Renderer, Storage & Schema | Generation | Pending |
-| THUMB-06 | Phase 13: macOS Generation, Consumption & Lifecycle | Generation | Pending |
-| THUMB-11 | Phase 13: macOS Generation, Consumption & Lifecycle | Consumption | Pending |
-| THUMB-12 | Phase 13: macOS Generation, Consumption & Lifecycle | Consumption | Pending |
-| THUMB-13 | Phase 13: macOS Generation, Consumption & Lifecycle | Consumption | Pending |
-| THUMB-14 | Phase 13: macOS Generation, Consumption & Lifecycle | Consumption | Pending |
-| THUMB-15 | Phase 13: macOS Generation, Consumption & Lifecycle | Backfill & Lifecycle | Pending |
-| THUMB-17 | Phase 13: macOS Generation, Consumption & Lifecycle | Backfill & Lifecycle | Pending |
-| THUMB-18 | Phase 13: macOS Generation, Consumption & Lifecycle | Backfill & Lifecycle | Pending |
-| THUMB-19 | Phase 13: macOS Generation, Consumption & Lifecycle | Backfill & Lifecycle | Pending |
-| THUMB-20 | Phase 13: macOS Generation, Consumption & Lifecycle | Backfill & Lifecycle | Pending |
-| THUMB-21 | Phase 13: macOS Generation, Consumption & Lifecycle | Backfill & Lifecycle | Pending |
-| THUMB-23 | Phase 13: macOS Generation, Consumption & Lifecycle | Backfill & Lifecycle | Pending |
-| ~~THUMB-24~~ | _Dropped 2026-04-25 (Phase 13 discuss)_ | UI Feedback & Control | Dropped |
-| THUMB-16 | Phase 14: iOS Generation & Polish | Backfill & Lifecycle | Pending |
-| THUMB-22 | Phase 14: iOS Generation & Polish | Backfill & Lifecycle | Pending |
-| THUMB-25 | Phase 14: iOS Generation & Polish | UI Feedback & Control | Pending |
-| THUMB-26 | Phase 14: iOS Generation & Polish | UI Feedback & Control | Pending |
+**Coverage:**
+- v2.0.0 requirements: 33 total
+- Mapped to phases: 0 (pending roadmap)
+- Unmapped: 33
 
-**Coverage summary:**
-- Phase 11: 4 requirements (THUMB-01, 02, 03, 05)
-- Phase 12: 5 requirements (THUMB-04, 07, 08, 09, 10)
-- Phase 13: 12 requirements (THUMB-06, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 23) — THUMB-24 dropped 2026-04-25
-- Phase 14: 4 requirements (THUMB-16, 22, 25, 26)
-- **Total: 25/25 ✓** (was 26/26 before THUMB-24 was dropped)
+---
+*Requirements defined: 2026-05-26*
+*Last updated: 2026-05-26 after initial definition*
