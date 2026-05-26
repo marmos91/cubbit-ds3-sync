@@ -278,14 +278,17 @@ actor S3Lib {
                 )
         }
 
-        // Phase A: explicitly delete the `.ds3keep` marker. The batch delete
-        // above covers it when the listing returns it, but an explicit delete
-        // closes any race / eventual-consistency gap where the marker was PUT
-        // after the listing completed (e.g. rapid create-then-rename on iOS).
-        // S3 returns 204 for non-existent keys, so this is always safe.
+        // Explicitly delete the `.ds3keep` marker to close any race where it
+        // was PUT after the listing completed. S3 returns 204 for missing keys;
+        // guard against non-404 errors (permissions, network) so they don't
+        // abort an otherwise successful folder delete.
         let markerKey = S3PathUtils.markerKey(forFolderKey: folderPrefix)
         self.logger.debug("Deleting folder marker \(markerKey, privacy: .public)")
-        try await client.deleteObject(bucket: s3Item.drive.syncAnchor.bucket.name, key: markerKey)
+        do {
+            try await client.deleteObject(bucket: s3Item.drive.syncAnchor.bucket.name, key: markerKey)
+        } catch where DS3S3Client.isNotFoundError(error) {
+            self.logger.debug("Folder marker not found during delete (legacy folder) — \(markerKey, privacy: .public)")
+        }
 
         self.logger.debug("Deleting enclosing folder \(folderPrefix, privacy: .public)")
         try await self.deleteS3Item(s3Item, withProgress: progress, force: true)
@@ -407,12 +410,8 @@ actor S3Lib {
             }
         } while continuationToken != nil
 
-        // Phase A: always ensure the destination has a `.ds3keep` marker.
-        // If the listing already copied it (copiedMarker == true), skip the
-        // duplicate work. Otherwise the marker was either not listed (race /
-        // eventual consistency) or the source is a legacy `<folder>/`
-        // placeholder — materializeEmptyFolderMarker handles both cases by
-        // trying a server-side copy first and falling back to a fresh PUT.
+        // Ensure the destination has a `.ds3keep` marker when the listing
+        // didn't already copy one (race / legacy `<folder>/` placeholder).
         if !copiedMarker {
             try await materializeEmptyFolderMarker(
                 sourcePrefix: sourcePrefix,
