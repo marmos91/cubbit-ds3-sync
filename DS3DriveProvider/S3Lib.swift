@@ -279,10 +279,15 @@ actor S3Lib {
         }
 
         // Explicitly delete the `.ds3keep` marker to close any race where it
-        // was PUT after the listing completed. S3 returns 204 for missing keys.
+        // was PUT after the listing completed. Guard non-404 errors so they
+        // don't abort an otherwise successful folder delete.
         let markerKey = S3PathUtils.markerKey(forFolderKey: folderPrefix)
         self.logger.debug("Deleting folder marker \(markerKey, privacy: .public)")
-        try await client.deleteObject(bucket: s3Item.drive.syncAnchor.bucket.name, key: markerKey)
+        do {
+            try await client.deleteObject(bucket: s3Item.drive.syncAnchor.bucket.name, key: markerKey)
+        } catch where DS3S3Client.isNotFoundError(error) {
+            self.logger.debug("Folder marker not found during delete — \(markerKey, privacy: .public)")
+        }
 
         self.logger.debug("Deleting enclosing folder \(folderPrefix, privacy: .public)")
         try await self.deleteS3Item(s3Item, withProgress: progress, force: true)
