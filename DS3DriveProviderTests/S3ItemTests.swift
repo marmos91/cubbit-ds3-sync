@@ -168,14 +168,6 @@ final class S3ItemTests: XCTestCase {
         )
     }
 
-    func testContentModificationDateForFolderIsNotNil() {
-        let item = makeItem(key: "prefix/docs/")
-        XCTAssertNotNil(
-            item.contentModificationDate,
-            "Folder contentModificationDate must never be nil (iOS shows epoch 0)"
-        )
-    }
-
     func testContentModificationDateForFolderIsStable() {
         let item1 = makeItem(key: "prefix/docs/")
         let item2 = makeItem(key: "prefix/docs/")

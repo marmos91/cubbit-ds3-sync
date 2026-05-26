@@ -159,22 +159,14 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
         return String(identifier.rawValue.split(separator: separator).last ?? "")
     }
 
-    /// Stable fallback date for folders whose S3 listing carries no
-    /// `lastModified` (CommonPrefixes, synthesized virtual folders).
-    /// Using `nil` caused iOS Files.app to render "01/01/1970" (epoch 0).
-    /// The sentinel must be constant so every enumeration returns the same
-    /// value — otherwise Finder re-processes the item and breaks icons.
-    /// January 1 2001 00:00:00 UTC (Cocoa reference date) is recognisable
-    /// as a placeholder and avoids the epoch-zero display bug.
+    /// Stable fallback date for folders whose S3 listing carries no `lastModified`
+    /// (CommonPrefixes, synthesized virtual folders). Returning `nil` caused iOS
+    /// Files.app to render "01/01/1970" (epoch 0), and a non-constant value makes
+    /// Finder re-process the item each enumeration, breaking icons.
     static let folderFallbackDate = Date(timeIntervalSinceReferenceDate: 0)
 
     var contentModificationDate: Date? {
         if isFolder {
-            // Return lastModified when available (S3 marker objects,
-            // HeadObject). Fall back to a fixed sentinel so every
-            // enumeration cycle produces the same value — a changing
-            // date across enumerations would make Finder re-process
-            // items and break their icons.
             return metadata.lastModified ?? Self.folderFallbackDate
         }
         return metadata.lastModified
