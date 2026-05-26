@@ -101,18 +101,16 @@ extension FileProviderExtension {
             Task {
                 let completionHandler = boxedCb.value
                 do {
-                    // Folders: probe .ds3keep marker first, then legacy key (#170).
-                    // Files: HEAD the identifier key directly (unchanged).
                     var existingItem: S3Item?
 
                     if s3Item.isFolder {
-                        if let metadata = try await probeFolderExists(
+                        existingItem = try await probeFolderExists(
                             folderKey: s3Item.itemIdentifier.rawValue,
                             bucket: drive.syncAnchor.bucket.name,
                             client: s3Lib.client,
                             logger: self.logger
-                        ) {
-                            existingItem = S3Item(
+                        ).map { metadata in
+                            S3Item(
                                 identifier: s3Item.itemIdentifier,
                                 drive: drive,
                                 objectMetadata: S3Item.Metadata(
@@ -130,7 +128,7 @@ extension FileProviderExtension {
                                 for: s3Item.itemIdentifier, drive: drive
                             )
                         } catch let s3Error as AWSErrorType where s3Error.isNotFound {
-                            // 404 — file doesn't exist, will proceed to upload
+                            // 404 -- file not found, will proceed to upload below
                         }
                     }
 

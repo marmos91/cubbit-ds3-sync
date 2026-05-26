@@ -4,14 +4,9 @@ import os.log
 import SotoS3
 import XCTest
 
-/// Tests for `probeFolderExists` — the two-step HEAD probe that checks the
-/// `.ds3keep` marker key first, then falls back to the legacy `<folder>/`
-/// zero-byte placeholder. Introduced by #170 to prevent reimported folders
-/// from being silently re-PUT after Phase A.
+/// Tests for `probeFolderExists` — the two-step HEAD probe (#170).
 final class FolderMarkerProbeTests: XCTestCase {
-    private func logger() -> os.Logger {
-        os.Logger(subsystem: "io.cubbit.DS3Drive.tests", category: "marker-probe")
-    }
+    private let testLogger = os.Logger(subsystem: "io.cubbit.DS3Drive.tests", category: "marker-probe")
 
     // MARK: - Marker key found
 
@@ -27,10 +22,9 @@ final class FolderMarkerProbeTests: XCTestCase {
             folderKey: "prefix/photos/",
             bucket: "test-bucket",
             client: mock,
-            logger: logger()
+            logger: testLogger
         )
 
-        XCTAssertNotNil(result, "Should return metadata when .ds3keep marker exists")
         XCTAssertEqual(result?.etag, "\"abc\"")
         XCTAssertEqual(
             mock.headedKeys, ["prefix/photos/.ds3keep"],
@@ -42,8 +36,6 @@ final class FolderMarkerProbeTests: XCTestCase {
 
     func testFallsBackToLegacyKeyWhenMarkerMissing() async throws {
         let mock = ProbeMockS3Client()
-        // No marker key — HEAD returns 404
-        // Legacy key exists
         mock.existingKeys["prefix/photos/"] = S3ObjectMetadata(
             etag: "\"legacy\"", contentType: nil,
             lastModified: Date(timeIntervalSince1970: 2_000_000),
@@ -54,10 +46,9 @@ final class FolderMarkerProbeTests: XCTestCase {
             folderKey: "prefix/photos/",
             bucket: "test-bucket",
             client: mock,
-            logger: logger()
+            logger: testLogger
         )
 
-        XCTAssertNotNil(result, "Should return metadata from legacy key")
         XCTAssertEqual(result?.etag, "\"legacy\"")
         XCTAssertEqual(
             mock.headedKeys,
@@ -70,16 +61,15 @@ final class FolderMarkerProbeTests: XCTestCase {
 
     func testReturnsNilWhenBothKeysMissing() async throws {
         let mock = ProbeMockS3Client()
-        // No keys exist
 
         let result = try await probeFolderExists(
             folderKey: "prefix/photos/",
             bucket: "test-bucket",
             client: mock,
-            logger: logger()
+            logger: testLogger
         )
 
-        XCTAssertNil(result, "Should return nil when neither key exists")
+        XCTAssertNil(result)
         XCTAssertEqual(
             mock.headedKeys,
             ["prefix/photos/.ds3keep", "prefix/photos/"],
@@ -101,7 +91,7 @@ final class FolderMarkerProbeTests: XCTestCase {
                 folderKey: "prefix/photos/",
                 bucket: "test-bucket",
                 client: mock,
-                logger: logger()
+                logger: testLogger
             )
             XCTFail("Expected non-404 error to propagate")
         } catch let error as NSError {
@@ -119,8 +109,6 @@ final class FolderMarkerProbeTests: XCTestCase {
 
     func testNonNotFoundErrorPropagatesFromLegacyHEAD() async throws {
         let mock = ProbeMockS3Client()
-        // Marker key → 404
-        // Legacy key → 500
         mock.legacyKeyError = NSError(
             domain: "S3", code: 500,
             userInfo: [NSLocalizedDescriptionKey: "InternalError"]
@@ -131,7 +119,7 @@ final class FolderMarkerProbeTests: XCTestCase {
                 folderKey: "prefix/photos/",
                 bucket: "test-bucket",
                 client: mock,
-                logger: logger()
+                logger: testLogger
             )
             XCTFail("Expected non-404 error to propagate from legacy HEAD")
         } catch let error as NSError {
@@ -159,10 +147,9 @@ final class FolderMarkerProbeTests: XCTestCase {
             folderKey: "docs/",
             bucket: "test-bucket",
             client: mock,
-            logger: logger()
+            logger: testLogger
         )
 
-        XCTAssertNotNil(result)
         XCTAssertEqual(result?.etag, "\"root-marker\"")
         XCTAssertEqual(mock.headedKeys, ["docs/.ds3keep"])
     }
@@ -170,25 +157,14 @@ final class FolderMarkerProbeTests: XCTestCase {
 
 // MARK: - Test mock
 
-/// Minimal `DS3S3ClientProtocol` mock that tracks `headObject` calls and
-/// returns metadata from a pre-configured key→metadata map. Keys not in
-/// the map produce a `S3ErrorType.noSuchKey` (404).
-///
-/// Supports optional error injection:
-/// - `headObjectError` — injected for ALL HEAD calls (simulates 403, 500, etc.)
-/// - `legacyKeyError` — injected only for non-marker HEAD calls (marker 404, legacy error)
+/// `DS3S3ClientProtocol` mock that tracks `headObject` calls and returns
+/// metadata from `existingKeys`. Missing keys throw `S3ErrorType.noSuchKey`.
 final class ProbeMockS3Client: DS3S3ClientProtocol, @unchecked Sendable {
-    /// Keys that "exist" on S3. HEAD returns the associated metadata.
     var existingKeys: [String: S3ObjectMetadata] = [:]
-
-    /// If set, ALL headObject calls throw this error.
+    /// Injected for ALL `headObject` calls (simulates 403, 500, etc.).
     var headObjectError: Error?
-
-    /// If set, headObject throws this error for non-marker keys (after
-    /// the marker key has already returned 404).
+    /// Injected only for non-marker keys (marker returns 404 first).
     var legacyKeyError: Error?
-
-    /// Records every key passed to `headObject` in order.
     private(set) var headedKeys: [String] = []
 
     func headObject(bucket _: String, key: String) async throws -> S3ObjectMetadata {
@@ -223,7 +199,7 @@ final class ProbeMockS3Client: DS3S3ClientProtocol, @unchecked Sendable {
     }
 
     func deleteObject(bucket _: String, key _: String) async throws {
-        // No-op stub
+        // Unused
     }
     func deleteObjects(bucket _: String, keys _: [String]) async throws -> Int {
         0
@@ -233,7 +209,7 @@ final class ProbeMockS3Client: DS3S3ClientProtocol, @unchecked Sendable {
         bucket _: String, sourceKey _: String,
         destinationKey _: String, metadata _: [String: String]?
     ) async throws {
-        // No-op stub
+        // Unused
     }
 
     func getObject(
@@ -280,10 +256,10 @@ final class ProbeMockS3Client: DS3S3ClientProtocol, @unchecked Sendable {
     }
 
     func abortMultipartUpload(bucket _: String, key _: String, uploadId _: String) async throws {
-        // No-op stub
+        // Unused
     }
 
     func shutdown() throws {
-        // No-op stub
+        // Unused
     }
 }

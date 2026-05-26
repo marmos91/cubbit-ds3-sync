@@ -46,47 +46,34 @@ func materializeEmptyFolderMarker(
     }
 }
 
-/// Probes S3 to determine whether a folder already exists, checking
-/// the `.ds3keep` marker key first, then falling back to the legacy
-/// `<folder>/` zero-byte placeholder for backward compatibility.
-///
-/// Returns the `S3ObjectMetadata` from whichever HEAD succeeds, or
+/// HEADs the `.ds3keep` marker key first, then the legacy `<folder>/`
+/// zero-byte placeholder. Returns metadata from whichever succeeds, or
 /// `nil` when both return 404. Non-404 errors propagate immediately.
 ///
-/// Phase A fix (#170): after `.ds3keep` adoption, reimported folders
-/// were silently re-PUT because `remoteS3Item` only HEAD'd the legacy
-/// key which no longer exists.
+/// Fix (#170): after `.ds3keep` adoption, reimported folders were
+/// silently re-PUT because `remoteS3Item` only HEAD'd the legacy key.
 func probeFolderExists(
     folderKey: String,
     bucket: String,
     client: any DS3S3ClientProtocol,
     logger: os.Logger
 ) async throws -> S3ObjectMetadata? {
-    // 1. Probe the .ds3keep marker key (Phase A format).
     let markerKey = S3PathUtils.markerKey(forFolderKey: folderKey)
+
     do {
         let metadata = try await client.headObject(bucket: bucket, key: markerKey)
-        logger.debug(
-            "probeFolderExists: marker key found at \(markerKey, privacy: .public)"
-        )
+        logger.debug("probeFolderExists: found marker at \(markerKey, privacy: .public)")
         return metadata
     } catch where DS3S3Client.isNotFoundError(error) {
-        logger.debug(
-            "probeFolderExists: marker key not found at \(markerKey, privacy: .public), trying legacy key"
-        )
+        logger.debug("probeFolderExists: no marker at \(markerKey, privacy: .public), trying legacy key")
     }
 
-    // 2. Fallback: probe the legacy zero-byte folder key.
     do {
         let metadata = try await client.headObject(bucket: bucket, key: folderKey)
-        logger.debug(
-            "probeFolderExists: legacy key found at \(folderKey, privacy: .public)"
-        )
+        logger.debug("probeFolderExists: found legacy key at \(folderKey, privacy: .public)")
         return metadata
     } catch where DS3S3Client.isNotFoundError(error) {
-        logger.debug(
-            "probeFolderExists: neither marker nor legacy key found for \(folderKey, privacy: .public)"
-        )
+        logger.debug("probeFolderExists: no key found for \(folderKey, privacy: .public)")
         return nil
     }
 }
