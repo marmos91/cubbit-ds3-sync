@@ -13,6 +13,7 @@
         @Binding var navigationPath: NavigationPath
 
         @Environment(DS3Authentication.self) private var ds3Authentication
+        @Environment(DS3DriveManager.self) private var ds3DriveManager
         @State private var anchorVM: SyncAnchorSelectionViewModel?
         @State private var searchText = ""
 
@@ -251,7 +252,9 @@
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     if isAuthError {
-                        ds3Authentication.logout()
+                        let auth = ds3Authentication
+                        let manager = ds3DriveManager
+                        Task { await auth.logout(driveManager: manager) }
                     } else {
                         Task { await anchorVM?.loadBuckets() }
                     }

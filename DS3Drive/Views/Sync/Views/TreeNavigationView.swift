@@ -384,6 +384,7 @@ class TreeNavigationViewModel {
 struct TreeNavigationView: View {
     @State private var viewModel: TreeNavigationViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(DS3DriveManager.self) private var ds3DriveManager: DS3DriveManager
 
     var onSyncAnchorSelected: ((SyncAnchor) -> Void)?
 
@@ -643,8 +644,12 @@ struct TreeNavigationView: View {
                             value: "Sign in again",
                             comment: "Wizard auth recovery button"
                         )) {
-                            viewModel.authentication.logout()
-                            dismiss()
+                            let auth = viewModel.authentication
+                            let manager = ds3DriveManager
+                            Task {
+                                await auth.logout(driveManager: manager)
+                                await MainActor.run { dismiss() }
+                            }
                         }
                         .buttonStyle(OutlineButtonStyle())
                     }

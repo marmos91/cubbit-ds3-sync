@@ -210,6 +210,8 @@ struct DS3DriveApp: App {
         }
         updateNotificationHandler = UpdateNotificationHandler(updateManager: updateManager)
 
+        Self.kickStartupCredentialRepair(auth: ds3Authentication, manager: ds3DriveManager)
+
         // Listen for auth failure notifications from the File Provider extension
         authFailureObserver = DistributedNotificationCenter.default().addObserver(
             forName: NSNotification.Name(DefaultSettings.Notifications.authFailure),
@@ -270,12 +272,35 @@ struct DS3DriveApp: App {
                     logger.info("signalErrorResolved sent for domain \(domainId, privacy: .public)")
                 } catch DS3AuthenticationError.tokenExpired {
                     logger.error("Refresh token rejected during auth recovery — forcing logout")
-                    auth.logout()
+                    await auth.logout(driveManager: ds3DriveManager)
                     Self.showSessionExpiredNotification(logger: logger)
                 } catch {
                     logger.error("Failed to recover S3 credentials: \(error.localizedDescription, privacy: .public)")
                     Self.showSessionExpiredNotification(logger: logger)
                 }
+            }
+        }
+    }
+
+    /// Self-heal at launch: if drives.json references a drive whose API key
+    /// is missing from credentials.json, regenerate the key before the
+    /// extension is asked to initialize. Without this, the extension enters
+    /// a fileproviderd-driven crash loop (`Extension init failed: The file
+    /// "credentials.json" couldn't be opened`) that survives across reboots.
+    /// After repair, nudge any domains parked in `.notAuthenticated` so
+    /// fileproviderd retries init now that creds are present.
+    private static func kickStartupCredentialRepair(
+        auth: DS3Authentication,
+        manager: DS3DriveManager
+    ) {
+        Task {
+            guard auth.isLogged else { return }
+            await manager.repairCredentials(authentication: auth)
+            for drive in manager.drives {
+                let fpDomain = manager.fileProviderDomain(forDrive: drive)
+                try? await NSFileProviderManager(for: fpDomain)?.signalErrorResolved(
+                    NSFileProviderError(.notAuthenticated) as NSError
+                )
             }
         }
     }

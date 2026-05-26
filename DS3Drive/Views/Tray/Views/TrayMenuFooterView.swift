@@ -10,11 +10,6 @@ struct TrayMenuFooterView: View {
     /// The aggregate app status used to render the leading state icon (Gap 13).
     /// Defaults to `.idle` so previews and the logged-out menu render cleanly.
     var aggregateStatus: AppStatus = .idle
-    /// When provided, shows inline aggregate transfer speeds in the footer
-    /// during sync activity. Plan 05-18b iteration: SpeedSummaryView used to
-    /// be a separate row at the top of the tray; embedding it here means
-    /// the footer is the single live status surface (no redundant rows).
-    var driveViewModels: [DS3DriveViewModel] = []
 
     var body: some View {
         HStack(spacing: DS3Spacing.xs) {
@@ -22,15 +17,15 @@ struct TrayMenuFooterView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(statusIcon.color)
 
+            // Status text only — per-drive rows already display transfer rates
+            // so an inline aggregate speed summary in the footer duplicated the
+            // signal and squeezed the status string into a two-line wrap at
+            // the 310 px tray width.
             Text(status)
                 .font(DS3Typography.footnote)
                 .foregroundStyle(DS3Colors.brandTextSecondary)
-
-            // Inline speed indicators when any drive is actively transferring.
-            if !driveViewModels.isEmpty {
-                SpeedSummaryView(driveViewModels: driveViewModels)
-                    .fixedSize()
-            }
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
 
             Spacer()
 

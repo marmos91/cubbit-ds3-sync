@@ -82,9 +82,19 @@ struct DS3DriveApp: App {
         let coordinatorURL = (try? SharedData.default().loadCoordinatorURLFromPersistence()) ?? CubbitAPIURLs
             .defaultCoordinatorURL
         let urls = CubbitAPIURLs(coordinatorURL: coordinatorURL)
-        _ds3Authentication = State(initialValue: DS3Authentication.loadFromPersistenceOrCreateNew(urls: urls))
+        let auth = DS3Authentication.loadFromPersistenceOrCreateNew(urls: urls)
+        _ds3Authentication = State(initialValue: auth)
         let driveManager = DS3DriveManager(appStatusManager: appStatusManager)
         _ds3DriveManager = State(initialValue: driveManager)
+
+        // Self-heal at launch: regenerate any DS3ApiKey that drives.json
+        // references but credentials.json no longer has, so the File Provider
+        // extension does not enter a `credentials.json couldn't be opened`
+        // crash loop on next init.
+        Task {
+            guard auth.isLogged else { return }
+            await driveManager.repairCredentials(authentication: auth)
+        }
         #if os(iOS)
             let backfillDriver = ForegroundBackfillDriver(driveManager: driveManager)
             _thumbnailBackfillDriver = State(initialValue: backfillDriver)
