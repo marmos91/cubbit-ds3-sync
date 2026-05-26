@@ -2,8 +2,9 @@ import Foundation
 
 /// Centralized filter that determines whether an S3 key represents user-visible content.
 /// Routes through S3PathUtils predicates for .trash/ and .thumbnails/ hidden prefixes,
-/// and rejects keys that begin with an Apple File Provider sentinel raw value (residue
-/// from a pre-fix bug where `parentItemIdentifier.rawValue` was concatenated into S3 keys).
+/// hides `.ds3keep` folder markers (Phase A — empty-folder placeholder), and rejects
+/// keys that begin with an Apple File Provider sentinel raw value (residue from a
+/// pre-fix bug where `parentItemIdentifier.rawValue` was concatenated into S3 keys).
 /// All ListObjectsV2 consumers MUST use this filter before surfacing keys to observers,
 /// MetadataStore, SyncEngine, or Finder/Files.
 public enum S3KeyFilter {
@@ -24,6 +25,7 @@ public enum S3KeyFilter {
     public static func isUserVisible(key: String, drivePrefix: String?) -> Bool {
         !S3PathUtils.isTrashedKey(key, drivePrefix: drivePrefix)
             && !S3PathUtils.isThumbnailKey(key, drivePrefix: drivePrefix)
+            && !S3PathUtils.isDS3KeepMarkerKey(key)
             && !isSentinelPoisonedKey(key, drivePrefix: drivePrefix)
     }
 

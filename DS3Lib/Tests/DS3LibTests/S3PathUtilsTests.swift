@@ -344,4 +344,50 @@ final class S3PathUtilsTests: XCTestCase {
             XCTAssertEqual(restored, originalKey, "Round-trip failed for key: \(originalKey)")
         }
     }
+
+    // MARK: - DS3Keep Marker
+
+    func testIsDS3KeepMarkerKeyTrue() {
+        XCTAssertTrue(S3PathUtils.isDS3KeepMarkerKey("prefix/folder/.ds3keep"))
+    }
+
+    func testIsDS3KeepMarkerKeyAtRoot() {
+        XCTAssertTrue(S3PathUtils.isDS3KeepMarkerKey(".ds3keep"))
+    }
+
+    func testIsDS3KeepMarkerKeyFalseForRegularFile() {
+        XCTAssertFalse(S3PathUtils.isDS3KeepMarkerKey("prefix/folder/file.txt"))
+    }
+
+    func testIsDS3KeepMarkerKeyFalseForFolder() {
+        XCTAssertFalse(S3PathUtils.isDS3KeepMarkerKey("prefix/folder/"))
+    }
+
+    func testIsDS3KeepMarkerKeyFalseForLookalike() {
+        XCTAssertFalse(S3PathUtils.isDS3KeepMarkerKey("prefix/file.ds3keep.txt"))
+        XCTAssertFalse(S3PathUtils.isDS3KeepMarkerKey("prefix/notds3keep"))
+    }
+
+    func testIsDS3KeepMarkerKeyFalseForDS3KeepPrefix() {
+        // Substring at start of last segment, no leading delimiter for marker.
+        XCTAssertFalse(S3PathUtils.isDS3KeepMarkerKey("prefix/.ds3keepfoo"))
+    }
+
+    func testMarkerKeyForFolder() {
+        XCTAssertEqual(
+            S3PathUtils.markerKey(forFolderKey: "prefix/photos/"),
+            "prefix/photos/.ds3keep"
+        )
+    }
+
+    func testMarkerKeyAppendsDelimiterIfMissing() {
+        XCTAssertEqual(
+            S3PathUtils.markerKey(forFolderKey: "prefix/photos"),
+            "prefix/photos/.ds3keep"
+        )
+    }
+
+    func testMarkerKeyForRootDelimiter() {
+        XCTAssertEqual(S3PathUtils.markerKey(forFolderKey: "/"), "/.ds3keep")
+    }
 }
