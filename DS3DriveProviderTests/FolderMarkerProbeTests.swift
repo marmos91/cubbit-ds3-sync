@@ -172,7 +172,7 @@ final class FolderMarkerProbeTests: XCTestCase {
 
 /// Minimal `DS3S3ClientProtocol` mock that tracks `headObject` calls and
 /// returns metadata from a pre-configured key→metadata map. Keys not in
-/// the map produce a `S3ErrorType.notFound` (404).
+/// the map produce a `S3ErrorType.noSuchKey` (404).
 ///
 /// Supports optional error injection:
 /// - `headObjectError` — injected for ALL HEAD calls (simulates 403, 500, etc.)
@@ -206,7 +206,7 @@ final class ProbeMockS3Client: DS3S3ClientProtocol, @unchecked Sendable {
             return metadata
         }
 
-        throw S3ErrorType.notFound
+        throw S3ErrorType.noSuchKey
     }
 
     // MARK: - Stubs (unused by probe tests)
