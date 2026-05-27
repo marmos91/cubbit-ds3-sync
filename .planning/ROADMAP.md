@@ -256,8 +256,8 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 15-01-PLAN.md -- Mono-repo restructure: move Apple code to apple/, scaffold windows/, update CI paths
-- [ ] 15-02-PLAN.md -- Cargo workspace with 6 crates, ds3-models crate with all domain types
+- [x] 15-01-PLAN.md -- Mono-repo restructure: move Apple code to apple/, scaffold windows/, update CI paths
+- [x] 15-02-PLAN.md -- Cargo workspace with 6 crates, ds3-models crate with all domain types
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 15-03-PLAN.md -- ds3-http (SharedHttpClient, URLs, projects, keys) + ds3-auth (crypto, challenge, login, refresh, session)
@@ -334,7 +334,7 @@ Plans:
 | 12. Renderer, Storage & Schema | v3.1 | 0/0 | Not started | - |
 | 13. macOS Generation, Consumption & Lifecycle | v3.1 | 0/0 | Not started | - |
 | 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
-| 15. Rust Core + FFI Foundation | v2.0.0 | 0/7 | Planned | - |
+| 15. Rust Core + FFI Foundation | v2.0.0 | 2/7 | In Progress|  |
 | 16. Apple Incremental Swap | v2.0.0 | 0/0 | Not started | - |
 | 17. Windows Shell | v2.0.0 | 0/0 | Not started | - |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
