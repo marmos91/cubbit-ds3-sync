@@ -863,19 +863,19 @@ echo "XCFramework created at ${OUT_DIR}/${FRAMEWORK_NAME}.xcframework"
 | A6 | Single shared tokio Runtime (OnceLock) is better than per-call Runtime::new() | Architecture Patterns | Per-call is simpler but slower; shared is standard for FFI libraries |
 | A7 | All listed crate versions are current and non-malicious | Package Legitimacy | slopcheck unavailable; versions verified via cargo search but not fully audited |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Force path style for Cubbit S3?**
+1. **Force path style for Cubbit S3?** RESOLVED: Use `force_path_style(true)` as default.
    - What we know: The Swift code uses Soto with a custom endpoint. Soto defaults to path-style for custom endpoints.
    - What's unclear: Whether Cubbit's `endpointGateway` supports virtual-hosted-style bucket addressing.
    - Recommendation: Default to `force_path_style(true)` -- matches existing behavior. Can be toggled later.
 
-2. **x86_64-apple-ios target necessity**
+2. **x86_64-apple-ios target necessity** RESOLVED: Include it in build script; low cost, removes risk.
    - What we know: Target list includes `x86_64-apple-ios` for Intel Mac simulators. The developer machine is Apple Silicon (aarch64-darwin).
    - What's unclear: Whether any CI runners or team members use Intel Macs.
    - Recommendation: Include it in the build script (cost is one extra `cargo build`). Can be removed if never used. The fat binary via `lipo` handles both.
 
-3. **Multipart upload part size consistency**
+3. **Multipart upload part size consistency** RESOLVED: Hand-orchestrate parts with 5MB threshold and 4-concurrency limit.
    - What we know: Swift code uses 5MB parts (`DefaultSettings.S3.multipartUploadPartSize`). aws-sdk-s3 has its own multipart defaults.
    - What's unclear: Whether we should use aws-sdk-s3's high-level multipart API or hand-orchestrate parts to match the 5MB threshold exactly.
    - Recommendation: Hand-orchestrate parts to match the existing 5MB threshold and 4-concurrency limit exactly, using the low-level `create_multipart_upload` / `upload_part` / `complete_multipart_upload` APIs. This ensures compatibility with existing partial uploads and ETags.
