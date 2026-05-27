@@ -278,6 +278,17 @@ actor S3Lib {
                 )
         }
 
+        // Explicitly delete the `.ds3keep` marker to close any race where it
+        // was PUT after the listing completed. Guard non-404 errors so they
+        // don't abort an otherwise successful folder delete.
+        let markerKey = S3PathUtils.markerKey(forFolderKey: folderPrefix)
+        self.logger.debug("Deleting folder marker \(markerKey, privacy: .public)")
+        do {
+            try await client.deleteObject(bucket: s3Item.drive.syncAnchor.bucket.name, key: markerKey)
+        } catch where DS3S3Client.isNotFoundError(error) {
+            self.logger.debug("Folder marker not found during delete — \(markerKey, privacy: .public)")
+        }
+
         self.logger.debug("Deleting enclosing folder \(folderPrefix, privacy: .public)")
         try await self.deleteS3Item(s3Item, withProgress: progress, force: true)
     }
@@ -376,6 +387,7 @@ actor S3Lib {
         var continuationToken: String?
         var items = [S3Item]()
         let sourcePrefix = s3Item.itemIdentifier.rawValue
+        var copiedMarker = false
 
         repeat {
             (items, continuationToken) = try await self.listS3Items(
@@ -391,13 +403,15 @@ actor S3Lib {
                 let newKey = item.identifier.rawValue.replacingOccurrences(of: sourcePrefix, with: destinationPrefix)
                 self.logger.debug("Copying to \(newKey, privacy: .public)")
                 try await self.copyS3Item(item, toKey: newKey, withProgress: progress)
+                if S3PathUtils.isDS3KeepMarkerKey(item.identifier.rawValue) {
+                    copiedMarker = true
+                }
             }
         } while continuationToken != nil
 
-        if items.isEmpty {
-            // Phase A: an empty source folder has at most a `.ds3keep` marker.
-            // Copy it to the destination, or PUT a fresh marker if the source
-            // has none (legacy `<folder>/` placeholder or fresh-empty folder).
+        // Ensure the destination has a `.ds3keep` marker when the listing
+        // didn't already copy one (race / legacy `<folder>/` placeholder).
+        if !copiedMarker {
             try await materializeEmptyFolderMarker(
                 sourcePrefix: sourcePrefix,
                 destinationPrefix: destinationPrefix,
