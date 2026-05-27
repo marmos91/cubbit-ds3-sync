@@ -4,9 +4,9 @@
 //! deserializes correctly into the Rust struct and re-serializes to an
 //! equivalent JSON value.
 
-use ds3_models::account::{Account, AccountEmail};
+use ds3_models::account::Account;
 use ds3_models::auth::{AccountSession, Challenge, Token};
-use ds3_models::drive::{Bucket, DS3Drive, SyncAnchor};
+use ds3_models::drive::DS3Drive;
 use ds3_models::project::{IAMUser, Project};
 use ds3_models::api_key::DS3ApiKey;
 use ds3_models::s3::{
