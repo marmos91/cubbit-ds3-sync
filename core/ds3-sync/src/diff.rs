@@ -25,31 +25,31 @@ pub fn compute_diff(local: &TreeSnapshot, remote: &TreeSnapshot) -> DiffResult {
     let local_keys: HashSet<&String> = local_map.keys().collect();
     let remote_keys: HashSet<&String> = remote_map.keys().collect();
 
-    // Keys only in remote -> added
-    let added: HashSet<String> = remote_keys
-        .difference(&local_keys)
-        .map(|k| (*k).clone())
-        .collect();
-
-    // Keys in both but with different ETags -> modified
-    let common = remote_keys.intersection(&local_keys);
-    let modified: HashSet<String> = common
+    // new_or_modified = (remote-only keys) + (common keys with different ETags)
+    let new_or_modified: HashSet<String> = remote_map
+        .keys()
         .filter(|key| {
-            let local_etag = local_map.get(**key).and_then(|e| e.as_ref());
-            let remote_etag = remote_map.get(**key).and_then(|e| e.as_ref());
-            local_etag != remote_etag
+            match local_map.get(*key) {
+                // Key not in local -> new
+                None => true,
+                // Key in both -> modified if ETags differ
+                Some(local_etag) => {
+                    let remote_etag = remote_map.get(*key).unwrap();
+                    local_etag.as_ref() != remote_etag.as_ref()
+                }
+            }
         })
-        .map(|k| (*k).clone())
+        .cloned()
         .collect();
 
-    // Keys only in local -> deleted
+    // deleted = keys in local but not in remote
     let deleted: HashSet<String> = local_keys
         .difference(&remote_keys)
         .map(|k| (*k).clone())
         .collect();
 
     DiffResult {
-        new_or_modified: added.union(&modified).cloned().collect(),
+        new_or_modified,
         deleted,
     }
 }
