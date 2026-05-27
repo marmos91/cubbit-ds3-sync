@@ -260,11 +260,11 @@ Plans:
 - [x] 15-02-PLAN.md -- Cargo workspace with 6 crates, ds3-models crate with all domain types
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 15-03-PLAN.md -- ds3-http (SharedHttpClient, URLs, projects, keys) + ds3-auth (crypto, challenge, login, refresh, session)
-- [ ] 15-04-PLAN.md -- ds3-s3 crate (S3 CRUD, multipart uploads, .ds3keep markers)
+- [x] 15-03-PLAN.md -- ds3-http (SharedHttpClient, URLs, projects, keys) + ds3-auth (crypto, challenge, login, refresh, session)
+- [x] 15-04-PLAN.md -- ds3-s3 crate (S3 CRUD, multipart uploads, .ds3keep markers)
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 15-05-PLAN.md -- ds3-sync crate TDD (diff computation, conflict key generation)
+- [x] 15-05-PLAN.md -- ds3-sync crate TDD (diff computation, conflict key generation)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 - [ ] 15-06-PLAN.md -- ds3-ffi crate (UniFFI exports, C exports, panic guards, csbindgen, XCFramework script)
@@ -334,7 +334,7 @@ Plans:
 | 12. Renderer, Storage & Schema | v3.1 | 0/0 | Not started | - |
 | 13. macOS Generation, Consumption & Lifecycle | v3.1 | 0/0 | Not started | - |
 | 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
-| 15. Rust Core + FFI Foundation | v2.0.0 | 2/7 | In Progress|  |
+| 15. Rust Core + FFI Foundation | v2.0.0 | 5/7 | In Progress|  |
 | 16. Apple Incremental Swap | v2.0.0 | 0/0 | Not started | - |
 | 17. Windows Shell | v2.0.0 | 0/0 | Not started | - |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
