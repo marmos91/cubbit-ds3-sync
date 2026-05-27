@@ -255,12 +255,21 @@ Plans:
 **Plans**: 7 plans
 
 Plans:
+**Wave 1**
 - [ ] 15-01-PLAN.md -- Mono-repo restructure: move Apple code to apple/, scaffold windows/, update CI paths
 - [ ] 15-02-PLAN.md -- Cargo workspace with 6 crates, ds3-models crate with all domain types
+
+**Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 15-03-PLAN.md -- ds3-http (SharedHttpClient, URLs, projects, keys) + ds3-auth (crypto, challenge, login, refresh, session)
 - [ ] 15-04-PLAN.md -- ds3-s3 crate (S3 CRUD, multipart uploads, .ds3keep markers)
+
+**Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 15-05-PLAN.md -- ds3-sync crate TDD (diff computation, conflict key generation)
+
+**Wave 4** *(blocked on Wave 3 completion)*
 - [ ] 15-06-PLAN.md -- ds3-ffi crate (UniFFI exports, C exports, panic guards, csbindgen, XCFramework script)
+
+**Wave 5** *(blocked on Wave 4 completion)*
 - [ ] 15-07-PLAN.md -- Integration tests (Rust + Swift harness + C# harness), panic safety, CI finalization
 
 ### Phase 16: Apple Incremental Swap
