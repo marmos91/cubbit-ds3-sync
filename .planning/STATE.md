@@ -1,3 +1,18 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: macOS App
+status: planning
+stopped_at: Phase 15 context gathered
+last_updated: "2026-05-27T09:51:36.640Z"
+last_activity: 2026-05-26 -- Milestone v2.0.0 roadmap created
+progress:
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+---
+
 # Project State
 
 ## Project Reference
@@ -28,6 +43,7 @@ Milestone v2.0.0: [          ] 0/4 phases complete (0%)
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 0
 - Average duration: --
 - Total execution time: --
@@ -53,6 +69,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-26
-Stopped at: Roadmap created for v2.0.0 milestone (Phases 15-18)
-Resume file: None
+Last session: 2026-05-27T09:51:36.633Z
+Stopped at: Phase 15 context gathered
+Resume file: .planning/phases/15-rust-core-ffi-foundation/15-CONTEXT.md
