@@ -1,11 +1,18 @@
 //! C-compatible extern "C" exports for csbindgen/P/Invoke.
 //!
-//! Each function uses the `ffi_guard!` macro to catch panics at the FFI
-//! boundary. String parameters use `*const u8` + `usize` length pairs.
-//! Output strings use `*mut *mut u8` + `*mut usize` pairs (caller frees
-//! with `ds3_free_string`).
+//! # Safety
 //!
-//! Full implementation is in Task 3.
+//! All `extern "C"` functions in this module accept raw pointers from the
+//! foreign caller. The caller must ensure:
+//! - `*const u8` + `usize` pairs point to valid UTF-8 of the given length
+//! - Output `*mut *mut u8` / `*mut usize` pointers are writable
+//! - Handle pointers (`*const DS3Session`, `*const DS3S3Client`) are valid
+//!   and obtained from this module's constructor functions
+//! - Allocated strings are freed exactly once with `ds3_free_string`
+//!
+//! Each function uses the `ffi_guard!` macro to catch panics at the FFI boundary.
+
+#![allow(clippy::missing_safety_doc)]
 
 use crate::handles::runtime;
 use crate::panic_guard::ffi_guard;
@@ -111,7 +118,7 @@ pub unsafe extern "C" fn ds3_free_bytes(ptr: *mut u8, len: usize) {
 ///
 /// Returns 0 on success, -1 on error (code in `*out_error`), -2 on panic.
 #[no_mangle]
-pub extern "C" fn ds3_authenticate(
+pub unsafe extern "C" fn ds3_authenticate(
     email: *const u8,
     email_len: usize,
     password: *const u8,
@@ -143,7 +150,7 @@ pub extern "C" fn ds3_authenticate(
 
 /// Authenticates with a 2FA code and returns an opaque session handle.
 #[no_mangle]
-pub extern "C" fn ds3_authenticate_2fa(
+pub unsafe extern "C" fn ds3_authenticate_2fa(
     email: *const u8,
     email_len: usize,
     password: *const u8,
@@ -189,7 +196,7 @@ pub unsafe extern "C" fn ds3_session_destroy(handle: *mut DS3Session) {
 
 /// Refreshes the access token if expired.
 #[no_mangle]
-pub extern "C" fn ds3_refresh_token(
+pub unsafe extern "C" fn ds3_refresh_token(
     handle: *const DS3Session,
     out_error: *mut i32,
 ) -> i32 {
@@ -205,7 +212,7 @@ pub extern "C" fn ds3_refresh_token(
 
 /// Returns account info as a JSON string.
 #[no_mangle]
-pub extern "C" fn ds3_account_info(
+pub unsafe extern "C" fn ds3_account_info(
     handle: *const DS3Session,
     out_json: *mut *mut u8,
     out_json_len: *mut usize,
@@ -224,7 +231,7 @@ pub extern "C" fn ds3_account_info(
 
 /// Forges an IAM token for the given user ID. Returns the token as JSON.
 #[no_mangle]
-pub extern "C" fn ds3_forge_iam_token(
+pub unsafe extern "C" fn ds3_forge_iam_token(
     handle: *const DS3Session,
     user_id: *const u8,
     user_id_len: usize,
@@ -251,7 +258,7 @@ pub extern "C" fn ds3_forge_iam_token(
 
 /// Gets projects as JSON array.
 #[no_mangle]
-pub extern "C" fn ds3_get_projects(
+pub unsafe extern "C" fn ds3_get_projects(
     handle: *const DS3Session,
     out_json: *mut *mut u8,
     out_json_len: *mut usize,
@@ -281,7 +288,7 @@ pub extern "C" fn ds3_get_projects(
 
 /// Loads API keys as JSON array.
 #[no_mangle]
-pub extern "C" fn ds3_load_api_keys(
+pub unsafe extern "C" fn ds3_load_api_keys(
     handle: *const DS3Session,
     user_id: *const u8,
     user_id_len: usize,
@@ -312,7 +319,7 @@ pub extern "C" fn ds3_load_api_keys(
 
 /// Creates an API key. Returns the created key as JSON.
 #[no_mangle]
-pub extern "C" fn ds3_create_api_key(
+pub unsafe extern "C" fn ds3_create_api_key(
     handle: *const DS3Session,
     user_id: *const u8,
     user_id_len: usize,
@@ -347,7 +354,7 @@ pub extern "C" fn ds3_create_api_key(
 
 /// Deletes an API key.
 #[no_mangle]
-pub extern "C" fn ds3_delete_api_key(
+pub unsafe extern "C" fn ds3_delete_api_key(
     handle: *const DS3Session,
     user_id: *const u8,
     user_id_len: usize,
@@ -382,7 +389,7 @@ pub extern "C" fn ds3_delete_api_key(
 
 /// Lists S3 objects. Returns the result as JSON.
 #[no_mangle]
-pub extern "C" fn ds3_list_objects(
+pub unsafe extern "C" fn ds3_list_objects(
     s3_handle: *const DS3S3Client,
     bucket: *const u8,
     bucket_len: usize,
@@ -423,7 +430,7 @@ pub extern "C" fn ds3_list_objects(
 
 /// Lists all S3 buckets. Returns the result as JSON.
 #[no_mangle]
-pub extern "C" fn ds3_list_buckets(
+pub unsafe extern "C" fn ds3_list_buckets(
     s3_handle: *const DS3S3Client,
     out_json: *mut *mut u8,
     out_json_len: *mut usize,
@@ -449,7 +456,7 @@ pub extern "C" fn ds3_list_buckets(
 
 /// Returns metadata for a single S3 object as JSON.
 #[no_mangle]
-pub extern "C" fn ds3_head_object(
+pub unsafe extern "C" fn ds3_head_object(
     s3_handle: *const DS3S3Client,
     bucket: *const u8,
     bucket_len: usize,
@@ -475,7 +482,7 @@ pub extern "C" fn ds3_head_object(
 
 /// Downloads an S3 object to a local file path.
 #[no_mangle]
-pub extern "C" fn ds3_download_object(
+pub unsafe extern "C" fn ds3_download_object(
     s3_handle: *const DS3S3Client,
     bucket: *const u8,
     bucket_len: usize,
@@ -511,7 +518,7 @@ pub extern "C" fn ds3_download_object(
 
 /// Uploads a local file to S3. Returns the ETag (or null) as a string.
 #[no_mangle]
-pub extern "C" fn ds3_upload_object(
+pub unsafe extern "C" fn ds3_upload_object(
     s3_handle: *const DS3S3Client,
     bucket: *const u8,
     bucket_len: usize,
@@ -555,7 +562,7 @@ pub extern "C" fn ds3_upload_object(
 
 /// Deletes a single S3 object.
 #[no_mangle]
-pub extern "C" fn ds3_delete_object(
+pub unsafe extern "C" fn ds3_delete_object(
     s3_handle: *const DS3S3Client,
     bucket: *const u8,
     bucket_len: usize,
@@ -577,7 +584,7 @@ pub extern "C" fn ds3_delete_object(
 
 /// Copies an S3 object within the same bucket.
 #[no_mangle]
-pub extern "C" fn ds3_copy_object(
+pub unsafe extern "C" fn ds3_copy_object(
     s3_handle: *const DS3S3Client,
     bucket: *const u8,
     bucket_len: usize,
@@ -602,7 +609,7 @@ pub extern "C" fn ds3_copy_object(
 
 /// Checks if a folder marker (.ds3keep) exists.
 #[no_mangle]
-pub extern "C" fn ds3_probe_folder_exists(
+pub unsafe extern "C" fn ds3_probe_folder_exists(
     s3_handle: *const DS3S3Client,
     bucket: *const u8,
     bucket_len: usize,
@@ -626,7 +633,7 @@ pub extern "C" fn ds3_probe_folder_exists(
 
 /// Creates a .ds3keep folder marker.
 #[no_mangle]
-pub extern "C" fn ds3_create_folder_marker(
+pub unsafe extern "C" fn ds3_create_folder_marker(
     s3_handle: *const DS3S3Client,
     bucket: *const u8,
     bucket_len: usize,
@@ -652,7 +659,7 @@ pub extern "C" fn ds3_create_folder_marker(
 
 /// Computes a sync diff from two JSON tree snapshots. Returns result as JSON.
 #[no_mangle]
-pub extern "C" fn ds3_compute_diff(
+pub unsafe extern "C" fn ds3_compute_diff(
     local_json: *const u8,
     local_json_len: usize,
     remote_json: *const u8,
@@ -685,7 +692,7 @@ pub extern "C" fn ds3_compute_diff(
 
 /// Generates a conflict copy S3 key. Returns the result as a string.
 #[no_mangle]
-pub extern "C" fn ds3_conflict_key(
+pub unsafe extern "C" fn ds3_conflict_key(
     original_key: *const u8,
     original_key_len: usize,
     hostname: *const u8,
