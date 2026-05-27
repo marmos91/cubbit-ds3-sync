@@ -51,6 +51,24 @@ echo "==> Building ds3-ffi for ${#TARGETS[@]} targets (${BUILD_PROFILE})..."
 # ---------------------------------------------------------------------------
 for target in "${TARGETS[@]}"; do
     echo "    Building for ${target}..."
+    # Set deployment targets for iOS/simulator to avoid __chkstk_darwin
+    # linker errors from aws-lc-sys (macOS-only symbol).
+    # aws-lc-sys requires cmake builder for iOS cross-compilation.
+    # The default build uses macOS-only __chkstk_darwin symbol.
+    case "${target}" in
+        aarch64-apple-ios)
+            export IPHONEOS_DEPLOYMENT_TARGET="17.0"
+            export AWS_LC_SYS_CMAKE_BUILDER=1
+            ;;
+        aarch64-apple-ios-sim|x86_64-apple-ios)
+            export IPHONEOS_DEPLOYMENT_TARGET="17.0"
+            export AWS_LC_SYS_CMAKE_BUILDER=1
+            ;;
+        aarch64-apple-darwin)
+            export MACOSX_DEPLOYMENT_TARGET="15.0"
+            unset AWS_LC_SYS_CMAKE_BUILDER 2>/dev/null || true
+            ;;
+    esac
     cargo build --manifest-path "${CARGO_MANIFEST}" \
         --package ds3-ffi \
         ${CARGO_PROFILE_FLAG} \
