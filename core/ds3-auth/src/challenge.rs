@@ -1,4 +1,6 @@
 //! Challenge retrieval from the Cubbit IAM server.
+//!
+//! Ports the Swift `getChallenge` method from `DS3Authentication.swift`.
 
 use ds3_http::client::SharedHttpClient;
 use ds3_http::urls::CubbitAPIURLs;
@@ -16,6 +18,7 @@ struct ChallengeRequest {
 /// Retrieves a challenge from the Cubbit IAM server.
 ///
 /// POST `{challenge_url}` with `{"email": "...", "tenant_id": "..."}`.
+/// Returns the `Challenge` containing the challenge string and salt.
 #[tracing::instrument(skip(client, urls))]
 pub async fn get_challenge(
     client: &SharedHttpClient,
@@ -23,5 +26,12 @@ pub async fn get_challenge(
     email: &str,
     tenant_id: Option<&str>,
 ) -> Result<Challenge, DS3Error> {
-    todo!()
+    let body = ChallengeRequest {
+        email: email.to_string(),
+        tenant_id: tenant_id.map(|s| s.to_string()),
+    };
+
+    client
+        .post_json::<ChallengeRequest, Challenge>(&urls.challenge_url(), &body, None)
+        .await
 }
