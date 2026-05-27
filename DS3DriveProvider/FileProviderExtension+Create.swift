@@ -101,25 +101,54 @@ extension FileProviderExtension {
             Task {
                 let completionHandler = boxedCb.value
                 do {
-                    let existingItem = try await s3Lib.remoteS3Item(
-                        for: s3Item.itemIdentifier, drive: drive
-                    )
+                    var existingItem: S3Item?
 
-                    try? await self.metadataStore?.upsertItem(
-                        s3Key: key,
-                        driveId: drive.id,
-                        etag: existingItem.metadata.etag,
-                        lastModified: existingItem.metadata.lastModified,
-                        syncStatus: .synced,
-                        parentKey: parentKey,
-                        contentType: existingItem.isFolder ? "folder" : nil,
-                        size: Int64(truncating: existingItem.metadata.size)
-                    )
+                    if s3Item.isFolder {
+                        existingItem = try await probeFolderExists(
+                            folderKey: s3Item.itemIdentifier.rawValue,
+                            bucket: drive.syncAnchor.bucket.name,
+                            client: s3Lib.client,
+                            logger: self.logger
+                        ).map { metadata in
+                            S3Item(
+                                identifier: s3Item.itemIdentifier,
+                                drive: drive,
+                                objectMetadata: S3Item.Metadata(
+                                    etag: metadata.etag,
+                                    contentType: metadata.contentType,
+                                    lastModified: metadata.lastModified,
+                                    versionId: metadata.versionId,
+                                    size: NSNumber(value: metadata.contentLength)
+                                )
+                            )
+                        }
+                    } else {
+                        do {
+                            existingItem = try await s3Lib.remoteS3Item(
+                                for: s3Item.itemIdentifier, drive: drive
+                            )
+                        } catch let s3Error as AWSErrorType where s3Error.isNotFound {
+                            // 404 -- file not found, will proceed to upload below
+                        }
+                    }
 
-                    progress.completedUnitCount = numParts
-                    completionHandler(existingItem, NSFileProviderItemFields(), false, nil)
-                } catch let s3Error as AWSErrorType
-                    where s3Error.errorCode == "NotFound" || s3Error.errorCode == "NoSuchKey" {
+                    if let existingItem {
+                        try? await self.metadataStore?.upsertItem(
+                            s3Key: key,
+                            driveId: drive.id,
+                            etag: existingItem.metadata.etag,
+                            lastModified: existingItem.metadata.lastModified,
+                            syncStatus: .synced,
+                            parentKey: parentKey,
+                            contentType: existingItem.isFolder ? "folder" : nil,
+                            size: Int64(truncating: existingItem.metadata.size)
+                        )
+
+                        progress.completedUnitCount = numParts
+                        completionHandler(existingItem, NSFileProviderItemFields(), false, nil)
+                        return
+                    }
+
                     // Item doesn't exist remotely — proceed with normal upload
                     self.logger.debug("Item not found remotely (.mayAlreadyExist), proceeding with upload")
                     do {

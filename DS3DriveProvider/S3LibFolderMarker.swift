@@ -45,3 +45,35 @@ func materializeEmptyFolderMarker(
         )
     }
 }
+
+/// HEADs the `.ds3keep` marker key first, then the legacy `<folder>/`
+/// zero-byte placeholder. Returns metadata from whichever succeeds, or
+/// `nil` when both return 404. Non-404 errors propagate immediately.
+///
+/// Fix (#170): after `.ds3keep` adoption, reimported folders were
+/// silently re-PUT because `remoteS3Item` only HEAD'd the legacy key.
+func probeFolderExists(
+    folderKey: String,
+    bucket: String,
+    client: any DS3S3ClientProtocol,
+    logger: os.Logger
+) async throws -> S3ObjectMetadata? {
+    let markerKey = S3PathUtils.markerKey(forFolderKey: folderKey)
+
+    do {
+        let metadata = try await client.headObject(bucket: bucket, key: markerKey)
+        logger.debug("probeFolderExists: found marker at \(markerKey, privacy: .public)")
+        return metadata
+    } catch where DS3S3Client.isNotFoundError(error) {
+        logger.debug("probeFolderExists: no marker at \(markerKey, privacy: .public), trying legacy key")
+    }
+
+    do {
+        let metadata = try await client.headObject(bucket: bucket, key: folderKey)
+        logger.debug("probeFolderExists: found legacy key at \(folderKey, privacy: .public)")
+        return metadata
+    } catch where DS3S3Client.isNotFoundError(error) {
+        logger.debug("probeFolderExists: no key found for \(folderKey, privacy: .public)")
+        return nil
+    }
+}
