@@ -38,8 +38,8 @@ async fn test_authenticate() {
 
     let token = session
         .session
-        .read()
-        .expect("session lock")
+        .lock()
+        .await
         .token
         .token
         .clone();
@@ -95,8 +95,8 @@ async fn test_get_projects() {
 
     let token = session
         .session
-        .read()
-        .expect("session lock")
+        .lock()
+        .await
         .token
         .token
         .clone();
