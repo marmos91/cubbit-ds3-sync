@@ -7,3 +7,8 @@
 pub mod conflict;
 pub mod diff;
 pub mod tree;
+
+// Re-export primary types and functions for convenience.
+pub use conflict::conflict_key;
+pub use diff::compute_diff;
+pub use tree::TreeSnapshot;
