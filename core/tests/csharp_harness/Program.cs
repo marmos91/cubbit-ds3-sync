@@ -133,7 +133,6 @@ internal static class Program
         }
 
         // Test 2: Account info
-        Test("account_info", () =>
         {
             byte* jsonPtr = null;
             nuint jsonLen = 0;
@@ -149,24 +148,21 @@ internal static class Program
             if (string.IsNullOrEmpty(json))
                 throw new Exception("account info JSON is empty");
 
-            Console.WriteLine($"    Account info: {json.Substring(0, Math.Min(80, json.Length))}...");
-
-            // Free the string
+            Console.WriteLine($"  PASS: account_info ({json.Substring(0, Math.Min(80, json.Length))}...)");
             NativeMethods.ds3_free_string(jsonPtr, jsonLen);
-        });
+        }
 
         // Test 3: Refresh token
-        Test("refresh_token", () =>
         {
             int error = 0;
             int result = NativeMethods.ds3_refresh_token(sessionHandle, &error);
 
             if (result != 0)
                 throw new Exception($"ds3_refresh_token returned {result}, error code: {error}");
-        });
+            Console.WriteLine("  PASS: refresh_token");
+        }
 
         // Test 4: Get projects
-        Test("get_projects", () =>
         {
             byte* jsonPtr = null;
             nuint jsonLen = 0;
@@ -182,27 +178,24 @@ internal static class Program
             if (string.IsNullOrEmpty(json) || !json.StartsWith("["))
                 throw new Exception($"expected JSON array, got: {json}");
 
-            Console.WriteLine($"    Projects: {json.Substring(0, Math.Min(80, json.Length))}...");
-
+            Console.WriteLine($"  PASS: get_projects ({json.Substring(0, Math.Min(80, json.Length))}...)");
             NativeMethods.ds3_free_string(jsonPtr, jsonLen);
-        });
+        }
 
         // Test 5: Panic safety - null handle
-        Test("panic_safety_null_handle", () =>
         {
             byte* jsonPtr = null;
             nuint jsonLen = 0;
             int error = 0;
 
-            // Calling with null handle should return error, not crash
             int result = NativeMethods.ds3_account_info(
                 null, &jsonPtr, &jsonLen, &error);
 
             if (result == 0)
                 throw new Exception("expected error for null handle, got success");
 
-            Console.WriteLine($"    Null handle correctly returned error code: {error}");
-        });
+            Console.WriteLine($"  PASS: panic_safety_null_handle (error code: {error})");
+        }
 
         // Cleanup
         if (sessionHandle != null)
