@@ -50,6 +50,11 @@ impl TreeSnapshot {
         self.entries.is_empty()
     }
 
+    /// Creates a tree snapshot from an existing `HashMap`.
+    pub fn from_map(entries: HashMap<String, Option<String>>) -> Self {
+        Self { entries }
+    }
+
     /// Returns a reference to the underlying HashMap.
     pub(crate) fn inner(&self) -> &HashMap<String, Option<String>> {
         &self.entries

@@ -30,7 +30,7 @@ impl DiffResult {
 ///
 /// UniFFI does not support `HashSet` in Records. This type provides a
 /// conversion from the native `DiffResult` for crossing the FFI boundary.
-#[derive(Clone, Debug, PartialEq, uniffi::Record)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct DiffResultRecord {
     /// Keys that are new or have a different ETag compared to the local tree.
     pub new_or_modified: Vec<String>,

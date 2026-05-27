@@ -1,0 +1,6 @@
+[bindings.swift]
+module_name = "DS3CoreFFI"
+
+[bindings.swift.ffi_module_name]
+# The FFI module name must match the library name for XCFramework headers.
+# UniFFI generates {module_name}FFI.h which we rename to module.modulemap.

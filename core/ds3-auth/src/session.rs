@@ -18,9 +18,13 @@ use std::sync::RwLock;
 /// The `session` field uses `RwLock` for interior mutability since refresh
 /// operations update the token from within.
 pub struct DS3Session {
-    pub(crate) http: SharedHttpClient,
-    pub(crate) urls: CubbitAPIURLs,
-    pub(crate) session: RwLock<AccountSession>,
+    /// The shared HTTP client with cookie jar for all API calls.
+    pub http: SharedHttpClient,
+    /// The API URL configuration derived from the coordinator URL.
+    pub urls: CubbitAPIURLs,
+    /// The current auth session (token + refresh token) behind an RwLock
+    /// for interior mutability during token refresh.
+    pub session: RwLock<AccountSession>,
     /// The authenticated account information.
     pub account: Account,
 }
@@ -58,6 +62,39 @@ impl DS3Session {
             post_signin(&http, &urls, email, &signed, None, tenant_id).await?;
 
         // Step 4: Get account info
+        let account =
+            get_account_info(&http, &urls, &account_session.token.token).await?;
+
+        Ok(Self {
+            http,
+            urls,
+            session: RwLock::new(account_session),
+            account,
+        })
+    }
+
+    /// Authenticates with a 2FA code for accounts requiring two-factor auth.
+    ///
+    /// Same flow as `authenticate` but passes the `tfa_code` to the signin endpoint.
+    #[tracing::instrument(skip(password, tfa_code))]
+    pub async fn authenticate_with_2fa(
+        email: &str,
+        password: &str,
+        tfa_code: &str,
+        tenant_id: Option<&str>,
+        coordinator_url: Option<&str>,
+    ) -> Result<Self, DS3Error> {
+        let urls = match coordinator_url {
+            Some(url) => CubbitAPIURLs::new(url),
+            None => CubbitAPIURLs::default_coordinator(),
+        };
+
+        let http = SharedHttpClient::new()?;
+
+        let challenge = get_challenge(&http, &urls, email, tenant_id).await?;
+        let signed = sign_challenge(&challenge.challenge, password, &challenge.salt)?;
+        let account_session =
+            post_signin(&http, &urls, email, &signed, Some(tfa_code), tenant_id).await?;
         let account =
             get_account_info(&http, &urls, &account_session.token.token).await?;
 

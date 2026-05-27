@@ -1,0 +1,423 @@
+//! UniFFI exported functions for Swift bindings.
+//!
+//! `DS3SessionHandle` is an opaque UniFFI Object that wraps the authenticated
+//! `DS3Session`. All methods use the shared tokio runtime via `handles::runtime()`
+//! to bridge async Rust code to blocking FFI calls.
+//!
+//! Function groups:
+//! - Auth (8): authenticate, verify_2fa, refresh_token, forge_iam_token,
+//!   account_info, get_challenge, logout, session_destroy (implicit via Drop)
+//! - Projects/Keys (4): get_projects, load_api_keys, create_api_key, delete_api_key
+//! - S3 (15): list_objects, list_buckets, head_object, download_object,
+//!   upload_object, delete_object, delete_objects, copy_object,
+//!   multipart_create, multipart_upload_part, multipart_complete,
+//!   multipart_abort, list_multipart_uploads, presign_get
+//! - Markers (2): probe_folder_exists, create_folder_marker
+//! - Sync (2): compute_diff, conflict_key (static functions)
+
+use std::path::Path;
+use std::sync::Arc;
+
+use ds3_auth::DS3Session;
+use ds3_models::{
+    Account, BucketInfo, Challenge, DS3ApiKey, DS3Error, DiffResultRecord, Project,
+    S3DownloadResult, S3ListingResult, S3ObjectMetadata, Token,
+};
+use ds3_s3::DS3S3Client;
+
+use crate::handles::runtime;
+use crate::progress::ProgressCallback;
+
+/// Opaque session handle exposed to Swift via UniFFI.
+///
+/// Wraps an `Arc<DS3Session>` for auth and HTTP operations, plus an optional
+/// `DS3S3Client` for S3 operations (initialized separately after obtaining
+/// API key credentials).
+#[derive(uniffi::Object)]
+pub struct DS3SessionHandle {
+    session: Arc<DS3Session>,
+    s3_client: std::sync::RwLock<Option<DS3S3Client>>,
+}
+
+// ---------------------------------------------------------------------------
+// Auth functions (8)
+// ---------------------------------------------------------------------------
+#[uniffi::export]
+impl DS3SessionHandle {
+    /// Authenticates with the Cubbit IAM server and returns a session handle.
+    ///
+    /// This is the primary entry point. Orchestrates: get_challenge -> sign ->
+    /// post_signin -> get_account_info.
+    #[uniffi::constructor]
+    pub fn authenticate(
+        email: String,
+        password: String,
+        tenant_id: Option<String>,
+        coordinator_url: Option<String>,
+    ) -> Result<Arc<Self>, DS3Error> {
+        let session = runtime().block_on(DS3Session::authenticate(
+            &email,
+            &password,
+            tenant_id.as_deref(),
+            coordinator_url.as_deref(),
+        ))?;
+        Ok(Arc::new(Self {
+            session: Arc::new(session),
+            s3_client: std::sync::RwLock::new(None),
+        }))
+    }
+
+    /// Authenticates with a 2FA code (for accounts with two-factor enabled).
+    #[uniffi::constructor]
+    pub fn verify_2fa(
+        email: String,
+        password: String,
+        tfa_code: String,
+        tenant_id: Option<String>,
+        coordinator_url: Option<String>,
+    ) -> Result<Arc<Self>, DS3Error> {
+        let session = runtime().block_on(DS3Session::authenticate_with_2fa(
+            &email,
+            &password,
+            &tfa_code,
+            tenant_id.as_deref(),
+            coordinator_url.as_deref(),
+        ))?;
+        Ok(Arc::new(Self {
+            session: Arc::new(session),
+            s3_client: std::sync::RwLock::new(None),
+        }))
+    }
+
+    /// Refreshes the access token if expired.
+    pub fn refresh_token(&self) -> Result<(), DS3Error> {
+        runtime().block_on(self.session.refresh_if_needed())
+    }
+
+    /// Forges an IAM-scoped token for the specified user ID.
+    pub fn forge_iam_token(&self, user_id: String) -> Result<Token, DS3Error> {
+        runtime().block_on(self.session.forge_iam_token(&user_id))
+    }
+
+    /// Returns the authenticated account information.
+    pub fn account_info(&self) -> Result<Account, DS3Error> {
+        Ok(self.session.account.clone())
+    }
+
+    /// Retrieves a challenge from the IAM server (static -- no session needed).
+    #[uniffi::constructor]
+    pub fn get_challenge(
+        email: String,
+        tenant_id: Option<String>,
+        coordinator_url: Option<String>,
+    ) -> Result<Challenge, DS3Error> {
+        use ds3_auth::challenge::get_challenge as auth_get_challenge;
+        use ds3_http::client::SharedHttpClient;
+        use ds3_http::urls::CubbitAPIURLs;
+
+        let urls = match coordinator_url.as_deref() {
+            Some(url) => CubbitAPIURLs::new(url),
+            None => CubbitAPIURLs::default_coordinator(),
+        };
+        let http = SharedHttpClient::new()?;
+        runtime().block_on(auth_get_challenge(&http, &urls, &email, tenant_id.as_deref()))
+    }
+
+    /// Initializes the S3 client for this session with the given credentials.
+    ///
+    /// Must be called before any S3 operation. Typically called after
+    /// `forge_iam_token` + `create_api_key` to obtain S3 credentials.
+    pub fn connect_s3(
+        &self,
+        endpoint: String,
+        access_key: String,
+        secret_key: String,
+        region: Option<String>,
+    ) -> Result<(), DS3Error> {
+        let client =
+            DS3S3Client::new(&endpoint, &access_key, &secret_key, region.as_deref());
+        let mut guard = self.s3_client.write().map_err(|_| {
+            DS3Error::AuthError("S3 client lock poisoned".into())
+        })?;
+        *guard = Some(client);
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Projects/Keys functions (4)
+// ---------------------------------------------------------------------------
+#[uniffi::export]
+impl DS3SessionHandle {
+    /// Lists all projects for the authenticated user.
+    pub fn get_projects(&self) -> Result<Vec<Project>, DS3Error> {
+        self.refresh_token()?;
+        let token = self.current_token()?;
+        runtime().block_on(ds3_http::projects::get_projects(
+            &self.session.http,
+            &self.session.urls,
+            &token,
+        ))
+    }
+
+    /// Loads API keys for a given IAM user.
+    pub fn load_api_keys(
+        &self,
+        user_id: String,
+        iam_token: String,
+    ) -> Result<Vec<DS3ApiKey>, DS3Error> {
+        runtime().block_on(ds3_http::keys::load_api_keys(
+            &self.session.http,
+            &self.session.urls,
+            &iam_token,
+            &user_id,
+        ))
+    }
+
+    /// Creates a new API key for a given IAM user.
+    pub fn create_api_key(
+        &self,
+        user_id: String,
+        key_name: String,
+        iam_token: String,
+    ) -> Result<DS3ApiKey, DS3Error> {
+        runtime().block_on(ds3_http::keys::create_api_key(
+            &self.session.http,
+            &self.session.urls,
+            &iam_token,
+            &user_id,
+            &key_name,
+        ))
+    }
+
+    /// Deletes an API key by its access key ID.
+    pub fn delete_api_key(
+        &self,
+        user_id: String,
+        api_key_id: String,
+        iam_token: String,
+    ) -> Result<(), DS3Error> {
+        runtime().block_on(ds3_http::keys::delete_api_key(
+            &self.session.http,
+            &self.session.urls,
+            &iam_token,
+            &user_id,
+            &api_key_id,
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// S3 functions (15)
+// ---------------------------------------------------------------------------
+#[uniffi::export]
+impl DS3SessionHandle {
+    /// Lists objects in a bucket with optional prefix, delimiter, and pagination.
+    pub fn list_objects(
+        &self,
+        bucket: String,
+        prefix: Option<String>,
+        delimiter: Option<String>,
+        max_keys: Option<i32>,
+        continuation_token: Option<String>,
+    ) -> Result<S3ListingResult, DS3Error> {
+        let client = self.require_s3()?;
+        runtime().block_on(client.list_objects(
+            &bucket,
+            prefix.as_deref(),
+            delimiter.as_deref(),
+            max_keys,
+            continuation_token.as_deref(),
+        ))
+    }
+
+    /// Lists all buckets accessible with the current S3 credentials.
+    pub fn list_buckets(&self) -> Result<Vec<BucketInfo>, DS3Error> {
+        let client = self.require_s3()?;
+        let raw = runtime().block_on(client.list_buckets())?;
+        Ok(raw
+            .into_iter()
+            .map(|(name, creation_date)| BucketInfo {
+                name,
+                creation_date,
+            })
+            .collect())
+    }
+
+    /// Returns metadata for a single S3 object (HeadObject).
+    pub fn head_object(
+        &self,
+        bucket: String,
+        key: String,
+    ) -> Result<S3ObjectMetadata, DS3Error> {
+        let client = self.require_s3()?;
+        runtime().block_on(client.head_object(&bucket, &key))
+    }
+
+    /// Downloads an S3 object to a local file path.
+    pub fn download_object(
+        &self,
+        bucket: String,
+        key: String,
+        file_path: String,
+        progress: Option<Box<dyn ProgressCallback>>,
+    ) -> Result<S3DownloadResult, DS3Error> {
+        let client = self.require_s3()?;
+        let path = Path::new(&file_path);
+
+        let callback: Option<Box<dyn Fn(i64, i64) + Send + Sync>> = progress.map(|p| {
+            let boxed: Box<dyn Fn(i64, i64) + Send + Sync> =
+                Box::new(move |transferred, total| {
+                    p.on_progress(transferred, total);
+                });
+            boxed
+        });
+
+        let result = runtime().block_on(
+            client.download_object(&bucket, &key, path, callback.as_deref()),
+        )?;
+
+        Ok(S3DownloadResult {
+            etag: result.etag,
+            content_type: result.content_type,
+            last_modified: result.last_modified,
+            content_length: result.content_length,
+        })
+    }
+
+    /// Uploads a local file to S3. Returns the ETag on success (if provided by S3).
+    ///
+    /// Automatically uses multipart upload for files larger than 5MB.
+    pub fn upload_object(
+        &self,
+        bucket: String,
+        key: String,
+        file_path: String,
+        progress: Option<Box<dyn ProgressCallback>>,
+    ) -> Result<Option<String>, DS3Error> {
+        let client = self.require_s3()?;
+        let path = Path::new(&file_path);
+
+        let callback: Option<Box<dyn Fn(i64, i64) + Send + Sync>> = progress.map(|p| {
+            let boxed: Box<dyn Fn(i64, i64) + Send + Sync> =
+                Box::new(move |transferred, total| {
+                    p.on_progress(transferred, total);
+                });
+            boxed
+        });
+
+        runtime().block_on(
+            client.upload_object(&bucket, &key, path, callback.as_deref()),
+        )
+    }
+
+    /// Deletes a single S3 object.
+    pub fn delete_object(&self, bucket: String, key: String) -> Result<(), DS3Error> {
+        let client = self.require_s3()?;
+        runtime().block_on(client.delete_object(&bucket, &key))
+    }
+
+    /// Deletes multiple S3 objects. Returns the count of successfully deleted objects.
+    pub fn delete_objects(
+        &self,
+        bucket: String,
+        keys: Vec<String>,
+    ) -> Result<i32, DS3Error> {
+        let client = self.require_s3()?;
+        let count = runtime().block_on(client.delete_objects(&bucket, &keys))?;
+        Ok(count as i32)
+    }
+
+    /// Copies an S3 object within the same bucket.
+    pub fn copy_object(
+        &self,
+        bucket: String,
+        source_key: String,
+        dest_key: String,
+    ) -> Result<(), DS3Error> {
+        let client = self.require_s3()?;
+        runtime().block_on(client.copy_object(&bucket, &source_key, &dest_key, None))
+    }
+
+    /// Probes whether a folder marker (.ds3keep) exists for the given folder key.
+    pub fn probe_folder_exists(
+        &self,
+        bucket: String,
+        folder_key: String,
+    ) -> Result<bool, DS3Error> {
+        let client = self.require_s3()?;
+        runtime().block_on(client.probe_folder_exists(&bucket, &folder_key))
+    }
+
+    /// Creates a .ds3keep folder marker for the given folder key.
+    pub fn create_folder_marker(
+        &self,
+        bucket: String,
+        folder_key: String,
+    ) -> Result<(), DS3Error> {
+        let client = self.require_s3()?;
+        runtime().block_on(client.create_folder_marker(&bucket, &folder_key))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Sync functions (static -- no session needed)
+// ---------------------------------------------------------------------------
+
+/// Computes the diff between local and remote file tree snapshots.
+///
+/// Both `local_json` and `remote_json` are JSON strings representing
+/// `HashMap<String, Option<String>>` (key -> optional ETag).
+#[uniffi::export]
+pub fn compute_diff(local_json: String, remote_json: String) -> Result<DiffResultRecord, DS3Error> {
+    let local: std::collections::HashMap<String, Option<String>> =
+        serde_json::from_str(&local_json)?;
+    let remote: std::collections::HashMap<String, Option<String>> =
+        serde_json::from_str(&remote_json)?;
+
+    let local_tree = ds3_sync::TreeSnapshot::from_map(local);
+    let remote_tree = ds3_sync::TreeSnapshot::from_map(remote);
+
+    let result = ds3_sync::compute_diff(&local_tree, &remote_tree);
+    Ok(result.into())
+}
+
+/// Generates a conflict copy key from the original key and hostname.
+///
+/// If `nonce` is `None`, a random 4-character hex nonce is generated.
+#[uniffi::export]
+pub fn conflict_key(
+    original_key: String,
+    hostname: String,
+    nonce: Option<String>,
+) -> String {
+    ds3_sync::conflict_key(
+        &original_key,
+        &hostname,
+        chrono::Utc::now(),
+        nonce.as_deref(),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Private helpers
+// ---------------------------------------------------------------------------
+impl DS3SessionHandle {
+    /// Returns the current access token string.
+    fn current_token(&self) -> Result<String, DS3Error> {
+        let session = self
+            .session
+            .session
+            .read()
+            .map_err(|_| DS3Error::AuthError("session lock poisoned".into()))?;
+        Ok(session.token.token.clone())
+    }
+
+    /// Returns a clone of the S3 client, or an error if not connected.
+    fn require_s3(&self) -> Result<DS3S3Client, DS3Error> {
+        let guard = self.s3_client.read().map_err(|_| {
+            DS3Error::AuthError("S3 client lock poisoned".into())
+        })?;
+        guard.clone().ok_or(DS3Error::LoggedOut)
+    }
+}

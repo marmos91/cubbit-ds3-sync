@@ -37,6 +37,7 @@ pub const MARKER_FILE_NAME: &str = ".ds3keep";
 
 /// S3 client wrapping `aws_sdk_s3::Client` configured for Cubbit's
 /// S3-compatible endpoint with path-style addressing.
+#[derive(Clone)]
 pub struct DS3S3Client {
     pub(crate) client: aws_sdk_s3::Client,
 }
