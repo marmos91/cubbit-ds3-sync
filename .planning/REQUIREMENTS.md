@@ -82,45 +82,45 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CORE-01 | — | Pending |
-| CORE-02 | — | Pending |
-| CORE-03 | — | Pending |
-| CORE-04 | — | Pending |
-| CORE-05 | — | Pending |
-| CORE-06 | — | Pending |
-| CORE-07 | — | Pending |
-| CORE-08 | — | Pending |
-| CORE-09 | — | Pending |
-| CORE-10 | — | Pending |
-| APPLE-01 | — | Pending |
-| APPLE-02 | — | Pending |
-| APPLE-03 | — | Pending |
-| APPLE-04 | — | Pending |
-| APPLE-05 | — | Pending |
-| APPLE-06 | — | Pending |
-| WIN-01 | — | Pending |
-| WIN-02 | — | Pending |
-| WIN-03 | — | Pending |
-| WIN-04 | — | Pending |
-| WIN-05 | — | Pending |
-| WIN-06 | — | Pending |
-| WIN-07 | — | Pending |
-| WIN-08 | — | Pending |
-| WIN-09 | — | Pending |
-| POL-01 | — | Pending |
-| POL-02 | — | Pending |
-| POL-03 | — | Pending |
-| POL-04 | — | Pending |
-| POL-05 | — | Pending |
-| POL-06 | — | Pending |
-| POL-07 | — | Pending |
-| POL-08 | — | Pending |
+| CORE-01 | Phase 15 | Pending |
+| CORE-02 | Phase 15 | Pending |
+| CORE-03 | Phase 15 | Pending |
+| CORE-04 | Phase 15 | Pending |
+| CORE-05 | Phase 15 | Pending |
+| CORE-06 | Phase 15 | Pending |
+| CORE-07 | Phase 15 | Pending |
+| CORE-08 | Phase 15 | Pending |
+| CORE-09 | Phase 15 | Pending |
+| CORE-10 | Phase 15 | Pending |
+| APPLE-01 | Phase 16 | Pending |
+| APPLE-02 | Phase 16 | Pending |
+| APPLE-03 | Phase 16 | Pending |
+| APPLE-04 | Phase 16 | Pending |
+| APPLE-05 | Phase 16 | Pending |
+| APPLE-06 | Phase 16 | Pending |
+| WIN-01 | Phase 17 | Pending |
+| WIN-02 | Phase 17 | Pending |
+| WIN-03 | Phase 17 | Pending |
+| WIN-04 | Phase 17 | Pending |
+| WIN-05 | Phase 17 | Pending |
+| WIN-06 | Phase 17 | Pending |
+| WIN-07 | Phase 17 | Pending |
+| WIN-08 | Phase 17 | Pending |
+| WIN-09 | Phase 17 | Pending |
+| POL-01 | Phase 18 | Pending |
+| POL-02 | Phase 18 | Pending |
+| POL-03 | Phase 18 | Pending |
+| POL-04 | Phase 18 | Pending |
+| POL-05 | Phase 18 | Pending |
+| POL-06 | Phase 18 | Pending |
+| POL-07 | Phase 18 | Pending |
+| POL-08 | Phase 18 | Pending |
 
 **Coverage:**
 - v2.0.0 requirements: 33 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 33
+- Mapped to phases: 33
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-26*
-*Last updated: 2026-05-26 after initial definition*
+*Last updated: 2026-05-26 after roadmap creation (traceability added)*

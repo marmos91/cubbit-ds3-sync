@@ -6,6 +6,7 @@
 - ✅ **v2.0 iOS & iPadOS Universal App** - Phases 6-9 (shipped 2026-03-20)
 - ✅ **v3.0 Sharing & Collaboration** - Phase 10 (shipped 2026-04-10)
 - 📋 **v3.1 Thumbnails** - Phases 11-14 (planned)
+- 📋 **v2.0.0 Cross-Platform Rewrite** - Phases 15-18 (planned)
 
 ## Phases
 
@@ -125,7 +126,8 @@ See `.planning/milestones/v2.0-ROADMAP.md` for full details.
 
 </details>
 
-## v3.0 Sharing & Collaboration
+<details>
+<summary>v3.0 Sharing & Collaboration (Phase 10) -- SHIPPED 2026-04-10</summary>
 
 - [x] **Phase 10: Presigned URL sharing (issue #104)** - Right-click context menu action to generate and copy presigned S3 URLs with three duration presets (completed 2026-04-10)
 
@@ -139,24 +141,27 @@ Plans:
 - [x] 10-01-PLAN.md -- TDD: DS3S3Client+Presign.swift presignedGetURL method with unit tests
 - [x] 10-02-PLAN.md -- Info.plist entries, notification helper, custom action handler, human verification
 
-## v3.1 Thumbnails (issue #109)
+</details>
 
-Closes GitHub issue #109. Image files in Finder (macOS) and the iOS Files app show real thumbnail previews, backed by a `.thumbnails/` S3 prefix that is transparent to the user. Both macOS and iOS can independently generate thumbnails — no platform is a required peer.
+<details>
+<summary>v3.1 Thumbnails (Phases 11-14) -- PLANNED</summary>
+
+Closes GitHub issue #109. Image files in Finder (macOS) and the iOS Files app show real thumbnail previews, backed by a `.thumbnails/` S3 prefix that is transparent to the user. Both macOS and iOS can independently generate thumbnails -- no platform is a required peer.
 
 - [ ] **Phase 11: Foundation & Filtering** - DS3Lib primitives, centralized `.thumbnails/` filter, drive-setup collision check, fix latent ImageIO memory bug. Zero user-visible change.
 - [ ] **Phase 12: Renderer, Storage & Schema** - `ThumbnailRenderer` (macOS-gated), `ThumbnailS3Service`, Schema V3 with `thumbnailStatus`, `SharedData+thumbnailSettings`, `ThumbnailBackfillCoordinator` scaffolded. Zero user-visible change.
-- [ ] **Phase 13: macOS Generation, Consumption & Lifecycle** - Upload-path hook, cache-first `fetchThumbnails` rewrite, delete/rename cascade, BFS backfill, orphan sweep, 3-strike terminating reconciliation. **First user-visible thumbnails — fully silent rollout (no tray UI).**
+- [ ] **Phase 13: macOS Generation, Consumption & Lifecycle** - Upload-path hook, cache-first `fetchThumbnails` rewrite, delete/rename cascade, BFS backfill, orphan sweep, 3-strike terminating reconciliation. **First user-visible thumbnails -- fully silent rollout (no tray UI).**
 - [ ] **Phase 14: iOS Generation & Polish** - `BGProcessingTask` + `ForegroundBackfillDriver`, cellular gating, manual "Generate now" action, iOS settings UI with progress + force-quit caveat copy.
 
 ### Phase 11: Foundation & Filtering
-**Goal**: The `.thumbnails/` S3 prefix becomes a first-class, user-invisible namespace across every list-S3 code path, and drive setup refuses to enable the feature on buckets whose `.thumbnails/` content would collide with ours — all shipped as a silent no-op payload before any byte is written.
+**Goal**: The `.thumbnails/` S3 prefix becomes a first-class, user-invisible namespace across every list-S3 code path, and drive setup refuses to enable the feature on buckets whose `.thumbnails/` content would collide with ours -- all shipped as a silent no-op payload before any byte is written.
 **Depends on**: Phase 9 (iOS File Provider extension), Phase 10 (active v3 work)
 **Requirements**: THUMB-01, THUMB-02, THUMB-03, THUMB-05
 **Success Criteria** (what must be TRUE):
-  1. Users browsing any drive in Finder or the iOS Files app never see a `.thumbnails/` folder in any enumeration surface — regular listing, search, changes delta, or BFS indexer — even if `.thumbnails/` objects exist in the bucket
+  1. Users browsing any drive in Finder or the iOS Files app never see a `.thumbnails/` folder in any enumeration surface -- regular listing, search, changes delta, or BFS indexer -- even if `.thumbnails/` objects exist in the bucket
   2. Attempting drive setup against a bucket that already contains non-DS3Drive `.thumbnails/` content is refused with a clear, actionable error message; setup succeeds on clean buckets and on buckets that only contain DS3Drive-generated thumbnails
   3. The `ThumbnailKey` mapping for any original key is unambiguous and collision-free (an `a.jpg` original and an `a.png` original at the same folder map to distinct thumbnail keys because the original extension is appended, not substituted)
-  4. All subsequent phases import a single canonical `S3KeyFilter.isUserVisible(key:)` from DS3Lib and a single canonical `DefaultSettings.S3.thumbnailsPrefix` / size / quality constant — no scattered literals, no parallel filters
+  4. All subsequent phases import a single canonical `S3KeyFilter.isUserVisible(key:)` from DS3Lib and a single canonical `DefaultSettings.S3.thumbnailsPrefix` / size / quality constant -- no scattered literals, no parallel filters
   5. The latent `kCGImageSourceShouldCache: false` bug in `+ThumbnailGenerators.swift:11` is fixed and covered by regression test, eliminating the v2.0 memory footgun before any new generation code is added on top
 **Plans:** 5 plans
 
@@ -168,14 +173,14 @@ Plans:
 - [ ] 11-05-PLAN.md -- Generator hardening: ImageIO memory safety, format allow-list, Git LFS test fixtures
 
 ### Phase 12: Renderer, Storage & Schema
-**Goal**: DS3Lib exposes a platform-gated, memory-safe thumbnail renderer, an S3 put/get/delete service with staleness metadata, a Schema V3 migration that tracks per-item thumbnail status, and a scaffolded backfill coordinator — all wired into unit tests but not yet invoked from any user-facing code path.
+**Goal**: DS3Lib exposes a platform-gated, memory-safe thumbnail renderer, an S3 put/get/delete service with staleness metadata, a Schema V3 migration that tracks per-item thumbnail status, and a scaffolded backfill coordinator -- all wired into unit tests but not yet invoked from any user-facing code path.
 **Depends on**: Phase 11
 **Requirements**: THUMB-04, THUMB-07, THUMB-08, THUMB-09, THUMB-10
 **Success Criteria** (what must be TRUE):
-  1. The MetadataStore can answer "which items in this drive still need a thumbnail?" and persists per-item thumbnail state (`.notApplicable` / `.pending` / `.uploaded` / `.failed`) across extension and app restarts, with Schema V2→V3 migration succeeding on existing installs
-  2. Importing `ThumbnailRenderer` from the iOS File Provider extension target fails to compile — the type is hard-gated with `#if os(macOS)` around every ImageIO / CoreImage call site, making accidental iOS-extension decode unrepresentable
+  1. The MetadataStore can answer "which items in this drive still need a thumbnail?" and persists per-item thumbnail state (`.notApplicable` / `.pending` / `.uploaded` / `.failed`) across extension and app restarts, with Schema V2->V3 migration succeeding on existing installs
+  2. Importing `ThumbnailRenderer` from the iOS File Provider extension target fails to compile -- the type is hard-gated with `#if os(macOS)` around every ImageIO / CoreImage call site, making accidental iOS-extension decode unrepresentable
   3. Unit tests on Git LFS fixtures prove the renderer produces right-side-up JPEGs for portrait iPhone photos (EXIF orientation 6 HEIC + JPEG fixtures) and silently returns nil for unsupported formats without throwing
-  4. `ThumbnailS3Service.put` writes every thumbnail as a single-part PUT carrying both `x-amz-meta-source-etag` (for stale-thumbnail detection) and `x-amz-meta-ds3drive-thumb-version` (for future format migrations) — verified via mock S3 tests
+  4. `ThumbnailS3Service.put` writes every thumbnail as a single-part PUT carrying both `x-amz-meta-source-etag` (for stale-thumbnail detection) and `x-amz-meta-ds3drive-thumb-version` (for future format migrations) -- verified via mock S3 tests
   5. `SharedData+thumbnailSettings` round-trips the feature-enabled flag across the App Group boundary, and the `ThumbnailBackfillCoordinator` actor exists with a runnable (though unused) batch entry point, ready for Phase 13 to call into
 **Plans:** 5 plans
 
@@ -187,75 +192,102 @@ Plans:
 - [ ] 12-05-PLAN.md -- ThumbnailBackfillCoordinator actor scaffold (cross-platform shell, macOS-only render)
 
 ### Phase 13: macOS Generation, Consumption & Lifecycle
-**Goal**: Finder shows real thumbnails for image files on every macOS drive — instantly for newly uploaded files, opportunistically backfilled for existing content — and the thumbnail lifecycle tracks the original through deletes, renames, moves, and pause/resume without ever breaking the user-visible upload contract or poisoning the system with stuck progress or custom error domains. iOS Files automatically benefits because iOS consumes the same `.thumbnails/` prefix macOS writes.
+**Goal**: Finder shows real thumbnails for image files on every macOS drive -- instantly for newly uploaded files, opportunistically backfilled for existing content -- and the thumbnail lifecycle tracks the original through deletes, renames, moves, and pause/resume without ever breaking the user-visible upload contract or poisoning the system with stuck progress or custom error domains. iOS Files automatically benefits because iOS consumes the same `.thumbnails/` prefix macOS writes.
 **Depends on**: Phase 12
-**Requirements**: THUMB-06, THUMB-11, THUMB-12, THUMB-13, THUMB-14, THUMB-15, THUMB-17, THUMB-18, THUMB-19, THUMB-20, THUMB-21, THUMB-23 (THUMB-24 dropped 2026-04-25 — fully silent macOS rollout)
+**Requirements**: THUMB-06, THUMB-11, THUMB-12, THUMB-13, THUMB-14, THUMB-15, THUMB-17, THUMB-18, THUMB-19, THUMB-20, THUMB-21, THUMB-23
 **Success Criteria** (what must be TRUE):
-  1. A user dragging an image into a DS3 Drive folder in Finder sees the file appear instantly with a real thumbnail (within a few seconds), while a corrupt or unsupported image file uploads successfully with no error and falls back to the default UTType icon — the upload contract is never blocked, broken, or flickered by thumbnail work
-  2. A user browsing a folder of cloud-only images uploaded from another device sees thumbnails appear progressively as the macOS extension opportunistically backfills them during BFS enumeration passes, with existing sync status badges (cloud / synced / syncing / error) still rendering correctly on top — and the same folder viewed on iOS Files also shows those thumbnails without the iOS extension ever decoding anything
+  1. A user dragging an image into a DS3 Drive folder in Finder sees the file appear instantly with a real thumbnail (within a few seconds), while a corrupt or unsupported image file uploads successfully with no error and falls back to the default UTType icon -- the upload contract is never blocked, broken, or flickered by thumbnail work
+  2. A user browsing a folder of cloud-only images uploaded from another device sees thumbnails appear progressively as the macOS extension opportunistically backfills them during BFS enumeration passes, with existing sync status badges (cloud / synced / syncing / error) still rendering correctly on top -- and the same folder viewed on iOS Files also shows those thumbnails without the iOS extension ever decoding anything
   3. Deleting, renaming, or moving an image in Finder correctly cascades to its thumbnail within one sync cycle, and a periodic orphan sweep guarantees that `.thumbnails/` entries whose originals have disappeared (due to failed cascades or external bucket edits) are eventually reclaimed
   4. Pausing a drive halts thumbnail backfill for that drive immediately; resuming continues from where it left off; backfill never eager-scans the full bucket on feature launch and never triggers a full-file download on the consumption path
-  5. Concurrent thumbnail fetches from Finder never trigger S3 `SlowDown` thanks to the bounded `ThumbnailFetchLimiter`, and every failure path funnels through `NSFileProviderErrorDomain` / `NSCocoaErrorDomain` — never a custom domain. Permanently unprocessable items terminate after 3 strikes (silently — no progress UI surfaces them on macOS).
+  5. Concurrent thumbnail fetches from Finder never trigger S3 `SlowDown` thanks to the bounded `ThumbnailFetchLimiter`, and every failure path funnels through `NSFileProviderErrorDomain` / `NSCocoaErrorDomain` -- never a custom domain. Permanently unprocessable items terminate after 3 strikes (silently -- no progress UI surfaces them on macOS).
 **Plans:** 11 plans
 
 Plans:
-- [ ] 13-01-PLAN.md — Scope-change ratification (drop THUMB-24) + DefaultSettings.Thumbnail constants + S3PathUtils.isRasterExtension
-- [ ] 13-02-PLAN.md — ThumbnailUploader (DS3Lib struct, macOS-gated render+PUT pipeline)
-- [x] 13-03-PLAN.md — DS3S3Client.copyThumbnail (server-side copy preserving staleness metadata)
-- [ ] 13-04-PLAN.md — Schema V4 + thumbnailFailCount + setThumbnailFailure + ETag-reset + uploader retrofit
-- [ ] 13-05-PLAN.md — ThumbnailBackfillCoordinator extensions (thermal/pause/cancel/strike integration)
-- [ ] 13-06-PLAN.md — ThumbnailFetchLimiter actor + cache-first fetchThumbnails rewrite + error mapping
-- [ ] 13-07-PLAN.md — Upload-hook in createItem + modifyItem (content-change branch)
-- [ ] 13-08-PLAN.md — Delete + rename/move cascades via +ThumbnailCascade helper
-- [ ] 13-09-PLAN.md — BFS pass-tail coordinator hook + OrphanSweeper + 50-cap
-- [ ] 13-10-PLAN.md — Silent launch-time rollout (once-per-drive collision re-check, persisted)
-- [ ] 13-11-PLAN.md — Phase 13 integration smoke tests + dead-code cleanup audit + human verification
-**UI hint**: no
-
-### Phase 13.1: Thumbnail subsystem hardening - Phase 13 audit fixes (INSERTED)
-
-**Goal:** Phase 13 audit fixes — Findings 2, 4, 5, and parent-folder progress propagation, restoring THUMB-13, THUMB-18, THUMB-19 conformance under real-world load
-**Requirements**: THUMB-13, THUMB-18, THUMB-19 (no new requirements; bugs violate existing ones)
-**Depends on:** Phase 13
-**Plans:** 7 plans
-
-Plans:
-- [ ] 13.1-01-PLAN.md — Parent-folder progress root-cause spike (Wave 0; D-13)
-- [ ] 13.1-02-PLAN.md — OrphanSweeper MetadataStore freshness backstop (Finding 4; D-01..D-05)
-- [ ] 13.1-03-PLAN.md — Cascade NoSuchKey demote + log opacity fix (Finding 5; D-06..D-08)
-- [ ] 13.1-04-PLAN.md — ThumbnailRenderer eager Data snapshot (Finding 2; D-09..D-12)
-- [ ] 13.1-05-PLAN.md — Codebase-wide describeSotoError sweep (Finding 5b; D-06)
-- [ ] 13.1-06-PLAN.md — Parent-folder progress propagation fix (depends on 13.1-01 spike)
-- [ ] 13.1-07-PLAN.md — Phase 13.1 ship gate (D-18, D-19)
-
-### Phase 13.2: Dropbox-like thumbnail UX (INSERTED)
-
-**Goal:** Replace the BFS-driven thumbnail subsystem with a reactive, Apple-API-driven 3-lane `fetchThumbnails` model (cache hit → fallback render → background backfill PUT), eliminating ~2400 LoC of BFS/coordinator/sweeper machinery while preserving THUMB-15, THUMB-19, THUMB-20, THUMB-21 conformance via reframed semantics.
-**Requirements**: THUMB-15, THUMB-19, THUMB-20, THUMB-21 (reframed; no new requirements)
-**Depends on:** Phase 13.1
-**Plans:** 10 plans
-
-Plans:
-- [ ] 13.2-01-PLAN.md — TDD: ThumbnailFallbackLimiter actor (2-slot FIFO + in-memory 3-strike state) — D-02, D-19, D-20
-- [ ] 13.2-02-PLAN.md — fetchThumbnails cache-miss fallback fork (consumeThumbnailFallback) — D-01..D-04, D-12, D-24
-- [ ] 13.2-03-PLAN.md — Upload-hook post-PUT signalEnumerator + ThumbnailUploadHookContext.domain — D-12
-- [ ] 13.2-04-PLAN.md — Memory smoke test (8x50MB HEIC under 50MB peak) — D-17, D-18
-- [ ] 13.2-05-PLAN.md — Drop tray .indexing case; collapse to .sync — D-16
-- [ ] 13.2-06-PLAN.md — Delete BFS stack (BreadthFirstIndexer + BFSThumbnailHookRunner + callsites) — D-11
-- [ ] 13.2-07-PLAN.md — Delete coordinator + sweeper + warmCacheThenStartBFS + runThumbnailRolloutIfNeeded — D-09, D-10, D-25
-- [ ] 13.2-08-PLAN.md — Schema V5: drop thumbnailFailCount + setThumbnailFailure + migration test — D-05, D-06, D-07
-- [ ] 13.2-09-PLAN.md — Schema V6: drop thumbnailStatus + fetchPendingThumbnails + markPending + migration test — D-05, D-08, D-23
-- [ ] 13.2-10-PLAN.md — Phase ship gate: orphan audit + error-domain audit + manual smoke + phase summary
+- [ ] 13-01-PLAN.md -- Scope-change ratification (drop THUMB-24) + DefaultSettings.Thumbnail constants + S3PathUtils.isRasterExtension
+- [ ] 13-02-PLAN.md -- ThumbnailUploader (DS3Lib struct, macOS-gated render+PUT pipeline)
+- [x] 13-03-PLAN.md -- DS3S3Client.copyThumbnail (server-side copy preserving staleness metadata)
+- [ ] 13-04-PLAN.md -- Schema V4 + thumbnailFailCount + setThumbnailFailure + ETag-reset + uploader retrofit
+- [ ] 13-05-PLAN.md -- ThumbnailBackfillCoordinator extensions (thermal/pause/cancel/strike integration)
+- [ ] 13-06-PLAN.md -- ThumbnailFetchLimiter actor + cache-first fetchThumbnails rewrite + error mapping
+- [ ] 13-07-PLAN.md -- Upload-hook in createItem + modifyItem (content-change branch)
+- [ ] 13-08-PLAN.md -- Delete + rename/move cascades via +ThumbnailCascade helper
+- [ ] 13-09-PLAN.md -- BFS pass-tail coordinator hook + OrphanSweeper + 50-cap
+- [ ] 13-10-PLAN.md -- Silent launch-time rollout (once-per-drive collision re-check, persisted)
+- [ ] 13-11-PLAN.md -- Phase 13 integration smoke tests + dead-code cleanup audit + human verification
 
 ### Phase 14: iOS Generation & Polish
 **Goal**: iPhone and iPad users can contribute thumbnails for images uploaded from their iOS devices (and for any bucket content that macOS hasn't already processed) via a foreground-primary backfill driver with an opportunistic `BGProcessingTask` overnight supplement, with clear UI copy about the force-quit caveat and a manual "Generate now" escape valve on both platforms.
 **Depends on**: Phase 13
 **Requirements**: THUMB-16, THUMB-22, THUMB-25, THUMB-26
 **Success Criteria** (what must be TRUE):
-  1. While the iOS main app is foregrounded on Wi-Fi, the `ForegroundBackfillDriver` processes pending thumbnails at a rate the user can see in the Settings progress view — without jetsam kills, cellular data usage, or UI stalls — and the same code path runs inside `BGProcessingTask` overnight when the device is charging and idle
-  2. A user on cellular sees backfill paused by default with an explicit opt-in toggle; flipping the toggle immediately resumes generation; disabling it immediately suspends generation — both on the current connection and on future cellular connections
+  1. While the iOS main app is foregrounded on Wi-Fi, the `ForegroundBackfillDriver` processes pending thumbnails at a rate the user can see in the Settings progress view -- without jetsam kills, cellular data usage, or UI stalls -- and the same code path runs inside `BGProcessingTask` overnight when the device is charging and idle
+  2. A user on cellular sees backfill paused by default with an explicit opt-in toggle; flipping the toggle immediately resumes generation; disabling it immediately suspends generation -- both on the current connection and on future cellular connections
   3. A power user on either platform can tap "Generate thumbnails now" in settings and see backfill kick off for the selected drive, with a first-use bandwidth / cost warning that never fires again once acknowledged
-  4. iOS Settings shows a user-facing progress readout ("123 of 456 thumbnails generated") together with a plain-English explanation that force-quitting the app disables overnight background generation until next manual launch — closing the single most common "thumbnails are broken" support question from v2.0 iOS
+  4. iOS Settings shows a user-facing progress readout ("123 of 456 thumbnails generated") together with a plain-English explanation that force-quitting the app disables overnight background generation until next manual launch -- closing the single most common "thumbnails are broken" support question from v2.0 iOS
+**Plans**: TBD
+**UI hint**: yes
+
+</details>
+
+## v2.0.0 Cross-Platform Rewrite (Phases 15-18)
+
+**Milestone Goal:** Add a shared Rust core and a Windows native shell. Incrementally swap Apple DS3Lib internals to use Rust via UniFFI. Windows is the first new platform target.
+
+**Design spec:** `docs/superpowers/specs/2026-05-26-cross-platform-rewrite-design.md`
+**GitHub tracking issue:** #175
+
+- [ ] **Phase 15: Rust Core + FFI Foundation** - Cargo workspace with 6 crates, UniFFI Swift XCFramework, csbindgen C# bindings, integration tests against real Cubbit S3
+- [ ] **Phase 16: Apple Incremental Swap** - Replace DS3S3Client, DS3Authentication, DS3SDK internals with Rust via UniFFI; remove Soto and CryptoKit from DS3Lib
+- [ ] **Phase 17: Windows Shell** - WinUI 3 tray app with cfapi Cloud Filter integration, Explorer sidebar, on-demand hydration, upload, remote sync, MSI installer
+- [ ] **Phase 18: Polish + Beta Hardening** - Cross-FFI logging, error mapping, DPAPI credentials, multi-drive, auto-update, ARM64 Windows, tray flyout, conflict resolution
+
+### Phase 15: Rust Core + FFI Foundation
+**Goal**: A working Rust core library with proven FFI to both Swift (UniFFI XCFramework) and C# (csbindgen P/Invoke) -- all FFI patterns established, integration tests passing against real Cubbit S3, before any app-level code depends on it
+**Depends on**: Nothing (first phase of milestone)
+**Requirements**: CORE-01, CORE-02, CORE-03, CORE-04, CORE-05, CORE-06, CORE-07, CORE-08, CORE-09, CORE-10
+**Success Criteria** (what must be TRUE):
+  1. A Swift test harness can call `DS3Session.authenticate()` with real Cubbit credentials via UniFFI, receive a valid JWT, and then call `listObjects()` / `uploadObject()` / `downloadObject()` against a real Cubbit S3 endpoint -- proving the full auth + S3 path works end-to-end through the XCFramework
+  2. A C# console app can call `ds3_authenticate()` + `ds3_list_objects()` via the generated P/Invoke bindings against the same Cubbit endpoint -- proving the csbindgen path works end-to-end with correct UTF-8 string marshalling and handle lifecycle
+  3. Multipart uploads (>5MB) initiated from either FFI surface complete with correct ETag validation and invoke progress callbacks that the caller can observe (percentage, bytes transferred)
+  4. The `ds3-sync` crate computes a correct diff between a remote S3 tree snapshot and a local tree snapshot, generating create/update/delete/conflict actions including deterministic conflict key names -- verified by unit tests with known tree fixtures
+  5. Panic in any Rust function does not crash the calling process -- UniFFI catches panics on the Swift path, and every `extern "C" fn` wraps its body in `catch_unwind` returning an error code on the C# path
+**Plans**: TBD
+
+### Phase 16: Apple Incremental Swap
+**Goal**: Existing macOS and iOS apps function identically to users, but all S3 operations and authentication flow through the Rust core via UniFFI -- Soto and CryptoKit are removed from DS3Lib, and the FileProvider extension is untouched
+**Depends on**: Phase 15
+**Requirements**: APPLE-01, APPLE-02, APPLE-03, APPLE-04, APPLE-05, APPLE-06
+**Success Criteria** (what must be TRUE):
+  1. User can log in on macOS and iOS with the same credentials as before -- the challenge-response flow, 2FA, and token refresh all work identically from the user's perspective, now backed by Rust `ds3-auth` via UniFFI
+  2. All existing unit tests (156+) pass without modification, and Finder/Files.app sync behavior (upload, download, rename, move, delete, conflict copy) is identical to the pre-swap build -- verified by side-by-side manual smoke test
+  3. Soto and CryptoKit no longer appear in DS3Lib's Package.swift dependencies -- the only S3 client dependency is the `DS3CoreFFI` XCFramework
+  4. Existing `drives.json` and `credentials.json` files in the App Group container are read transparently by the Rust-backed code without any migration step -- a user upgrading from the Swift-only build experiences zero data loss or re-login
+**Plans**: TBD
+
+### Phase 17: Windows Shell
+**Goal**: Windows users can log in, set up drives, and sync files with Cubbit DS3 through native Explorer integration -- files appear in the Explorer sidebar, hydrate on demand, upload on save, and reflect remote changes via periodic polling
+**Depends on**: Phase 15
+**Requirements**: WIN-01, WIN-02, WIN-03, WIN-04, WIN-05, WIN-06, WIN-07, WIN-08, WIN-09
+**Success Criteria** (what must be TRUE):
+  1. User can log in via a native WinUI 3 form (email, password, tenant, optional 2FA) with credentials stored securely via DPAPI -- never plaintext in config files
+  2. User can set up a drive by selecting project, bucket, and prefix through a wizard, and the drive appears as a named entry in the Explorer navigation pane sidebar with a Cubbit icon
+  3. User can double-click a cloud-only file in Explorer and it hydrates on demand with a progress bar visible in Explorer's status column, streaming data in chunks to avoid the cfapi 30-second timeout
+  4. User can save or create files in the synced folder and they upload to S3 automatically (triggered by `NOTIFY_FILE_CLOSE_COMPLETION`, not `ReadDirectoryChangesW` -- no spurious re-upload on hydration)
+  5. Remote changes made from another device or the web console appear as updated placeholders within one polling cycle, and the system tray icon reflects sync status (idle/syncing/error)
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 18: Polish + Beta Hardening
+**Goal**: Both Apple and Windows platforms are release-quality -- structured cross-platform logging, correct error surfaces, multi-drive support, auto-update, and a production installer that enterprise IT can deploy silently
+**Depends on**: Phase 16, Phase 17
+**Requirements**: POL-01, POL-02, POL-03, POL-04, POL-05, POL-06, POL-07, POL-08
+**Success Criteria** (what must be TRUE):
+  1. Rust `tracing` events appear in macOS Console.app (via `os_log` bridge with correct subsystem/category) and in Windows Event Viewer (via ETW) -- a developer can filter logs by subsystem on both platforms using native OS tools
+  2. Errors originating in Rust surface correctly on each platform: as `NSFileProviderErrorDomain` codes on Apple (so the system retries or shows the right Finder badge) and as typed C# exceptions on Windows (so the tray can show actionable toast notifications)
+  3. User can manage up to 3 drives on Windows with independent sync roots in Explorer, each with its own sidebar entry, sync status, and pause/resume control in the tray flyout -- matching the macOS multi-drive experience
+  4. Windows tray flyout shows an activity center with per-drive sync status, recent files, pause/resume toggle, and settings -- matching the macOS menu bar tray feature set
+  5. The WiX MSI installer supports silent install (`/qn`), auto-starts the app on login, and an ARM64 Windows build is included in the release matrix for Snapdragon X laptops
 **Plans**: TBD
 **UI hint**: yes
 
@@ -266,6 +298,7 @@ Plans:
 - v2.0: 6 -> 7 -> 8 -> 9
 - v3.0: 10
 - v3.1: 11 -> 12 -> 13 -> 14
+- v2.0.0: 15 -> 16 + 17 (parallel) -> 18
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -273,16 +306,20 @@ Plans:
 | 2. Sync Engine | v1.0 | 3/3 | Complete | 2026-03-12 |
 | 3. Conflict Resolution | v1.0 | 3/3 | Complete | - |
 | 4. Auth & Platform | v1.0 | 4/4 | Complete | 2026-03-13 |
-| 5. UX Polish | v1.0 | 12/14 | In Progress|  |
+| 5. UX Polish | v1.0 | 12/14 | In Progress | - |
 | 6. Platform Abstraction | v2.0 | 4/4 | Complete | 2026-03-18 |
 | 7. iOS File Provider Extension | v2.0 | 4/4 | Complete | 2026-03-18 |
 | 8. iOS Companion App | v2.0 | 6/6 | Complete | 2026-03-18 |
 | 9. iOS Polish & Distribution | v2.0 | 3/3 | Complete | 2026-03-20 |
-| 10. Presigned URL sharing | v3.0 | 2/2 | Complete    | 2026-04-11 |
+| 10. Presigned URL sharing | v3.0 | 2/2 | Complete | 2026-04-11 |
 | 11. Foundation & Filtering | v3.1 | 0/5 | In Progress | - |
 | 12. Renderer, Storage & Schema | v3.1 | 0/0 | Not started | - |
 | 13. macOS Generation, Consumption & Lifecycle | v3.1 | 0/0 | Not started | - |
 | 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
+| 15. Rust Core + FFI Foundation | v2.0.0 | 0/0 | Not started | - |
+| 16. Apple Incremental Swap | v2.0.0 | 0/0 | Not started | - |
+| 17. Windows Shell | v2.0.0 | 0/0 | Not started | - |
+| 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-11*
@@ -290,3 +327,4 @@ Plans:
 *v2.0 milestone shipped: 2026-03-20*
 *v3.0 milestone added: 2026-04-09*
 *v3.1 Thumbnails milestone added: 2026-04-11*
+*v2.0.0 Cross-Platform Rewrite milestone added: 2026-05-26*
