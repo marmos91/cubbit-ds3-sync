@@ -1,6 +1,7 @@
 //! DS3 S3 client wrapper around `aws-sdk-s3` with custom endpoint support.
 
 use ds3_models::DS3Error;
+use percent_encoding::percent_decode_str;
 
 // ---------------------------------------------------------------------------
 // Constants (matching Swift DefaultSettings.S3)
@@ -45,13 +46,34 @@ impl DS3S3Client {
     ///
     /// Uses `force_path_style(true)` for Cubbit compatibility and defaults
     /// the region to `us-east-1` if not specified.
+    #[tracing::instrument(skip(access_key, secret_key))]
     pub fn new(
         endpoint: &str,
         access_key: &str,
         secret_key: &str,
         region: Option<&str>,
     ) -> Self {
-        todo!("DS3S3Client::new not yet implemented")
+        let creds = aws_sdk_s3::config::Credentials::new(
+            access_key,
+            secret_key,
+            None, // session token
+            None, // expiry
+            "ds3",
+        );
+
+        let config = aws_sdk_s3::config::Builder::new()
+            .behavior_version_latest()
+            .endpoint_url(endpoint)
+            .credentials_provider(creds)
+            .region(aws_sdk_s3::config::Region::new(
+                region.unwrap_or("us-east-1").to_string(),
+            ))
+            .force_path_style(true)
+            .build();
+
+        let client = aws_sdk_s3::Client::from_conf(config);
+
+        DS3S3Client { client }
     }
 }
 
@@ -63,7 +85,7 @@ impl DS3S3Client {
 ///
 /// Returns `None` if the input is `None`.
 pub fn normalize_etag(etag: Option<&str>) -> Option<String> {
-    todo!("normalize_etag not yet implemented")
+    etag.map(|e| e.trim_matches('"').to_string())
 }
 
 /// Decodes an S3 URL-encoded key: replaces `+` with space, then
@@ -71,7 +93,13 @@ pub fn normalize_etag(etag: Option<&str>) -> Option<String> {
 ///
 /// Matches the Swift `decodeS3Key` implementation.
 pub fn decode_s3_key(key: &str) -> Result<String, DS3Error> {
-    todo!("decode_s3_key not yet implemented")
+    // S3 encodes spaces as `+` when using encoding-type=url.
+    // Replace `+` with `%20` first, then percent-decode.
+    let normalized = key.replace('+', "%20");
+    let decoded = percent_decode_str(&normalized)
+        .decode_utf8()
+        .map_err(|_| DS3Error::ParseError)?;
+    Ok(decoded.into_owned())
 }
 
 #[cfg(test)]
@@ -105,8 +133,6 @@ mod tests {
     #[test]
     fn test_client_construction() {
         // Verifies the client constructs without panicking.
-        // The actual S3 config with force_path_style is validated
-        // by inspecting the config in the constructor.
         let _client = DS3S3Client::new(
             "https://s3.example.com",
             "test-access-key",

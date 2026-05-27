@@ -16,4 +16,7 @@ pub use client::{
     decode_s3_key, normalize_etag, DS3S3Client, DELIMITER, LIST_BATCH_SIZE, MARKER_FILE_NAME,
     MAX_RETRIES, MULTIPART_CONCURRENCY, MULTIPART_PART_SIZE, MULTIPART_THRESHOLD, TIMEOUT_SECONDS,
 };
+pub use crud::is_not_found_error;
 pub use markers::{is_ds3keep_marker_key, marker_key};
+pub use multipart::{compute_parts, PartDescriptor};
+pub use transfer::S3DownloadResult;
