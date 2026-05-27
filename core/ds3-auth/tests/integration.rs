@@ -36,13 +36,7 @@ async fn test_authenticate() {
         "tenant_id must be non-empty"
     );
 
-    let token = session
-        .session
-        .lock()
-        .await
-        .token
-        .token
-        .clone();
+    let token = session.session.lock().await.token.token.clone();
     assert!(!token.is_empty(), "session token must be non-empty");
 }
 
@@ -93,13 +87,7 @@ async fn test_get_projects() {
         .await
         .expect("authenticate should succeed");
 
-    let token = session
-        .session
-        .lock()
-        .await
-        .token
-        .token
-        .clone();
+    let token = session.session.lock().await.token.token.clone();
 
     let projects = ds3_http::projects::get_projects(&session.http, &session.urls, &token)
         .await
