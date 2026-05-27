@@ -159,13 +159,15 @@ class S3Item: NSObject, NSFileProviderItem, NSFileProviderItemDecorating, @unche
         return String(identifier.rawValue.split(separator: separator).last ?? "")
     }
 
+    /// Stable fallback date for folders whose S3 listing carries no `lastModified`
+    /// (CommonPrefixes, synthesized virtual folders). Returning `nil` caused iOS
+    /// Files.app to render "01/01/1970" (epoch 0), and a non-constant value makes
+    /// Finder re-process the item each enumeration, breaking icons.
+    static let folderFallbackDate = Date(timeIntervalSinceReferenceDate: 0)
+
     var contentModificationDate: Date? {
         if isFolder {
-            // Always nil for folders. Some code paths carry a real lastModified
-            // (S3 marker objects, HeadObject) while others don't (common prefixes,
-            // virtual folders). Returning a date only when available makes the
-            // system see property changes each enumeration, breaking Finder icons.
-            return nil
+            return metadata.lastModified ?? Self.folderFallbackDate
         }
         return metadata.lastModified
     }
