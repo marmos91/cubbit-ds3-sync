@@ -267,7 +267,7 @@ Plans:
 - [x] 15-05-PLAN.md -- ds3-sync crate TDD (diff computation, conflict key generation)
 
 **Wave 4** *(blocked on Wave 3 completion)*
-- [ ] 15-06-PLAN.md -- ds3-ffi crate (UniFFI exports, C exports, panic guards, csbindgen, XCFramework script)
+- [x] 15-06-PLAN.md -- ds3-ffi crate (UniFFI exports, C exports, panic guards, csbindgen, XCFramework script)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 - [ ] 15-07-PLAN.md -- Integration tests (Rust + Swift harness + C# harness), panic safety, CI finalization
@@ -334,7 +334,7 @@ Plans:
 | 12. Renderer, Storage & Schema | v3.1 | 0/0 | Not started | - |
 | 13. macOS Generation, Consumption & Lifecycle | v3.1 | 0/0 | Not started | - |
 | 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
-| 15. Rust Core + FFI Foundation | v2.0.0 | 5/7 | In Progress|  |
+| 15. Rust Core + FFI Foundation | v2.0.0 | 6/7 | In Progress|  |
 | 16. Apple Incremental Swap | v2.0.0 | 0/0 | Not started | - |
 | 17. Windows Shell | v2.0.0 | 0/0 | Not started | - |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
