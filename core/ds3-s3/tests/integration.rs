@@ -78,9 +78,9 @@ async fn create_test_client() -> (DS3S3Client, String) {
         .expect("create_api_key should succeed")
     };
 
-    let access_key = api_key.access_key_id;
+    let access_key = api_key.api_key;
     let secret_key = api_key
-        .secret_access_key
+        .secret_key
         .expect("API key must have a secret (newly created or first-time load)");
 
     let client = DS3S3Client::new(endpoint, &access_key, &secret_key, None);
