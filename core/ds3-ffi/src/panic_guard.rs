@@ -1,0 +1,78 @@
+//! Panic guard macro for C FFI exports.
+//!
+//! Every `extern "C"` function wraps its body in `catch_unwind` to prevent
+//! panics from unwinding across the FFI boundary (undefined behavior).
+
+/// Wraps an FFI function body in `catch_unwind` for panic safety.
+///
+/// - `Ok(Ok(val))` -> returns `val` (success)
+/// - `Ok(Err(e))` -> sets error code via `code()`, returns -1
+/// - `Err(_panic)` -> returns -2 (panic caught)
+///
+/// # Usage
+///
+/// ```ignore
+/// #[no_mangle]
+/// pub extern "C" fn ds3_some_function(out_error: *mut i32) -> i32 {
+///     ffi_guard!(out_error, {
+///         // ... your code that returns Result<i32, DS3Error> ...
+///         Ok(0)
+///     })
+/// }
+/// ```
+macro_rules! ffi_guard {
+    ($out_error:expr, $body:expr) => {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $body)) {
+            Ok(Ok(val)) => val,
+            Ok(Err(e)) => {
+                if !$out_error.is_null() {
+                    unsafe { *$out_error = e.code() };
+                }
+                -1
+            }
+            Err(_panic) => {
+                if !$out_error.is_null() {
+                    unsafe { *$out_error = -2 };
+                }
+                -2
+            }
+        }
+    };
+}
+
+pub(crate) use ffi_guard;
+
+#[cfg(test)]
+mod tests {
+    use ds3_models::DS3Error;
+
+    #[test]
+    fn test_ffi_guard_success() {
+        let mut err: i32 = 0;
+        let result = ffi_guard!(&mut err as *mut i32, { Ok::<i32, DS3Error>(42) });
+        assert_eq!(result, 42);
+        assert_eq!(err, 0);
+    }
+
+    #[test]
+    fn test_ffi_guard_error() {
+        let mut err: i32 = 0;
+        let result = ffi_guard!(&mut err as *mut i32, {
+            Err::<i32, DS3Error>(DS3Error::LoggedOut)
+        });
+        assert_eq!(result, -1);
+        assert_eq!(err, 1005); // LoggedOut error code
+    }
+
+    #[test]
+    fn test_ffi_guard_panic() {
+        let mut err: i32 = 0;
+        let result = ffi_guard!(&mut err as *mut i32, {
+            panic!("test panic");
+            #[allow(unreachable_code)]
+            Ok::<i32, DS3Error>(0)
+        });
+        assert_eq!(result, -2);
+        assert_eq!(err, -2);
+    }
+}

@@ -1,0 +1,13 @@
+[package]
+name = "ds3-sync"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ds3_sync"
+
+[dependencies]
+ds3-models = { path = "../ds3-models" }
+chrono = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }

@@ -1,0 +1,28 @@
+[package]
+name = "ds3-s3"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ds3_s3"
+
+[features]
+integration = []
+
+[dependencies]
+ds3-models = { path = "../ds3-models" }
+aws-sdk-s3 = "1"
+aws-config = "1"
+aws-smithy-types = "1"
+tokio = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+percent-encoding = "2"
+futures = "0.3"
+
+[dev-dependencies]
+tokio = { workspace = true }
+uuid = { workspace = true }
+ds3-auth = { path = "../ds3-auth" }
+ds3-http = { path = "../ds3-http" }

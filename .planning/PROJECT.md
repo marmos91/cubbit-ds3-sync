@@ -2,11 +2,11 @@
 
 ## What This Is
 
-DS3 Drive is a native macOS, iOS, and iPadOS sync application for Cubbit DS3 distributed cloud storage. It integrates with Finder (macOS) and Files app (iOS/iPadOS) via Apple's File Provider framework to present S3 buckets as native drives with on-demand sync. Users log in, set up drives, and files sync transparently -- similar to Dropbox or Google Drive, but backed by Cubbit's geo-distributed, sovereign storage platform.
+DS3 Drive is a cross-platform sync application for Cubbit DS3 distributed cloud storage. It integrates with Finder (macOS), Files app (iOS/iPadOS), and Windows Explorer (via cfapi Cloud Filter) to present S3 buckets as native drives with on-demand sync. Users log in, set up drives, and files sync transparently -- similar to Dropbox or Google Drive, but backed by Cubbit's geo-distributed, sovereign storage platform. A shared Rust core handles S3 operations and authentication, with native UI shells per platform.
 
 ## Core Value
 
-Files sync reliably and transparently between the user's Mac, iPhone, iPad and Cubbit DS3, with zero friction -- login, API key management, and S3 configuration happen under the hood so the experience feels like Dropbox.
+Files sync reliably and transparently between the user's Mac, iPhone, iPad, Windows PC and Cubbit DS3, with zero friction -- login, API key management, and S3 configuration happen under the hood so the experience feels like Dropbox on every platform.
 
 ## Requirements
 
@@ -33,10 +33,18 @@ Files sync reliably and transparently between the user's Mac, iPhone, iPad and C
 - ✓ Sync status badges in iOS Files app — v2.0
 - ✓ CI pipeline for both macOS and iOS builds — v2.0
 - ✓ Background App Refresh for periodic iOS sync — v2.0
+- ✓ Thumbnails for image files (macOS + iOS, `.thumbnails/` S3 prefix) — v1.9.0
 
 ### Active
 
-- [ ] Thumbnails for image files (macOS extension + iOS main app generation, `.thumbnails/` S3 prefix)
+- [ ] Shared Rust core (S3 ops + auth + models + sync diff) — v2.0.0
+- [ ] UniFFI Swift bindings + cbindgen C ABI for C# P/Invoke — v2.0.0
+- [ ] Apple incremental DS3Lib swap (S3Client + auth → Rust) — v2.0.0
+- [ ] Windows WinUI 3 native tray app — v2.0.0
+- [ ] Windows cfapi Cloud Filter integration (Explorer, placeholders) — v2.0.0
+- [ ] Windows sync engine (C# + Rust diff) — v2.0.0
+- [ ] Cross-FFI logging + error mapping — v2.0.0
+- [ ] Windows installer (WiX/MSI) — v2.0.0
 - [ ] OAuth login (Google, Microsoft) based on tenant configuration
 - [ ] v3 organization-based authentication (username + organization_name)
 - [ ] Versioned bucket support (browse/restore previous versions)
@@ -44,24 +52,27 @@ Files sync reliably and transparently between the user's Mac, iPhone, iPad and C
 - [ ] iOS home screen widgets for drive status (WidgetKit)
 - [ ] PushKit server-push sync for instant iOS remote change detection
 
-## Current Milestone: v3.1 Thumbnails
+## Current Milestone: v2.0.0 Cross-Platform Rewrite
 
-**Goal:** Image files in Finder (macOS) and the Files app (iOS) show real thumbnail previews, backed by a `.thumbnails/` prefix on S3 that is transparent to the user. Both platforms can independently generate thumbnails — no platform is a required peer.
+**Goal:** Add shared Rust core and Windows native shell, incrementally swap Apple DS3Lib internals to use Rust via UniFFI. Windows is first new platform target.
 
 **Target features:**
-- `.thumbnails/` S3 prefix with mirrored key layout (`.thumbnails/<original-key>.jpg`), single fixed size JPEG
-- macOS File Provider extension generates thumbnails at upload time and during opportunistic backfill enumeration
-- iOS main app generates thumbnails (extension is consume-only due to 20MB jetsam limit) while app is foregrounded and via `BGProcessingTask` for overnight backfill (charging + idle, ~10 min slots)
-- Thumbnail lifecycle tracks original: delete/rename cascade
-- `.thumbnails/` prefix filtered out of enumeration (same treatment as `.trash`)
-- ImageIO raster formats only: jpg/jpeg, png, heic/heif, webp, gif, tiff (PDFs/videos/RAW deferred)
-- Closes GitHub issue #109
+- Rust core library (ds3-models, ds3-http, ds3-auth, ds3-s3, ds3-sync, ds3-ffi)
+- UniFFI Swift bindings + cbindgen C ABI for C# P/Invoke (~35 FFI functions + progress callbacks)
+- Apple incremental swap (DS3S3Client + auth internals → Rust via UniFFI). FileProvider extension untouched.
+- Windows WinUI 3 tray app with cfapi Cloud Filter integration (Explorer sidebar, placeholder hydration)
+- Windows sync engine (C# SyncEngine + Rust pure diff)
+- Windows credential storage (DPAPI), WiX/MSI installer
+- Cross-FFI logging (Rust tracing → os_log / ETW) + error type mapping
+- Mono-repo restructure: current code → `apple/`, new `core/` and `windows/`
+- Design spec: `docs/superpowers/specs/2026-05-26-cross-platform-rewrite-design.md`
+- GitHub tracking issue: #175
 
 ### Out of Scope
 
 - Multi-cloud support (non-Cubbit S3) — product is Cubbit-native, not a generic S3 client
 - Built-in file editor/viewer — OS handles file operations, not the sync client
-- Windows/Linux clients — Apple platforms first, other platforms not planned
+- Linux client — Windows and Apple first, Linux deferred
 - Real-time collaboration — S3 has no locking; sync client, not collaboration tool
 - Custom file system (FUSE) — using Apple File Provider exclusively
 - In-app file browser on iOS — Files app IS the file browser, companion app is dashboard only
@@ -149,4 +160,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-11 — v3.1 Thumbnails milestone started*
+*Last updated: 2026-05-26 — v2.0.0 Cross-Platform Rewrite milestone started*

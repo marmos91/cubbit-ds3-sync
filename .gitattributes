@@ -1,8 +1,8 @@
-Assets filter=lfs diff=lfs merge=lfs -text
-Assets/*.png filter=lfs diff=lfs merge=lfs -text
-DS3Drive/Assets/**/*.png filter=lfs diff=lfs merge=lfs -text
-DS3DriveProvider/**/*.png filter=lfs diff=lfs merge=lfs -text
-DS3Lib/Tests/Fixtures/*.heic filter=lfs diff=lfs merge=lfs -text
-DS3Lib/Tests/Fixtures/*.jpg filter=lfs diff=lfs merge=lfs -text
-DS3Lib/Tests/Fixtures/*.png filter=lfs diff=lfs merge=lfs -text
-DS3Lib/Tests/Fixtures/*.pdf filter=lfs diff=lfs merge=lfs -text
+apple/Assets filter=lfs diff=lfs merge=lfs -text
+apple/Assets/*.png filter=lfs diff=lfs merge=lfs -text
+apple/DS3Drive/Assets/**/*.png filter=lfs diff=lfs merge=lfs -text
+apple/DS3DriveProvider/**/*.png filter=lfs diff=lfs merge=lfs -text
+apple/DS3Lib/Tests/Fixtures/*.heic filter=lfs diff=lfs merge=lfs -text
+apple/DS3Lib/Tests/Fixtures/*.jpg filter=lfs diff=lfs merge=lfs -text
+apple/DS3Lib/Tests/Fixtures/*.png filter=lfs diff=lfs merge=lfs -text
+apple/DS3Lib/Tests/Fixtures/*.pdf filter=lfs diff=lfs merge=lfs -text

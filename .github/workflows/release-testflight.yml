@@ -96,7 +96,7 @@ jobs:
 
       - name: Configure manual signing
         run: |
-          PROJECT="DS3Drive.xcodeproj/project.pbxproj"
+          PROJECT="apple/DS3Drive.xcodeproj/project.pbxproj"
 
           # Set provisioning profile specifiers per target
           sed -i '' '/PRODUCT_BUNDLE_IDENTIFIER = io\.cubbit\.DS3Drive;/{
@@ -115,13 +115,13 @@ jobs:
       - name: Resolve Swift packages
         run: |
           xcodebuild -resolvePackageDependencies \
-            -project DS3Drive.xcodeproj \
+            -project apple/DS3Drive.xcodeproj \
             -scheme DS3Drive
 
       - name: Archive
         run: |
           xcodebuild archive \
-            -project DS3Drive.xcodeproj \
+            -project apple/DS3Drive.xcodeproj \
             -scheme DS3Drive \
             -destination 'platform=macOS' \
             -archivePath "$RUNNER_TEMP/DS3Drive.xcarchive" \

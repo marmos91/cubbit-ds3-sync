@@ -1,0 +1,27 @@
+[package]
+name = "ds3-ffi"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ds3_ffi"
+crate-type = ["staticlib", "cdylib", "lib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
+
+[dependencies]
+ds3-models = { path = "../ds3-models" }
+ds3-auth = { path = "../ds3-auth" }
+ds3-http = { path = "../ds3-http" }
+ds3-s3 = { path = "../ds3-s3" }
+ds3-sync = { path = "../ds3-sync" }
+tokio = { workspace = true }
+uniffi = { version = "0.31", features = ["cli"] }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+
+[build-dependencies]
+uniffi = { version = "0.31", features = ["build"] }
+csbindgen = "1.9"

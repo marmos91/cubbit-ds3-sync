@@ -1,0 +1,3 @@
+[bindings.swift]
+module_name = "DS3CoreFFI"
+ffi_module_name = "DS3CoreFFIFFI"

@@ -82,7 +82,7 @@ jobs:
 
       - name: Configure manual signing
         run: |
-          PROJECT="DS3Drive.xcodeproj/project.pbxproj"
+          PROJECT="apple/DS3Drive.xcodeproj/project.pbxproj"
 
           # Set provisioning profile specifiers per target
           sed -i '' '/PRODUCT_BUNDLE_IDENTIFIER = io\.cubbit\.DS3Drive;/{
@@ -101,13 +101,13 @@ jobs:
       - name: Resolve Swift packages
         run: |
           xcodebuild -resolvePackageDependencies \
-            -project DS3Drive.xcodeproj \
+            -project apple/DS3Drive.xcodeproj \
             -scheme DS3Drive
 
       - name: Archive
         run: |
           xcodebuild archive \
-            -project DS3Drive.xcodeproj \
+            -project apple/DS3Drive.xcodeproj \
             -scheme DS3Drive \
             -destination 'platform=macOS' \
             -archivePath "$RUNNER_TEMP/DS3Drive.xcarchive" \
@@ -120,7 +120,7 @@ jobs:
         run: |
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/DS3Drive.xcarchive" \
-            -exportOptionsPlist ExportOptions-developer-id.plist \
+            -exportOptionsPlist apple/ExportOptions-developer-id.plist \
             -exportPath "$RUNNER_TEMP/export"
 
       - name: Write App Store Connect API key
@@ -154,8 +154,8 @@ jobs:
       - name: Create DMG
         run: |
           brew install create-dmg
-          chmod +x scripts/create-dmg.sh
-          ./scripts/create-dmg.sh \
+          chmod +x apple/scripts/create-dmg.sh
+          ./apple/scripts/create-dmg.sh \
             "$RUNNER_TEMP/export/Cubbit DS3 Drive.app" \
             "$RUNNER_TEMP/${{ steps.version.outputs.dmg_name }}"
 
@@ -218,8 +218,8 @@ jobs:
             git worktree add --orphan "$RUNNER_TEMP/appcast-worktree" appcast
           }
 
-          chmod +x scripts/generate-appcast.sh
-          ./scripts/generate-appcast.sh \
+          chmod +x apple/scripts/generate-appcast.sh
+          ./apple/scripts/generate-appcast.sh \
             "$VERSION" \
             "$DMG_URL" \
             "$RUNNER_TEMP/$DMG_NAME" \
