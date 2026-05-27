@@ -1,6 +1,15 @@
 # Created by https://www.toptal.com/developers/gitignore/api/macos,swift,xcode
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,swift,xcode
 
+### Rust ###
+# Cargo build artifacts
+core/target/
+# FFI build output
+core/out/
+*.dylib
+*.so
+*.dll
+
 ### macOS ###
 # General
 .DS_Store
