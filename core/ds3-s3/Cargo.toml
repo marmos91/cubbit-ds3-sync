@@ -1,0 +1,16 @@
+[package]
+name = "ds3-s3"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ds3_s3"
+
+[dependencies]
+ds3-models = { path = "../ds3-models" }
+aws-sdk-s3 = "1"
+aws-config = "1"
+tokio = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

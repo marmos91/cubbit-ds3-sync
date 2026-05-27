@@ -1,0 +1,14 @@
+[package]
+name = "ds3-models"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ds3_models"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
