@@ -5,7 +5,7 @@ edition = "2021"
 
 [lib]
 name = "ds3_ffi"
-crate-type = ["staticlib", "cdylib"]
+crate-type = ["staticlib", "cdylib", "lib"]
 
 [[bin]]
 name = "uniffi-bindgen"

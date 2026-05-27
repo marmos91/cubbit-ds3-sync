@@ -1037,6 +1037,7 @@ dependencies = [
  "serde_json",
  "sha2 0.11.0",
  "thiserror",
+ "tokio",
  "tracing",
 ]
 
@@ -1090,6 +1091,8 @@ dependencies = [
  "aws-config",
  "aws-sdk-s3",
  "aws-smithy-types",
+ "ds3-auth",
+ "ds3-http",
  "ds3-models",
  "futures",
  "percent-encoding",
@@ -1097,6 +1100,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

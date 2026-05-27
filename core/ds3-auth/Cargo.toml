@@ -19,5 +19,9 @@ tracing = { workspace = true }
 reqwest = { workspace = true }
 chrono = { workspace = true }
 
+[features]
+integration = []
+
 [dev-dependencies]
 base64 = { workspace = true }
+tokio = { workspace = true }
