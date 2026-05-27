@@ -4,7 +4,7 @@ import SwiftData
 /// Schema version 1 for the SyncedItem metadata model.
 /// Uses VersionedSchema from day one for explicit migration management.
 public enum SyncedItemSchemaV1: VersionedSchema {
-    public nonisolated static let versionIdentifier = Schema.Version(1, 0, 0)
+    public nonisolated(unsafe) static let versionIdentifier = Schema.Version(1, 0, 0)
     public static var models: [any PersistentModel.Type] {
         [SyncedItem.self]
     }
@@ -62,7 +62,7 @@ public enum SyncedItemSchemaV1: VersionedSchema {
 /// Schema version 2 for the SyncedItem metadata model.
 /// Adds isMaterialized field to SyncedItem and introduces SyncAnchorRecord entity.
 public enum SyncedItemSchemaV2: VersionedSchema {
-    public nonisolated static let versionIdentifier = Schema.Version(2, 0, 0)
+    public nonisolated(unsafe) static let versionIdentifier = Schema.Version(2, 0, 0)
     public static var models: [any PersistentModel.Type] {
         [SyncedItem.self, SyncAnchorRecord.self]
     }
@@ -184,7 +184,7 @@ public enum ThumbnailStatus: String, Codable, Sendable {
 }
 
 public enum SyncedItemSchemaV3: VersionedSchema {
-    public nonisolated static let versionIdentifier = Schema.Version(3, 0, 0)
+    public nonisolated(unsafe) static let versionIdentifier = Schema.Version(3, 0, 0)
     public static var models: [any PersistentModel.Type] {
         [SyncedItem.self, SyncAnchorRecord.self]
     }
@@ -271,7 +271,7 @@ public enum SyncedItemSchemaV3: VersionedSchema {
 /// Per Pitfall 10, the strike rule is `count >= maxFailStrikes` (3 strikes →
 /// `.failed`); reset condition is the original ETag changing on upsert (D-31).
 public enum SyncedItemSchemaV4: VersionedSchema {
-    public nonisolated static let versionIdentifier = Schema.Version(4, 0, 0)
+    public nonisolated(unsafe) static let versionIdentifier = Schema.Version(4, 0, 0)
     public static var models: [any PersistentModel.Type] {
         [SyncedItem.self, SyncAnchorRecord.self]
     }
@@ -369,7 +369,7 @@ public enum SyncedItemSchemaV4: VersionedSchema {
 /// `ThumbnailUploader` still writes `.notApplicable` / `.uploaded` to it
 /// through Plan 08; D-08 removes those writes in the same plan that ships V6.
 public enum SyncedItemSchemaV5: VersionedSchema {
-    public nonisolated static let versionIdentifier = Schema.Version(5, 0, 0)
+    public nonisolated(unsafe) static let versionIdentifier = Schema.Version(5, 0, 0)
     public static var models: [any PersistentModel.Type] {
         [SyncedItem.self, SyncAnchorRecord.self]
     }
@@ -464,7 +464,7 @@ public enum SyncedItemSchemaV5: VersionedSchema {
 /// (Plan 09), no consumer remains. "Is the thumbnail uploaded?" is now
 /// answered by S3 itself via `getThumbnailBytes` (bytes or nil).
 public enum SyncedItemSchemaV6: VersionedSchema {
-    public nonisolated static let versionIdentifier = Schema.Version(6, 0, 0)
+    public nonisolated(unsafe) static let versionIdentifier = Schema.Version(6, 0, 0)
     public static var models: [any PersistentModel.Type] {
         [SyncedItem.self, SyncAnchorRecord.self]
     }

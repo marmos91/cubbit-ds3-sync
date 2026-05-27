@@ -2,12 +2,17 @@
 //!
 //! Ports the Swift `signChallenge` function from `DS3Authentication.swift`.
 //! The derivation is: SHA-256(password_bytes + salt_bytes) -> 32-byte seed
-//! -> Ed25519 signing key -> sign challenge -> base64 encode signature.
+//! -> Ed25519 `SigningKey` -> sign challenge -> base64 encode signature.
+//!
+//! Uses `ed25519-dalek` (not `ring`) because the Cubbit server verifies
+//! against public keys derived by the Swift client using the same library
+//! family. `ring`'s Ed25519 implementation produces incompatible signatures
+//! for the same seed.
 
 use base64::Engine;
 use ds3_models::DS3Error;
-use ring::digest;
-use ring::signature::{Ed25519KeyPair, KeyPair};
+use ed25519_dalek::{Signer, SigningKey};
+use sha2::{Digest, Sha256};
 
 /// Signs a challenge using SHA-256 key derivation and Ed25519.
 ///
@@ -15,10 +20,9 @@ use ring::signature::{Ed25519KeyPair, KeyPair};
 /// for the same inputs (D-12).
 pub fn sign_challenge(challenge: &str, password: &str, salt: &str) -> Result<String, DS3Error> {
     let seed = derive_seed(password, salt);
-    let key_pair = Ed25519KeyPair::from_seed_unchecked(&seed)
-        .map_err(|e| DS3Error::AuthError(format!("ed25519 seed error: {e}")))?;
-    let signature = key_pair.sign(challenge.as_bytes());
-    Ok(base64::engine::general_purpose::STANDARD.encode(signature.as_ref()))
+    let signing_key = SigningKey::from_bytes(&seed);
+    let signature = signing_key.sign(challenge.as_bytes());
+    Ok(base64::engine::general_purpose::STANDARD.encode(signature.to_bytes()))
 }
 
 /// Derives the Ed25519 public key from password and salt.
@@ -27,18 +31,15 @@ pub fn sign_challenge(challenge: &str, password: &str, salt: &str) -> Result<Str
 /// Returns the base64-encoded verifying (public) key.
 pub fn derive_public_key(password: &str, salt: &str) -> Result<String, DS3Error> {
     let seed = derive_seed(password, salt);
-    let key_pair = Ed25519KeyPair::from_seed_unchecked(&seed)
-        .map_err(|e| DS3Error::AuthError(format!("ed25519 seed error: {e}")))?;
-    Ok(base64::engine::general_purpose::STANDARD.encode(key_pair.public_key().as_ref()))
+    let signing_key = SigningKey::from_bytes(&seed);
+    let verifying_key = signing_key.verifying_key();
+    Ok(base64::engine::general_purpose::STANDARD.encode(verifying_key.as_bytes()))
 }
 
 /// Derives a 32-byte seed from password and salt via SHA-256.
 fn derive_seed(password: &str, salt: &str) -> [u8; 32] {
-    let mut ctx = digest::Context::new(&digest::SHA256);
-    ctx.update(password.as_bytes());
-    ctx.update(salt.as_bytes());
-    let hash = ctx.finish();
-    let mut seed = [0u8; 32];
-    seed.copy_from_slice(hash.as_ref());
-    seed
+    let mut hasher = Sha256::new();
+    hasher.update(password.as_bytes());
+    hasher.update(salt.as_bytes());
+    hasher.finalize().into()
 }
