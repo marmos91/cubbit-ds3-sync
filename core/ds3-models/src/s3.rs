@@ -96,7 +96,7 @@ pub struct CompletedPartResult {
 }
 
 /// Result metadata from a download operation (FFI-friendly version).
-#[derive(Clone, Debug, PartialEq, uniffi::Record)]
+#[derive(Clone, Debug, PartialEq, Serialize, uniffi::Record)]
 pub struct S3DownloadResult {
     /// The object's ETag (normalized, without quotes).
     pub etag: Option<String>,

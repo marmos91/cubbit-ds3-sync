@@ -15,8 +15,8 @@ use std::sync::{Mutex, MutexGuard};
 
 /// An authenticated DS3 session holding the HTTP client, credentials, and account info.
 ///
-/// The `session` field uses `RwLock` for interior mutability since refresh
-/// operations update the token from within.
+/// The `session` field uses a `Mutex` for interior mutability, serializing
+/// token refresh and preventing TOCTOU races.
 pub struct DS3Session {
     /// The shared HTTP client with cookie jar for all API calls.
     pub http: SharedHttpClient,
@@ -93,7 +93,7 @@ impl DS3Session {
     /// Refreshes the access token if it has expired.
     ///
     /// Checks `token.exp` against the current UTC time. If expired, calls
-    /// the refresh endpoint and updates the session via `RwLock` write.
+    /// the refresh endpoint and updates the session under the Mutex lock.
     pub async fn refresh_if_needed(&self) -> Result<(), DS3Error> {
         let mut session = self.lock_session()?;
 

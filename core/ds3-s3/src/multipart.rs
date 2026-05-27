@@ -30,15 +30,9 @@ pub fn compute_parts(total_size: u64, part_size: usize) -> Vec<PartDescriptor> {
     let mut parts = Vec::new();
     let mut offset: u64 = 0;
     let mut part_number: i32 = 1;
-    let ps = part_size as u64;
 
     while offset < total_size {
-        let remaining = total_size - offset;
-        let length = if remaining >= ps {
-            part_size
-        } else {
-            remaining as usize
-        };
+        let length = (total_size - offset).min(part_size as u64) as usize;
 
         parts.push(PartDescriptor {
             part_number,

@@ -20,10 +20,7 @@ pub fn marker_key(folder_key: &str) -> String {
 
 /// Returns `true` if the key is a `.ds3keep` marker file.
 pub fn is_ds3keep_marker_key(key: &str) -> bool {
-    if key == MARKER_FILE_NAME {
-        return true;
-    }
-    key.ends_with(&format!("{}{}", DELIMITER, MARKER_FILE_NAME))
+    key == MARKER_FILE_NAME || key.ends_with("/.ds3keep")
 }
 
 impl DS3S3Client {

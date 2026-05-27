@@ -90,7 +90,7 @@ fn wrap_c_progress_callback(
 #[no_mangle]
 pub unsafe extern "C" fn ds3_free_string(ptr: *mut u8, len: usize) {
     if !ptr.is_null() && len > 0 {
-        let _ = unsafe { Box::from_raw(std::slice::from_raw_parts_mut(ptr, len)) };
+        let _ = unsafe { Box::from_raw(std::ptr::slice_from_raw_parts_mut(ptr, len)) };
     }
 }
 
@@ -505,12 +505,7 @@ pub extern "C" fn ds3_download_object(
 
         let result =
             runtime().block_on(client.download_object(bucket, key, path, callback.as_deref()))?;
-        let json = serde_json::to_string(&serde_json::json!({
-            "etag": result.etag,
-            "content_type": result.content_type,
-            "last_modified": result.last_modified,
-            "content_length": result.content_length,
-        }))?;
+        let json = serde_json::to_string(&result)?;
         unsafe { write_ffi_string(&json, out_json, out_json_len) };
         Ok(0)
     })
