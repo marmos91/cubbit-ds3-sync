@@ -17,7 +17,37 @@ jobs:
       - name: Install SwiftLint
         run: brew install swiftlint
       - name: Lint
-        run: swiftlint lint --strict --config .swiftlint.yml
+        run: swiftlint lint --strict --config apple/.swiftlint.yml --path apple/
+
+  rust-check:
+    name: Rust Core (fmt + clippy + test)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('core/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+      - name: Check formatting
+        working-directory: core
+        run: cargo fmt --check
+      - name: Clippy
+        working-directory: core
+        run: cargo clippy --workspace -- -D warnings
+      - name: Run tests
+        working-directory: core
+        run: cargo test --workspace --lib
 
   build:
     name: Build DS3Drive scheme
@@ -35,17 +65,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            DS3Lib/.build
+            apple/DS3Lib/.build
             ~/Library/Developer/Xcode/DerivedData/DS3Drive-*/SourcePackages
-          key: spm-${{ runner.os }}-${{ hashFiles('DS3Lib/Package.resolved', 'DS3Drive.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          key: spm-${{ runner.os }}-${{ hashFiles('apple/DS3Lib/Package.resolved', 'apple/DS3Drive.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
           restore-keys: spm-${{ runner.os }}-
       - name: Resolve Swift packages
         run: |
-          xcodebuild -resolvePackageDependencies -project DS3Drive.xcodeproj -scheme DS3Drive
+          xcodebuild -resolvePackageDependencies -project apple/DS3Drive.xcodeproj -scheme DS3Drive
       - name: Build
         run: |
           xcodebuild clean build analyze \
-            -project DS3Drive.xcodeproj \
+            -project apple/DS3Drive.xcodeproj \
             -scheme DS3Drive \
             -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO
@@ -66,11 +96,11 @@ jobs:
       - name: Cache SPM packages
         uses: actions/cache@v4
         with:
-          path: DS3Lib/.build
-          key: spm-ds3lib-${{ runner.os }}-${{ hashFiles('DS3Lib/Package.resolved') }}
+          path: apple/DS3Lib/.build
+          key: spm-ds3lib-${{ runner.os }}-${{ hashFiles('apple/DS3Lib/Package.resolved') }}
           restore-keys: spm-ds3lib-${{ runner.os }}-
       - name: Run unit tests
-        run: swift test --package-path DS3Lib
+        run: swift test --package-path apple/DS3Lib
 
   test-integration:
     name: Integration Tests (DS3)
@@ -95,11 +125,11 @@ jobs:
       - name: Cache SPM packages
         uses: actions/cache@v4
         with:
-          path: DS3Lib/.build
-          key: spm-ds3lib-${{ runner.os }}-${{ hashFiles('DS3Lib/Package.resolved') }}
+          path: apple/DS3Lib/.build
+          key: spm-ds3lib-${{ runner.os }}-${{ hashFiles('apple/DS3Lib/Package.resolved') }}
           restore-keys: spm-ds3lib-${{ runner.os }}-
       - name: Run integration tests
-        run: swift test --package-path DS3Lib --filter Integration
+        run: swift test --package-path apple/DS3Lib --filter Integration
 
   build-ios:
     name: Build & Test iOS
@@ -118,15 +148,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/Library/Developer/Xcode/DerivedData/DS3Drive-*/SourcePackages
-          key: spm-ios-${{ runner.os }}-${{ hashFiles('DS3Drive.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          key: spm-ios-${{ runner.os }}-${{ hashFiles('apple/DS3Drive.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
           restore-keys: spm-ios-${{ runner.os }}-
       - name: Resolve Swift packages
         run: |
-          xcodebuild -resolvePackageDependencies -project DS3Drive.xcodeproj -scheme DS3DriveApp
+          xcodebuild -resolvePackageDependencies -project apple/DS3Drive.xcodeproj -scheme DS3DriveApp
       - name: Build DS3DriveApp for iOS Simulator
         run: |
           xcodebuild build \
-            -project DS3Drive.xcodeproj \
+            -project apple/DS3Drive.xcodeproj \
             -scheme DS3DriveApp \
             -destination 'platform=iOS Simulator,name=iPhone 17' \
             CODE_SIGNING_ALLOWED=NO
