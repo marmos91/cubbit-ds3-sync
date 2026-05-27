@@ -395,11 +395,7 @@ fn wrap_progress_callback(
 impl DS3SessionHandle {
     /// Returns the current access token string.
     fn current_token(&self) -> Result<String, DS3Error> {
-        let session = self
-            .session
-            .session
-            .lock()
-            .map_err(|_| DS3Error::AuthError("session lock poisoned".into()))?;
+        let session = runtime().block_on(self.session.session.lock());
         Ok(session.token.token.clone())
     }
 

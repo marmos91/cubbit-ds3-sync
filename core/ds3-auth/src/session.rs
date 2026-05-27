@@ -11,7 +11,7 @@ use chrono::Utc;
 use ds3_http::client::SharedHttpClient;
 use ds3_http::urls::CubbitAPIURLs;
 use ds3_models::{Account, AccountSession, DS3Error, Token};
-use std::sync::{Mutex, MutexGuard};
+use tokio::sync::{Mutex, MutexGuard};
 
 /// An authenticated DS3 session holding the HTTP client, credentials, and account info.
 ///
@@ -95,7 +95,7 @@ impl DS3Session {
     /// Checks `token.exp` against the current UTC time. If expired, calls
     /// the refresh endpoint and updates the session under the Mutex lock.
     pub async fn refresh_if_needed(&self) -> Result<(), DS3Error> {
-        let mut session = self.lock_session()?;
+        let mut session = self.lock_session().await;
 
         if !is_token_expired(&session.token) {
             return Ok(());
@@ -114,7 +114,7 @@ impl DS3Session {
     pub async fn forge_iam_token(&self, user_id: &str) -> Result<Token, DS3Error> {
         self.refresh_if_needed().await?;
 
-        let mut session = self.lock_session()?;
+        let mut session = self.lock_session().await;
 
         let (iam_token, new_refresh) =
             refresh::forge_iam_token(&self.http, &self.urls, &session, user_id)
@@ -125,10 +125,8 @@ impl DS3Session {
         Ok(iam_token)
     }
 
-    fn lock_session(&self) -> Result<MutexGuard<'_, AccountSession>, DS3Error> {
-        self.session
-            .lock()
-            .map_err(|_| DS3Error::AuthError("session lock poisoned".into()))
+    async fn lock_session(&self) -> MutexGuard<'_, AccountSession> {
+        self.session.lock().await
     }
 }
 

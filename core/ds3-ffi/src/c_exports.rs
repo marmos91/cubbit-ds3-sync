@@ -263,10 +263,8 @@ pub extern "C" fn ds3_get_projects(
         }
         let session = unsafe { &*handle };
         runtime().block_on(session.refresh_if_needed())?;
-        let token = session
-            .session
-            .lock()
-            .map_err(|_| DS3Error::AuthError("lock poisoned".into()))?
+        let token = runtime()
+            .block_on(session.session.lock())
             .token
             .token
             .clone();
