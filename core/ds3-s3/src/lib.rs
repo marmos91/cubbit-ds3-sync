@@ -19,4 +19,3 @@ pub use client::{
 pub use crud::is_not_found_error;
 pub use markers::{is_ds3keep_marker_key, marker_key};
 pub use multipart::{compute_parts, PartDescriptor};
-pub use transfer::S3DownloadResult;

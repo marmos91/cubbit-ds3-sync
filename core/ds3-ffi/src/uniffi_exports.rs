@@ -264,25 +264,11 @@ impl DS3SessionHandle {
     ) -> Result<S3DownloadResult, DS3Error> {
         let client = self.require_s3()?;
         let path = Path::new(&file_path);
+        let callback = wrap_progress_callback(progress);
 
-        let callback: Option<Box<dyn Fn(i64, i64) + Send + Sync>> = progress.map(|p| {
-            let boxed: Box<dyn Fn(i64, i64) + Send + Sync> =
-                Box::new(move |transferred, total| {
-                    p.on_progress(transferred, total);
-                });
-            boxed
-        });
-
-        let result = runtime().block_on(
+        runtime().block_on(
             client.download_object(&bucket, &key, path, callback.as_deref()),
-        )?;
-
-        Ok(S3DownloadResult {
-            etag: result.etag,
-            content_type: result.content_type,
-            last_modified: result.last_modified,
-            content_length: result.content_length,
-        })
+        )
     }
 
     /// Uploads a local file to S3. Returns the ETag on success (if provided by S3).
@@ -297,14 +283,7 @@ impl DS3SessionHandle {
     ) -> Result<Option<String>, DS3Error> {
         let client = self.require_s3()?;
         let path = Path::new(&file_path);
-
-        let callback: Option<Box<dyn Fn(i64, i64) + Send + Sync>> = progress.map(|p| {
-            let boxed: Box<dyn Fn(i64, i64) + Send + Sync> =
-                Box::new(move |transferred, total| {
-                    p.on_progress(transferred, total);
-                });
-            boxed
-        });
+        let callback = wrap_progress_callback(progress);
 
         runtime().block_on(
             client.upload_object(&bucket, &key, path, callback.as_deref()),
@@ -399,6 +378,17 @@ pub fn conflict_key(
     )
 }
 
+/// Wraps a UniFFI `ProgressCallback` into a closure compatible with the S3 client.
+fn wrap_progress_callback(
+    progress: Option<Box<dyn ProgressCallback>>,
+) -> Option<Box<dyn Fn(i64, i64) + Send + Sync>> {
+    progress.map(|p| {
+        Box::new(move |transferred, total| {
+            p.on_progress(transferred, total);
+        }) as Box<dyn Fn(i64, i64) + Send + Sync>
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Private helpers
 // ---------------------------------------------------------------------------
@@ -408,7 +398,7 @@ impl DS3SessionHandle {
         let session = self
             .session
             .session
-            .read()
+            .lock()
             .map_err(|_| DS3Error::AuthError("session lock poisoned".into()))?;
         Ok(session.token.token.clone())
     }

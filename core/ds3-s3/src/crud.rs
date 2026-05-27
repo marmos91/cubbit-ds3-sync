@@ -4,8 +4,17 @@ use std::collections::HashMap;
 
 use aws_sdk_s3::types::{Delete, MetadataDirective, ObjectIdentifier};
 
+use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
+
 use crate::client::{normalize_etag, DS3S3Client};
 use ds3_models::{DS3Error, S3ObjectMetadata};
+
+const COPY_SOURCE_ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
+    .remove(b'-')
+    .remove(b'_')
+    .remove(b'.')
+    .remove(b'~')
+    .remove(b'/');
 
 impl DS3S3Client {
     /// Retrieves metadata for an object without downloading its body.
@@ -97,7 +106,8 @@ impl DS3S3Client {
         dest_key: &str,
         metadata: Option<&HashMap<String, String>>,
     ) -> Result<(), DS3Error> {
-        let copy_source = format!("{}/{}", bucket, source_key);
+        let encoded_key = utf8_percent_encode(source_key, COPY_SOURCE_ENCODE_SET).to_string();
+        let copy_source = format!("{}/{}", bucket, encoded_key);
 
         let mut req = self
             .client
@@ -125,10 +135,13 @@ impl DS3S3Client {
 pub fn is_not_found_error(err: &DS3Error) -> bool {
     match err {
         DS3Error::S3Error(msg) => {
-            msg.contains("NoSuchKey")
-                || msg.contains("NotFound")
-                || msg.contains("404")
-                || msg.contains("not found")
+            let lower = msg.to_lowercase();
+            lower.contains("nosuchkey")
+                || lower.contains("notfound")
+                || lower.contains("not found")
+                || lower.contains("404")
+                || lower.contains("no such key")
+                || lower.contains("does not exist")
         }
         _ => false,
     }

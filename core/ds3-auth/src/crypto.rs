@@ -42,8 +42,5 @@ fn derive_seed(password: &str, salt: &str) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(password.as_bytes());
     hasher.update(salt.as_bytes());
-    let hash = hasher.finalize();
-    let mut seed = [0u8; 32];
-    seed.copy_from_slice(&hash);
-    seed
+    hasher.finalize().into()
 }

@@ -68,7 +68,7 @@ async fn parse_token_response(
     }
 
     // Extract new _refresh cookie from Set-Cookie headers.
-    let refresh_token = extract_refresh_cookie(&response)?;
+    let refresh_token = crate::extract_refresh_cookie(&response)?;
 
     let token = response
         .json::<Token>()
@@ -80,17 +80,3 @@ async fn parse_token_response(
     Ok((token, refresh_token))
 }
 
-/// Extracts the `_refresh` cookie value from response `Set-Cookie` headers.
-fn extract_refresh_cookie(response: &reqwest::Response) -> Result<String, DS3Error> {
-    for cookie_header in response.headers().get_all(reqwest::header::SET_COOKIE) {
-        let cookie_str = cookie_header.to_str().unwrap_or("");
-        if let Some(rest) = cookie_str.strip_prefix("_refresh=") {
-            if let Some(value) = rest.split(';').next() {
-                if !value.is_empty() {
-                    return Ok(value.to_string());
-                }
-            }
-        }
-    }
-    Err(DS3Error::CookieError)
-}

@@ -6,19 +6,7 @@ use aws_sdk_s3::primitives::ByteStream;
 use tokio::io::AsyncWriteExt;
 
 use crate::client::{normalize_etag, DS3S3Client, MULTIPART_THRESHOLD};
-use ds3_models::DS3Error;
-
-/// Result metadata from a download operation.
-pub struct S3DownloadResult {
-    /// The object's ETag (normalized, without quotes).
-    pub etag: Option<String>,
-    /// The MIME content type.
-    pub content_type: Option<String>,
-    /// When the object was last modified.
-    pub last_modified: Option<String>,
-    /// Content length in bytes.
-    pub content_length: i64,
-}
+use ds3_models::{DS3Error, S3DownloadResult};
 
 impl DS3S3Client {
     /// Downloads an object to a local file, optionally reporting progress.
@@ -44,7 +32,6 @@ impl DS3S3Client {
         let content_type = response.content_type().map(String::from);
         let last_modified = response.last_modified().map(|dt| dt.to_string());
         let content_length = response.content_length().unwrap_or(0);
-        let total = content_length;
 
         let mut body = response.body;
         let mut file = tokio::fs::File::create(file_path)
@@ -62,7 +49,7 @@ impl DS3S3Client {
             bytes_written += chunk.len() as i64;
 
             if let Some(cb) = on_progress {
-                cb(bytes_written, total);
+                cb(bytes_written, content_length);
             }
         }
 

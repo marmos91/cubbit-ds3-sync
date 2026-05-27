@@ -14,13 +14,8 @@ pub fn marker_key(folder_key: &str) -> String {
         return MARKER_FILE_NAME.to_string();
     }
 
-    let normalized = if folder_key.ends_with(DELIMITER) {
-        folder_key.to_string()
-    } else {
-        format!("{}{}", folder_key, DELIMITER)
-    };
-
-    format!("{}{}", normalized, MARKER_FILE_NAME)
+    let base = folder_key.strip_suffix(DELIMITER).unwrap_or(folder_key);
+    format!("{base}{DELIMITER}{MARKER_FILE_NAME}")
 }
 
 /// Returns `true` if the key is a `.ds3keep` marker file.

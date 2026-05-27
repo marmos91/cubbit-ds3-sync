@@ -22,30 +22,23 @@ pub fn compute_diff(local: &TreeSnapshot, remote: &TreeSnapshot) -> DiffResult {
     let local_map = local.inner();
     let remote_map = remote.inner();
 
-    let local_keys: HashSet<&String> = local_map.keys().collect();
-    let remote_keys: HashSet<&String> = remote_map.keys().collect();
-
     // new_or_modified = (remote-only keys) + (common keys with different ETags)
     let new_or_modified: HashSet<String> = remote_map
-        .keys()
-        .filter(|key| {
+        .iter()
+        .filter(|(key, remote_etag)| {
             match local_map.get(*key) {
-                // Key not in local -> new
                 None => true,
-                // Key in both -> modified if ETags differ
-                Some(local_etag) => {
-                    let remote_etag = remote_map.get(*key).unwrap();
-                    local_etag.as_ref() != remote_etag.as_ref()
-                }
+                Some(local_etag) => local_etag != *remote_etag,
             }
         })
-        .cloned()
+        .map(|(key, _)| key.clone())
         .collect();
 
     // deleted = keys in local but not in remote
-    let deleted: HashSet<String> = local_keys
-        .difference(&remote_keys)
-        .map(|k| (*k).clone())
+    let deleted: HashSet<String> = local_map
+        .keys()
+        .filter(|key| !remote_map.contains_key(*key))
+        .cloned()
         .collect();
 
     DiffResult {

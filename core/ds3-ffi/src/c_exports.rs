@@ -62,6 +62,22 @@ unsafe fn write_ffi_string(
     }
 }
 
+/// Wraps a C progress callback and opaque context pointer into a Rust closure.
+///
+/// # Safety
+/// `ctx` is passed through opaquely -- the caller (C#/Swift side) owns its lifetime.
+fn wrap_c_progress_callback(
+    cb: Option<DS3ProgressCallbackFn>,
+    ctx: *mut std::ffi::c_void,
+) -> Option<Box<dyn Fn(i64, i64) + Send + Sync>> {
+    cb.map(|cb| {
+        let ctx = ctx as usize; // make it Send + Sync
+        Box::new(move |transferred, total| {
+            cb(transferred, total, ctx as *mut std::ffi::c_void);
+        }) as Box<dyn Fn(i64, i64) + Send + Sync>
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Memory management
 // ---------------------------------------------------------------------------
@@ -84,9 +100,7 @@ pub unsafe extern "C" fn ds3_free_string(ptr: *mut u8, len: usize) {
 /// Same constraints as `ds3_free_string`.
 #[no_mangle]
 pub unsafe extern "C" fn ds3_free_bytes(ptr: *mut u8, len: usize) {
-    if !ptr.is_null() && len > 0 {
-        let _ = unsafe { Box::from_raw(std::slice::from_raw_parts_mut(ptr, len)) };
-    }
+    unsafe { ds3_free_string(ptr, len) }
 }
 
 // ---------------------------------------------------------------------------
@@ -251,7 +265,7 @@ pub extern "C" fn ds3_get_projects(
         runtime().block_on(session.refresh_if_needed())?;
         let token = session
             .session
-            .read()
+            .lock()
             .map_err(|_| DS3Error::AuthError("lock poisoned".into()))?
             .token
             .token
@@ -423,7 +437,13 @@ pub extern "C" fn ds3_list_buckets(
         }
         let client = unsafe { &*s3_handle };
         let buckets = runtime().block_on(client.list_buckets())?;
-        let json = serde_json::to_string(&buckets)?;
+        let bucket_objects: Vec<serde_json::Value> = buckets
+            .into_iter()
+            .map(|(name, creation_date)| {
+                serde_json::json!({"name": name, "creation_date": creation_date})
+            })
+            .collect();
+        let json = serde_json::to_string(&bucket_objects)?;
         unsafe { write_ffi_string(&json, out_json, out_json_len) };
         Ok(0)
     })
@@ -481,40 +501,16 @@ pub extern "C" fn ds3_download_object(
         let file_path_str = unsafe { ffi_str(file_path, file_path_len)? };
         let path = std::path::Path::new(file_path_str);
 
-        // Wrap C callback into Rust closure if provided.
-        let ctx = progress_ctx;
-        let callback: Option<Box<dyn Fn(i64, i64) + Send + Sync>> = progress_cb.map(|cb| {
-            // Safety: ctx is passed through opaquely. The C# side owns the lifetime.
-            let ctx = ctx as usize; // make it Send + Sync
-            let boxed: Box<dyn Fn(i64, i64) + Send + Sync> =
-                Box::new(move |transferred, total| {
-                    cb(transferred, total, ctx as *mut std::ffi::c_void);
-                });
-            boxed
-        });
+        let callback = wrap_c_progress_callback(progress_cb, progress_ctx);
 
         let result =
             runtime().block_on(client.download_object(bucket, key, path, callback.as_deref()))?;
-        // Serialize the S3DownloadResult fields as JSON.
-        let json = format!(
-            r#"{{"etag":{},"content_type":{},"last_modified":{},"content_length":{}}}"#,
-            result
-                .etag
-                .as_ref()
-                .map(|e| format!("\"{}\"", e))
-                .unwrap_or_else(|| "null".to_string()),
-            result
-                .content_type
-                .as_ref()
-                .map(|c| format!("\"{}\"", c))
-                .unwrap_or_else(|| "null".to_string()),
-            result
-                .last_modified
-                .as_ref()
-                .map(|l| format!("\"{}\"", l))
-                .unwrap_or_else(|| "null".to_string()),
-            result.content_length,
-        );
+        let json = serde_json::to_string(&serde_json::json!({
+            "etag": result.etag,
+            "content_type": result.content_type,
+            "last_modified": result.last_modified,
+            "content_length": result.content_length,
+        }))?;
         unsafe { write_ffi_string(&json, out_json, out_json_len) };
         Ok(0)
     })
@@ -546,15 +542,7 @@ pub extern "C" fn ds3_upload_object(
         let file_path_str = unsafe { ffi_str(file_path, file_path_len)? };
         let path = std::path::Path::new(file_path_str);
 
-        let ctx = progress_ctx;
-        let callback: Option<Box<dyn Fn(i64, i64) + Send + Sync>> = progress_cb.map(|cb| {
-            let ctx = ctx as usize;
-            let boxed: Box<dyn Fn(i64, i64) + Send + Sync> =
-                Box::new(move |transferred, total| {
-                    cb(transferred, total, ctx as *mut std::ffi::c_void);
-                });
-            boxed
-        });
+        let callback = wrap_c_progress_callback(progress_cb, progress_ctx);
 
         let etag = runtime().block_on(
             client.upload_object(bucket, key, path, callback.as_deref()),

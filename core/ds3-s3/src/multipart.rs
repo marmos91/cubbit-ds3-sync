@@ -148,7 +148,7 @@ impl DS3S3Client {
         uploaded_bytes: &Arc<AtomicI64>,
         on_progress: Option<&(dyn Fn(i64, i64) + Send + Sync)>,
     ) -> Result<Vec<CompletedPart>, DS3Error> {
-        let results: Vec<Result<CompletedPart, DS3Error>> = stream::iter(parts.iter().cloned())
+        let mut stream = stream::iter(parts.iter().cloned())
             .map(|part| {
                 let bucket = bucket.to_string();
                 let key = key.to_string();
@@ -157,7 +157,6 @@ impl DS3S3Client {
                 let uploaded = Arc::clone(uploaded_bytes);
 
                 async move {
-                    // Read the part data from file.
                     let mut file = tokio::fs::File::open(&file_path)
                         .await
                         .map_err(|_| DS3Error::UnableToOpenFile)?;
@@ -166,7 +165,7 @@ impl DS3S3Client {
                     let mut buf = vec![0u8; part.length];
                     file.read_exact(&mut buf).await?;
 
-                    let body = ByteStream::from(buf.clone());
+                    let body = ByteStream::from(buf);
 
                     let response = self
                         .client
@@ -185,25 +184,20 @@ impl DS3S3Client {
 
                     uploaded.fetch_add(part.length as i64, Ordering::Relaxed);
 
-                    Ok(CompletedPart::builder()
+                    Ok::<_, DS3Error>(CompletedPart::builder()
                         .part_number(part.part_number)
                         .e_tag(etag)
                         .build())
                 }
             })
-            .buffer_unordered(MULTIPART_CONCURRENCY)
-            .collect()
-            .await;
+            .buffer_unordered(MULTIPART_CONCURRENCY);
 
-        // Report progress after collecting all results.
-        if let Some(cb) = on_progress {
-            cb(uploaded_bytes.load(Ordering::Relaxed), total);
-        }
-
-        // Collect results, propagating the first error.
         let mut completed = Vec::with_capacity(parts.len());
-        for result in results {
+        while let Some(result) = stream.next().await {
             completed.push(result?);
+            if let Some(cb) = on_progress {
+                cb(uploaded_bytes.load(Ordering::Relaxed), total);
+            }
         }
 
         Ok(completed)
