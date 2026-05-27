@@ -6,7 +6,8 @@
 use thiserror::Error;
 
 /// Unified error type covering auth, S3, HTTP, IO, and FFI error domains.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, uniffi::Error)]
+#[uniffi(flat_error)]
 pub enum DS3Error {
     // -----------------------------------------------------------------------
     // Auth errors (1001-1099)

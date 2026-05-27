@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// An email address associated with a Cubbit account.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct AccountEmail {
     /// The email record identifier.
     pub id: String,
@@ -29,7 +29,7 @@ pub struct AccountEmail {
 }
 
 /// An account in the Cubbit DS3 ecosystem.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct Account {
     /// The account unique identifier.
     pub id: String,

@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// A security challenge issued by the Cubbit IAM server.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct Challenge {
     /// The challenge string to be signed.
     pub challenge: String,
@@ -17,7 +17,7 @@ pub struct Challenge {
 /// In the Swift codebase, `exp_date` is decoded from an ISO 8601 string into
 /// a `Date`. Here we store it as a `String` for JSON compatibility and let
 /// consumers parse it with chrono when needed.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct Token {
     /// The JWT access token string.
     pub token: String,
@@ -34,7 +34,7 @@ pub struct Token {
 ///
 /// Matches the Swift `AccountSession` JSON schema where `refreshToken` is
 /// serialized in camelCase (not snake_case).
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct AccountSession {
     /// The current access token.
     pub token: Token,

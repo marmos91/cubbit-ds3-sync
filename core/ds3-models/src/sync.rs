@@ -26,6 +26,28 @@ impl DiffResult {
     }
 }
 
+/// FFI-friendly version of `DiffResult` using `Vec<String>` instead of `HashSet`.
+///
+/// UniFFI does not support `HashSet` in Records. This type provides a
+/// conversion from the native `DiffResult` for crossing the FFI boundary.
+#[derive(Clone, Debug, PartialEq, uniffi::Record)]
+pub struct DiffResultRecord {
+    /// Keys that are new or have a different ETag compared to the local tree.
+    pub new_or_modified: Vec<String>,
+
+    /// Keys that exist locally but no longer exist remotely.
+    pub deleted: Vec<String>,
+}
+
+impl From<DiffResult> for DiffResultRecord {
+    fn from(diff: DiffResult) -> Self {
+        Self {
+            new_or_modified: diff.new_or_modified.into_iter().collect(),
+            deleted: diff.deleted.into_iter().collect(),
+        }
+    }
+}
+
 /// Information about a detected file conflict, sent via IPC from the
 /// File Provider extension to the main app.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

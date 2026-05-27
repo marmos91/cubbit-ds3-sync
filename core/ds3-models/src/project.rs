@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// An IAM User in the Cubbit DS3 ecosystem.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct IAMUser {
     /// The IAM user ID.
     #[serde(rename = "user_id")]
@@ -22,7 +22,7 @@ pub struct IAMUser {
 ///
 /// JSON keys use a `project_` prefix for most fields, matching the API
 /// response schema and the Swift `CodingKeys`.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct Project {
     /// The project unique ID.
     #[serde(rename = "project_id")]

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 /// Result of an S3 ListObjectsV2 call.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct S3ListingResult {
     /// The objects returned in this page.
     pub objects: Vec<S3ObjectSummary>,
@@ -22,7 +22,7 @@ pub struct S3ListingResult {
 }
 
 /// Summary of a single S3 object from a listing.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct S3ObjectSummary {
     /// The full S3 object key.
     pub key: String,
@@ -38,7 +38,7 @@ pub struct S3ObjectSummary {
 }
 
 /// Metadata returned from an S3 HeadObject call.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct S3ObjectMetadata {
     /// The object's ETag.
     pub etag: Option<String>,
@@ -60,7 +60,7 @@ pub struct S3ObjectMetadata {
 }
 
 /// Progress of a file transfer (upload or download).
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct TransferProgress {
     /// Bytes transferred so far.
     pub bytes_transferred: i64,
@@ -70,7 +70,7 @@ pub struct TransferProgress {
 }
 
 /// Context for an active multipart upload.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct MultipartUploadContext {
     /// The target bucket.
     pub bucket: String,
@@ -86,11 +86,37 @@ pub struct MultipartUploadContext {
 }
 
 /// Result of a single completed multipart upload part.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct CompletedPartResult {
     /// The part number (1-based).
     pub part_number: i32,
 
     /// The ETag returned by S3 for this part.
     pub etag: String,
+}
+
+/// Result metadata from a download operation (FFI-friendly version).
+#[derive(Clone, Debug, PartialEq, uniffi::Record)]
+pub struct S3DownloadResult {
+    /// The object's ETag (normalized, without quotes).
+    pub etag: Option<String>,
+
+    /// The MIME content type.
+    pub content_type: Option<String>,
+
+    /// When the object was last modified.
+    pub last_modified: Option<String>,
+
+    /// Content length in bytes.
+    pub content_length: i64,
+}
+
+/// Information about an S3 bucket.
+#[derive(Clone, Debug, PartialEq, uniffi::Record)]
+pub struct BucketInfo {
+    /// The bucket name.
+    pub name: String,
+
+    /// When the bucket was created (ISO 8601 string), if available.
+    pub creation_date: Option<String>,
 }

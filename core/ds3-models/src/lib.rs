@@ -4,6 +4,11 @@
 //! accounts, authentication tokens, drives, projects, API keys, S3 objects,
 //! sync state, and errors. All types implement `Serialize`/`Deserialize`
 //! with field names matching the existing Swift/JSON schemas.
+//!
+//! Types that cross the FFI boundary derive `uniffi::Record`, `uniffi::Enum`,
+//! or `uniffi::Error` for use with UniFFI-generated Swift/Kotlin bindings.
+
+uniffi::setup_scaffolding!();
 
 pub mod account;
 pub mod api_key;
@@ -22,7 +27,7 @@ pub use drive::{Bucket, DS3Drive, SyncAnchor};
 pub use error::DS3Error;
 pub use project::{IAMUser, Project};
 pub use s3::{
-    CompletedPartResult, MultipartUploadContext, S3ListingResult, S3ObjectMetadata,
-    S3ObjectSummary, TransferProgress,
+    BucketInfo, CompletedPartResult, MultipartUploadContext, S3DownloadResult, S3ListingResult,
+    S3ObjectMetadata, S3ObjectSummary, TransferProgress,
 };
-pub use sync::{ConflictInfo, DiffResult};
+pub use sync::{ConflictInfo, DiffResult, DiffResultRecord};

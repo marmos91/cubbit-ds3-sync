@@ -13,3 +13,4 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 thiserror = { workspace = true }
 reqwest = { workspace = true }
+uniffi = { version = "0.31", features = ["cli"] }

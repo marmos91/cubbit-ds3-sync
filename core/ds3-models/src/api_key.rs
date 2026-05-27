@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 /// The `secret_key` is only present when a key is first created (the server
 /// returns it once). When listing existing keys, `secret_key` is `None`.
 /// The `created_at` field is stored as an ISO 8601 string.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct DS3ApiKey {
     /// The name of the API key.
     pub name: String,
