@@ -38,7 +38,7 @@ actor BucketListingLimiter {
     /// the wait is cancellation-aware: a task cancelled while queued is
     /// removed from the waiter list and throws `CancellationError` without
     /// running `body`.
-    func withLimit<T>(bucket: String, _ body: () async throws -> T) async throws -> T {
+    func withLimit<T: Sendable>(bucket: String, _ body: @Sendable () async throws -> T) async throws -> T {
         try await acquire(bucket: bucket)
         defer { release(bucket: bucket) }
         return try await body()

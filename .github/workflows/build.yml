@@ -150,6 +150,8 @@ jobs:
           path: ~/Library/Developer/Xcode/DerivedData/DS3Drive-*/SourcePackages
           key: spm-ios-${{ runner.os }}-${{ hashFiles('apple/DS3Drive.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
           restore-keys: spm-ios-${{ runner.os }}-
+      - name: Install iOS Simulator runtime
+        run: xcodebuild -downloadPlatform iOS
       - name: Resolve Swift packages
         run: |
           xcodebuild -resolvePackageDependencies -project apple/DS3Drive.xcodeproj -scheme DS3DriveApp
