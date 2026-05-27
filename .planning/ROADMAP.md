@@ -252,7 +252,16 @@ Plans:
   3. Multipart uploads (>5MB) initiated from either FFI surface complete with correct ETag validation and invoke progress callbacks that the caller can observe (percentage, bytes transferred)
   4. The `ds3-sync` crate computes a correct diff between a remote S3 tree snapshot and a local tree snapshot, generating create/update/delete/conflict actions including deterministic conflict key names -- verified by unit tests with known tree fixtures
   5. Panic in any Rust function does not crash the calling process -- UniFFI catches panics on the Swift path, and every `extern "C" fn` wraps its body in `catch_unwind` returning an error code on the C# path
-**Plans**: TBD
+**Plans**: 7 plans
+
+Plans:
+- [ ] 15-01-PLAN.md -- Mono-repo restructure: move Apple code to apple/, scaffold windows/, update CI paths
+- [ ] 15-02-PLAN.md -- Cargo workspace with 6 crates, ds3-models crate with all domain types
+- [ ] 15-03-PLAN.md -- ds3-http (SharedHttpClient, URLs, projects, keys) + ds3-auth (crypto, challenge, login, refresh, session)
+- [ ] 15-04-PLAN.md -- ds3-s3 crate (S3 CRUD, multipart uploads, .ds3keep markers)
+- [ ] 15-05-PLAN.md -- ds3-sync crate TDD (diff computation, conflict key generation)
+- [ ] 15-06-PLAN.md -- ds3-ffi crate (UniFFI exports, C exports, panic guards, csbindgen, XCFramework script)
+- [ ] 15-07-PLAN.md -- Integration tests (Rust + Swift harness + C# harness), panic safety, CI finalization
 
 ### Phase 16: Apple Incremental Swap
 **Goal**: Existing macOS and iOS apps function identically to users, but all S3 operations and authentication flow through the Rust core via UniFFI -- Soto and CryptoKit are removed from DS3Lib, and the FileProvider extension is untouched
@@ -316,7 +325,7 @@ Plans:
 | 12. Renderer, Storage & Schema | v3.1 | 0/0 | Not started | - |
 | 13. macOS Generation, Consumption & Lifecycle | v3.1 | 0/0 | Not started | - |
 | 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
-| 15. Rust Core + FFI Foundation | v2.0.0 | 0/0 | Not started | - |
+| 15. Rust Core + FFI Foundation | v2.0.0 | 0/7 | Planned | - |
 | 16. Apple Incremental Swap | v2.0.0 | 0/0 | Not started | - |
 | 17. Windows Shell | v2.0.0 | 0/0 | Not started | - |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
@@ -328,3 +337,4 @@ Plans:
 *v3.0 milestone added: 2026-04-09*
 *v3.1 Thumbnails milestone added: 2026-04-11*
 *v2.0.0 Cross-Platform Rewrite milestone added: 2026-05-26*
+*Phase 15 planned: 2026-05-27 (7 plans, 4 waves)*
