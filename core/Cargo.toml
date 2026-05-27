@@ -14,12 +14,12 @@ tokio = { version = "1.52", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.13", features = ["cookies", "json"] }
+ring = "0.17"
 thiserror = "2"
 tracing = "0.1"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 base64 = "0.22"
-sha2 = "0.11"
-ed25519-dalek = { version = "2.1", features = ["default"] }
 jsonwebtoken = "10"
 urlencoding = "2"
+
