@@ -123,12 +123,7 @@ fn test_account_info_null_handle_returns_error() {
     let mut err: i32 = 0;
 
     let result = unsafe {
-        c_exports::ds3_account_info(
-            ptr::null(),
-            &mut out_json,
-            &mut out_json_len,
-            &mut err,
-        )
+        c_exports::ds3_account_info(ptr::null(), &mut out_json, &mut out_json_len, &mut err)
     };
 
     assert_ne!(result, 0, "null handle should return error code");

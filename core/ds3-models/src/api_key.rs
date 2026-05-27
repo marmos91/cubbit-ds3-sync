@@ -17,7 +17,11 @@ pub struct DS3ApiKey {
     pub api_key: String,
 
     /// The S3 secret access key (private key), only present on creation.
-    #[serde(rename = "secret_key", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "secret_key",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub secret_key: Option<String>,
 
     /// When the API key was created (ISO 8601 string).

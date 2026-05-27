@@ -16,11 +16,8 @@ fn test_sign_challenge_deterministic() {
     assert_eq!(result1, result2, "sign_challenge must be deterministic");
 
     // Output should be valid base64 encoding of a 64-byte Ed25519 signature.
-    let decoded = base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        &result1,
-    )
-    .expect("output should be valid base64");
+    let decoded = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &result1)
+        .expect("output should be valid base64");
     assert_eq!(decoded.len(), 64, "Ed25519 signature must be 64 bytes");
 }
 
@@ -30,11 +27,9 @@ fn test_sign_challenge_empty_password() {
     let result = sign_challenge("challenge", "", "salt");
     assert!(result.is_ok(), "empty password should not panic");
 
-    let decoded = base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        &result.unwrap(),
-    )
-    .expect("output should be valid base64");
+    let decoded =
+        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &result.unwrap())
+            .expect("output should be valid base64");
     assert_eq!(decoded.len(), 64);
 }
 
@@ -42,7 +37,10 @@ fn test_sign_challenge_empty_password() {
 fn test_sign_challenge_different_inputs_differ() {
     let result1 = sign_challenge("challenge1", "pass1", "salt1").unwrap();
     let result2 = sign_challenge("challenge2", "pass2", "salt2").unwrap();
-    assert_ne!(result1, result2, "different inputs should produce different signatures");
+    assert_ne!(
+        result1, result2,
+        "different inputs should produce different signatures"
+    );
 }
 
 #[test]
@@ -52,11 +50,8 @@ fn test_derive_public_key_deterministic() {
     assert_eq!(pk1, pk2, "derive_public_key must be deterministic");
 
     // Ed25519 public key is 32 bytes.
-    let decoded = base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        &pk1,
-    )
-    .expect("output should be valid base64");
+    let decoded = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &pk1)
+        .expect("output should be valid base64");
     assert_eq!(decoded.len(), 32, "Ed25519 public key must be 32 bytes");
 }
 
@@ -71,7 +66,10 @@ fn test_is_token_expired_past() {
         exp: 1000000000, // Well in the past
         exp_date: "2001-09-09T01:46:40Z".to_string(),
     };
-    assert!(is_token_expired(&token), "token with past exp should be expired");
+    assert!(
+        is_token_expired(&token),
+        "token with past exp should be expired"
+    );
 }
 
 #[test]
@@ -81,7 +79,10 @@ fn test_is_token_expired_future() {
         exp: 4102444800, // 2099-12-31
         exp_date: "2099-12-31T00:00:00Z".to_string(),
     };
-    assert!(!is_token_expired(&token), "token with future exp should not be expired");
+    assert!(
+        !is_token_expired(&token),
+        "token with future exp should not be expired"
+    );
 }
 
 // -----------------------------------------------------------------------

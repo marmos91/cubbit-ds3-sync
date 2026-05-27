@@ -21,8 +21,5 @@ pub trait ProgressCallback: Send + Sync {
 /// The `context` pointer is an opaque user-data pointer passed through
 /// unchanged -- the Rust side never dereferences it. The C# side uses
 /// it to route the callback to the correct managed object.
-pub type DS3ProgressCallbackFn = extern "C" fn(
-    bytes_transferred: i64,
-    total_bytes: i64,
-    context: *mut std::ffi::c_void,
-);
+pub type DS3ProgressCallbackFn =
+    extern "C" fn(bytes_transferred: i64, total_bytes: i64, context: *mut std::ffi::c_void);

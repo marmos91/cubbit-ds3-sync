@@ -109,7 +109,7 @@ fn diff_mixed_add_modify_delete() {
     let mut remote = TreeSnapshot::new();
     remote.insert("a.txt".to_string(), Some("2".to_string())); // modified
     remote.insert("c.txt".to_string(), Some("1".to_string())); // added
-    // b.txt absent from remote -> deleted
+                                                               // b.txt absent from remote -> deleted
 
     let result = compute_diff(&local, &remote);
     assert!(result.new_or_modified.contains("a.txt"));
@@ -166,7 +166,9 @@ fn diff_none_etag_both_sides_is_identical() {
 // ============================================================================
 
 fn test_date() -> chrono::DateTime<chrono::Utc> {
-    chrono::Utc.with_ymd_and_hms(2026, 1, 15, 12, 30, 45).unwrap()
+    chrono::Utc
+        .with_ymd_and_hms(2026, 1, 15, 12, 30, 45)
+        .unwrap()
 }
 
 #[test]

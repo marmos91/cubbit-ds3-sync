@@ -115,11 +115,11 @@ impl DS3SessionHandle {
         secret_key: String,
         region: Option<String>,
     ) -> Result<(), DS3Error> {
-        let client =
-            DS3S3Client::new(&endpoint, &access_key, &secret_key, region.as_deref());
-        let mut guard = self.s3_client.write().map_err(|_| {
-            DS3Error::AuthError("S3 client lock poisoned".into())
-        })?;
+        let client = DS3S3Client::new(&endpoint, &access_key, &secret_key, region.as_deref());
+        let mut guard = self
+            .s3_client
+            .write()
+            .map_err(|_| DS3Error::AuthError("S3 client lock poisoned".into()))?;
         *guard = Some(client);
         Ok(())
     }
@@ -226,11 +226,7 @@ impl DS3SessionHandle {
     }
 
     /// Returns metadata for a single S3 object (HeadObject).
-    pub fn head_object(
-        &self,
-        bucket: String,
-        key: String,
-    ) -> Result<S3ObjectMetadata, DS3Error> {
+    pub fn head_object(&self, bucket: String, key: String) -> Result<S3ObjectMetadata, DS3Error> {
         let client = self.require_s3()?;
         runtime().block_on(client.head_object(&bucket, &key))
     }
@@ -247,9 +243,7 @@ impl DS3SessionHandle {
         let path = Path::new(&file_path);
         let callback = wrap_progress_callback(progress);
 
-        runtime().block_on(
-            client.download_object(&bucket, &key, path, callback.as_deref()),
-        )
+        runtime().block_on(client.download_object(&bucket, &key, path, callback.as_deref()))
     }
 
     /// Uploads a local file to S3. Returns the ETag on success (if provided by S3).
@@ -266,9 +260,7 @@ impl DS3SessionHandle {
         let path = Path::new(&file_path);
         let callback = wrap_progress_callback(progress);
 
-        runtime().block_on(
-            client.upload_object(&bucket, &key, path, callback.as_deref()),
-        )
+        runtime().block_on(client.upload_object(&bucket, &key, path, callback.as_deref()))
     }
 
     /// Deletes a single S3 object.
@@ -278,11 +270,7 @@ impl DS3SessionHandle {
     }
 
     /// Deletes multiple S3 objects. Returns the count of successfully deleted objects.
-    pub fn delete_objects(
-        &self,
-        bucket: String,
-        keys: Vec<String>,
-    ) -> Result<i32, DS3Error> {
+    pub fn delete_objects(&self, bucket: String, keys: Vec<String>) -> Result<i32, DS3Error> {
         let client = self.require_s3()?;
         let count = runtime().block_on(client.delete_objects(&bucket, &keys))?;
         Ok(count as i32)
@@ -310,11 +298,7 @@ impl DS3SessionHandle {
     }
 
     /// Creates a .ds3keep folder marker for the given folder key.
-    pub fn create_folder_marker(
-        &self,
-        bucket: String,
-        folder_key: String,
-    ) -> Result<(), DS3Error> {
+    pub fn create_folder_marker(&self, bucket: String, folder_key: String) -> Result<(), DS3Error> {
         let client = self.require_s3()?;
         runtime().block_on(client.create_folder_marker(&bucket, &folder_key))
     }
@@ -340,7 +324,12 @@ pub fn get_challenge(
         None => CubbitAPIURLs::default_coordinator(),
     };
     let http = SharedHttpClient::new()?;
-    runtime().block_on(auth_get_challenge(&http, &urls, &email, tenant_id.as_deref()))
+    runtime().block_on(auth_get_challenge(
+        &http,
+        &urls,
+        &email,
+        tenant_id.as_deref(),
+    ))
 }
 
 /// Computes the diff between local and remote file tree snapshots.
@@ -365,11 +354,7 @@ pub fn compute_diff(local_json: String, remote_json: String) -> Result<DiffResul
 ///
 /// If `nonce` is `None`, a random 4-character hex nonce is generated.
 #[uniffi::export]
-pub fn conflict_key(
-    original_key: String,
-    hostname: String,
-    nonce: Option<String>,
-) -> String {
+pub fn conflict_key(original_key: String, hostname: String, nonce: Option<String>) -> String {
     ds3_sync::conflict_key(
         &original_key,
         &hostname,
@@ -401,9 +386,10 @@ impl DS3SessionHandle {
 
     /// Returns a clone of the S3 client, or an error if not connected.
     fn require_s3(&self) -> Result<DS3S3Client, DS3Error> {
-        let guard = self.s3_client.read().map_err(|_| {
-            DS3Error::AuthError("S3 client lock poisoned".into())
-        })?;
+        let guard = self
+            .s3_client
+            .read()
+            .map_err(|_| DS3Error::AuthError("S3 client lock poisoned".into()))?;
         guard.clone().ok_or(DS3Error::LoggedOut)
     }
 }

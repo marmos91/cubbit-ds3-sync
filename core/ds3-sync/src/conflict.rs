@@ -85,8 +85,7 @@ fn split_name_and_extension(filename: &str) -> (&str, &str) {
             // NSString behavior: if the extension is empty (dot at end),
             // or if this is a hidden file where deletingPathExtension is empty,
             // treat the whole thing as the name with no extension.
-            let is_hidden_without_ext =
-                filename.starts_with('.') && name_without_ext.is_empty();
+            let is_hidden_without_ext = filename.starts_with('.') && name_without_ext.is_empty();
 
             if raw_ext.is_empty() || is_hidden_without_ext {
                 (filename, "")

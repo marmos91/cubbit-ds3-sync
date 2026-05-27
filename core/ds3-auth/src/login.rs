@@ -112,4 +112,3 @@ pub async fn get_account_info(
         .get_json::<Account>(&urls.accounts_me_url(), Some(token))
         .await
 }
-

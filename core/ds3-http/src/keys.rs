@@ -34,12 +34,7 @@ pub async fn create_api_key(
     user_id: &str,
     key_name: &str,
 ) -> Result<DS3ApiKey, DS3Error> {
-    let url = format!(
-        "{}/{}?user_id={}",
-        urls.keys_url(),
-        key_name,
-        user_id,
-    );
+    let url = format!("{}/{}?user_id={}", urls.keys_url(), key_name, user_id,);
 
     // POST with empty body -- the server creates the key based on URL params.
     let response = client
@@ -58,13 +53,12 @@ pub async fn create_api_key(
         });
     }
 
-    let api_key =
-        response
-            .json::<DS3ApiKey>()
-            .await
-            .map_err(|e| DS3Error::JsonError {
-                message: e.to_string(),
-            })?;
+    let api_key = response
+        .json::<DS3ApiKey>()
+        .await
+        .map_err(|e| DS3Error::JsonError {
+            message: e.to_string(),
+        })?;
 
     Ok(api_key)
 }
@@ -81,12 +75,7 @@ pub async fn delete_api_key(
     api_key_id: &str,
 ) -> Result<(), DS3Error> {
     let encoded_key = urlencoding::encode(api_key_id);
-    let url = format!(
-        "{}/{}?user_id={}",
-        urls.keys_url(),
-        encoded_key,
-        user_id,
-    );
+    let url = format!("{}/{}?user_id={}", urls.keys_url(), encoded_key, user_id,);
 
     client.delete(&url, Some(iam_token)).await
 }

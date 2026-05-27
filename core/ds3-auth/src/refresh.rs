@@ -54,9 +54,7 @@ pub async fn forge_iam_token(
 ///
 /// Extracts the Token from the JSON body and the new `_refresh` cookie
 /// from the `Set-Cookie` response headers.
-async fn parse_token_response(
-    response: reqwest::Response,
-) -> Result<(Token, String), DS3Error> {
+async fn parse_token_response(response: reqwest::Response) -> Result<(Token, String), DS3Error> {
     let status = response.status();
 
     if !status.is_success() {
@@ -79,4 +77,3 @@ async fn parse_token_response(
 
     Ok((token, refresh_token))
 }
-

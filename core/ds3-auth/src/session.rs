@@ -79,8 +79,7 @@ impl DS3Session {
         let signed = sign_challenge(&challenge.challenge, password, &challenge.salt)?;
         let account_session =
             post_signin(&http, &urls, email, &signed, tfa_code, tenant_id).await?;
-        let account =
-            get_account_info(&http, &urls, &account_session.token.token).await?;
+        let account = get_account_info(&http, &urls, &account_session.token.token).await?;
 
         Ok(Self {
             http,
@@ -117,8 +116,7 @@ impl DS3Session {
         let mut session = self.lock_session().await;
 
         let (iam_token, new_refresh) =
-            refresh::forge_iam_token(&self.http, &self.urls, &session, user_id)
-                .await?;
+            refresh::forge_iam_token(&self.http, &self.urls, &session, user_id).await?;
 
         session.refresh_token = new_refresh;
 

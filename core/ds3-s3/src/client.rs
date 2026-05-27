@@ -48,16 +48,9 @@ impl DS3S3Client {
     /// Uses `force_path_style(true)` for Cubbit compatibility and defaults
     /// the region to `us-east-1` if not specified.
     #[tracing::instrument(skip(access_key, secret_key))]
-    pub fn new(
-        endpoint: &str,
-        access_key: &str,
-        secret_key: &str,
-        region: Option<&str>,
-    ) -> Self {
+    pub fn new(endpoint: &str, access_key: &str, secret_key: &str, region: Option<&str>) -> Self {
         let creds = aws_sdk_s3::config::Credentials::new(
-            access_key,
-            secret_key,
-            None, // session token
+            access_key, secret_key, None, // session token
             None, // expiry
             "ds3",
         );

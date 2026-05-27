@@ -17,7 +17,7 @@ jobs:
       - name: Install SwiftLint
         run: brew install swiftlint
       - name: Lint
-        run: swiftlint lint --strict --config apple/.swiftlint.yml --path apple/
+        run: swiftlint lint --strict --config apple/.swiftlint.yml apple/
 
   rust-check:
     name: Rust Core (fmt + clippy + test)

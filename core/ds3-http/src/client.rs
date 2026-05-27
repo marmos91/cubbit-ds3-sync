@@ -64,9 +64,12 @@ impl SharedHttpClient {
             });
         }
 
-        let result = response.json::<T>().await.map_err(|e| DS3Error::JsonError {
-            message: e.to_string(),
-        })?;
+        let result = response
+            .json::<T>()
+            .await
+            .map_err(|e| DS3Error::JsonError {
+                message: e.to_string(),
+            })?;
 
         Ok(result)
     }
@@ -97,9 +100,12 @@ impl SharedHttpClient {
             });
         }
 
-        let result = response.json::<T>().await.map_err(|e| DS3Error::JsonError {
-            message: e.to_string(),
-        })?;
+        let result = response
+            .json::<T>()
+            .await
+            .map_err(|e| DS3Error::JsonError {
+                message: e.to_string(),
+            })?;
 
         Ok(result)
     }
@@ -108,11 +114,7 @@ impl SharedHttpClient {
     ///
     /// If `bearer_token` is provided, adds an `Authorization: Bearer` header.
     #[tracing::instrument(skip(self, bearer_token))]
-    pub async fn delete(
-        &self,
-        url: &str,
-        bearer_token: Option<&str>,
-    ) -> Result<(), DS3Error> {
+    pub async fn delete(&self, url: &str, bearer_token: Option<&str>) -> Result<(), DS3Error> {
         let mut req = self.inner.delete(url);
         if let Some(token) = bearer_token {
             req = req.bearer_auth(token);

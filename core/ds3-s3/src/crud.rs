@@ -18,11 +18,7 @@ const COPY_SOURCE_ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
 
 impl DS3S3Client {
     /// Retrieves metadata for an object without downloading its body.
-    pub async fn head_object(
-        &self,
-        bucket: &str,
-        key: &str,
-    ) -> Result<S3ObjectMetadata, DS3Error> {
+    pub async fn head_object(&self, bucket: &str, key: &str) -> Result<S3ObjectMetadata, DS3Error> {
         let response = self
             .client
             .head_object()
@@ -60,11 +56,7 @@ impl DS3S3Client {
     /// Deletes multiple objects in a single batch request.
     ///
     /// Returns the number of successfully deleted objects.
-    pub async fn delete_objects(
-        &self,
-        bucket: &str,
-        keys: &[String],
-    ) -> Result<usize, DS3Error> {
+    pub async fn delete_objects(&self, bucket: &str, keys: &[String]) -> Result<usize, DS3Error> {
         if keys.is_empty() {
             return Ok(0);
         }

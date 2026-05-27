@@ -1,8 +1,8 @@
 //! Unit tests for ds3-http crate: URL generation, client creation, key naming.
 
-use ds3_http::urls::CubbitAPIURLs;
 use ds3_http::client::SharedHttpClient;
 use ds3_http::keys::api_key_name;
+use ds3_http::urls::CubbitAPIURLs;
 
 // -----------------------------------------------------------------------
 // CubbitAPIURLs tests
@@ -96,7 +96,10 @@ fn test_keys_url() {
 #[test]
 fn test_shared_http_client_creates_successfully() {
     let client = SharedHttpClient::new();
-    assert!(client.is_ok(), "SharedHttpClient should create successfully");
+    assert!(
+        client.is_ok(),
+        "SharedHttpClient should create successfully"
+    );
 }
 
 // -----------------------------------------------------------------------

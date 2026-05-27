@@ -54,11 +54,7 @@ unsafe fn ffi_opt_str<'a>(ptr: *const u8, len: usize) -> Result<Option<&'a str>,
 ///
 /// # Safety
 /// `out_ptr` and `out_len` must be valid writable pointers.
-unsafe fn write_ffi_string(
-    s: &str,
-    out_ptr: *mut *mut u8,
-    out_len: *mut usize,
-) {
+unsafe fn write_ffi_string(s: &str, out_ptr: *mut *mut u8, out_len: *mut usize) {
     let bytes = s.as_bytes().to_vec();
     let len = bytes.len();
     let boxed = bytes.into_boxed_slice();
@@ -172,7 +168,11 @@ pub unsafe extern "C" fn ds3_authenticate_2fa(
         let coordinator = unsafe { ffi_opt_str(coordinator_url, coordinator_url_len)? };
 
         let session = runtime().block_on(DS3Session::authenticate_with_2fa(
-            email, password, tfa, tenant, coordinator,
+            email,
+            password,
+            tfa,
+            tenant,
+            coordinator,
         ))?;
 
         unsafe { *out_handle = Box::into_raw(Box::new(session)) };
@@ -196,10 +196,7 @@ pub unsafe extern "C" fn ds3_session_destroy(handle: *mut DS3Session) {
 
 /// Refreshes the access token if expired.
 #[no_mangle]
-pub unsafe extern "C" fn ds3_refresh_token(
-    handle: *const DS3Session,
-    out_error: *mut i32,
-) -> i32 {
+pub unsafe extern "C" fn ds3_refresh_token(handle: *const DS3Session, out_error: *mut i32) -> i32 {
     ffi_guard!(out_error, {
         if handle.is_null() {
             return Err(DS3Error::LoggedOut);
@@ -544,9 +541,8 @@ pub unsafe extern "C" fn ds3_upload_object(
 
         let callback = wrap_c_progress_callback(progress_cb, progress_ctx);
 
-        let etag = runtime().block_on(
-            client.upload_object(bucket, key, path, callback.as_deref()),
-        )?;
+        let etag =
+            runtime().block_on(client.upload_object(bucket, key, path, callback.as_deref()))?;
 
         if let Some(etag_str) = etag {
             unsafe { write_ffi_string(&etag_str, out_etag, out_etag_len) };

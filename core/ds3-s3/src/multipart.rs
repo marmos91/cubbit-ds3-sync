@@ -114,16 +114,14 @@ impl DS3S3Client {
                     .await
                     .map_err(|e| DS3Error::S3Error(e.to_string()))?;
 
-                let etag = normalize_etag(complete_response.e_tag())
-                    .ok_or(DS3Error::MissingETag)?;
+                let etag =
+                    normalize_etag(complete_response.e_tag()).ok_or(DS3Error::MissingETag)?;
 
                 Ok(etag)
             }
             Err(e) => {
                 // Abort on error -- ignore abort failures.
-                let _ = self
-                    .abort_multipart_upload(bucket, key, &upload_id)
-                    .await;
+                let _ = self.abort_multipart_upload(bucket, key, &upload_id).await;
                 Err(e)
             }
         }
@@ -178,10 +176,12 @@ impl DS3S3Client {
 
                     uploaded.fetch_add(part.length as i64, Ordering::Relaxed);
 
-                    Ok::<_, DS3Error>(CompletedPart::builder()
-                        .part_number(part.part_number)
-                        .e_tag(etag)
-                        .build())
+                    Ok::<_, DS3Error>(
+                        CompletedPart::builder()
+                            .part_number(part.part_number)
+                            .e_tag(etag)
+                            .build(),
+                    )
                 }
             })
             .buffer_unordered(MULTIPART_CONCURRENCY);

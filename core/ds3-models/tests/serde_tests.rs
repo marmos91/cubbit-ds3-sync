@@ -5,16 +5,16 @@
 //! equivalent JSON value.
 
 use ds3_models::account::Account;
+use ds3_models::api_key::DS3ApiKey;
 use ds3_models::auth::{AccountSession, Challenge, Token};
 use ds3_models::drive::DS3Drive;
+use ds3_models::error::DS3Error;
 use ds3_models::project::{IAMUser, Project};
-use ds3_models::api_key::DS3ApiKey;
 use ds3_models::s3::{
     CompletedPartResult, MultipartUploadContext, S3ListingResult, S3ObjectMetadata,
     S3ObjectSummary, TransferProgress,
 };
 use ds3_models::sync::{ConflictInfo, DiffResult};
-use ds3_models::error::DS3Error;
 use serde_json::json;
 
 // ---------------------------------------------------------------------------
@@ -160,7 +160,10 @@ fn test_project_deserialize() {
     assert!(project.banned_at.is_none());
     assert!(project.image_url.is_none());
     assert_eq!(project.tenant_id, "tenant-xyz");
-    assert_eq!(project.root_account_email.as_deref(), Some("root@example.com"));
+    assert_eq!(
+        project.root_account_email.as_deref(),
+        Some("root@example.com")
+    );
     assert_eq!(project.users.len(), 1);
     assert_eq!(project.users[0].id, "user-001");
     assert!(project.users[0].is_root);
@@ -352,8 +355,19 @@ fn test_diff_result_and_conflict_info() {
 fn test_ds3_error_codes() {
     let errors = vec![
         (DS3Error::InvalidUrl { url: "bad".into() }, 1001),
-        (DS3Error::ServerError { status: 500, body: "err".into() }, 1002),
-        (DS3Error::JsonError { message: "parse".into() }, 1003),
+        (
+            DS3Error::ServerError {
+                status: 500,
+                body: "err".into(),
+            },
+            1002,
+        ),
+        (
+            DS3Error::JsonError {
+                message: "parse".into(),
+            },
+            1003,
+        ),
         (DS3Error::Encoding, 1004),
         (DS3Error::LoggedOut, 1005),
         (DS3Error::TokenExpired, 1006),
@@ -375,7 +389,11 @@ fn test_ds3_error_codes() {
     let mut unique_codes = codes.clone();
     unique_codes.sort();
     unique_codes.dedup();
-    assert_eq!(codes.len(), unique_codes.len(), "Error codes must be unique");
+    assert_eq!(
+        codes.len(),
+        unique_codes.len(),
+        "Error codes must be unique"
+    );
 
     // Verify expected codes
     for (error, expected_code) in &errors {
