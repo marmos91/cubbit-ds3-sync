@@ -536,19 +536,19 @@ public enum SyncedItemMigrationPlan: SchemaMigrationPlan {
     /// - Adds isMaterialized (Bool, default false) to SyncedItem
     /// - Adds SyncAnchorRecord as a new entity
     /// - Adds originalKey (String?, default nil) to SyncedItem
-    nonisolated static let migrateV1toV2 = MigrationStage.lightweight(
+    nonisolated(unsafe) static let migrateV1toV2 = MigrationStage.lightweight(
         fromVersion: SyncedItemSchemaV1.self,
         toVersion: SyncedItemSchemaV2.self
     )
 
-    nonisolated static let migrateV2toV3 = MigrationStage.lightweight(
+    nonisolated(unsafe) static let migrateV2toV3 = MigrationStage.lightweight(
         fromVersion: SyncedItemSchemaV2.self,
         toVersion: SyncedItemSchemaV3.self
     )
 
     /// Lightweight migration from V3 to V4:
     /// - Adds thumbnailFailCount (Int, default 0) to SyncedItem (Phase 13 D-29)
-    nonisolated static let migrateV3toV4 = MigrationStage.lightweight(
+    nonisolated(unsafe) static let migrateV3toV4 = MigrationStage.lightweight(
         fromVersion: SyncedItemSchemaV3.self,
         toVersion: SyncedItemSchemaV4.self
     )
@@ -557,7 +557,7 @@ public enum SyncedItemMigrationPlan: SchemaMigrationPlan {
     /// - Drops `thumbnailFailCount` from SyncedItem.
     /// SwiftData "remove field" migrations are an under-trodden path; validated
     /// by `SchemaV5MigrationTests` against a seeded V4 store.
-    nonisolated static let migrateV4toV5 = MigrationStage.lightweight(
+    nonisolated(unsafe) static let migrateV4toV5 = MigrationStage.lightweight(
         fromVersion: SyncedItemSchemaV4.self,
         toVersion: SyncedItemSchemaV5.self
     )
@@ -567,7 +567,7 @@ public enum SyncedItemMigrationPlan: SchemaMigrationPlan {
     /// Final schema cleanup of the thumbnail subsystem — after Plan 09 no
     /// thumbnail-specific SwiftData fields remain. Validated by
     /// `SchemaV6MigrationTests` against a seeded V5 store.
-    nonisolated static let migrateV5toV6 = MigrationStage.lightweight(
+    nonisolated(unsafe) static let migrateV5toV6 = MigrationStage.lightweight(
         fromVersion: SyncedItemSchemaV5.self,
         toVersion: SyncedItemSchemaV6.self
     )
@@ -576,7 +576,7 @@ public enum SyncedItemMigrationPlan: SchemaMigrationPlan {
     /// - Adds `thumbnailReadyAt: Date?` to SyncedItem (default nil).
     /// Existing rows migrate cleanly with nil, which is the correct semantic
     /// for "thumbnail not yet renewed".
-    nonisolated static let migrateV6toV7 = MigrationStage.lightweight(
+    nonisolated(unsafe) static let migrateV6toV7 = MigrationStage.lightweight(
         fromVersion: SyncedItemSchemaV6.self,
         toVersion: SyncedItemSchemaV7.self
     )
