@@ -107,7 +107,6 @@ internal static class Program
         void* sessionHandle = null;
 
         // Test 1: Authenticate
-        Test("authenticate", () =>
         {
             var emailBytes = Encoding.UTF8.GetBytes(email);
             var passwordBytes = Encoding.UTF8.GetBytes(password);
@@ -130,9 +129,8 @@ internal static class Program
                 throw new Exception($"ds3_authenticate returned {result}, error code: {error}");
             if (sessionHandle == null)
                 throw new Exception("session handle is null after successful auth");
-
-            Console.WriteLine("    Authenticated successfully");
-        });
+            Console.WriteLine("  PASS: authenticate");
+        }
 
         // Test 2: Account info
         Test("account_info", () =>
