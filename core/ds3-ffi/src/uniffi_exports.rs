@@ -104,25 +104,6 @@ impl DS3SessionHandle {
         Ok(self.session.account.clone())
     }
 
-    /// Retrieves a challenge from the IAM server (static -- no session needed).
-    #[uniffi::constructor]
-    pub fn get_challenge(
-        email: String,
-        tenant_id: Option<String>,
-        coordinator_url: Option<String>,
-    ) -> Result<Challenge, DS3Error> {
-        use ds3_auth::challenge::get_challenge as auth_get_challenge;
-        use ds3_http::client::SharedHttpClient;
-        use ds3_http::urls::CubbitAPIURLs;
-
-        let urls = match coordinator_url.as_deref() {
-            Some(url) => CubbitAPIURLs::new(url),
-            None => CubbitAPIURLs::default_coordinator(),
-        };
-        let http = SharedHttpClient::new()?;
-        runtime().block_on(auth_get_challenge(&http, &urls, &email, tenant_id.as_deref()))
-    }
-
     /// Initializes the S3 client for this session with the given credentials.
     ///
     /// Must be called before any S3 operation. Typically called after
@@ -340,8 +321,27 @@ impl DS3SessionHandle {
 }
 
 // ---------------------------------------------------------------------------
-// Sync functions (static -- no session needed)
+// Static functions (no session needed)
 // ---------------------------------------------------------------------------
+
+/// Retrieves an auth challenge from the IAM server.
+#[uniffi::export]
+pub fn get_challenge(
+    email: String,
+    tenant_id: Option<String>,
+    coordinator_url: Option<String>,
+) -> Result<Challenge, DS3Error> {
+    use ds3_auth::challenge::get_challenge as auth_get_challenge;
+    use ds3_http::client::SharedHttpClient;
+    use ds3_http::urls::CubbitAPIURLs;
+
+    let urls = match coordinator_url.as_deref() {
+        Some(url) => CubbitAPIURLs::new(url),
+        None => CubbitAPIURLs::default_coordinator(),
+    };
+    let http = SharedHttpClient::new()?;
+    runtime().block_on(auth_get_challenge(&http, &urls, &email, tenant_id.as_deref()))
+}
 
 /// Computes the diff between local and remote file tree snapshots.
 ///
