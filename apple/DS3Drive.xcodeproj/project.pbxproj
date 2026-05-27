@@ -387,8 +387,8 @@
 		D54775C32B57181D00DABCD4 /* Cubbit DS3 Drive.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Cubbit DS3 Drive.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D54775C62B57181D00DABCD4 /* DS3DriveApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS3DriveApp.swift; sourceTree = "<group>"; };
 		D54775CC2B57181E00DABCD4 /* DS3Drive.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DS3Drive.entitlements; sourceTree = "<group>"; };
-		D54775D52B57185100DABCD4 /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
-		D54775D62B57185100DABCD4 /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		D54775D52B57185100DABCD4 /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = "<group>"; };
+		D54775D62B57185100DABCD4 /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = LICENSE; path = ../LICENSE; sourceTree = "<group>"; };
 		D5A2213D2B571D5E00F1413B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D5A221AB2B571FED00F1413B /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		D5A221B12B571FED00F1413B /* PreferencesViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PreferencesViewModel.swift; sourceTree = "<group>"; };
