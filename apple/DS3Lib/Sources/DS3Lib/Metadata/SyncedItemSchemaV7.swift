@@ -12,7 +12,7 @@ import SwiftData
 ///
 /// SyncAnchorRecord is unchanged from V2/V3/V4/V5/V6.
 public enum SyncedItemSchemaV7: VersionedSchema {
-    public nonisolated static let versionIdentifier = Schema.Version(7, 0, 0)
+    public nonisolated(unsafe) static let versionIdentifier = Schema.Version(7, 0, 0)
     public static var models: [any PersistentModel.Type] {
         [SyncedItem.self, SyncAnchorRecord.self]
     }
