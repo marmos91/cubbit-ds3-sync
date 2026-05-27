@@ -237,7 +237,7 @@ Plans:
 **Design spec:** `docs/superpowers/specs/2026-05-26-cross-platform-rewrite-design.md`
 **GitHub tracking issue:** #175
 
-- [ ] **Phase 15: Rust Core + FFI Foundation** - Cargo workspace with 6 crates, UniFFI Swift XCFramework, csbindgen C# bindings, integration tests against real Cubbit S3
+- [x] **Phase 15: Rust Core + FFI Foundation** - Cargo workspace with 6 crates, UniFFI Swift XCFramework, csbindgen C# bindings, integration tests against real Cubbit S3 (completed 2026-05-27)
 - [ ] **Phase 16: Apple Incremental Swap** - Replace DS3S3Client, DS3Authentication, DS3SDK internals with Rust via UniFFI; remove Soto and CryptoKit from DS3Lib
 - [ ] **Phase 17: Windows Shell** - WinUI 3 tray app with cfapi Cloud Filter integration, Explorer sidebar, on-demand hydration, upload, remote sync, MSI installer
 - [ ] **Phase 18: Polish + Beta Hardening** - Cross-FFI logging, error mapping, DPAPI credentials, multi-drive, auto-update, ARM64 Windows, tray flyout, conflict resolution
@@ -270,7 +270,7 @@ Plans:
 - [x] 15-06-PLAN.md -- ds3-ffi crate (UniFFI exports, C exports, panic guards, csbindgen, XCFramework script)
 
 **Wave 5** *(blocked on Wave 4 completion)*
-- [ ] 15-07-PLAN.md -- Integration tests (Rust + Swift harness + C# harness), panic safety, CI finalization
+- [x] 15-07-PLAN.md -- Integration tests (Rust + Swift harness + C# harness), panic safety, CI finalization
 
 ### Phase 16: Apple Incremental Swap
 **Goal**: Existing macOS and iOS apps function identically to users, but all S3 operations and authentication flow through the Rust core via UniFFI -- Soto and CryptoKit are removed from DS3Lib, and the FileProvider extension is untouched
@@ -334,7 +334,7 @@ Plans:
 | 12. Renderer, Storage & Schema | v3.1 | 0/0 | Not started | - |
 | 13. macOS Generation, Consumption & Lifecycle | v3.1 | 0/0 | Not started | - |
 | 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
-| 15. Rust Core + FFI Foundation | v2.0.0 | 6/7 | In Progress|  |
+| 15. Rust Core + FFI Foundation | v2.0.0 | 7/7 | Complete   | 2026-05-27 |
 | 16. Apple Incremental Swap | v2.0.0 | 0/0 | Not started | - |
 | 17. Windows Shell | v2.0.0 | 0/0 | Not started | - |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
