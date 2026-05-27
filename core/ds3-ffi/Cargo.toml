@@ -24,3 +24,4 @@ chrono = { workspace = true }
 
 [build-dependencies]
 uniffi = { version = "0.31", features = ["build"] }
+csbindgen = "1.9"
