@@ -158,11 +158,11 @@ jobs:
           xcodebuild build \
             -project apple/DS3Drive.xcodeproj \
             -scheme DS3DriveApp \
-            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
             CODE_SIGNING_ALLOWED=NO
       # DS3DriveAppTests requires App Group entitlements (the host app
       # crashes without them). Skipped in CI where CODE_SIGNING_ALLOWED=NO.
-      # Run locally with: xcodebuild test -only-testing DS3DriveAppTests -scheme DS3DriveApp -destination 'platform=iOS Simulator,name=iPhone 17'
+      # Run locally with: xcodebuild test -only-testing DS3DriveAppTests -scheme DS3DriveApp -destination 'platform=iOS Simulator,name=iPhone 16'
 
   rust-test-integration:
     name: Rust Integration Tests (Cubbit S3)
