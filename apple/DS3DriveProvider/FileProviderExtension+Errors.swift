@@ -49,15 +49,7 @@ enum FileProviderExtensionError: Error {
 // MARK: - DS3S3Error → NSFileProviderError mapping
 
 //
-// The legacy `extension AWSErrorType` mapping moved onto `DS3S3Error` in DS3Lib
-// (see DS3Lib/Sources/DS3Lib/DS3S3Error.swift). FileProvider catch blocks now
-// catch `DS3S3Error` directly. The mapping is byte-identical:
-// - .notAuthenticated for credential errors
-// - .noSuchItem for missing keys
-// - .insufficientQuota for size
-// - .serverUnreachable for transient
-// - .cannotSynchronize as catch-all
-//
-// Project memory rule (D-21): NEVER return custom error types to the File Provider
-// system. Always call `.toFileProviderError()` (defined on DS3S3Error) at the
-// extension boundary, then throw the resulting NSError.
+// The S3 error → NSFileProviderError mapping lives on `DS3S3Error` in DS3Lib
+// (see DS3Lib/Sources/DS3Lib/DS3S3Error.swift). Per project memory rule D-21,
+// extension catch sites MUST call `.toFileProviderError()` before throwing —
+// never throw custom error types past the extension boundary.
