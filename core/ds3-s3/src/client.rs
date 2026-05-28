@@ -47,6 +47,10 @@ impl DS3S3Client {
     ///
     /// Uses `force_path_style(true)` for Cubbit compatibility and defaults
     /// the region to `us-east-1` if not specified.
+    ///
+    /// Explicitly applies [`MAX_RETRIES`] via `RetryConfig::standard()`. Without
+    /// this, the SDK defaults to 3 attempts; Phase 16 D-18 matches the original
+    /// Soto `DefaultSettings.S3.maxRetries = 5` behavior.
     #[tracing::instrument(skip(access_key, secret_key))]
     pub fn new(endpoint: &str, access_key: &str, secret_key: &str, region: Option<&str>) -> Self {
         let creds = aws_sdk_s3::config::Credentials::new(
@@ -54,6 +58,9 @@ impl DS3S3Client {
             None, // expiry
             "ds3",
         );
+
+        let retry_config =
+            aws_sdk_s3::config::retry::RetryConfig::standard().with_max_attempts(MAX_RETRIES);
 
         let config = aws_sdk_s3::config::Builder::new()
             .behavior_version_latest()
@@ -63,6 +70,7 @@ impl DS3S3Client {
                 region.unwrap_or("us-east-1").to_string(),
             ))
             .force_path_style(true)
+            .retry_config(retry_config)
             .build();
 
         let client = aws_sdk_s3::Client::from_conf(config);

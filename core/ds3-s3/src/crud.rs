@@ -1,7 +1,8 @@
-//! S3 CRUD operations: head, delete, batch delete, copy.
+//! S3 CRUD operations: head, delete, batch delete, copy, in-memory transfers.
 
 use std::collections::HashMap;
 
+use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::types::{Delete, MetadataDirective, ObjectIdentifier};
 
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
@@ -120,6 +121,155 @@ impl DS3S3Client {
             .map_err(|e| DS3Error::S3Error(e.to_string()))?;
 
         Ok(())
+    }
+
+    /// Downloads an object to an in-memory `Vec<u8>` (no temp file).
+    ///
+    /// Intended for small payloads where streaming to disk is unnecessary
+    /// (e.g. thumbnails, .ds3keep markers, JSON metadata blobs).
+    pub async fn download_to_memory(
+        &self,
+        bucket: &str,
+        key: &str,
+    ) -> Result<Vec<u8>, DS3Error> {
+        let response = self
+            .client
+            .get_object()
+            .bucket(bucket)
+            .key(key)
+            .send()
+            .await
+            .map_err(|e| DS3Error::S3Error(e.to_string()))?;
+
+        let bytes = response
+            .body
+            .collect()
+            .await
+            .map_err(|e| DS3Error::S3Error(e.to_string()))?
+            .into_bytes();
+
+        Ok(bytes.to_vec())
+    }
+
+    /// Uploads an in-memory `Vec<u8>` to S3 with optional custom metadata.
+    ///
+    /// `metadata` keys/values are sent as `x-amz-meta-*` headers. Empty `data`
+    /// produces a zero-byte object (used for `.ds3keep` folder markers).
+    /// Returns the normalized ETag on success.
+    ///
+    /// Metadata keys are validated to be ASCII without control characters
+    /// (HTTP header safe — threat T-16-02-02).
+    pub async fn upload_from_memory(
+        &self,
+        bucket: &str,
+        key: &str,
+        data: Vec<u8>,
+        metadata: HashMap<String, String>,
+    ) -> Result<Option<String>, DS3Error> {
+        for (k, v) in &metadata {
+            validate_metadata_key(k)?;
+            validate_metadata_value(v)?;
+        }
+
+        let mut req = self
+            .client
+            .put_object()
+            .bucket(bucket)
+            .key(key)
+            .content_length(data.len() as i64)
+            .body(ByteStream::from(data));
+
+        for (k, v) in &metadata {
+            req = req.metadata(k, v);
+        }
+
+        let response = req
+            .send()
+            .await
+            .map_err(|e| DS3Error::S3Error(e.to_string()))?;
+
+        Ok(normalize_etag(response.e_tag()))
+    }
+}
+
+/// Validates an S3 custom-metadata key against HTTP-header restrictions.
+///
+/// S3 sends user metadata as `x-amz-meta-<key>` HTTP headers. Keys must be
+/// ASCII and free of control characters (CR/LF/NUL) to prevent header
+/// injection (threat T-16-02-02).
+fn validate_metadata_key(key: &str) -> Result<(), DS3Error> {
+    if key.is_empty() {
+        return Err(DS3Error::S3Error("invalid metadata key: empty".into()));
+    }
+    if !key.is_ascii() {
+        return Err(DS3Error::S3Error(
+            "invalid metadata key: non-ASCII".into(),
+        ));
+    }
+    if key.chars().any(|c| c.is_control() || c == ':' || c == ' ') {
+        return Err(DS3Error::S3Error(
+            "invalid metadata key: control or separator char".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Validates an S3 custom-metadata value against HTTP-header restrictions.
+fn validate_metadata_value(value: &str) -> Result<(), DS3Error> {
+    if !value.is_ascii() {
+        return Err(DS3Error::S3Error(
+            "invalid metadata value: non-ASCII".into(),
+        ));
+    }
+    if value
+        .chars()
+        .any(|c| c == '\r' || c == '\n' || c == '\0')
+    {
+        return Err(DS3Error::S3Error(
+            "invalid metadata value: control char".into(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod metadata_validation_tests {
+    use super::*;
+
+    #[test]
+    fn rejects_empty_metadata_key() {
+        assert!(validate_metadata_key("").is_err());
+    }
+
+    #[test]
+    fn rejects_non_ascii_metadata_key() {
+        assert!(validate_metadata_key("kéy").is_err());
+    }
+
+    #[test]
+    fn rejects_metadata_key_with_crlf() {
+        assert!(validate_metadata_key("k\r\n").is_err());
+    }
+
+    #[test]
+    fn rejects_metadata_key_with_colon() {
+        assert!(validate_metadata_key("k:v").is_err());
+    }
+
+    #[test]
+    fn accepts_normal_metadata_key() {
+        assert!(validate_metadata_key("custom-tag").is_ok());
+        assert!(validate_metadata_key("origin_id").is_ok());
+    }
+
+    #[test]
+    fn rejects_metadata_value_with_newline() {
+        assert!(validate_metadata_value("v\nattack").is_err());
+    }
+
+    #[test]
+    fn accepts_normal_metadata_value() {
+        assert!(validate_metadata_value("v1").is_ok());
     }
 }
 
