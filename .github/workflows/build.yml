@@ -61,6 +61,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust targets
+        run: rustup target add aarch64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+      - name: Cache Cargo (xcframework)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/target
+          key: cargo-xcframework-${{ runner.os }}-${{ hashFiles('core/Cargo.lock') }}
+          restore-keys: cargo-xcframework-${{ runner.os }}-
+      - name: Build DS3CoreFFI XCFramework
+        working-directory: core
+        run: ./scripts/build-xcframework.sh --release
+      - name: Verify XCFramework exists
+        run: test -d core/out/DS3CoreFFI.xcframework && ls -la core/out/DS3CoreFFI.xcframework
       - name: Cache SPM packages
         uses: actions/cache@v4
         with:
@@ -93,6 +111,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust targets
+        run: rustup target add aarch64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+      - name: Cache Cargo (xcframework)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/target
+          key: cargo-xcframework-${{ runner.os }}-${{ hashFiles('core/Cargo.lock') }}
+          restore-keys: cargo-xcframework-${{ runner.os }}-
+      - name: Build DS3CoreFFI XCFramework
+        working-directory: core
+        run: ./scripts/build-xcframework.sh --release
+      - name: Verify XCFramework exists
+        run: test -d core/out/DS3CoreFFI.xcframework && ls -la core/out/DS3CoreFFI.xcframework
       - name: Cache SPM packages
         uses: actions/cache@v4
         with:
@@ -144,6 +180,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust targets
+        run: rustup target add aarch64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+      - name: Cache Cargo (xcframework)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/target
+          key: cargo-xcframework-ios-${{ runner.os }}-${{ hashFiles('core/Cargo.lock') }}
+          restore-keys: cargo-xcframework-ios-${{ runner.os }}-
+      - name: Build DS3CoreFFI XCFramework
+        working-directory: core
+        run: ./scripts/build-xcframework.sh --release
+      - name: Verify XCFramework exists
+        run: test -d core/out/DS3CoreFFI.xcframework && ls -la core/out/DS3CoreFFI.xcframework
       - name: Cache SPM packages
         uses: actions/cache@v4
         with:
