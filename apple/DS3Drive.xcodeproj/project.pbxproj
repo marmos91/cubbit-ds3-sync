@@ -1071,6 +1071,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 0B52E9AD64A4AED08998CDAB /* Build configuration list for PBXNativeTarget "DS3DriveApp" */;
 			buildPhases = (
+				43416500129773FD6FE466BB /* Build DS3CoreFFI XCFramework */,
 				05413A74161325E7F400E2AD /* Sources */,
 				C7DDC45F6F079546696437A1 /* Frameworks */,
 				43FD101A93E86DAE71CA8882 /* Resources */,
@@ -1150,6 +1151,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = D54775D22B57181E00DABCD4 /* Build configuration list for PBXNativeTarget "DS3Drive" */;
 			buildPhases = (
+				424B10294E60D2276DA07F3D /* Build DS3CoreFFI XCFramework */,
 				D54775BF2B57181D00DABCD4 /* Sources */,
 				D54775C02B57181D00DABCD4 /* Frameworks */,
 				D54775C12B57181D00DABCD4 /* Resources */,
@@ -1174,6 +1176,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = D5A222532B57211500F1413B /* Build configuration list for PBXNativeTarget "DS3DriveProvider" */;
 			buildPhases = (
+				CF0A726FCE50F4B37662DC6F /* Build DS3CoreFFI XCFramework */,
 				D5A2223F2B57211500F1413B /* Sources */,
 				D5A222402B57211500F1413B /* Frameworks */,
 				D5A222412B57211500F1413B /* Resources */,
@@ -1337,6 +1340,75 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		424B10294E60D2276DA07F3D /* Build DS3CoreFFI XCFramework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../core/scripts/build-xcframework.sh",
+			);
+			name = "Build DS3CoreFFI XCFramework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/../core/out/DS3CoreFFI.xcframework/Info.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "set -euo pipefail\nexport PATH=\"$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nPROFILE_FLAG=\"--debug\"\nif [ \"$CONFIGURATION\" = \"Release\" ]; then\n    PROFILE_FLAG=\"--release\"\nfi\nexec \"${SRCROOT}/../core/scripts/build-xcframework.sh\" $PROFILE_FLAG\n";
+			showEnvVarsInLog = 1;
+		};
+		43416500129773FD6FE466BB /* Build DS3CoreFFI XCFramework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../core/scripts/build-xcframework.sh",
+			);
+			name = "Build DS3CoreFFI XCFramework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/../core/out/DS3CoreFFI.xcframework/Info.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "set -euo pipefail\nexport PATH=\"$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nPROFILE_FLAG=\"--debug\"\nif [ \"$CONFIGURATION\" = \"Release\" ]; then\n    PROFILE_FLAG=\"--release\"\nfi\nexec \"${SRCROOT}/../core/scripts/build-xcframework.sh\" $PROFILE_FLAG\n";
+			showEnvVarsInLog = 1;
+		};
+		CF0A726FCE50F4B37662DC6F /* Build DS3CoreFFI XCFramework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../core/scripts/build-xcframework.sh",
+			);
+			name = "Build DS3CoreFFI XCFramework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/../core/out/DS3CoreFFI.xcframework/Info.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "set -euo pipefail\nexport PATH=\"$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nPROFILE_FLAG=\"--debug\"\nif [ \"$CONFIGURATION\" = \"Release\" ]; then\n    PROFILE_FLAG=\"--release\"\nfi\nexec \"${SRCROOT}/../core/scripts/build-xcframework.sh\" $PROFILE_FLAG\n";
+			showEnvVarsInLog = 1;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		05413A74161325E7F400E2AD /* Sources */ = {
