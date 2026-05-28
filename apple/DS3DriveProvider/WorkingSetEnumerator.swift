@@ -303,7 +303,7 @@ final class WorkingSetEnumerator: NSObject, NSFileProviderEnumerator, @unchecked
                 return (member.s3Key, .updated(remote))
             }
             return (member.s3Key, .unchanged)
-        } catch let awsError as AWSErrorType where awsError.isNotFound {
+        } catch let awsError as DS3S3Error where awsError.isNotFound {
             return (member.s3Key, .deleted)
         } catch {
             return (member.s3Key, .unchanged)

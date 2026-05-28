@@ -118,6 +118,32 @@ public extension DS3S3Error {
     }
 }
 
+// MARK: - AWS-style error code (source compatibility with legacy AWSErrorType)
+
+public extension DS3S3Error {
+    /// Returns the AWS-style S3 error code substring (e.g. "NoSuchKey", "AccessDenied").
+    /// Returns an empty string for categories that don't correspond to a specific AWS code
+    /// — keeps the source-compatible String type for legacy OSLog interpolation sites
+    /// while still allowing `s3Error.errorCode == "NoSuchKey"` style comparisons.
+    var errorCode: String {
+        switch self {
+        case .noSuchKey: "NoSuchKey"
+        case .noSuchBucket: "NoSuchBucket"
+        case .accessDenied: "AccessDenied"
+        case .invalidAccessKey: "InvalidAccessKeyId"
+        case .signatureDoesNotMatch: "SignatureDoesNotMatch"
+        case .expiredToken: "ExpiredToken"
+        case .entityTooLarge: "EntityTooLarge"
+        case .slowDown: "SlowDown"
+        case .serviceUnavailable: "ServiceUnavailable"
+        case .internalError: "InternalError"
+        case .requestTimeout: "RequestTimeout"
+        case let .unknown(code, _): code ?? ""
+        default: ""
+        }
+    }
+}
+
 // MARK: - Category flags (replace static helpers on DS3S3Client)
 
 public extension DS3S3Error {

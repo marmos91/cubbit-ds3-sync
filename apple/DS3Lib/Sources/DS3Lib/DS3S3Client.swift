@@ -389,24 +389,12 @@ public final class DS3S3Client: @unchecked Sendable {
     // MARK: - S3 Error Inspection (post-swap helpers)
 
     /// Extracts the AWS-style S3 error code substring from any error.
-    /// Returns nil if not a known DS3S3Error/Ds3Error.
+    /// Returns nil if not a known DS3S3Error/Ds3Error, or if the case has no
+    /// specific AWS code mapping.
     public static func s3ErrorCode(from error: Error) -> String? {
         if let ds3Error = error as? DS3S3Error {
-            switch ds3Error {
-            case .noSuchKey: return "NoSuchKey"
-            case .noSuchBucket: return "NoSuchBucket"
-            case .accessDenied: return "AccessDenied"
-            case .invalidAccessKey: return "InvalidAccessKeyId"
-            case .signatureDoesNotMatch: return "SignatureDoesNotMatch"
-            case .expiredToken: return "ExpiredToken"
-            case .entityTooLarge: return "EntityTooLarge"
-            case .slowDown: return "SlowDown"
-            case .serviceUnavailable: return "ServiceUnavailable"
-            case .internalError: return "InternalError"
-            case .requestTimeout: return "RequestTimeout"
-            case let .unknown(code, _): return code
-            default: return nil
-            }
+            let code = ds3Error.errorCode
+            return code.isEmpty ? nil : code
         }
         if let rust = error as? Ds3Error {
             return s3ErrorCode(from: DS3S3Error.translate(rust))
