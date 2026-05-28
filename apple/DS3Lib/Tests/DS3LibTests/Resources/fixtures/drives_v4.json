@@ -1,0 +1,68 @@
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "syncAnchor": {
+      "project": {
+        "project_id": "proj-fixture-001",
+        "project_name": "Fixture Project Alpha",
+        "project_description": "Schema-parity fixture project Alpha",
+        "project_email": "alpha@projects.example.com",
+        "project_created_at": "2024-01-15T10:00:00.000Z",
+        "project_banned_at": null,
+        "project_image_url": null,
+        "project_tenant_id": "tenant-fixture-alpha",
+        "root_account_email": "root@example.com",
+        "users": [
+          {
+            "user_id": "iam-user-001",
+            "user_name": "fixture-root",
+            "is_root": true
+          }
+        ]
+      },
+      "IAMUser": {
+        "user_id": "iam-user-001",
+        "user_name": "fixture-root",
+        "is_root": true
+      },
+      "bucket": {
+        "name": "test-bucket-1"
+      },
+      "prefix": "documents/"
+    },
+    "name": "Alpha Drive"
+  },
+  {
+    "id": "650e8400-e29b-41d4-a716-446655440001",
+    "syncAnchor": {
+      "project": {
+        "project_id": "proj-fixture-002",
+        "project_name": "Fixture Project Beta",
+        "project_description": "Schema-parity fixture project Beta",
+        "project_email": "beta@projects.example.com",
+        "project_created_at": "2024-02-20T12:30:00.000Z",
+        "project_banned_at": null,
+        "project_image_url": null,
+        "project_tenant_id": "tenant-fixture-beta",
+        "root_account_email": null,
+        "users": [
+          {
+            "user_id": "iam-user-002",
+            "user_name": "fixture-iam",
+            "is_root": false
+          }
+        ]
+      },
+      "IAMUser": {
+        "user_id": "iam-user-002",
+        "user_name": "fixture-iam",
+        "is_root": false
+      },
+      "bucket": {
+        "name": "test-bucket-2"
+      },
+      "prefix": null
+    },
+    "name": "Beta Drive"
+  }
+]

@@ -73,6 +73,15 @@ let package = Package(
                 "DS3Lib",
                 "DS3CoreFFI",
                 .product(name: "NIOCore", package: "swift-nio")
+            ],
+            // Schema-parity fixtures (Phase 16 Plan 06 / D-25). The canonical
+            // copies live at `core/ds3-models/tests/fixtures/`; this directory
+            // mirrors them so SPM can expose them via `Bundle.module`. CI runs
+            // a byte-equality check (build.yml "Schema parity fixture
+            // byte-equality") to fail any drift between the two locations.
+            // The dev-side sync helper is `core/scripts/sync-fixtures.sh`.
+            resources: [
+                .copy("Resources/fixtures")
             ]
         )
     ]
