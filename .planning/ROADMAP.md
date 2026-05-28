@@ -281,7 +281,7 @@ Plans:
   2. All existing unit tests (156+) pass without modification, and Finder/Files.app sync behavior (upload, download, rename, move, delete, conflict copy) is identical to the pre-swap build -- verified by side-by-side manual smoke test
   3. Soto and CryptoKit no longer appear in DS3Lib's Package.swift dependencies -- the only S3 client dependency is the `DS3CoreFFI` XCFramework
   4. Existing `drives.json` and `credentials.json` files in the App Group container are read transparently by the Rust-backed code without any migration step -- a user upgrading from the Swift-only build experiences zero data loss or re-login
-**Plans:** 5/7 plans executed
+**Plans:** 6/7 plans executed
 
 Plans:
 **Wave 1**
@@ -300,7 +300,7 @@ Plans:
 - [x] 16-05-PLAN.md -- Remove Soto + CryptoKit from Package.swift; replace SyncAnchorHash CryptoKit->CommonCrypto with fixture-locked SHA256
 
 **Wave 6** *(blocked on Wave 5 -- shares Package.swift)*
-- [ ] 16-06-PLAN.md -- CI parity gate: JSON fixtures + Rust serde tests + Swift Codable tests + cargo --tests in CI
+- [x] 16-06-PLAN.md -- CI parity gate: JSON fixtures + Rust serde tests + Swift Codable tests + cargo --tests in CI
 
 **Wave 7** *(blocked on Waves 5 + 6)*
 - [ ] 16-07-PLAN.md -- Side-by-side smoke test + Rust-backed integration tests (real Cubbit S3) + CI integration job
@@ -357,7 +357,7 @@ Plans:
 | 13. macOS Generation, Consumption & Lifecycle | v3.1 | 0/0 | Not started | - |
 | 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
 | 15. Rust Core + FFI Foundation | v2.0.0 | 7/7 | Complete   | 2026-05-27 |
-| 16. Apple Incremental Swap | v2.0.0 | 5/7 | In Progress|  |
+| 16. Apple Incremental Swap | v2.0.0 | 6/7 | In Progress|  |
 | 17. Windows Shell | v2.0.0 | 0/0 | Not started | - |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
 
