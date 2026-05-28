@@ -464,17 +464,14 @@ fn test_credentials_fixture_round_trip() {
     let reserialized = serde_json::to_vec(&keys).expect("re-serialize Vec<DS3ApiKey>");
     let keys_round: Vec<DS3ApiKey> =
         serde_json::from_slice(&reserialized).expect("re-parse Vec<DS3ApiKey>");
-    assert_eq!(
-        keys, keys_round,
-        "round-trip must preserve struct equality"
-    );
+    assert_eq!(keys, keys_round, "round-trip must preserve struct equality");
 }
 
 #[test]
 fn test_account_session_fixture_round_trip() {
     let bytes = include_bytes!("fixtures/accountSession_v1.json");
-    let session: AccountSession =
-        serde_json::from_slice(bytes).expect("accountSession_v1.json must decode as AccountSession");
+    let session: AccountSession = serde_json::from_slice(bytes)
+        .expect("accountSession_v1.json must decode as AccountSession");
 
     assert_eq!(
         session.token.token,
@@ -524,8 +521,7 @@ fn test_account_fixture_round_trip() {
     assert!(account.emails[0].is_verified);
 
     let reserialized = serde_json::to_vec(&account).expect("re-serialize Account");
-    let account_round: Account =
-        serde_json::from_slice(&reserialized).expect("re-parse Account");
+    let account_round: Account = serde_json::from_slice(&reserialized).expect("re-parse Account");
     assert_eq!(
         account, account_round,
         "round-trip must preserve struct equality"

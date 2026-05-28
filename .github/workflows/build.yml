@@ -70,7 +70,7 @@ jobs:
         # signal that a Rust ds3-models field rename slipped through without
         # updating Swift Codable (or vice versa).
         working-directory: core
-        run: cargo test --package ds3-models --tests test_drives_fixture test_credentials_fixture test_account_session_fixture test_account_fixture
+        run: cargo test --package ds3-models --tests _fixture_round_trip
 
   build:
     name: Build DS3Drive scheme

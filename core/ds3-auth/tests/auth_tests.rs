@@ -28,7 +28,7 @@ fn test_sign_challenge_empty_password() {
     assert!(result.is_ok(), "empty password should not panic");
 
     let decoded =
-        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &result.unwrap())
+        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, result.unwrap())
             .expect("output should be valid base64");
     assert_eq!(decoded.len(), 64);
 }

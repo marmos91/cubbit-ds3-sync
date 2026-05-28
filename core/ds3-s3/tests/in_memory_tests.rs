@@ -24,9 +24,9 @@
 
 #![cfg(feature = "integration")]
 
+use ds3_s3::DS3S3Client;
 use std::collections::HashMap;
 use std::io::Write;
-use ds3_s3::DS3S3Client;
 use uuid::Uuid;
 
 fn env_or_skip(name: &str) -> String {
@@ -83,9 +83,7 @@ async fn create_test_client() -> (DS3S3Client, String) {
     };
 
     let access_key = api_key.api_key;
-    let secret_key = api_key
-        .secret_key
-        .expect("API key must have a secret");
+    let secret_key = api_key.secret_key.expect("API key must have a secret");
 
     let client = DS3S3Client::new(endpoint, &access_key, &secret_key, None);
     (client, bucket)
@@ -212,9 +210,15 @@ async fn test_upload_from_memory_empty_vec_writes_zero_byte_object() {
         .await
         .expect("zero-byte upload should succeed");
 
-    assert!(etag.is_some(), "etag should be returned for zero-byte object");
+    assert!(
+        etag.is_some(),
+        "etag should be returned for zero-byte object"
+    );
 
-    let head = client.head_object(&bucket, &key).await.expect("head should succeed");
+    let head = client
+        .head_object(&bucket, &key)
+        .await
+        .expect("head should succeed");
     assert_eq!(head.content_length, 0);
 
     let _ = client.delete_object(&bucket, &key).await;
@@ -277,7 +281,10 @@ async fn test_copy_object_with_metadata_none_preserves_existing() {
         .await
         .expect("copy without metadata override should succeed");
 
-    let head = client.head_object(&bucket, &dst).await.expect("head should succeed");
+    let head = client
+        .head_object(&bucket, &dst)
+        .await
+        .expect("head should succeed");
     let returned = head.metadata.expect("dst should have metadata (copied)");
     assert_eq!(returned.get("preserved").map(String::as_str), Some("yes"));
 

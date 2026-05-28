@@ -353,11 +353,7 @@ impl DS3SessionHandle {
     ///
     /// Intended for small payloads (thumbnails, .ds3keep markers, metadata blobs).
     /// For large files, use `download_object` which streams to a file path.
-    pub fn download_to_memory(
-        &self,
-        bucket: String,
-        key: String,
-    ) -> Result<Vec<u8>, DS3Error> {
+    pub fn download_to_memory(&self, bucket: String, key: String) -> Result<Vec<u8>, DS3Error> {
         let client = self.require_s3()?;
         runtime().block_on(client.download_to_memory(&bucket, &key))
     }

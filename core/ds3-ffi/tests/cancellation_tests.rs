@@ -44,7 +44,10 @@ fn handle_is_shareable_across_threads() {
 
     join.join().unwrap();
 
-    assert!(h.is_cancelled(), "cancel from another thread must be visible");
+    assert!(
+        h.is_cancelled(),
+        "cancel from another thread must be visible"
+    );
 }
 
 #[test]

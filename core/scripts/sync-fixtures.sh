@@ -30,7 +30,16 @@ fi
 
 mkdir -p "$DST_DIR"
 
-for src in "$SRC_DIR"/*.json; do
+shopt -s nullglob
+fixtures=("$SRC_DIR"/*.json)
+shopt -u nullglob
+
+if [ ${#fixtures[@]} -eq 0 ]; then
+    echo "FATAL: no .json fixtures found in $SRC_DIR" >&2
+    exit 1
+fi
+
+for src in "${fixtures[@]}"; do
     name="$(basename "$src")"
     dst="$DST_DIR/$name"
     cp "$src" "$dst"

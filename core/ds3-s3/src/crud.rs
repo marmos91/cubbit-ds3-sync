@@ -133,11 +133,7 @@ impl DS3S3Client {
     ///
     /// Intended for small payloads where streaming to disk is unnecessary
     /// (e.g. thumbnails, .ds3keep markers, JSON metadata blobs).
-    pub async fn download_to_memory(
-        &self,
-        bucket: &str,
-        key: &str,
-    ) -> Result<Vec<u8>, DS3Error> {
+    pub async fn download_to_memory(&self, bucket: &str, key: &str) -> Result<Vec<u8>, DS3Error> {
         let response = self
             .client
             .get_object()
@@ -275,9 +271,7 @@ fn validate_metadata_key(key: &str) -> Result<(), DS3Error> {
         return Err(DS3Error::S3Error("invalid metadata key: empty".into()));
     }
     if !key.is_ascii() {
-        return Err(DS3Error::S3Error(
-            "invalid metadata key: non-ASCII".into(),
-        ));
+        return Err(DS3Error::S3Error("invalid metadata key: non-ASCII".into()));
     }
     if key.chars().any(|c| c.is_control() || c == ':' || c == ' ') {
         return Err(DS3Error::S3Error(
@@ -294,15 +288,28 @@ fn validate_metadata_value(value: &str) -> Result<(), DS3Error> {
             "invalid metadata value: non-ASCII".into(),
         ));
     }
-    if value
-        .chars()
-        .any(|c| c == '\r' || c == '\n' || c == '\0')
-    {
+    if value.chars().any(|c| c == '\r' || c == '\n' || c == '\0') {
         return Err(DS3Error::S3Error(
             "invalid metadata value: control char".into(),
         ));
     }
     Ok(())
+}
+
+/// Returns `true` if the given error indicates S3 NotFound (NoSuchKey / 404).
+pub fn is_not_found_error(err: &DS3Error) -> bool {
+    match err {
+        DS3Error::S3Error(msg) => {
+            let lower = msg.to_lowercase();
+            lower.contains("nosuchkey")
+                || lower.contains("notfound")
+                || lower.contains("not found")
+                || lower.contains("404")
+                || lower.contains("no such key")
+                || lower.contains("does not exist")
+        }
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -343,21 +350,5 @@ mod metadata_validation_tests {
     #[test]
     fn accepts_normal_metadata_value() {
         assert!(validate_metadata_value("v1").is_ok());
-    }
-}
-
-/// Returns `true` if the given error indicates S3 NotFound (NoSuchKey / 404).
-pub fn is_not_found_error(err: &DS3Error) -> bool {
-    match err {
-        DS3Error::S3Error(msg) => {
-            let lower = msg.to_lowercase();
-            lower.contains("nosuchkey")
-                || lower.contains("notfound")
-                || lower.contains("not found")
-                || lower.contains("404")
-                || lower.contains("no such key")
-                || lower.contains("does not exist")
-        }
-        _ => false,
     }
 }
