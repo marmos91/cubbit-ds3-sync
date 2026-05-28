@@ -2,8 +2,8 @@
 import XCTest
 
 final class DS3S3ClientPresignTests: XCTestCase {
-    private func makeClient(endpoint: String? = "https://s3.example.com") -> DS3S3Client {
-        DS3S3Client(accessKeyId: "test", secretAccessKey: "test", endpoint: endpoint)
+    private func makeClient(endpoint: String? = "https://s3.example.com") throws -> DS3S3Client {
+        try DS3S3Client(accessKeyId: "test", secretAccessKey: "test", endpoint: endpoint)
     }
 
     /// Runs `presignedGetURL` and fails the test only if `invalidPresignExpiry` is thrown.
@@ -24,8 +24,8 @@ final class DS3S3ClientPresignTests: XCTestCase {
 
     // MARK: - Expiry Validation
 
-    func testInvalidExpiryZero() async {
-        let client = makeClient()
+    func testInvalidExpiryZero() async throws {
+        let client = try makeClient()
         defer { try? client.shutdown() }
 
         do {
@@ -38,8 +38,8 @@ final class DS3S3ClientPresignTests: XCTestCase {
         }
     }
 
-    func testInvalidExpiryNegative() async {
-        let client = makeClient()
+    func testInvalidExpiryNegative() async throws {
+        let client = try makeClient()
         defer { try? client.shutdown() }
 
         do {
@@ -52,8 +52,8 @@ final class DS3S3ClientPresignTests: XCTestCase {
         }
     }
 
-    func testInvalidExpiryTooLarge() async {
-        let client = makeClient()
+    func testInvalidExpiryTooLarge() async throws {
+        let client = try makeClient()
         defer { try? client.shutdown() }
 
         do {
@@ -131,17 +131,24 @@ final class DS3S3ClientPresignTests: XCTestCase {
         XCTAssertEqual(url.absoluteString, "https://s3.example.com/b/files/100%25done.txt")
     }
 
-    func testInvalidEndpointThrows() async {
-        let client = makeClient(endpoint: nil)
-        defer { try? client.shutdown() }
+    func testNilEndpointThrowsAtInit() {
+        // A nil/empty endpoint must be rejected at construction time so callers
+        // (extensions, share extension, drive init) can surface a recoverable
+        // error instead of trapping. Previously this was a `try!` crash.
+        XCTAssertThrowsError(try makeClient(endpoint: nil)) { error in
+            guard case DS3S3ClientSetupError.missingEndpoint = error else {
+                XCTFail("Expected DS3S3ClientSetupError.missingEndpoint, got \(error)")
+                return
+            }
+        }
+    }
 
-        do {
-            _ = try await client.presignedGetURL(bucket: "b", key: "k", expiresIn: 3600)
-            XCTFail("Expected invalidObjectURL")
-        } catch PresignError.invalidObjectURL {
-            // expected
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+    func testEmptyEndpointThrowsAtInit() {
+        XCTAssertThrowsError(try makeClient(endpoint: "")) { error in
+            guard case DS3S3ClientSetupError.missingEndpoint = error else {
+                XCTFail("Expected DS3S3ClientSetupError.missingEndpoint, got \(error)")
+                return
+            }
         }
     }
 }

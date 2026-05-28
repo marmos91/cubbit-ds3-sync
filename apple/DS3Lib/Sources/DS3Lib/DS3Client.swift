@@ -71,7 +71,7 @@ public final class DS3Client: @unchecked Sendable {
             throw DS3ClientSetupError.missingSecret
         }
 
-        self.driveS3Client = DS3S3Client(
+        self.driveS3Client = try DS3S3Client(
             accessKeyId: keys.apiKey,
             secretAccessKey: secretKey,
             endpoint: account.endpointGateway
@@ -171,7 +171,7 @@ public final class DS3Client: @unchecked Sendable {
 
         self.endpoint = account.endpointGateway
         self.apiKeys = newKeys
-        self.driveS3Client = DS3S3Client(
+        self.driveS3Client = try DS3S3Client(
             accessKeyId: newKeys.apiKey,
             secretAccessKey: secretKey,
             endpoint: account.endpointGateway
