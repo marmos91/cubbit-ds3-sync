@@ -185,7 +185,7 @@ extension DS3S3Error {
     /// FileProviderExtension+Errors.swift used pre-swap).
     public static func translate(_ rust: Ds3Error) -> DS3S3Error {
         // Step 1: try numeric code from Rust Display string.
-        let message = describe(rust)
+        let message = ds3ErrorMessage(rust)
         let code = ds3ErrorCode(message: message)
         switch code {
         case 2001: return .missingUploadId
@@ -198,33 +198,6 @@ extension DS3S3Error {
             // 1001-1099 (auth), 3001/3002/3004 (IO/HTTP/Auth-wrapper), or unknown.
             // Surface the numeric code so logs+UI can disambiguate.
             return .unknown(code: code >= 0 ? String(code) : nil, message: message)
-        }
-    }
-
-    /// Extracts the message string from a `Ds3Error` case. UniFFI's flat_error
-    /// emits each variant as `Case(message: String)` — the Display string of
-    /// the original Rust error lives in `message`. Use this for both logging
-    /// and the numeric-code lookup (`ds3ErrorCode(message:)`).
-    private static func describe(_ rust: Ds3Error) -> String {
-        switch rust {
-        case let .InvalidUrl(message),
-             let .ServerError(message),
-             let .JsonError(message),
-             let .Encoding(message),
-             let .LoggedOut(message),
-             let .TokenExpired(message),
-             let .Missing2Fa(message),
-             let .CookieError(message),
-             let .MissingUploadId(message),
-             let .EmptyFileData(message),
-             let .MissingETag(message),
-             let .ParseError(message),
-             let .UnableToOpenFile(message),
-             let .IoError(message),
-             let .HttpError(message),
-             let .S3Error(message),
-             let .AuthError(message):
-            message
         }
     }
 

@@ -80,27 +80,10 @@ extension DS3AuthenticationError {
     /// emits each variant as `Case(message: String)` where `message` is the
     /// canonical `thiserror` Display string). Used by `translate` for the
     /// numeric-code lookup, and by the adapter's catch-site logging.
+    /// Thin wrapper over the module-private `ds3ErrorMessage(_:)` so all three
+    /// translation adapters (Auth, SDK, S3) share a single switch over Ds3Error.
     static func describe(_ rust: Ds3Error) -> String {
-        switch rust {
-        case let .InvalidUrl(message),
-             let .ServerError(message),
-             let .JsonError(message),
-             let .Encoding(message),
-             let .LoggedOut(message),
-             let .TokenExpired(message),
-             let .Missing2Fa(message),
-             let .CookieError(message),
-             let .MissingUploadId(message),
-             let .EmptyFileData(message),
-             let .MissingETag(message),
-             let .ParseError(message),
-             let .UnableToOpenFile(message),
-             let .IoError(message),
-             let .HttpError(message),
-             let .S3Error(message),
-             let .AuthError(message):
-            message
-        }
+        ds3ErrorMessage(rust)
     }
 }
 
