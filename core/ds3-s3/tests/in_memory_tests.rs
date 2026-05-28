@@ -114,7 +114,7 @@ async fn test_download_to_memory_returns_bytes_for_existing_key() {
     // Seed via upload_object
     let upload_path = temp_file(content);
     client
-        .upload_object(&bucket, &key, &upload_path, None)
+        .upload_object(&bucket, &key, &upload_path, None, None)
         .await
         .expect("upload should succeed");
 

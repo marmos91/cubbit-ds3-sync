@@ -126,6 +126,15 @@ impl DS3Session {
     async fn lock_session(&self) -> MutexGuard<'_, AccountSession> {
         self.session.lock().await
     }
+
+    /// Returns a clone of the current `AccountSession` (token + refresh token).
+    ///
+    /// Used by the FFI surface to reconstruct the Swift-side `AccountSession`
+    /// after login/refresh/forge — see PATTERNS.md §"App Group Persistence
+    /// Boundary" (D-04, D-06).
+    pub async fn current_session(&self) -> AccountSession {
+        self.lock_session().await.clone()
+    }
 }
 
 /// Returns `true` if the token's `exp` field (Unix timestamp) is in the past.

@@ -1,7 +1,10 @@
-//! S3 CRUD operations: head, delete, batch delete, copy, in-memory transfers.
+//! S3 CRUD operations: head, delete, batch delete, copy, in-memory transfers,
+//! presign upload part.
 
 use std::collections::HashMap;
+use std::time::Duration;
 
+use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::types::{Delete, MetadataDirective, ObjectIdentifier};
 
@@ -9,6 +12,9 @@ use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 
 use crate::client::{normalize_etag, DS3S3Client};
 use ds3_models::{DS3Error, S3ObjectMetadata};
+
+/// Maximum presigned-URL lifetime allowed by AWS sigv4 (7 days, in seconds).
+pub const MAX_PRESIGN_EXPIRY_SECS: u64 = 604_800;
 
 const COPY_SOURCE_ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
@@ -149,6 +155,41 @@ impl DS3S3Client {
             .into_bytes();
 
         Ok(bytes.to_vec())
+    }
+
+    /// Generates a presigned PUT URL for a multipart upload part.
+    ///
+    /// `expires_in` is in seconds and must be ≤ [`MAX_PRESIGN_EXPIRY_SECS`].
+    /// The returned URL is consumed by the Swift adapter to upload a single
+    /// part via `URLRequest.httpMethod = "PUT"`.
+    pub async fn presign_upload_part(
+        &self,
+        bucket: &str,
+        key: &str,
+        upload_id: &str,
+        part_number: i32,
+        expires_in: i64,
+    ) -> Result<String, DS3Error> {
+        if expires_in <= 0 || (expires_in as u64) > MAX_PRESIGN_EXPIRY_SECS {
+            return Err(DS3Error::S3Error(format!(
+                "expires_in out of range: {expires_in} (must be 1..={MAX_PRESIGN_EXPIRY_SECS})"
+            )));
+        }
+        let config = PresigningConfig::expires_in(Duration::from_secs(expires_in as u64))
+            .map_err(|e| DS3Error::S3Error(format!("presign config: {e}")))?;
+
+        let presigned = self
+            .client
+            .upload_part()
+            .bucket(bucket)
+            .key(key)
+            .upload_id(upload_id)
+            .part_number(part_number)
+            .presigned(config)
+            .await
+            .map_err(|e| DS3Error::S3Error(e.to_string()))?;
+
+        Ok(presigned.uri().to_string())
     }
 
     /// Uploads an in-memory `Vec<u8>` to S3 with optional custom metadata.

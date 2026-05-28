@@ -136,3 +136,12 @@ impl From<reqwest::Error> for DS3Error {
         DS3Error::HttpError(err.to_string())
     }
 }
+
+impl From<reqwest_middleware::Error> for DS3Error {
+    fn from(err: reqwest_middleware::Error) -> Self {
+        match err {
+            reqwest_middleware::Error::Middleware(e) => DS3Error::HttpError(e.to_string()),
+            reqwest_middleware::Error::Reqwest(e) => DS3Error::HttpError(e.to_string()),
+        }
+    }
+}

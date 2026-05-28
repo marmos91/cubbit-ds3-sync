@@ -121,7 +121,7 @@ async fn test_upload_head_download_delete() {
     // Upload
     let upload_path = temp_file(content);
     let etag = client
-        .upload_object(&bucket, &key, &upload_path, None)
+        .upload_object(&bucket, &key, &upload_path, None, None)
         .await
         .expect("upload_object should succeed");
     assert!(etag.is_some(), "upload should return an ETag");
@@ -177,7 +177,7 @@ async fn test_multipart_upload() {
     });
 
     let etag = client
-        .upload_object(&bucket, &key, &upload_path, Some(&*progress_cb))
+        .upload_object(&bucket, &key, &upload_path, Some(&*progress_cb), None)
         .await
         .expect("multipart upload should succeed");
     assert!(etag.is_some(), "multipart upload should return an ETag");

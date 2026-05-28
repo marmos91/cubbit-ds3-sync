@@ -1,10 +1,12 @@
 //! File upload and download operations with progress callbacks.
 
 use std::path::Path;
+use std::sync::Arc;
 
 use aws_sdk_s3::primitives::ByteStream;
 use tokio::io::AsyncWriteExt;
 
+use crate::cancel::CancelToken;
 use crate::client::{normalize_etag, DS3S3Client, MULTIPART_THRESHOLD};
 use ds3_models::{DS3Error, S3DownloadResult};
 
@@ -66,6 +68,10 @@ impl DS3S3Client {
     /// Uploads a local file to S3. Automatically uses multipart upload for
     /// files exceeding the [`MULTIPART_THRESHOLD`].
     ///
+    /// When `cancel_token` is provided, the multipart loop polls it between
+    /// parts and aborts the upload on cancel. Non-multipart single-call uploads
+    /// are not cancellable (CONTEXT D-20).
+    ///
     /// Returns the ETag of the uploaded object (normalized).
     pub async fn upload_object(
         &self,
@@ -73,6 +79,7 @@ impl DS3S3Client {
         key: &str,
         file_path: &Path,
         on_progress: Option<&(dyn Fn(i64, i64) + Send + Sync)>,
+        cancel_token: Option<Arc<dyn CancelToken>>,
     ) -> Result<Option<String>, DS3Error> {
         let metadata = tokio::fs::metadata(file_path).await?;
         let file_size = metadata.len();
@@ -94,7 +101,7 @@ impl DS3S3Client {
 
         if file_size > MULTIPART_THRESHOLD {
             let etag = self
-                .upload_multipart(bucket, key, file_path, file_size, on_progress, None)
+                .upload_multipart(bucket, key, file_path, file_size, on_progress, cancel_token)
                 .await?;
             return Ok(Some(etag));
         }

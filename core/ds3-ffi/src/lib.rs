@@ -19,4 +19,4 @@ pub mod uniffi_exports;
 
 // Re-export the primary FFI handle type.
 pub use cancellation::CancellationHandle;
-pub use uniffi_exports::DS3SessionHandle;
+pub use uniffi_exports::{ds3_error_code, DS3SessionHandle};
