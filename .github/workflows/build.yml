@@ -45,9 +45,32 @@ jobs:
       - name: Clippy
         working-directory: core
         run: cargo clippy --workspace -- -D warnings
-      - name: Run tests
+      - name: Schema parity fixture byte-equality (Rust vs Swift mirror)
+        # Catches drift between core/ds3-models/tests/fixtures/ and the
+        # apple/DS3Lib/Tests/DS3LibTests/Resources/fixtures/ mirror. If a
+        # developer edits one side without running core/scripts/sync-fixtures.sh,
+        # both Rust + Swift would still pass independently but exercise different
+        # bytes — defeating the parity gate (Phase 16 Plan 06 / D-25 / T-16-06-03).
+        run: |
+          for f in core/ds3-models/tests/fixtures/*.json; do
+            mirror="apple/DS3Lib/Tests/DS3LibTests/Resources/fixtures/$(basename "$f")"
+            if ! diff -q "$f" "$mirror" >/dev/null 2>&1; then
+              echo "::error::schema-parity fixture drift detected: $f vs $mirror"
+              diff "$f" "$mirror" || true
+              echo "::error::run core/scripts/sync-fixtures.sh and recommit"
+              exit 1
+            fi
+          done
+          echo "OK: schema-parity fixtures byte-identical across Rust and Swift"
+      - name: Run tests (lib + tests incl. parity fixtures)
         working-directory: core
-        run: cargo test --workspace --lib
+        run: cargo test --workspace --lib --tests
+      - name: Schema parity gate (Rust serde fixtures)
+        # Explicit step for visibility — failure here is the canonical D-25
+        # signal that a Rust ds3-models field rename slipped through without
+        # updating Swift Codable (or vice versa).
+        working-directory: core
+        run: cargo test --package ds3-models --tests test_drives_fixture test_credentials_fixture test_account_session_fixture test_account_fixture
 
   build:
     name: Build DS3Drive scheme
