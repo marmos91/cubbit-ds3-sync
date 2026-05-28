@@ -90,6 +90,10 @@ class DS3S3IntegrationTestCase: DS3IntegrationTestCase {
     var bucket: String!
     /// Unique prefix for this test run — all objects are created under this path.
     var testPrefix: String!
+    /// Ephemeral key created per-run, deleted in tearDown to avoid IAM bloat.
+    private var ephemeralApiKey: DS3ApiKey?
+    private var ephemeralIamToken: Token?
+    private var ephemeralIAMUser: IAMUser?
 
     override func setUp() async throws {
         try await super.setUp()
@@ -110,23 +114,22 @@ class DS3S3IntegrationTestCase: DS3IntegrationTestCase {
             throw XCTSkip("No IAM users found in project — create one in the Cubbit console first")
         }
 
-        // Try to find an existing API key, or generate a new one
+        // Create a fresh ephemeral API key for each test run. The deterministic
+        // name from `DS3SDK.apiKeyName` collides on repeated runs because Cubbit
+        // IAM returns existing keys without their secret_key (D-22), so we can't
+        // reuse them. Use a per-run UUID-suffixed name instead. The created key
+        // is deleted in tearDown.
         let iamToken = try await authentication.forgeIAMToken(forIAMUser: user)
-        let remoteKeys = try await sdk.getRemoteApiKeys(forIAMUser: user)
-        let apiKeyName = DS3SDK.apiKeyName(forUser: user, projectName: project.name)
-
-        let apiKey: DS3ApiKey
-        if let existing = remoteKeys.first(where: { $0.name == apiKeyName }), existing.secretKey != nil {
-            apiKey = existing
-        } else {
-            // Generate a fresh key (secret is only available at creation time)
-            apiKey = try await sdk.generateDS3APIKey(
-                forIAMUser: user, iamToken: iamToken, apiKeyName: apiKeyName
-            )
-        }
+        let apiKeyName = "ds3-swift-it-\(UUID().uuidString)"
+        let apiKey = try await sdk.generateDS3APIKey(
+            forIAMUser: user, iamToken: iamToken, apiKeyName: apiKeyName
+        )
+        ephemeralApiKey = apiKey
+        ephemeralIamToken = iamToken
+        ephemeralIAMUser = user
 
         guard let secretKey = apiKey.secretKey else {
-            throw XCTSkip("API key has no secret key — delete '\(apiKeyName)' in the Cubbit console and re-run")
+            throw XCTSkip("Cubbit IAM did not return secret_key on creation")
         }
 
         s3Client = try DS3S3Client(
@@ -147,9 +150,26 @@ class DS3S3IntegrationTestCase: DS3IntegrationTestCase {
             try? s3Client.shutdown()
         }
 
+        // Delete the ephemeral API key we created in setUp.
+        if let key = ephemeralApiKey, let user = ephemeralIAMUser, let tempContainerURL {
+            let sdk = DS3SDK(
+                withAuthentication: authentication,
+                urls: urls,
+                sharedData: SharedData(testContainerURL: tempContainerURL)
+            )
+            do {
+                try await sdk.deleteApiKey(key, forIAMUser: user)
+            } catch {
+                print("WARNING: Failed to delete ephemeral API key \(key.name): \(error)")
+            }
+        }
+
         s3Client = nil
         bucket = nil
         testPrefix = nil
+        ephemeralApiKey = nil
+        ephemeralIamToken = nil
+        ephemeralIAMUser = nil
         try await super.tearDown()
     }
 
