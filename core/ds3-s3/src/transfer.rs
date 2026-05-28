@@ -94,7 +94,7 @@ impl DS3S3Client {
 
         if file_size > MULTIPART_THRESHOLD {
             let etag = self
-                .upload_multipart(bucket, key, file_path, file_size, on_progress)
+                .upload_multipart(bucket, key, file_path, file_size, on_progress, None)
                 .await?;
             return Ok(Some(etag));
         }
