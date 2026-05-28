@@ -1,5 +1,19 @@
-import CryptoKit
+import CommonCrypto
 import Foundation
+
+/// SHA-256 over `data` using CommonCrypto's CC_SHA256. Byte-identical to
+/// CryptoKit's `SHA256.hash(data:)` for identical input — both wrap Apple
+/// CoreCrypto's FIPS 180-4 implementation (Phase 16 Plan 05, Assumption A6).
+///
+/// CC_SHA256 is reentrant; the helper holds no mutable state, so concurrent
+/// callers on different threads produce identical output. The
+/// `SyncAnchorHashTests.testFixture_ConcurrentCallsAreReentrantAndStable`
+/// regression locks this.
+private func sha256(_ data: Data) -> Data {
+    var hash = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+    data.withUnsafeBytes { _ = CC_SHA256($0.baseAddress, CC_LONG(data.count), &hash) }
+    return Data(hash)
+}
 
 /// Produces the deterministic per-container sync anchor used to detect
 /// "did anything change in this folder?" without persisting state.
@@ -30,7 +44,7 @@ public enum SyncAnchorHash {
             .map { "\($0.key)\t\($0.etag ?? "")" }
             .sorted()
         let joined = sorted.joined(separator: "\n")
-        let digest = SHA256.hash(data: Data(joined.utf8))
+        let digest = sha256(Data(joined.utf8))
         let hex = digest.map { String(format: "%02x", $0) }.joined()
         return Data((formatPrefix + hex).utf8)
     }
@@ -73,7 +87,7 @@ public enum SyncAnchorHash {
             }
             .sorted()
         let joined = sorted.joined(separator: "\n")
-        let digest = SHA256.hash(data: Data(joined.utf8))
+        let digest = sha256(Data(joined.utf8))
         let hex = digest.map { String(format: "%02x", $0) }.joined()
         return Data((formatPrefix + hex).utf8)
     }
