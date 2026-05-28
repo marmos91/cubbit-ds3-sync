@@ -5,26 +5,28 @@
 //! to bridge async Rust code to blocking FFI calls.
 //!
 //! Function groups:
-//! - Auth (8): authenticate, verify_2fa, refresh_token, forge_iam_token,
-//!   account_info, get_challenge, logout, session_destroy (implicit via Drop)
+//! - Auth (9): authenticate, verify_2fa, refresh_token, forge_iam_token,
+//!   account_info, current_session, get_challenge, logout, session_destroy
 //! - Projects/Keys (4): get_projects, load_api_keys, create_api_key, delete_api_key
-//! - S3 (15): list_objects, list_buckets, head_object, download_object,
-//!   upload_object, delete_object, delete_objects, copy_object,
-//!   multipart_create, multipart_upload_part, multipart_complete,
-//!   multipart_abort, list_multipart_uploads, presign_get
+//! - S3 (12+): list_objects, list_buckets, head_object, download_object,
+//!   download_to_memory, upload_object, upload_from_memory, presign_upload_part,
+//!   delete_object, delete_objects, copy_object (with metadata)
 //! - Markers (2): probe_folder_exists, create_folder_marker
 //! - Sync (2): compute_diff, conflict_key (static functions)
+//! - Errors (1): ds3_error_code (Phase 16 P02)
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
 use ds3_auth::DS3Session;
 use ds3_models::{
-    Account, BucketInfo, Challenge, DS3ApiKey, DS3Error, DiffResultRecord, Project,
+    Account, AccountSession, BucketInfo, Challenge, DS3ApiKey, DS3Error, DiffResultRecord, Project,
     S3DownloadResult, S3ListingResult, S3ObjectMetadata, Token,
 };
 use ds3_s3::DS3S3Client;
 
+use crate::cancellation::CancellationHandle;
 use crate::handles::runtime;
 use crate::progress::ProgressCallback;
 
@@ -35,7 +37,12 @@ use crate::progress::ProgressCallback;
 /// API key credentials).
 #[derive(uniffi::Object)]
 pub struct DS3SessionHandle {
-    session: Arc<DS3Session>,
+    /// The authenticated IAM session. `None` for handles created via
+    /// [`Self::s3_only`] — i.e. when only S3 operations are needed and the
+    /// Swift adapter holds the full session elsewhere (Plan 03 transition
+    /// state: DS3Authentication still owns URLSession-based auth; S3 calls
+    /// route through this S3-only handle until Plan 04 wires the full session).
+    session: Option<Arc<DS3Session>>,
     s3_client: std::sync::RwLock<Option<DS3S3Client>>,
 }
 
@@ -62,7 +69,7 @@ impl DS3SessionHandle {
             coordinator_url.as_deref(),
         ))?;
         Ok(Arc::new(Self {
-            session: Arc::new(session),
+            session: Some(Arc::new(session)),
             s3_client: std::sync::RwLock::new(None),
         }))
     }
@@ -84,24 +91,60 @@ impl DS3SessionHandle {
             coordinator_url.as_deref(),
         ))?;
         Ok(Arc::new(Self {
-            session: Arc::new(session),
+            session: Some(Arc::new(session)),
             s3_client: std::sync::RwLock::new(None),
+        }))
+    }
+
+    /// Constructs a session handle that only supports S3 operations.
+    ///
+    /// Phase 16 Plan 03 transition: the Swift `DS3S3Client` adapter needs a
+    /// Rust-backed S3 path before Plan 04 wires the full IAM session through
+    /// `DS3SessionHandle`. This constructor connects the underlying `aws-sdk-s3`
+    /// client with the provided credentials and endpoint, leaving `session`
+    /// unset. Auth/projects/keys methods on the handle will return
+    /// `DS3Error::LoggedOut` until Plan 04 replaces this construction with the
+    /// authenticated flow.
+    #[uniffi::constructor]
+    pub fn s3_only(
+        endpoint: String,
+        access_key: String,
+        secret_key: String,
+        region: Option<String>,
+    ) -> Result<Arc<Self>, DS3Error> {
+        let client = DS3S3Client::new(&endpoint, &access_key, &secret_key, region.as_deref());
+        Ok(Arc::new(Self {
+            session: None,
+            s3_client: std::sync::RwLock::new(Some(client)),
         }))
     }
 
     /// Refreshes the access token if expired.
     pub fn refresh_token(&self) -> Result<(), DS3Error> {
-        runtime().block_on(self.session.refresh_if_needed())
+        let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
+        runtime().block_on(session.refresh_if_needed())
     }
 
     /// Forges an IAM-scoped token for the specified user ID.
     pub fn forge_iam_token(&self, user_id: String) -> Result<Token, DS3Error> {
-        runtime().block_on(self.session.forge_iam_token(&user_id))
+        let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
+        runtime().block_on(session.forge_iam_token(&user_id))
     }
 
     /// Returns the authenticated account information.
     pub fn account_info(&self) -> Result<Account, DS3Error> {
-        Ok(self.session.account.clone())
+        let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
+        Ok(session.account.clone())
+    }
+
+    /// Returns a clone of the current session (token + refresh token).
+    ///
+    /// Used after login/refresh/forge so the Swift adapter can persist the
+    /// `AccountSession` to the App Group JSON (PATTERNS.md §"App Group
+    /// Persistence Boundary", D-04/D-06).
+    pub fn current_session(&self) -> Result<AccountSession, DS3Error> {
+        let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
+        Ok(runtime().block_on(session.current_session()))
     }
 
     /// Initializes the S3 client for this session with the given credentials.
@@ -132,11 +175,12 @@ impl DS3SessionHandle {
 impl DS3SessionHandle {
     /// Lists all projects for the authenticated user.
     pub fn get_projects(&self) -> Result<Vec<Project>, DS3Error> {
+        let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
         self.refresh_token()?;
         let token = self.current_token()?;
         runtime().block_on(ds3_http::projects::get_projects(
-            &self.session.http,
-            &self.session.urls,
+            &session.http,
+            &session.urls,
             &token,
         ))
     }
@@ -147,9 +191,10 @@ impl DS3SessionHandle {
         user_id: String,
         iam_token: String,
     ) -> Result<Vec<DS3ApiKey>, DS3Error> {
+        let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
         runtime().block_on(ds3_http::keys::load_api_keys(
-            &self.session.http,
-            &self.session.urls,
+            &session.http,
+            &session.urls,
             &iam_token,
             &user_id,
         ))
@@ -162,9 +207,10 @@ impl DS3SessionHandle {
         key_name: String,
         iam_token: String,
     ) -> Result<DS3ApiKey, DS3Error> {
+        let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
         runtime().block_on(ds3_http::keys::create_api_key(
-            &self.session.http,
-            &self.session.urls,
+            &session.http,
+            &session.urls,
             &iam_token,
             &user_id,
             &key_name,
@@ -178,9 +224,10 @@ impl DS3SessionHandle {
         api_key_id: String,
         iam_token: String,
     ) -> Result<(), DS3Error> {
+        let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
         runtime().block_on(ds3_http::keys::delete_api_key(
-            &self.session.http,
-            &self.session.urls,
+            &session.http,
+            &session.urls,
             &iam_token,
             &user_id,
             &api_key_id,
@@ -232,13 +279,18 @@ impl DS3SessionHandle {
     }
 
     /// Downloads an S3 object to a local file path.
+    ///
+    /// `cancel_token` is currently unused for download (single-call GET); reserved
+    /// for future chunked-download cancellation. See CONTEXT D-20.
     pub fn download_object(
         &self,
         bucket: String,
         key: String,
         file_path: String,
         progress: Option<Box<dyn ProgressCallback>>,
+        cancel_token: Option<Arc<CancellationHandle>>,
     ) -> Result<S3DownloadResult, DS3Error> {
+        let _ = cancel_token; // reserved for future chunked-download cancellation
         let client = self.require_s3()?;
         let path = Path::new(&file_path);
         let callback = wrap_progress_callback(progress);
@@ -248,19 +300,24 @@ impl DS3SessionHandle {
 
     /// Uploads a local file to S3. Returns the ETag on success (if provided by S3).
     ///
-    /// Automatically uses multipart upload for files larger than 5MB.
+    /// Automatically uses multipart upload for files larger than 5MB. When
+    /// `cancel_token` is provided, multipart upload checks it between parts
+    /// and aborts cleanly on cancel.
     pub fn upload_object(
         &self,
         bucket: String,
         key: String,
         file_path: String,
         progress: Option<Box<dyn ProgressCallback>>,
+        cancel_token: Option<Arc<CancellationHandle>>,
     ) -> Result<Option<String>, DS3Error> {
         let client = self.require_s3()?;
         let path = Path::new(&file_path);
         let callback = wrap_progress_callback(progress);
+        let token: Option<Arc<dyn ds3_s3::CancelToken>> =
+            cancel_token.map(|h| h as Arc<dyn ds3_s3::CancelToken>);
 
-        runtime().block_on(client.upload_object(&bucket, &key, path, callback.as_deref()))
+        runtime().block_on(client.upload_object(&bucket, &key, path, callback.as_deref(), token))
     }
 
     /// Deletes a single S3 object.
@@ -277,14 +334,81 @@ impl DS3SessionHandle {
     }
 
     /// Copies an S3 object within the same bucket.
+    ///
+    /// When `metadata` is `Some`, sets `MetadataDirective::Replace` and
+    /// applies the new metadata. When `None`, preserves the source object's
+    /// metadata (default `COPY` directive).
     pub fn copy_object(
         &self,
         bucket: String,
         source_key: String,
         dest_key: String,
+        metadata: Option<HashMap<String, String>>,
     ) -> Result<(), DS3Error> {
         let client = self.require_s3()?;
-        runtime().block_on(client.copy_object(&bucket, &source_key, &dest_key, None))
+        runtime().block_on(client.copy_object(&bucket, &source_key, &dest_key, metadata.as_ref()))
+    }
+
+    /// Downloads an S3 object directly to an in-memory `Vec<u8>`.
+    ///
+    /// Intended for small payloads (thumbnails, .ds3keep markers, metadata blobs).
+    /// For large files, use `download_object` which streams to a file path.
+    pub fn download_to_memory(&self, bucket: String, key: String) -> Result<Vec<u8>, DS3Error> {
+        let client = self.require_s3()?;
+        runtime().block_on(client.download_to_memory(&bucket, &key))
+    }
+
+    /// Uploads an in-memory `Vec<u8>` to S3 with optional custom metadata.
+    ///
+    /// Metadata is sent as `x-amz-meta-*` headers. Empty `data` produces a
+    /// zero-byte object (`.ds3keep` folder marker shape).
+    pub fn upload_from_memory(
+        &self,
+        bucket: String,
+        key: String,
+        data: Vec<u8>,
+        metadata: HashMap<String, String>,
+    ) -> Result<Option<String>, DS3Error> {
+        let client = self.require_s3()?;
+        runtime().block_on(client.upload_from_memory(&bucket, &key, data, metadata))
+    }
+
+    /// Generates a presigned GET URL for an S3 object.
+    ///
+    /// `expires_in_seconds` must be in `1..=604_800` (7 days, AWS sigv4 limit).
+    /// Swift consumes the returned URL for unauthenticated GET access (thumbnail
+    /// fetches, iOS background-downloads, etc.).
+    pub fn presign_get(
+        &self,
+        bucket: String,
+        key: String,
+        expires_in_seconds: i64,
+    ) -> Result<String, DS3Error> {
+        let client = self.require_s3()?;
+        runtime().block_on(client.presign_get(&bucket, &key, expires_in_seconds))
+    }
+
+    /// Generates a presigned PUT URL for a multipart upload part.
+    ///
+    /// `expires_in_seconds` must be in `1..=604_800` (7 days, AWS sigv4 limit).
+    /// Swift consumes the returned URL to upload a single part via
+    /// `URLRequest.httpMethod = "PUT"`.
+    pub fn presign_upload_part(
+        &self,
+        bucket: String,
+        key: String,
+        upload_id: String,
+        part_number: i32,
+        expires_in_seconds: i64,
+    ) -> Result<String, DS3Error> {
+        let client = self.require_s3()?;
+        runtime().block_on(client.presign_upload_part(
+            &bucket,
+            &key,
+            &upload_id,
+            part_number,
+            expires_in_seconds,
+        ))
     }
 
     /// Probes whether a folder marker (.ds3keep) exists for the given folder key.
@@ -363,6 +487,77 @@ pub fn conflict_key(original_key: String, hostname: String, nonce: Option<String
     )
 }
 
+/// Returns the numeric error code matching a [`DS3Error`] Display string.
+///
+/// The UniFFI `flat_error` attribute on `DS3Error` collapses all enum variants
+/// to a `(message: String)` shape on the Swift side, so the Swift adapter can
+/// only inspect the error's stringified Display when it catches one
+/// (FFI-AUDIT.md A1). This helper maps that Display string back to the
+/// numeric code defined by `DS3Error::code()` so per-adapter translation
+/// tables (PATTERNS.md Pattern 3) can dispatch on integers 1001..=3004.
+///
+/// Returns `-1` for inputs that don't match any known variant (the Swift
+/// adapter maps this to a generic "unknown" case).
+#[uniffi::export]
+pub fn ds3_error_code(message: String) -> i32 {
+    // Match on the leading text of `DS3Error`'s `Display` implementation
+    // (thiserror `#[error("...")]` strings). Anchored at start so partial
+    // matches don't false-positive across categories.
+    let m = message.as_str();
+    if m.starts_with("Invalid URL:") {
+        return 1001;
+    }
+    if m.starts_with("Server error:") {
+        return 1002;
+    }
+    if m.starts_with("JSON error:") {
+        return 1003;
+    }
+    if m == "Encoding error" {
+        return 1004;
+    }
+    if m == "Not logged in" {
+        return 1005;
+    }
+    if m == "Token expired" {
+        return 1006;
+    }
+    if m == "2FA code required" {
+        return 1007;
+    }
+    if m == "Cookie error" {
+        return 1008;
+    }
+    if m == "Missing upload ID" {
+        return 2001;
+    }
+    if m == "Empty file data" {
+        return 2002;
+    }
+    if m == "Missing ETag" {
+        return 2003;
+    }
+    if m == "Parse error" {
+        return 2004;
+    }
+    if m == "Unable to open file" {
+        return 2005;
+    }
+    if m.starts_with("IO error:") {
+        return 3001;
+    }
+    if m.starts_with("HTTP error:") {
+        return 3002;
+    }
+    if m.starts_with("S3 error:") {
+        return 3003;
+    }
+    if m.starts_with("Auth error:") {
+        return 3004;
+    }
+    -1
+}
+
 /// Wraps a UniFFI `ProgressCallback` into a closure compatible with the S3 client.
 fn wrap_progress_callback(
     progress: Option<Box<dyn ProgressCallback>>,
@@ -380,8 +575,9 @@ fn wrap_progress_callback(
 impl DS3SessionHandle {
     /// Returns the current access token string.
     fn current_token(&self) -> Result<String, DS3Error> {
-        let session = runtime().block_on(self.session.session.lock());
-        Ok(session.token.token.clone())
+        let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
+        let inner = runtime().block_on(session.session.lock());
+        Ok(inner.token.token.clone())
     }
 
     /// Returns a clone of the S3 client, or an error if not connected.

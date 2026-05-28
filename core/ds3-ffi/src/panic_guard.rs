@@ -43,6 +43,7 @@ macro_rules! ffi_guard {
 pub(crate) use ffi_guard;
 
 #[cfg(test)]
+#[allow(useless_ptr_null_checks)]
 mod tests {
     use ds3_models::DS3Error;
 

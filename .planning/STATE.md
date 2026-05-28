@@ -3,14 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: macOS App
 status: executing
-stopped_at: Phase 15 context gathered
-last_updated: "2026-05-27T10:48:34.219Z"
-last_activity: 2026-05-27 -- Phase 15 planning complete
+stopped_at: Phase 16 context gathered
+last_updated: "2026-05-28T08:17:16.170Z"
+last_activity: 2026-05-28 -- Phase 16 execution started
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 4
+  total_plans: 37
+  completed_plans: 36
+  percent: 97
 ---
 
 # Project State
@@ -20,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-26)
 
 **Core value:** Files sync reliably and transparently between Mac, iPhone, iPad, Windows PC and Cubbit DS3, with zero friction on every platform.
-**Current focus:** Phase 15 -- Rust Core + FFI Foundation
+**Current focus:** Phase 16 — apple-incremental-swap
 
 **v2.0.0 phase shape:**
 
@@ -31,10 +32,10 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 
 ## Current Position
 
-Phase: 15 of 18 (Rust Core + FFI Foundation)
-Plan: --
-Status: Ready to execute
-Last activity: 2026-05-27 -- Phase 15 planning complete
+Phase: 16 (apple-incremental-swap) — EXECUTING
+Plan: 1 of 7
+Status: Executing Phase 16
+Last activity: 2026-05-28 -- Phase 16 execution started
 
 ```
 Milestone v2.0.0: [          ] 0/4 phases complete (0%)
@@ -69,6 +70,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-27T09:51:36.633Z
-Stopped at: Phase 15 context gathered
-Resume file: .planning/phases/15-rust-core-ffi-foundation/15-CONTEXT.md
+Last session: 2026-05-28T07:03:32.327Z
+Stopped at: Phase 16 context gathered
+Resume file: .planning/phases/16-apple-incremental-swap/16-CONTEXT.md

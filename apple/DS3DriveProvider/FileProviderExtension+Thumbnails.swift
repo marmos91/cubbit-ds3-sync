@@ -114,7 +114,7 @@ extension FileProviderExtension {
 
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 complete(fileURL, s3Item, nil)
-            } catch let s3Error as AWSErrorType {
+            } catch let s3Error as DS3S3Error {
                 // Phase 13.1-06 / D-13: finalize Progress so parent-folder aggregation releases
                 // the in-progress spinner. Without this, fileproviderd treats the Progress as
                 // still active and the parent folder icon stays in the spinner state indefinitely.
@@ -640,7 +640,7 @@ extension FileProviderExtension {
 
                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                     complete(fileURL, s3Item, alignedRange, [], nil)
-                } catch let s3Error as AWSErrorType {
+                } catch let s3Error as DS3S3Error {
                     // Phase 13.1-06 / D-13: finalize Progress so parent-folder aggregation releases.
                     progress.completedUnitCount = progress.totalUnitCount
                     self.logger.error("Partial download failed with S3 error \(s3Error.errorCode, privacy: .public)")

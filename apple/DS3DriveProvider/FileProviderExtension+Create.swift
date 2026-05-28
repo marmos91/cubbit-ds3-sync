@@ -127,7 +127,7 @@ extension FileProviderExtension {
                             existingItem = try await s3Lib.remoteS3Item(
                                 for: s3Item.itemIdentifier, drive: drive
                             )
-                        } catch let s3Error as AWSErrorType where s3Error.isNotFound {
+                        } catch let s3Error as DS3S3Error where s3Error.isNotFound {
                             // 404 -- file not found, will proceed to upload below
                         }
                     }
@@ -172,7 +172,7 @@ extension FileProviderExtension {
                         await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                         self.signalChanges()
                         completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
-                    } catch let s3Error as AWSErrorType {
+                    } catch let s3Error as DS3S3Error {
                         // Phase 13.1-06 / D-13: finalize Progress on the terminal error path.
                         progress.completedUnitCount = progress.totalUnitCount
                         await self.markItemAndParentAsError(
@@ -193,7 +193,7 @@ extension FileProviderExtension {
                             NSFileProviderError(.cannotSynchronize) as NSError
                         )
                     }
-                } catch let s3Error as AWSErrorType {
+                } catch let s3Error as DS3S3Error {
                     progress.completedUnitCount = progress.totalUnitCount
                     self.logger.error("HEAD failed for .mayAlreadyExist check: \(s3Error.errorCode, privacy: .public)")
                     await self.markItemAndParentAsError(
@@ -255,7 +255,7 @@ extension FileProviderExtension {
                         self.signalChanges()
                         completionHandler(conflictS3Item, NSFileProviderItemFields(), false, nil)
                         return
-                    } catch is S3ErrorType {
+                    } catch is DS3S3Error {
                         // 404/NoSuchKey means file doesn't exist -- proceed with normal create
                         // Any other S3 error also falls through (HEAD is best-effort for createItem)
                     } catch {
@@ -399,7 +399,7 @@ extension FileProviderExtension {
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 self.signalChanges()
                 completionHandler(s3Item, NSFileProviderItemFields(), false, nil)
-            } catch let s3Error as AWSErrorType {
+            } catch let s3Error as DS3S3Error {
                 // Phase 13.1-06 / D-13: finalize Progress so parent-folder aggregation releases.
                 progress.completedUnitCount = progress.totalUnitCount
                 self.logger.error("Upload failed with S3 error \(s3Error.errorCode, privacy: .public)")

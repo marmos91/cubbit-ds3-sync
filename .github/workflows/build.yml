@@ -45,9 +45,32 @@ jobs:
       - name: Clippy
         working-directory: core
         run: cargo clippy --workspace -- -D warnings
-      - name: Run tests
+      - name: Schema parity fixture byte-equality (Rust vs Swift mirror)
+        # Catches drift between core/ds3-models/tests/fixtures/ and the
+        # apple/DS3Lib/Tests/DS3LibTests/Resources/fixtures/ mirror. If a
+        # developer edits one side without running core/scripts/sync-fixtures.sh,
+        # both Rust + Swift would still pass independently but exercise different
+        # bytes — defeating the parity gate (Phase 16 Plan 06 / D-25 / T-16-06-03).
+        run: |
+          for f in core/ds3-models/tests/fixtures/*.json; do
+            mirror="apple/DS3Lib/Tests/DS3LibTests/Resources/fixtures/$(basename "$f")"
+            if ! diff -q "$f" "$mirror" >/dev/null 2>&1; then
+              echo "::error::schema-parity fixture drift detected: $f vs $mirror"
+              diff "$f" "$mirror" || true
+              echo "::error::run core/scripts/sync-fixtures.sh and recommit"
+              exit 1
+            fi
+          done
+          echo "OK: schema-parity fixtures byte-identical across Rust and Swift"
+      - name: Run tests (lib + tests incl. parity fixtures)
         working-directory: core
-        run: cargo test --workspace --lib
+        run: cargo test --workspace --lib --tests
+      - name: Schema parity gate (Rust serde fixtures)
+        # Explicit step for visibility — failure here is the canonical D-25
+        # signal that a Rust ds3-models field rename slipped through without
+        # updating Swift Codable (or vice versa).
+        working-directory: core
+        run: cargo test --package ds3-models --tests _fixture_round_trip
 
   build:
     name: Build DS3Drive scheme
@@ -61,6 +84,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust targets
+        run: rustup target add aarch64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+      - name: Cache Cargo (xcframework)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/target
+          key: cargo-xcframework-${{ runner.os }}-${{ hashFiles('core/Cargo.lock') }}
+          restore-keys: cargo-xcframework-${{ runner.os }}-
+      - name: Build DS3CoreFFI XCFramework
+        working-directory: core
+        run: ./scripts/build-xcframework.sh --release
+      - name: Verify XCFramework exists
+        run: test -d core/out/DS3CoreFFI.xcframework && ls -la core/out/DS3CoreFFI.xcframework
       - name: Cache SPM packages
         uses: actions/cache@v4
         with:
@@ -93,6 +134,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust targets
+        run: rustup target add aarch64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+      - name: Cache Cargo (xcframework)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/target
+          key: cargo-xcframework-${{ runner.os }}-${{ hashFiles('core/Cargo.lock') }}
+          restore-keys: cargo-xcframework-${{ runner.os }}-
+      - name: Build DS3CoreFFI XCFramework
+        working-directory: core
+        run: ./scripts/build-xcframework.sh --release
+      - name: Verify XCFramework exists
+        run: test -d core/out/DS3CoreFFI.xcframework && ls -la core/out/DS3CoreFFI.xcframework
       - name: Cache SPM packages
         uses: actions/cache@v4
         with:
@@ -122,6 +181,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust targets
+        run: rustup target add aarch64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+      - name: Cache Cargo (xcframework)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/target
+          key: cargo-xcframework-${{ runner.os }}-${{ hashFiles('core/Cargo.lock') }}
+          restore-keys: cargo-xcframework-${{ runner.os }}-
+      - name: Build DS3CoreFFI XCFramework
+        working-directory: core
+        run: ./scripts/build-xcframework.sh --release
+      - name: Verify XCFramework exists
+        run: test -d core/out/DS3CoreFFI.xcframework && ls -la core/out/DS3CoreFFI.xcframework
       - name: Cache SPM packages
         uses: actions/cache@v4
         with:
@@ -144,6 +221,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust targets
+        run: rustup target add aarch64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+      - name: Cache Cargo (xcframework)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/target
+          key: cargo-xcframework-ios-${{ runner.os }}-${{ hashFiles('core/Cargo.lock') }}
+          restore-keys: cargo-xcframework-ios-${{ runner.os }}-
+      - name: Build DS3CoreFFI XCFramework
+        working-directory: core
+        run: ./scripts/build-xcframework.sh --release
+      - name: Verify XCFramework exists
+        run: test -d core/out/DS3CoreFFI.xcframework && ls -la core/out/DS3CoreFFI.xcframework
       - name: Cache SPM packages
         uses: actions/cache@v4
         with:
@@ -170,7 +265,6 @@ jobs:
     name: Rust Integration Tests (Cubbit S3)
     runs-on: ubuntu-latest
     needs: rust-check
-    continue-on-error: true
     # Only run on same-repo events (protects secrets from fork PRs)
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
 
@@ -198,7 +292,10 @@ jobs:
         run: cargo test -p ds3-ffi --test panic_tests
       - name: Run integration tests
         working-directory: core
-        run: cargo test --workspace --features integration --test integration
+        # --test-threads=1: integration tests share a single Cubbit account
+        # and the challenge endpoint is one-time-use. Parallel auths race and
+        # the second hit returns "opaque challenge verification failed".
+        run: cargo test --workspace --features integration --test integration -- --test-threads=1
         if: env.DS3_TEST_EMAIL != ''
 
   csharp-test:

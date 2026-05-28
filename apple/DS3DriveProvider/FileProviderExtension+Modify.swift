@@ -124,14 +124,14 @@ extension FileProviderExtension {
                                     completionHandler(conflictS3Item, NSFileProviderItemFields(), false, nil)
                                     return
                                 }
-                            } catch let s3Error as AWSErrorType
+                            } catch let s3Error as DS3S3Error
                                 where s3Error.errorCode == "NoSuchKey" || s3Error.errorCode == "NotFound" {
                                 // Remote file was deleted -- proceed with normal upload (re-create)
                                 self.logger
                                     .debug(
                                         "Conflict check: remote file deleted, proceeding with upload for \(s3Item.itemIdentifier.rawValue, privacy: .public)"
                                     )
-                            } catch let s3Error as AWSErrorType {
+                            } catch let s3Error as DS3S3Error {
                                 // Any other S3 error — conflict check is best-effort, proceed with upload
                                 self.logger
                                     .warning(
@@ -204,7 +204,7 @@ extension FileProviderExtension {
                         await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                         self.signalChanges()
                         completionHandler(s3Item, remainingFields, false, nil)
-                    } catch let s3Error as AWSErrorType {
+                    } catch let s3Error as DS3S3Error {
                         // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
                         putProgress.completedUnitCount = putProgress.totalUnitCount
                         self.logger.error("Upload failed with S3 error \(s3Error.errorCode, privacy: .public)")
@@ -265,7 +265,7 @@ extension FileProviderExtension {
                     self.signalChanges()
                     self.signalTrashChanges()
                     completionHandler(restoredItem, NSFileProviderItemFields(), false, nil)
-                } catch let s3Error as AWSErrorType {
+                } catch let s3Error as DS3S3Error {
                     // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
                     progress.completedUnitCount = progress.totalUnitCount
                     self.logger.error("Restore from trash failed: \(s3Error.errorCode, privacy: .public)")
@@ -342,7 +342,7 @@ extension FileProviderExtension {
                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                     self.signalChanges()
                     completionHandler(movedS3Item, NSFileProviderItemFields(), false, nil)
-                } catch let s3Error as AWSErrorType {
+                } catch let s3Error as DS3S3Error {
                     // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
                     progress.completedUnitCount = progress.totalUnitCount
                     self.logger.error("Rename+move failed with S3 error \(s3Error.errorCode, privacy: .public)")
@@ -413,7 +413,7 @@ extension FileProviderExtension {
                         await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                         self.signalChanges()
                         completionHandler(newS3Item, NSFileProviderItemFields(), false, nil)
-                    } catch let s3Error as AWSErrorType {
+                    } catch let s3Error as DS3S3Error {
                         // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
                         progress.completedUnitCount = progress.totalUnitCount
                         self.logger.error("Rename failed with S3 error \(s3Error.errorCode, privacy: .public)")
@@ -532,7 +532,7 @@ extension FileProviderExtension {
                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                     self.signalChanges()
                     completionHandler(movedS3Item, NSFileProviderItemFields(), false, nil)
-                } catch let s3Error as AWSErrorType {
+                } catch let s3Error as DS3S3Error {
                     // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
                     progress.completedUnitCount = progress.totalUnitCount
                     self.logger.error("Move failed with S3 error code \(s3Error.errorCode, privacy: .public)")

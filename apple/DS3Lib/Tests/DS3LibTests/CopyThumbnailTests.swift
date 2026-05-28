@@ -1,6 +1,5 @@
-import XCTest
-import SotoS3
 @testable import DS3Lib
+import XCTest
 
 /// Phase 13-03 / THUMB-18 — coverage for `copyThumbnail`.
 ///
@@ -20,7 +19,6 @@ import SotoS3
 ///    and `destinationKey` (no munging — percent-encoding is `copyObject`'s
 ///    responsibility, per Pitfall 6 in 13-RESEARCH.md).
 final class CopyThumbnailTests: XCTestCase {
-
     // MARK: - Helpers
 
     private func makeMock() -> MockDS3S3Client {
@@ -28,10 +26,10 @@ final class CopyThumbnailTests: XCTestCase {
     }
 
     /// A canned NoSuchKey error matching the precedent set by Phase 12's
-    /// `DS3S3ClientThumbnailsTests` (S3ErrorType is what `isNotFoundError`
-    /// matches via `errorCode`).
+    /// `DS3S3ClientThumbnailsTests` (DS3S3Error.noSuchKey is what `isNotFoundError`
+    /// matches via the new DS3S3Error category flags).
     private var notFoundError: Error {
-        S3ErrorType.noSuchKey
+        DS3S3Error.noSuchKey
     }
 
     // MARK: - Test 1: single-call delegation

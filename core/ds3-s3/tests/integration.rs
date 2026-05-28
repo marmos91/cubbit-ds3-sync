@@ -45,45 +45,52 @@ async fn create_test_client() -> (DS3S3Client, String) {
         .await
         .expect("authenticate should succeed");
 
-    let endpoint = &session.account.endpoint_gateway;
+    let endpoint = session.account.endpoint_gateway.clone();
 
-    // Forge an IAM token for the account
+    // forge_iam_token expects an IAMUser id, not the Account id.
+    // Fetch projects to discover a valid IAM user (mirrors production flow).
+    let token = session.session.lock().await.token.token.clone();
+    let projects = ds3_http::projects::get_projects(&session.http, &session.urls, &token)
+        .await
+        .expect("get_projects should succeed");
+    let iam_user_id = projects
+        .iter()
+        .flat_map(|p| p.users.iter())
+        .map(|u| u.id.clone())
+        .next()
+        .expect("test account must belong to at least one IAM user");
+
     let iam_token = session
-        .forge_iam_token(&session.account.id)
+        .forge_iam_token(&iam_user_id)
         .await
         .expect("forge_iam_token should succeed");
 
     // Load existing API keys
-    let keys = ds3_http::keys::load_api_keys(
+    let keys =
+        ds3_http::keys::load_api_keys(&session.http, &session.urls, &iam_token.token, &iam_user_id)
+            .await
+            .expect("load_api_keys should succeed");
+
+    // load_api_keys returns existing keys WITHOUT secret_key (Cubbit IAM
+    // only returns the secret on creation — D-22). Always create a fresh
+    // ephemeral key for the test run; it gets cleaned up below.
+    let api_key = ds3_http::keys::create_api_key(
         &session.http,
         &session.urls,
         &iam_token.token,
-        &session.account.id,
+        &iam_user_id,
+        &format!("ds3-rust-it-{}", Uuid::new_v4()),
     )
     .await
-    .expect("load_api_keys should succeed");
-
-    // Use the first available key, or create one for testing
-    let api_key = if let Some(key) = keys.first() {
-        key.clone()
-    } else {
-        ds3_http::keys::create_api_key(
-            &session.http,
-            &session.urls,
-            &iam_token.token,
-            &session.account.id,
-            "ds3-rust-integration-test",
-        )
-        .await
-        .expect("create_api_key should succeed")
-    };
+    .expect("create_api_key should succeed");
 
     let access_key = api_key.api_key;
     let secret_key = api_key
         .secret_key
-        .expect("API key must have a secret (newly created or first-time load)");
+        .expect("newly created API key must include secret_key");
+    let _ = keys; // suppress unused warning, keys list kept for visibility
 
-    let client = DS3S3Client::new(endpoint, &access_key, &secret_key, None);
+    let client = DS3S3Client::new(&endpoint, &access_key, &secret_key, None);
     (client, bucket)
 }
 
@@ -121,7 +128,7 @@ async fn test_upload_head_download_delete() {
     // Upload
     let upload_path = temp_file(content);
     let etag = client
-        .upload_object(&bucket, &key, &upload_path, None)
+        .upload_object(&bucket, &key, &upload_path, None, None)
         .await
         .expect("upload_object should succeed");
     assert!(etag.is_some(), "upload should return an ETag");
@@ -177,7 +184,7 @@ async fn test_multipart_upload() {
     });
 
     let etag = client
-        .upload_object(&bucket, &key, &upload_path, Some(&*progress_cb))
+        .upload_object(&bucket, &key, &upload_path, Some(&*progress_cb), None)
         .await
         .expect("multipart upload should succeed");
     assert!(etag.is_some(), "multipart upload should return an ETag");

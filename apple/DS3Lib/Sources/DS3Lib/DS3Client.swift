@@ -1,4 +1,5 @@
 import Foundation
+import os.lock
 import os.log
 
 /// Errors specific to DS3Client operations.
@@ -31,7 +32,24 @@ public final class DS3Client: @unchecked Sendable {
 
     private let authentication: DS3Authentication?
     private let sdk: DS3SDK?
-    private var s3Clients: [String: DS3S3Client] = [:]
+
+    /// Guards both the `s3Clients` cache and the `connectS3` call sequence in
+    /// `s3Client(forProject:iamUser:)`. The Rust `Ds3SessionHandle` is shared
+    /// across drives but `connectS3` mutates its internal AWS credentials, so
+    /// two concurrent multi-drive setups would otherwise clobber each other
+    /// (the second connect wins, the first drive gets `InvalidAccessKeyId`).
+    ///
+    /// `OSAllocatedUnfairLock` over `NSLock` so the critical sections can be
+    /// expressed via `withLock { ... }` from async contexts (Swift 6 strict
+    /// concurrency rejects bare `NSLock.lock()` calls under async).
+    private let lock = OSAllocatedUnfairLock<S3ClientCache>(initialState: S3ClientCache())
+
+    /// Mutable state guarded by `lock`. Kept in a nested struct so
+    /// `OSAllocatedUnfairLock.withLock` can hand callers an `inout` reference
+    /// to the whole protected region in one shot.
+    private struct S3ClientCache {
+        var clients: [String: DS3S3Client] = [:]
+    }
 
     /// Pre-built S3 client for the drive-based init path (extensions).
     public private(set) var driveS3Client: DS3S3Client?
@@ -71,7 +89,7 @@ public final class DS3Client: @unchecked Sendable {
             throw DS3ClientSetupError.missingSecret
         }
 
-        self.driveS3Client = DS3S3Client(
+        self.driveS3Client = try DS3S3Client(
             accessKeyId: keys.apiKey,
             secretAccessKey: secretKey,
             endpoint: account.endpointGateway
@@ -103,17 +121,29 @@ public final class DS3Client: @unchecked Sendable {
     /// Returns an S3 client for the given project + IAM user combination.
     /// Lazily creates the client by loading/creating API keys and reading the account endpoint.
     /// Caches per project+user combination.
+    ///
+    /// Plan 04: when `authentication.handle` is available (post-login), the
+    /// constructed `DS3S3Client` shares the singleton handle owned by
+    /// `DS3Authentication` (RESEARCH §"DS3SessionHandle Lifecycle"). If the
+    /// handle is `nil` (post-restart, before re-login), throw `.loggedOut`
+    /// so the UI routes back to login.
     public func s3Client(
         forProject project: Project,
         iamUser user: IAMUser
     ) async throws -> DS3S3Client {
         let cacheKey = "\(project.id)_\(user.id)"
-        if let existing = s3Clients[cacheKey] { return existing }
 
-        guard let sdk, let account = authentication?.account else {
+        // Fast path: read cache under lock without doing any async work.
+        if let existing = lock.withLock({ $0.clients[cacheKey] }) {
+            return existing
+        }
+
+        guard let sdk, let authentication, let account = authentication.account else {
             throw DS3ClientSetupError.notConfigured
         }
 
+        // Async work (API key load) happens outside the lock — the lock must
+        // not be held across `await`.
         let apiKey = try await sdk.loadOrCreateDS3APIKeys(
             forIAMUser: user,
             ds3ProjectName: project.name
@@ -123,14 +153,29 @@ public final class DS3Client: @unchecked Sendable {
             throw DS3ClientSetupError.missingSecret
         }
 
-        let client = DS3S3Client(
-            accessKeyId: apiKey.apiKey,
-            secretAccessKey: secretKey,
-            endpoint: account.endpointGateway
-        )
+        guard let handle = authentication.handle else {
+            throw DS3AuthenticationError.loggedOut
+        }
 
-        s3Clients[cacheKey] = client
-        return client
+        // Serialize connectS3 + cache mutation. The shared Ds3SessionHandle is
+        // mutated by connectS3, so two concurrent multi-drive setups must
+        // serialize this critical section or they clobber each other's
+        // credentials (InvalidAccessKeyId on the loser). Double-check under
+        // the lock — another coroutine may have populated the cache while we
+        // were awaiting the API key fetch above.
+        return try lock.withLock { cache in
+            if let existing = cache.clients[cacheKey] { return existing }
+
+            let client = try DS3S3Client(
+                authenticatedHandle: handle,
+                endpoint: account.endpointGateway,
+                accessKey: apiKey.apiKey,
+                secretKey: secretKey
+            )
+
+            cache.clients[cacheKey] = client
+            return client
+        }
     }
 
     // MARK: - Credential Reload (Extensions)
@@ -160,7 +205,7 @@ public final class DS3Client: @unchecked Sendable {
 
         self.endpoint = account.endpointGateway
         self.apiKeys = newKeys
-        self.driveS3Client = DS3S3Client(
+        self.driveS3Client = try DS3S3Client(
             accessKeyId: newKeys.apiKey,
             secretAccessKey: secretKey,
             endpoint: account.endpointGateway
@@ -173,10 +218,15 @@ public final class DS3Client: @unchecked Sendable {
 
     /// Shuts down all cached S3 clients.
     public func shutdown() {
-        for (_, client) in s3Clients {
+        let clients = lock.withLock { cache -> [String: DS3S3Client] in
+            let snapshot = cache.clients
+            cache.clients.removeAll()
+            return snapshot
+        }
+
+        for (_, client) in clients {
             try? client.shutdown()
         }
-        s3Clients.removeAll()
 
         if let driveClient = driveS3Client {
             try? driveClient.shutdown()

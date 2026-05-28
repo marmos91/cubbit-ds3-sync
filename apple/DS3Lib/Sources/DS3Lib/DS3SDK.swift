@@ -1,3 +1,4 @@
+import DS3CoreFFI
 import Foundation
 import os.log
 
@@ -7,6 +8,7 @@ public enum DS3SDKError: Error, LocalizedError {
     case serverError
     case jsonConversion
     case encodingError
+    case loggedOut
 
     public var errorDescription: String? {
         switch self {
@@ -18,12 +20,50 @@ public enum DS3SDKError: Error, LocalizedError {
             NSLocalizedString("JSON conversion error", comment: "JSON conversion error")
         case .encodingError:
             NSLocalizedString("Encoding error", comment: "Encoding error")
+        case .loggedOut:
+            NSLocalizedString(
+                "You need to be logged in to perform this operation",
+                comment: "DS3SDK logged out error"
+            )
+        }
+    }
+}
+
+extension DS3SDKError {
+    /// Translates a Rust `Ds3Error` (UniFFI flat-error shape) into the
+    /// corresponding `DS3SDKError` case. Mirrors `DS3AuthenticationError.translate`
+    /// but routes auth-level codes (1005/1006/1007) to `.serverError` because
+    /// the SDK never re-prompts for 2FA (that path is owned by login UI). The
+    /// LoggedOut path is the only one that flows through verbatim so callers
+    /// can route back to login on session loss.
+    static func translate(_ rust: Ds3Error) -> DS3SDKError {
+        let message = DS3AuthenticationError.describe(rust)
+        let code = ds3ErrorCode(message: message)
+        switch code {
+        case 1001: return .invalidURL(url: nil)
+        case 1003: return .jsonConversion
+        case 1004: return .encodingError
+        case 1005: return .loggedOut
+        // 1002 server, 1006 expired, 1007 missing 2FA, 1008 cookies, 3xxx transport
+        // — all surfaced as serverError so the caller backs off / retries.
+        default: return .serverError
         }
     }
 }
 
 /// Class that manages the communication with the DS3 API.
-/// Provides methods for project listing, API key management, and key reconciliation.
+///
+/// Phase 16 Plan 04: provides methods for project listing, API key management,
+/// and key reconciliation. URLSession + manual Bearer-token plumbing has been
+/// replaced with calls to `Ds3SessionHandle` (DS3CoreFFI). The Rust handle is
+/// owned by `DS3Authentication`; the SDK borrows it lazily.
+///
+/// Per-method behavior: every public method short-circuits with
+/// `DS3AuthenticationError.loggedOut` if `authentication.handle` is `nil` (i.e.
+/// after `loadFromPersistenceOrCreateNew` restores from disk — see Plan 04
+/// SUMMARY §"Known Regressions"). The reconciliation helper
+/// `loadOrCreateDS3APIKeys` keeps its Swift orchestration; only the underlying
+/// CRUD methods change.
 @Observable
 public final class DS3SDK: @unchecked Sendable {
     private var authentication: DS3Authentication
@@ -41,53 +81,24 @@ public final class DS3SDK: @unchecked Sendable {
         self.sharedData = sharedData
     }
 
-    /// Validates an HTTP response status code, logging and throwing on failure.
-    private func validateResponse(
-        _ response: URLResponse,
-        data: Data,
-        expectedStatus: Set<Int>,
-        error: Error
-    ) throws {
-        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
-        guard expectedStatus.contains(statusCode) else {
-            let body = String(data: data, encoding: .utf8) ?? "<non-UTF8>"
-            logger.error("An error occurred. Status code is \(statusCode) Response is: \(body)")
-            throw error
-        }
-    }
-
     // MARK: - Projects
 
     /// Retrieves all the projects for the current user.
     /// - Returns: the list of projects for the current user.
     public func getRemoteProjects() async throws -> [Project] {
-        try await self.authentication.refreshIfNeeded()
+        guard let handle = self.authentication.handle else {
+            throw DS3AuthenticationError.loggedOut
+        }
 
-        guard let url = URL(string: self.urls.projectsURL)
-        else { throw DS3AuthenticationError.invalidURL(url: self.urls.projectsURL) }
-        guard let session = self.authentication.accountSession else { throw DS3AuthenticationError.loggedOut }
-
-        var request = URLRequest(url: url)
-
-        request.allHTTPHeaderFields = [
-            "Content-Type": "application/json",
-            "Authorization": "Bearer \(session.token.token)"
-        ]
-
-        request.httpMethod = "GET"
-
-        let (responseData, response) = try await URLSession.shared.data(for: request)
-
-        try validateResponse(
-            response,
-            data: responseData,
-            expectedStatus: [200],
-            error: DS3AuthenticationError.serverError
-        )
-        guard let projects = try? JSONDecoder().decode([Project].self, from: responseData)
-        else { throw DS3AuthenticationError.jsonConversion }
-
-        return projects
+        do {
+            let ffiProjects = try handle.getProjects()
+            return ffiProjects.map { Project.fromFFI($0) }
+        } catch let rustError as Ds3Error {
+            self.logger.error(
+                "getRemoteProjects failed: code=\(ds3ErrorCode(message: DS3AuthenticationError.describe(rustError)), privacy: .public) \(DS3AuthenticationError.describe(rustError), privacy: .public)"
+            )
+            throw DS3SDKError.translate(rustError)
+        }
     }
 
     // MARK: - API Keys
@@ -98,27 +109,21 @@ public final class DS3SDK: @unchecked Sendable {
     public func getRemoteApiKeys(
         forIAMUser user: IAMUser
     ) async throws -> [DS3ApiKey] {
-        let iamToken = try await authentication.forgeIAMToken(forIAMUser: user)
-
-        guard let url = URL(string: "\(self.urls.keysURL)?user_id=\(user.id)") else {
-            throw DS3SDKError.invalidURL(url: self.urls.keysURL)
+        guard let handle = self.authentication.handle else {
+            throw DS3AuthenticationError.loggedOut
         }
 
-        var request = URLRequest(url: url)
+        let iamToken = try await authentication.forgeIAMToken(forIAMUser: user)
 
-        request.allHTTPHeaderFields = [
-            "Authorization": "Bearer \(iamToken.token)"
-        ]
-
-        request.httpMethod = "GET"
-
-        let (responseData, response) = try await URLSession.shared.data(for: request)
-
-        try validateResponse(response, data: responseData, expectedStatus: [200], error: DS3SDKError.serverError)
-        guard let apiKeys = try? JSONDecoder().decode([DS3ApiKey].self, from: responseData)
-        else { throw DS3SDKError.jsonConversion }
-
-        return apiKeys
+        do {
+            let ffiKeys = try handle.loadApiKeys(userId: user.id, iamToken: iamToken.token)
+            return try ffiKeys.map { try DS3ApiKey.fromFFI($0) }
+        } catch let rustError as Ds3Error {
+            self.logger.error(
+                "getRemoteApiKeys failed: code=\(ds3ErrorCode(message: DS3AuthenticationError.describe(rustError)), privacy: .public) \(DS3AuthenticationError.describe(rustError), privacy: .public)"
+            )
+            throw DS3SDKError.translate(rustError)
+        }
     }
 
     /// Deletes the given API key for the given IAM user.
@@ -129,26 +134,24 @@ public final class DS3SDK: @unchecked Sendable {
         _ apiKey: DS3ApiKey,
         forIAMUser user: IAMUser
     ) async throws {
-        let iamToken = try await authentication.forgeIAMToken(forIAMUser: user)
-
-        guard let urlencodedApiKey = apiKey.apiKey.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-        else { throw DS3SDKError.encodingError }
-
-        guard let url = URL(string: "\(self.urls.keysURL)/\(urlencodedApiKey)?user_id=\(user.id)") else {
-            throw DS3SDKError.invalidURL(url: self.urls.keysURL)
+        guard let handle = self.authentication.handle else {
+            throw DS3AuthenticationError.loggedOut
         }
 
-        var request = URLRequest(url: url)
+        let iamToken = try await authentication.forgeIAMToken(forIAMUser: user)
 
-        request.allHTTPHeaderFields = [
-            "Authorization": "Bearer \(iamToken.token)"
-        ]
-
-        request.httpMethod = "DELETE"
-
-        let (responseData, response) = try await URLSession.shared.data(for: request)
-
-        try validateResponse(response, data: responseData, expectedStatus: [200, 204], error: DS3SDKError.serverError)
+        do {
+            try handle.deleteApiKey(
+                userId: user.id,
+                apiKeyId: apiKey.apiKey,
+                iamToken: iamToken.token
+            )
+        } catch let rustError as Ds3Error {
+            self.logger.error(
+                "deleteApiKey failed: code=\(ds3ErrorCode(message: DS3AuthenticationError.describe(rustError)), privacy: .public) \(DS3AuthenticationError.describe(rustError), privacy: .public)"
+            )
+            throw DS3SDKError.translate(rustError)
+        }
     }
 
     /// Load API keys for the given iam user and ds3 project from disk, if already available. Otherwise creates a new
@@ -202,25 +205,26 @@ public final class DS3SDK: @unchecked Sendable {
         iamToken: Token,
         apiKeyName: String
     ) async throws -> DS3ApiKey {
-        guard let url = URL(string: "\(self.urls.keysURL)/\(apiKeyName)?user_id=\(user.id)") else {
-            throw DS3SDKError.invalidURL(url: self.urls.keysURL)
+        guard let handle = self.authentication.handle else {
+            throw DS3AuthenticationError.loggedOut
         }
 
-        self.logger.debug("Generating new API Key for IAM user: \(user.username)")
+        self.logger.debug("Generating new API Key for IAM user: \(user.username, privacy: .public)")
 
-        var request = URLRequest(url: url)
-
-        request.allHTTPHeaderFields = [
-            "Authorization": "Bearer \(iamToken.token)"
-        ]
-
-        request.httpMethod = "POST"
-
-        let (responseData, response) = try await URLSession.shared.data(for: request)
-
-        try validateResponse(response, data: responseData, expectedStatus: [201], error: DS3SDKError.serverError)
-        guard let newApiKey = try? JSONDecoder().decode(DS3ApiKey.self, from: responseData)
-        else { throw DS3SDKError.jsonConversion }
+        let newApiKey: DS3ApiKey
+        do {
+            let ffiKey = try handle.createApiKey(
+                userId: user.id,
+                keyName: apiKeyName,
+                iamToken: iamToken.token
+            )
+            newApiKey = try DS3ApiKey.fromFFI(ffiKey)
+        } catch let rustError as Ds3Error {
+            self.logger.error(
+                "generateDS3APIKey failed: code=\(ds3ErrorCode(message: DS3AuthenticationError.describe(rustError)), privacy: .public) \(DS3AuthenticationError.describe(rustError), privacy: .public)"
+            )
+            throw DS3SDKError.translate(rustError)
+        }
 
         var localApiKeys = (try? sharedData.loadDS3APIKeysFromPersistence()) ?? []
         localApiKeys.append(newApiKey)
@@ -239,6 +243,7 @@ public final class DS3SDK: @unchecked Sendable {
         forUser user: IAMUser,
         projectName: String
     ) -> String {
+        // swiftlint:disable:next line_length
         "\(DefaultSettings.apiKeyNamePrefix)(\(user.username)_\(projectName.lowercased().replacingOccurrences(of: " ", with: "_"))_\(DefaultSettings.appUUID))"
     }
 }

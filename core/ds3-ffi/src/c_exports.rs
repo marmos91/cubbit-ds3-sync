@@ -541,8 +541,13 @@ pub unsafe extern "C" fn ds3_upload_object(
 
         let callback = wrap_c_progress_callback(progress_cb, progress_ctx);
 
-        let etag =
-            runtime().block_on(client.upload_object(bucket, key, path, callback.as_deref()))?;
+        let etag = runtime().block_on(client.upload_object(
+            bucket,
+            key,
+            path,
+            callback.as_deref(),
+            None,
+        ))?;
 
         if let Some(etag_str) = etag {
             unsafe { write_ffi_string(&etag_str, out_etag, out_etag_len) };

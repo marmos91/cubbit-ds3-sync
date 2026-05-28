@@ -259,45 +259,12 @@ final class DS3S3ClientIntegrationTests: DS3S3IntegrationTestCase {
     // MARK: - Multipart Upload
 
     func testMultipartUpload() async throws {
-        let key = testPrefix + "multipart-test.bin"
-        let partSize = DefaultSettings.S3.multipartUploadPartSize
-        // Create data that's just over one part (5 MB + 1 KB)
-        let totalSize = partSize + 1024
-        let data = Data(repeating: 0xAB, count: totalSize)
-
-        let tempFile = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString + ".bin")
-        try data.write(to: tempFile)
-        defer { try? FileManager.default.removeItem(at: tempFile) }
-
-        // Create multipart upload
-        let uploadId = try await s3Client.createMultipartUpload(bucket: bucket, key: key)
-        XCTAssertFalse(uploadId.isEmpty)
-
-        // Upload parts
-        let part1Data = try DS3S3Client.readFilePart(at: tempFile, offset: 0, length: partSize)
-        let part1 = try await s3Client.uploadPart(
-            bucket: bucket, key: key, uploadId: uploadId, partNumber: 1, data: part1Data
-        )
-        XCTAssertEqual(part1.partNumber, 1)
-        XCTAssertFalse(part1.etag.isEmpty)
-
-        let part2Data = try DS3S3Client.readFilePart(at: tempFile, offset: partSize, length: 1024)
-        let part2 = try await s3Client.uploadPart(
-            bucket: bucket, key: key, uploadId: uploadId, partNumber: 2, data: part2Data
-        )
-        XCTAssertEqual(part2.partNumber, 2)
-
-        // Complete
-        let result = try await s3Client.completeMultipartUpload(
-            bucket: bucket, key: key, uploadId: uploadId,
-            parts: [(1, part1.etag), (2, part2.etag)]
-        )
-        XCTAssertFalse(result.etag.isEmpty)
-
-        // Verify uploaded size
-        let metadata = try await s3Client.headObject(bucket: bucket, key: key)
-        XCTAssertEqual(metadata.contentLength, Int64(totalSize))
+        // Per-part multipart API (createMultipartUpload / uploadPart /
+        // completeMultipartUpload) is a no-op shim post-Phase 16 — Rust's
+        // `uploadObject` handles multipart internally. This test covers a
+        // surface that is intentionally stubbed; the >5MB multipart path
+        // is exercised end-to-end through `testUploadWithProgressCallback`.
+        throw XCTSkip("Per-part multipart shims are no-ops post-Phase 16; covered via uploadObject path")
     }
 
     func testAbortMultipartUpload() async throws {

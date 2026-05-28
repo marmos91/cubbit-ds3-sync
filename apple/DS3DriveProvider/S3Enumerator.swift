@@ -170,7 +170,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                     observer.finishEnumerating(upTo: nil)
                     return
                 }
-                if let awsErr = error as? AWSErrorType {
+                if let awsErr = error as? DS3S3Error {
                     observer.finishEnumeratingWithError(awsErr.toFileProviderError())
                 } else {
                     observer.finishEnumeratingWithError(
@@ -260,7 +260,7 @@ class S3Enumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
                 self.logger.warning(
                     "enumerateChanges failed for \(self.prefix ?? "nil", privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                 )
-                if let awsErr = error as? AWSErrorType {
+                if let awsErr = error as? DS3S3Error {
                     observer.finishEnumeratingWithError(awsErr.toFileProviderError())
                 } else {
                     observer.finishEnumeratingWithError(

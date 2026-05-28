@@ -281,7 +281,29 @@ Plans:
   2. All existing unit tests (156+) pass without modification, and Finder/Files.app sync behavior (upload, download, rename, move, delete, conflict copy) is identical to the pre-swap build -- verified by side-by-side manual smoke test
   3. Soto and CryptoKit no longer appear in DS3Lib's Package.swift dependencies -- the only S3 client dependency is the `DS3CoreFFI` XCFramework
   4. Existing `drives.json` and `credentials.json` files in the App Group container are read transparently by the Rust-backed code without any migration step -- a user upgrading from the Swift-only build experiences zero data loss or re-login
-**Plans**: TBD
+**Plans:** 6/7 plans executed
+
+Plans:
+**Wave 1**
+- [x] 16-01-PLAN.md -- XCFramework wiring (SPM .binaryTarget + Xcode Run Script Phase + CI prebuild) + FFI assumption audit (A1/A2/A10)
+
+**Wave 2** *(blocked on Wave 1)*
+- [x] 16-02-PLAN.md -- Close 7 Rust FFI gaps (download_to_memory, upload_from_memory, presign_upload_part, current_session, copy_object metadata, CancellationHandle, ds3_error_code) + reqwest retry middleware
+
+**Wave 3** *(blocked on Wave 2)*
+- [x] 16-03-PLAN.md -- DS3S3Client + DS3S3Error swap + FileProvider extension catch-block migration (30+ sites)
+
+**Wave 4** *(blocked on Wave 3)*
+- [x] 16-04-PLAN.md -- DS3Authentication + DS3SDK internals swap with @Observable shell preserved + 2FA path verbatim (D-15)
+
+**Wave 5** *(blocked on Wave 4)*
+- [x] 16-05-PLAN.md -- Remove Soto + CryptoKit from Package.swift; replace SyncAnchorHash CryptoKit->CommonCrypto with fixture-locked SHA256
+
+**Wave 6** *(blocked on Wave 5 -- shares Package.swift)*
+- [x] 16-06-PLAN.md -- CI parity gate: JSON fixtures + Rust serde tests + Swift Codable tests + cargo --tests in CI
+
+**Wave 7** *(blocked on Waves 5 + 6)*
+- [ ] 16-07-PLAN.md -- Side-by-side smoke test + Rust-backed integration tests (real Cubbit S3) + CI integration job
 
 ### Phase 17: Windows Shell
 **Goal**: Windows users can log in, set up drives, and sync files with Cubbit DS3 through native Explorer integration -- files appear in the Explorer sidebar, hydrate on demand, upload on save, and reflect remote changes via periodic polling
@@ -335,7 +357,7 @@ Plans:
 | 13. macOS Generation, Consumption & Lifecycle | v3.1 | 0/0 | Not started | - |
 | 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
 | 15. Rust Core + FFI Foundation | v2.0.0 | 7/7 | Complete   | 2026-05-27 |
-| 16. Apple Incremental Swap | v2.0.0 | 0/0 | Not started | - |
+| 16. Apple Incremental Swap | v2.0.0 | 6/7 | In Progress|  |
 | 17. Windows Shell | v2.0.0 | 0/0 | Not started | - |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
 

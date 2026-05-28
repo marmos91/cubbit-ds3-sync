@@ -65,12 +65,21 @@ async fn test_forge_iam_token() {
         .await
         .expect("authenticate should succeed");
 
-    // Use the account ID to forge an IAM token
-    let user_id = &session.account.id;
-    assert!(!user_id.is_empty(), "account id must be non-empty");
+    // forge_iam_token expects an IAMUser id, not the Account id.
+    // Fetch projects to discover a valid IAM user (mirrors production flow).
+    let token = session.session.lock().await.token.token.clone();
+    let projects = ds3_http::projects::get_projects(&session.http, &session.urls, &token)
+        .await
+        .expect("get_projects should succeed");
+    let user_id = projects
+        .iter()
+        .flat_map(|p| p.users.iter())
+        .map(|u| u.id.clone())
+        .next()
+        .expect("test account must belong to at least one IAM user");
 
     let iam_token = session
-        .forge_iam_token(user_id)
+        .forge_iam_token(&user_id)
         .await
         .expect("forge_iam_token should succeed");
 

@@ -1,13 +1,20 @@
-//! S3 CRUD operations: head, delete, batch delete, copy.
+//! S3 CRUD operations: head, delete, batch delete, copy, in-memory transfers,
+//! presign upload part.
 
 use std::collections::HashMap;
+use std::time::Duration;
 
+use aws_sdk_s3::presigning::PresigningConfig;
+use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::types::{Delete, MetadataDirective, ObjectIdentifier};
 
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 
 use crate::client::{normalize_etag, DS3S3Client};
 use ds3_models::{DS3Error, S3ObjectMetadata};
+
+/// Maximum presigned-URL lifetime allowed by AWS sigv4 (7 days, in seconds).
+pub const MAX_PRESIGN_EXPIRY_SECS: u64 = 604_800;
 
 const COPY_SOURCE_ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
@@ -26,7 +33,12 @@ impl DS3S3Client {
             .key(key)
             .send()
             .await
-            .map_err(|e| DS3Error::S3Error(e.to_string()))?;
+            .map_err(|e| {
+                // Display alone collapses to "service error"; debug-format preserves
+                // the underlying `HeadObjectError::NotFound`/status code that
+                // `is_not_found_error` looks for.
+                DS3Error::S3Error(format!("{e:?}"))
+            })?;
 
         Ok(S3ObjectMetadata {
             etag: normalize_etag(response.e_tag()),
@@ -121,6 +133,172 @@ impl DS3S3Client {
 
         Ok(())
     }
+
+    /// Downloads an object to an in-memory `Vec<u8>` (no temp file).
+    ///
+    /// Intended for small payloads where streaming to disk is unnecessary
+    /// (e.g. thumbnails, .ds3keep markers, JSON metadata blobs).
+    pub async fn download_to_memory(&self, bucket: &str, key: &str) -> Result<Vec<u8>, DS3Error> {
+        let response = self
+            .client
+            .get_object()
+            .bucket(bucket)
+            .key(key)
+            .send()
+            .await
+            .map_err(|e| DS3Error::S3Error(e.to_string()))?;
+
+        let bytes = response
+            .body
+            .collect()
+            .await
+            .map_err(|e| DS3Error::S3Error(e.to_string()))?
+            .into_bytes();
+
+        Ok(bytes.to_vec())
+    }
+
+    /// Generates a presigned GET URL for an S3 object.
+    ///
+    /// `expires_in` is in seconds and must be ≤ [`MAX_PRESIGN_EXPIRY_SECS`]
+    /// (AWS sigv4 imposes the 7-day cap). The returned URL is consumed by the
+    /// Swift FileProvider extension for thumbnail fetches and other
+    /// unauthenticated GET flows.
+    pub async fn presign_get(
+        &self,
+        bucket: &str,
+        key: &str,
+        expires_in: i64,
+    ) -> Result<String, DS3Error> {
+        if expires_in <= 0 || (expires_in as u64) > MAX_PRESIGN_EXPIRY_SECS {
+            return Err(DS3Error::S3Error(format!(
+                "expires_in out of range: {expires_in} (must be 1..={MAX_PRESIGN_EXPIRY_SECS})"
+            )));
+        }
+        let config = PresigningConfig::expires_in(Duration::from_secs(expires_in as u64))
+            .map_err(|e| DS3Error::S3Error(format!("presign config: {e}")))?;
+
+        let presigned = self
+            .client
+            .get_object()
+            .bucket(bucket)
+            .key(key)
+            .presigned(config)
+            .await
+            .map_err(|e| DS3Error::S3Error(e.to_string()))?;
+
+        Ok(presigned.uri().to_string())
+    }
+
+    /// Generates a presigned PUT URL for a multipart upload part.
+    ///
+    /// `expires_in` is in seconds and must be ≤ [`MAX_PRESIGN_EXPIRY_SECS`].
+    /// The returned URL is consumed by the Swift adapter to upload a single
+    /// part via `URLRequest.httpMethod = "PUT"`.
+    pub async fn presign_upload_part(
+        &self,
+        bucket: &str,
+        key: &str,
+        upload_id: &str,
+        part_number: i32,
+        expires_in: i64,
+    ) -> Result<String, DS3Error> {
+        if expires_in <= 0 || (expires_in as u64) > MAX_PRESIGN_EXPIRY_SECS {
+            return Err(DS3Error::S3Error(format!(
+                "expires_in out of range: {expires_in} (must be 1..={MAX_PRESIGN_EXPIRY_SECS})"
+            )));
+        }
+        let config = PresigningConfig::expires_in(Duration::from_secs(expires_in as u64))
+            .map_err(|e| DS3Error::S3Error(format!("presign config: {e}")))?;
+
+        let presigned = self
+            .client
+            .upload_part()
+            .bucket(bucket)
+            .key(key)
+            .upload_id(upload_id)
+            .part_number(part_number)
+            .presigned(config)
+            .await
+            .map_err(|e| DS3Error::S3Error(e.to_string()))?;
+
+        Ok(presigned.uri().to_string())
+    }
+
+    /// Uploads an in-memory `Vec<u8>` to S3 with optional custom metadata.
+    ///
+    /// `metadata` keys/values are sent as `x-amz-meta-*` headers. Empty `data`
+    /// produces a zero-byte object (used for `.ds3keep` folder markers).
+    /// Returns the normalized ETag on success.
+    ///
+    /// Metadata keys are validated to be ASCII without control characters
+    /// (HTTP header safe — threat T-16-02-02).
+    pub async fn upload_from_memory(
+        &self,
+        bucket: &str,
+        key: &str,
+        data: Vec<u8>,
+        metadata: HashMap<String, String>,
+    ) -> Result<Option<String>, DS3Error> {
+        for (k, v) in &metadata {
+            validate_metadata_key(k)?;
+            validate_metadata_value(v)?;
+        }
+
+        let mut req = self
+            .client
+            .put_object()
+            .bucket(bucket)
+            .key(key)
+            .content_length(data.len() as i64)
+            .body(ByteStream::from(data));
+
+        for (k, v) in &metadata {
+            req = req.metadata(k, v);
+        }
+
+        let response = req
+            .send()
+            .await
+            .map_err(|e| DS3Error::S3Error(e.to_string()))?;
+
+        Ok(normalize_etag(response.e_tag()))
+    }
+}
+
+/// Validates an S3 custom-metadata key against HTTP-header restrictions.
+///
+/// S3 sends user metadata as `x-amz-meta-<key>` HTTP headers. Keys must be
+/// ASCII and free of control characters (CR/LF/NUL) to prevent header
+/// injection (threat T-16-02-02).
+fn validate_metadata_key(key: &str) -> Result<(), DS3Error> {
+    if key.is_empty() {
+        return Err(DS3Error::S3Error("invalid metadata key: empty".into()));
+    }
+    if !key.is_ascii() {
+        return Err(DS3Error::S3Error("invalid metadata key: non-ASCII".into()));
+    }
+    if key.chars().any(|c| c.is_control() || c == ':' || c == ' ') {
+        return Err(DS3Error::S3Error(
+            "invalid metadata key: control or separator char".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Validates an S3 custom-metadata value against HTTP-header restrictions.
+fn validate_metadata_value(value: &str) -> Result<(), DS3Error> {
+    if !value.is_ascii() {
+        return Err(DS3Error::S3Error(
+            "invalid metadata value: non-ASCII".into(),
+        ));
+    }
+    if value.chars().any(|c| c == '\r' || c == '\n' || c == '\0') {
+        return Err(DS3Error::S3Error(
+            "invalid metadata value: control char".into(),
+        ));
+    }
+    Ok(())
 }
 
 /// Returns `true` if the given error indicates S3 NotFound (NoSuchKey / 404).
@@ -136,5 +314,46 @@ pub fn is_not_found_error(err: &DS3Error) -> bool {
                 || lower.contains("does not exist")
         }
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod metadata_validation_tests {
+    use super::*;
+
+    #[test]
+    fn rejects_empty_metadata_key() {
+        assert!(validate_metadata_key("").is_err());
+    }
+
+    #[test]
+    fn rejects_non_ascii_metadata_key() {
+        assert!(validate_metadata_key("kéy").is_err());
+    }
+
+    #[test]
+    fn rejects_metadata_key_with_crlf() {
+        assert!(validate_metadata_key("k\r\n").is_err());
+    }
+
+    #[test]
+    fn rejects_metadata_key_with_colon() {
+        assert!(validate_metadata_key("k:v").is_err());
+    }
+
+    #[test]
+    fn accepts_normal_metadata_key() {
+        assert!(validate_metadata_key("custom-tag").is_ok());
+        assert!(validate_metadata_key("origin_id").is_ok());
+    }
+
+    #[test]
+    fn rejects_metadata_value_with_newline() {
+        assert!(validate_metadata_value("v\nattack").is_err());
+    }
+
+    #[test]
+    fn accepts_normal_metadata_value() {
+        assert!(validate_metadata_value("v1").is_ok());
     }
 }

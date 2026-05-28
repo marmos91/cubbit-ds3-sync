@@ -49,9 +49,9 @@ extension FileProviderExtension {
         do {
             return try await operation()
         } catch {
-            // Check all Soto error types (S3ErrorType, AWSClientError, AWSResponseError)
-            // for recoverable auth codes. S3ErrorType only covers 9 S3-specific codes;
-            // auth errors like InvalidAccessKeyId arrive as AWSResponseError.
+            // Extract S3 error code via DS3S3Client.s3ErrorCode, which inspects
+            // DS3S3Error and Rust Ds3Error variants for recoverable auth codes
+            // (InvalidAccessKeyId, SignatureDoesNotMatch).
             guard let errorCode = DS3S3Client.s3ErrorCode(from: error),
                   S3ErrorRecovery.isRecoverableAuthError(errorCode)
             else {

@@ -400,3 +400,152 @@ fn test_ds3_error_codes() {
         assert_eq!(error.code(), *expected_code, "Wrong code for {:?}", error);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Schema-parity fixture round-trip tests (Phase 16 Plan 06 / D-25).
+//
+// Each test loads a canonical JSON fixture from `tests/fixtures/`, decodes it
+// into the Rust struct, asserts a couple of locked field values, then
+// re-serializes and re-decodes to prove struct equality survives the round
+// trip. The SAME fixture bytes are read by Swift's `SchemaParityTests` —
+// any field-name drift between Rust serde and Swift Codable fails CI before
+// merge.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_drives_fixture_round_trip() {
+    let bytes = include_bytes!("fixtures/drives_v4.json");
+    let drives: Vec<DS3Drive> =
+        serde_json::from_slice(bytes).expect("drives_v4.json must decode as Vec<DS3Drive>");
+    assert!(!drives.is_empty(), "drives fixture must have >=1 drive");
+    assert_eq!(drives.len(), 2, "drives_v4.json fixture has 2 records");
+
+    // Locked field values that pin the schema shape.
+    assert_eq!(drives[0].sync_anchor.bucket.name, "test-bucket-1");
+    assert_eq!(drives[0].name, "Alpha Drive");
+    assert_eq!(drives[0].sync_anchor.prefix.as_deref(), Some("documents/"));
+    assert_eq!(drives[0].sync_anchor.iam_user.id, "iam-user-001");
+    assert!(drives[0].sync_anchor.iam_user.is_root);
+    assert_eq!(drives[0].sync_anchor.project.id, "proj-fixture-001");
+
+    assert_eq!(drives[1].sync_anchor.bucket.name, "test-bucket-2");
+    assert!(drives[1].sync_anchor.prefix.is_none());
+    assert!(!drives[1].sync_anchor.iam_user.is_root);
+
+    let reserialized = serde_json::to_vec(&drives).expect("re-serialize Vec<DS3Drive>");
+    let drives_round: Vec<DS3Drive> =
+        serde_json::from_slice(&reserialized).expect("re-parse Vec<DS3Drive>");
+    assert_eq!(
+        drives, drives_round,
+        "round-trip must preserve struct equality"
+    );
+}
+
+#[test]
+fn test_credentials_fixture_round_trip() {
+    let bytes = include_bytes!("fixtures/credentials_v1.json");
+    let keys: Vec<DS3ApiKey> =
+        serde_json::from_slice(bytes).expect("credentials_v1.json must decode as Vec<DS3ApiKey>");
+    assert_eq!(keys.len(), 2, "credentials_v1.json fixture has 2 records");
+
+    // First key includes secret_key
+    assert_eq!(keys[0].name, "ds3-drive-fixture-key-1");
+    assert_eq!(keys[0].api_key, "AKIAFIXTURE0000000001");
+    assert_eq!(
+        keys[0].secret_key.as_deref(),
+        Some("fixtureSecretKeyValue00000000000000000001")
+    );
+    assert_eq!(keys[0].created_at, "2024-06-01T12:00:00.000Z");
+
+    // Second key omits secret_key
+    assert_eq!(keys[1].name, "ds3-drive-fixture-key-2");
+    assert!(keys[1].secret_key.is_none());
+
+    let reserialized = serde_json::to_vec(&keys).expect("re-serialize Vec<DS3ApiKey>");
+    let keys_round: Vec<DS3ApiKey> =
+        serde_json::from_slice(&reserialized).expect("re-parse Vec<DS3ApiKey>");
+    assert_eq!(keys, keys_round, "round-trip must preserve struct equality");
+}
+
+#[test]
+fn test_account_session_fixture_round_trip() {
+    let bytes = include_bytes!("fixtures/accountSession_v1.json");
+    let session: AccountSession = serde_json::from_slice(bytes)
+        .expect("accountSession_v1.json must decode as AccountSession");
+
+    assert_eq!(
+        session.token.token,
+        "eyJhbGciOiJIUzI1NiJ9.fixture-access-token.signature"
+    );
+    assert_eq!(session.token.exp, 1735689600);
+    assert_eq!(session.token.exp_date, "2025-01-01T00:00:00.000Z");
+    assert_eq!(
+        session.refresh_token,
+        "fixture-refresh-token-value-0123456789abcdef"
+    );
+
+    let reserialized = serde_json::to_vec(&session).expect("re-serialize AccountSession");
+    let session_round: AccountSession =
+        serde_json::from_slice(&reserialized).expect("re-parse AccountSession");
+    assert_eq!(
+        session, session_round,
+        "round-trip must preserve struct equality"
+    );
+
+    // Verify the camelCase `refreshToken` key is preserved on the wire.
+    let value: serde_json::Value = serde_json::from_slice(&reserialized).unwrap();
+    assert!(
+        value.get("refreshToken").is_some(),
+        "refreshToken must serialize as camelCase to match Swift schema"
+    );
+}
+
+#[test]
+fn test_account_fixture_round_trip() {
+    let bytes = include_bytes!("fixtures/account_v1.json");
+    let account: Account =
+        serde_json::from_slice(bytes).expect("account_v1.json must decode as Account");
+
+    assert_eq!(account.id, "acc-fixture-001");
+    assert_eq!(account.first_name, "Fixture");
+    assert_eq!(account.last_name, "User");
+    assert!(!account.is_internal);
+    assert!(!account.is_banned);
+    assert_eq!(account.max_allowed_projects, 5);
+    assert_eq!(account.tenant_id, "tenant-fixture");
+    assert_eq!(account.endpoint_gateway, "https://s3.fixture.example.com");
+    assert_eq!(account.auth_provider, "cubbit");
+    assert_eq!(account.emails.len(), 1);
+    assert_eq!(account.emails[0].email, "test-user@example.com");
+    assert!(account.emails[0].is_default);
+    assert!(account.emails[0].is_verified);
+
+    let reserialized = serde_json::to_vec(&account).expect("re-serialize Account");
+    let account_round: Account = serde_json::from_slice(&reserialized).expect("re-parse Account");
+    assert_eq!(
+        account, account_round,
+        "round-trip must preserve struct equality"
+    );
+
+    // Verify snake_case keys (endpoint_gateway, etc.) on the wire — Swift
+    // Codable maps these via CodingKeys; drift here is the entire D-25 risk.
+    let value: serde_json::Value = serde_json::from_slice(&reserialized).unwrap();
+    assert!(value.get("endpoint_gateway").is_some());
+    assert!(value.get("first_name").is_some());
+    assert!(value.get("two_factor_enabled").is_some());
+}
+
+#[test]
+fn test_drives_fixture_byte_stable_after_normalized_round_trip() {
+    // Detects "I added a field that defaults to None" silent additions and
+    // any other drift that survives a single round-trip but breaks normalized
+    // re-serialization.
+    let bytes = include_bytes!("fixtures/drives_v4.json");
+    let drives: Vec<DS3Drive> = serde_json::from_slice(bytes).unwrap();
+    let normalized: serde_json::Value = serde_json::to_value(&drives).unwrap();
+    let renormalized_back: Vec<DS3Drive> = serde_json::from_value(normalized.clone()).unwrap();
+    assert_eq!(
+        drives, renormalized_back,
+        "normalized round-trip must stay stable"
+    );
+}

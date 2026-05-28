@@ -1,0 +1,8 @@
+{
+  "token": {
+    "token": "eyJhbGciOiJIUzI1NiJ9.fixture-access-token.signature",
+    "exp": 1735689600,
+    "exp_date": "2025-01-01T00:00:00.000Z"
+  },
+  "refreshToken": "fixture-refresh-token-value-0123456789abcdef"
+}

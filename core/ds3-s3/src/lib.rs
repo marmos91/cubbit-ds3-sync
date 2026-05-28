@@ -4,6 +4,7 @@
 //! Cubbit's S3-compatible storage. Provides listing, upload, download,
 //! delete, copy, multipart upload, and folder marker operations.
 
+pub mod cancel;
 pub mod client;
 pub mod crud;
 pub mod list;
@@ -12,6 +13,7 @@ pub mod multipart;
 pub mod transfer;
 
 // Re-export primary types and constants.
+pub use cancel::CancelToken;
 pub use client::{
     decode_s3_key, normalize_etag, DS3S3Client, DELIMITER, LIST_BATCH_SIZE, MARKER_FILE_NAME,
     MAX_RETRIES, MULTIPART_CONCURRENCY, MULTIPART_PART_SIZE, MULTIPART_THRESHOLD, TIMEOUT_SECONDS,

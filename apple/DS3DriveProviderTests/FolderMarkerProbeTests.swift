@@ -1,7 +1,6 @@
 @testable import DS3Lib
 import Foundation
 import os.log
-import SotoS3
 import XCTest
 
 /// Tests for `probeFolderExists` — the two-step HEAD probe (#170).
@@ -158,7 +157,7 @@ final class FolderMarkerProbeTests: XCTestCase {
 // MARK: - Test mock
 
 /// `DS3S3ClientProtocol` mock that tracks `headObject` calls and returns
-/// metadata from `existingKeys`. Missing keys throw `S3ErrorType.noSuchKey`.
+/// metadata from `existingKeys`. Missing keys throw `DS3S3Error.noSuchKey`.
 final class ProbeMockS3Client: DS3S3ClientProtocol, @unchecked Sendable {
     var existingKeys: [String: S3ObjectMetadata] = [:]
     /// Injected for ALL `headObject` calls (simulates 403, 500, etc.).
@@ -182,7 +181,7 @@ final class ProbeMockS3Client: DS3S3ClientProtocol, @unchecked Sendable {
             return metadata
         }
 
-        throw S3ErrorType.noSuchKey
+        throw DS3S3Error.noSuchKey
     }
 
     // MARK: - Stubs (unused by probe tests)

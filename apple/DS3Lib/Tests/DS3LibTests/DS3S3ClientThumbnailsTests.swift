@@ -1,12 +1,10 @@
-import XCTest
-import SotoS3
 @testable import DS3Lib
+import XCTest
 
 /// Phase 12-03 / THUMB-10 — coverage for `putThumbnail` / `getThumbnailBytes`
 /// / `deleteThumbnail`. All three are protocol-default extensions on
 /// `DS3S3ClientProtocol`, so the mock inherits them for free (D-08).
 final class DS3S3ClientThumbnailsTests: XCTestCase {
-
     // MARK: - Helpers
 
     private func makeMock() -> MockDS3S3Client {
@@ -18,9 +16,9 @@ final class DS3S3ClientThumbnailsTests: XCTestCase {
         Data([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46])
     }
 
-    /// A canned NoSuchKey error (S3ErrorType is what `isNotFoundError` matches via `errorCode`).
+    /// A canned NoSuchKey error (DS3S3Error.noSuchKey is what `isNotFoundError` matches).
     private var notFoundError: Error {
-        S3ErrorType.noSuchKey
+        DS3S3Error.noSuchKey
     }
 
     // MARK: - putThumbnail
@@ -47,7 +45,7 @@ final class DS3S3ClientThumbnailsTests: XCTestCase {
 
     func testPutThumbnailReturnsNormalizedETag() async throws {
         let mock = makeMock()
-        mock.putObjectDataEtag = "\"thumb-etag\""  // quoted — should be normalized
+        mock.putObjectDataEtag = "\"thumb-etag\"" // quoted — should be normalized
 
         let etag = try await mock.putThumbnail(
             bucket: "b", key: "k", data: smallJPEGData(), sourceETag: "src"
@@ -83,7 +81,7 @@ final class DS3S3ClientThumbnailsTests: XCTestCase {
                 bucket: "b", key: "k", data: aboveCap, sourceETag: "src"
             )
             XCTFail("Expected DS3ClientError.thumbnailTooLarge")
-        } catch DS3ClientError.thumbnailTooLarge(let size, let limit) {
+        } catch let DS3ClientError.thumbnailTooLarge(size, limit) {
             XCTAssertEqual(size, aboveCap.count)
             XCTAssertEqual(limit, DefaultSettings.Thumbnail.maxSinglePartBytes)
         }
@@ -191,7 +189,7 @@ final class DS3S3ClientThumbnailsTests: XCTestCase {
 
     func testGetThumbnailBytes5xxRethrows() async {
         let mock = makeMock()
-        mock.getObjectDataError = DS3ClientError.parseError  // any non-404 error
+        mock.getObjectDataError = DS3ClientError.parseError // any non-404 error
 
         do {
             _ = try await mock.getThumbnailBytes(bucket: "b", key: "k")
