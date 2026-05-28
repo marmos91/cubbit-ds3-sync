@@ -281,7 +281,7 @@ Plans:
   2. All existing unit tests (156+) pass without modification, and Finder/Files.app sync behavior (upload, download, rename, move, delete, conflict copy) is identical to the pre-swap build -- verified by side-by-side manual smoke test
   3. Soto and CryptoKit no longer appear in DS3Lib's Package.swift dependencies -- the only S3 client dependency is the `DS3CoreFFI` XCFramework
   4. Existing `drives.json` and `credentials.json` files in the App Group container are read transparently by the Rust-backed code without any migration step -- a user upgrading from the Swift-only build experiences zero data loss or re-login
-**Plans:** 2/7 plans executed
+**Plans:** 3/7 plans executed
 
 Plans:
 **Wave 1**
@@ -291,7 +291,7 @@ Plans:
 - [x] 16-02-PLAN.md -- Close 7 Rust FFI gaps (download_to_memory, upload_from_memory, presign_upload_part, current_session, copy_object metadata, CancellationHandle, ds3_error_code) + reqwest retry middleware
 
 **Wave 3** *(blocked on Wave 2)*
-- [ ] 16-03-PLAN.md -- DS3S3Client + DS3S3Error swap + FileProvider extension catch-block migration (30+ sites)
+- [x] 16-03-PLAN.md -- DS3S3Client + DS3S3Error swap + FileProvider extension catch-block migration (30+ sites)
 
 **Wave 4** *(blocked on Wave 3)*
 - [ ] 16-04-PLAN.md -- DS3Authentication + DS3SDK internals swap with @Observable shell preserved + 2FA path verbatim (D-15)
@@ -357,7 +357,7 @@ Plans:
 | 13. macOS Generation, Consumption & Lifecycle | v3.1 | 0/0 | Not started | - |
 | 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
 | 15. Rust Core + FFI Foundation | v2.0.0 | 7/7 | Complete   | 2026-05-27 |
-| 16. Apple Incremental Swap | v2.0.0 | 2/7 | In Progress|  |
+| 16. Apple Incremental Swap | v2.0.0 | 3/7 | In Progress|  |
 | 17. Windows Shell | v2.0.0 | 0/0 | Not started | - |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
 
