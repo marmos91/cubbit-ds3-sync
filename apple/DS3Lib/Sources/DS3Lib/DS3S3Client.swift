@@ -237,6 +237,41 @@ public final class DS3S3Client: @unchecked Sendable {
         )
     }
 
+    /// Plan 04 initializer: takes an authenticated `Ds3SessionHandle` (the
+    /// singleton owned by `DS3Authentication`) and connects the S3 sub-client
+    /// to it via `connectS3`. This is the canonical main-app construction
+    /// path — see RESEARCH §"DS3SessionHandle Lifecycle in Swift". The
+    /// extension still uses the `accessKeyId:/secretAccessKey:/endpoint:`
+    /// initializer (which constructs an `s3Only` handle) because the
+    /// extension has no `DS3Authentication`.
+    ///
+    /// - Parameters:
+    ///   - authenticatedHandle: a `Ds3SessionHandle` already authenticated
+    ///     via `DS3Authentication.login(...)`.
+    ///   - endpoint: the S3 endpoint URL.
+    ///   - accessKey: the S3 access key ID.
+    ///   - secretKey: the S3 secret access key.
+    /// - Throws: `DS3S3Error` if `connectS3` fails (e.g. malformed endpoint).
+    public init(
+        authenticatedHandle: Ds3SessionHandle,
+        endpoint: String,
+        accessKey: String,
+        secretKey: String
+    ) throws {
+        self.customEndpoint = endpoint
+        self.handle = authenticatedHandle
+        do {
+            try authenticatedHandle.connectS3(
+                endpoint: endpoint,
+                accessKey: accessKey,
+                secretKey: secretKey,
+                region: nil
+            )
+        } catch let rustError as Ds3Error {
+            throw DS3S3Error.translate(rustError)
+        }
+    }
+
     /// Lifecycle no-op: handle ownership is via Swift's reference counting + Rust
     /// `Arc<DS3SessionHandle>`. The aws-sdk-s3 client is dropped when the handle
     /// is dropped. Kept for source compatibility with the Soto-era API.

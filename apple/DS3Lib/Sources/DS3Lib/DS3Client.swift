@@ -103,6 +103,12 @@ public final class DS3Client: @unchecked Sendable {
     /// Returns an S3 client for the given project + IAM user combination.
     /// Lazily creates the client by loading/creating API keys and reading the account endpoint.
     /// Caches per project+user combination.
+    ///
+    /// Plan 04: when `authentication.handle` is available (post-login), the
+    /// constructed `DS3S3Client` shares the singleton handle owned by
+    /// `DS3Authentication` (RESEARCH §"DS3SessionHandle Lifecycle"). If the
+    /// handle is `nil` (post-restart, before re-login), throw `.loggedOut`
+    /// so the UI routes back to login.
     public func s3Client(
         forProject project: Project,
         iamUser user: IAMUser
@@ -110,7 +116,7 @@ public final class DS3Client: @unchecked Sendable {
         let cacheKey = "\(project.id)_\(user.id)"
         if let existing = s3Clients[cacheKey] { return existing }
 
-        guard let sdk, let account = authentication?.account else {
+        guard let sdk, let authentication, let account = authentication.account else {
             throw DS3ClientSetupError.notConfigured
         }
 
@@ -123,10 +129,15 @@ public final class DS3Client: @unchecked Sendable {
             throw DS3ClientSetupError.missingSecret
         }
 
-        let client = DS3S3Client(
-            accessKeyId: apiKey.apiKey,
-            secretAccessKey: secretKey,
-            endpoint: account.endpointGateway
+        guard let handle = authentication.handle else {
+            throw DS3AuthenticationError.loggedOut
+        }
+
+        let client = try DS3S3Client(
+            authenticatedHandle: handle,
+            endpoint: account.endpointGateway,
+            accessKey: apiKey.apiKey,
+            secretKey: secretKey
         )
 
         s3Clients[cacheKey] = client
