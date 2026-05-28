@@ -42,6 +42,16 @@ let package = Package(
             // the bindings via @unchecked Sendable bridge types.
             swiftSettings: [
                 .swiftLanguageMode(.v5)
+            ],
+            // The Rust core's transitive deps (hyper-util proxy detection,
+            // aws-sdk auth, system_configuration, mac-keychain access) pull
+            // symbols from several Apple system frameworks. Link them here
+            // so dependent test/app targets don't have to repeat.
+            linkerSettings: [
+                .linkedFramework("SystemConfiguration"),
+                .linkedFramework("CoreFoundation"),
+                .linkedFramework("Security"),
+                .linkedFramework("CFNetwork")
             ]
         ),
         .target(
