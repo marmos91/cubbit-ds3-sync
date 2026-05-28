@@ -315,8 +315,31 @@ Plans:
   3. User can double-click a cloud-only file in Explorer and it hydrates on demand with a progress bar visible in Explorer's status column, streaming data in chunks to avoid the cfapi 30-second timeout
   4. User can save or create files in the synced folder and they upload to S3 automatically (triggered by `NOTIFY_FILE_CLOSE_COMPLETION`, not `ReadDirectoryChangesW` -- no spurious re-upload on hydration)
   5. Remote changes made from another device or the web console appear as updated placeholders within one polling cycle, and the system tray icon reflects sync status (idle/syncing/error)
-**Plans**: TBD
+**Plans:** 12 plans
 **UI hint**: yes
+
+Plans:
+**Wave 0**
+- [ ] 17-01-PLAN.md -- Rust C ABI gap closure (download_to_memory, presign_get, delete_objects, get_challenge, ds3_error_code, cancellation, ds3_set_log_callback) + tracing-to-C log_bridge.rs + Windows DLL build scripts
+- [ ] 17-02-PLAN.md -- Solution scaffold (DS3Drive.sln, App/Sync/Core/Tests projects), central package management, DS3Core.Build.targets cargo invocation, NuGet legitimacy checkpoint for Vanara + H.NotifyIcon
+- [ ] 17-03-PLAN.md -- CI windows-build.yml + xunit.runner.json (parallelizeAssembly=false) + CubbitCredentials fixture + manual-smoke-D-33.md checklist
+- [ ] 17-04-PLAN.md -- Sparse identity package manifest (Cubbit.DS3Drive, AllowExternalContent, runFullTrust, cfapi extension) + build-sparse.ps1 (MakeAppx + SignTool)
+
+**Wave 1**
+- [ ] 17-05-PLAN.md -- DS3Drive.Core P/Invoke facade (DS3Native csbindgen-style bindings, DS3Session : IDisposable, Exceptions w/ 1007 to TwoFactorRequired per D-15, Records, CredentialStore via Advapi32 CredWrite/Read, ConfigStore)
+- [ ] 17-06-PLAN.md -- SyncDatabase (Microsoft.Data.Sqlite at %LOCALAPPDATA%) + 001_initial.sql (5 tables) + PlaceholderStore CRUD + EnumerationDiff port of Apple algorithm + schema-recovery
+- [ ] 17-07-PLAN.md -- POL-01 logging bridge: RustLogBridge (Channel+drainer, Pitfall 5 compliant) + RustCoreEventSource (Cubbit-DS3Drive-Core ETW) + AppEventSource (Cubbit-DS3Drive-App)
+
+**Wave 2**
+- [ ] 17-08-PLAN.md -- App shell: DI host, Mica MainWindow, Tokens.xaml (UI-SPEC Rev1+2+3: 4 sizes 12/14/24/32, 2 weights Regular/SemiBold, spacing 4/8/16/24/32/48), Figtree fonts, BrandPrimaryButton, Login + 2FA + Tutorial pages, SingleInstanceService (named Mutex per-user SID)
+- [ ] 17-09-PLAN.md -- Drive setup wizard (Project to Bucket to Prefix to Confirm), DS3SdkService (API-key reconciliation byte-for-byte port of DS3SDK.swift), DriveManagementService (persistence triple PATTERNS section 3.3), DrivesListPage with 3-drive cap (D-23)
+
+**Wave 3**
+- [ ] 17-10-PLAN.md -- cfapi sync engine: SyncRootRegistration (sparse identity required, Pitfall 1), CallbackTable (FETCH_DATA streaming 4KB-aligned, NOTIFY_FILE_CLOSE_COMPLETION with IsDirty guard Pitfall 3, NOTIFY_RENAME, NOTIFY_DELETE), SyncEngine (60s polling D-18, ds3_compute_diff per D-17), DriveStatusBroadcaster (verbatim port of NotificationsManager.swift), PathValidation, SemaphoreSlim(20,20) per PATTERNS section 3.5
+- [ ] 17-11-PLAN.md -- Tray + flyout: H.NotifyIcon TaskbarIcon with state-swap, Acrylic 360x540 TrayFlyoutWindow, TrayDriveRow (IsHitTestVisible=False discipline per project memory), StatusPill 5 variants, TransferSpeedLabel, RecentFilesService, SettingsPage 4 sections
+
+**Wave 4**
+- [ ] 17-12-PLAN.md -- WiX v4 MSI installer: Product.wxs with NTFS guard (Pitfall 8), MajorUpgrade (Pitfall 7), Add-AppxPackage custom action (Pitfall 1), HKCU Run key (D-26), build-msi.ps1, windows-release.yml tag-triggered, final D-33 smoke checklist sign-off
 
 ### Phase 18: Polish + Beta Hardening
 **Goal**: Both Apple and Windows platforms are release-quality -- structured cross-platform logging, correct error surfaces, multi-drive support, auto-update, and a production installer that enterprise IT can deploy silently
@@ -358,7 +381,7 @@ Plans:
 | 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
 | 15. Rust Core + FFI Foundation | v2.0.0 | 7/7 | Complete   | 2026-05-27 |
 | 16. Apple Incremental Swap | v2.0.0 | 6/7 | In Progress|  |
-| 17. Windows Shell | v2.0.0 | 0/0 | Not started | - |
+| 17. Windows Shell | v2.0.0 | 0/12 | Not started | - |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
 
 ---
