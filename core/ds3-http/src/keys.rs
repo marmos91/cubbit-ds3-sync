@@ -36,11 +36,18 @@ pub async fn create_api_key(
 ) -> Result<DS3ApiKey, DS3Error> {
     let url = format!("{}/{}?user_id={}", urls.keys_url(), key_name, user_id,);
 
-    // POST with empty body -- the server creates the key based on URL params.
+    // POST with empty body — the server creates the key based on URL params.
+    // The shared client sets a default Content-Type: application/json header,
+    // and Cubbit IAM rejects empty bodies under that header
+    // ("Body cannot be empty when content-type is set to 'application/json'").
+    // The original Swift client only set Authorization for this call, so
+    // override Content-Type to text/plain to match server expectations.
     let response = client
         .inner()
         .post(&url)
         .bearer_auth(iam_token)
+        .header(reqwest::header::CONTENT_TYPE, "text/plain")
+        .header(reqwest::header::CONTENT_LENGTH, "0")
         .send()
         .await?;
 

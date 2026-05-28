@@ -33,7 +33,12 @@ impl DS3S3Client {
             .key(key)
             .send()
             .await
-            .map_err(|e| DS3Error::S3Error(e.to_string()))?;
+            .map_err(|e| {
+                // Display alone collapses to "service error"; debug-format preserves
+                // the underlying `HeadObjectError::NotFound`/status code that
+                // `is_not_found_error` looks for.
+                DS3Error::S3Error(format!("{e:?}"))
+            })?;
 
         Ok(S3ObjectMetadata {
             etag: normalize_etag(response.e_tag()),
