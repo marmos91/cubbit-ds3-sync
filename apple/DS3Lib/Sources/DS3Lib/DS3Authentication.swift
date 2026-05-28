@@ -1,4 +1,4 @@
-import CryptoKit
+import DS3CoreFFI
 import Foundation
 import os.log
 
@@ -53,54 +53,69 @@ public enum DS3AuthenticationError: Error, LocalizedError {
     }
 }
 
-enum APIError {
-    static let Missing2FA = "missing two factor code"
-}
-
-/// Request to retrieve the challenge for the login
-struct DS3ChallengeRequest: Codable {
-    /// The user email
-    var email: String
-
-    /// Optional tenant identifier for multi-tenant login
-    var tenantId: String?
-
-    enum CodingKeys: String, CodingKey {
-        case email
-        case tenantId = "tenant_id"
+extension DS3AuthenticationError {
+    /// Translates a Rust `Ds3Error` (UniFFI flat-error shape) into the
+    /// corresponding `DS3AuthenticationError` case.
+    ///
+    /// **Load-bearing:** `case 1007: return .missing2FA` (D-15). The
+    /// LoginViewModel detects `.missing2FA` and prompts for a TFA code; any
+    /// other mapping silently bypasses the 2FA UI, which is an auth bypass.
+    static func translate(_ rust: Ds3Error) -> DS3AuthenticationError {
+        let message = describe(rust)
+        let code = ds3ErrorCode(message: message)
+        switch code {
+        case 1001: return .invalidURL(url: nil)
+        case 1002: return .serverError
+        case 1003: return .jsonConversion
+        case 1004: return .encoding
+        case 1005: return .loggedOut
+        case 1006: return .tokenExpired
+        case 1007: return .missing2FA // load-bearing per D-15 / T-16-04-01
+        case 1008: return .cookies
+        default: return .serverError
+        }
     }
-}
 
-/// Login request through the DS3 APIs
-struct DS3LoginRequest: Codable {
-    /// The user email
-    var email: String
-
-    /// The retrieved challenge signed with the user private key (you can retrieve the challenge through the
-    /// `DS3ChallengeRequest`)
-    var signedChallenge: String
-
-    /// Optional: the 2FA code if the user has enabled it
-    var tfaCode: String?
-
-    /// Optional tenant identifier for multi-tenant login
-    var tenantId: String?
-
-    enum CodingKeys: String, CodingKey {
-        case email
-        case signedChallenge
-        case tfaCode = "tfa_code"
-        case tenantId = "tenant_id"
+    /// Extracts the message string from a `Ds3Error` case (UniFFI flat-error
+    /// emits each variant as `Case(message: String)` where `message` is the
+    /// canonical `thiserror` Display string). Used by `translate` for the
+    /// numeric-code lookup, and by the adapter's catch-site logging.
+    static func describe(_ rust: Ds3Error) -> String {
+        switch rust {
+        case let .InvalidUrl(message),
+             let .ServerError(message),
+             let .JsonError(message),
+             let .Encoding(message),
+             let .LoggedOut(message),
+             let .TokenExpired(message),
+             let .Missing2Fa(message),
+             let .CookieError(message),
+             let .MissingUploadId(message),
+             let .EmptyFileData(message),
+             let .MissingETag(message),
+             let .ParseError(message),
+             let .UnableToOpenFile(message),
+             let .IoError(message),
+             let .HttpError(message),
+             let .S3Error(message),
+             let .AuthError(message):
+            message
+        }
     }
-}
-
-/// Response for the login request
-struct DS3Missing2FAResponse: Codable {
-    var message: String
 }
 
 /// Class that manages the authentication with the DS3 APIs.
-/// Uses challenge-response (Curve25519) authentication with JWT tokens.
+///
+/// Phase 16 Plan 04: the `@Observable` shell + persisted UI state remain in
+/// Swift; the actual challenge/sign/refresh/forge/account-info HTTP+CryptoKit
+/// flow is delegated to the Rust core via `Ds3SessionHandle`. The 2FA UI path
+/// is preserved byte-identically through the load-bearing `code 1007 ->
+/// .missing2FA` translation (D-15 / T-16-04-01).
+///
+/// App Group JSON persistence stays in Swift (D-06) — every state-mutating
+/// FFI call is followed by `try self.persist()` so `accountSession.json`
+/// and `account.json` keep producing the same shapes that pre-swap builds
+/// could read.
 @Observable
 public final class DS3Authentication: @unchecked Sendable {
     private let logger = Logger(subsystem: LogSubsystem.app, category: LogCategory.auth.rawValue)
@@ -121,6 +136,14 @@ public final class DS3Authentication: @unchecked Sendable {
     public var isNotLogged: Bool {
         !self.isLogged
     }
+
+    /// The Rust-backed session handle. Set after a successful `login(...)`;
+    /// cleared on `logout(...)`. `nil` after `loadFromPersistenceOrCreateNew`
+    /// restores from disk — the handle is in-memory only in Plan 04. Callers
+    /// that need to issue authenticated requests after process restart must
+    /// re-`login(...)`. See 16-04-SUMMARY.md §"Known Regressions" for the
+    /// known-issue note.
+    @ObservationIgnored private(set) var handle: Ds3SessionHandle?
 
     private let sharedData: SharedData
 
@@ -146,43 +169,30 @@ public final class DS3Authentication: @unchecked Sendable {
     // MARK: - Tokens
 
     /// Forges an IAM token for the specified user. The IAM token will be then used to authenticate all the next
-    /// requests for the specified user
-    /// - Parameter user: the IAM user for which you want to forge the token
-    /// - Returns: the Token object containing the access token and the expiration date
+    /// requests for the specified user.
+    /// - Parameter user: the IAM user for which you want to forge the token.
+    /// - Returns: the Token object containing the access token and the expiration date.
     public func forgeIAMToken(forIAMUser user: IAMUser) async throws -> Token {
-        try await self.refreshIfNeeded()
+        guard let handle = self.handle else { throw DS3AuthenticationError.loggedOut }
 
-        guard
-            self.isLogged,
-            let session = self.accountSession
-        else { throw DS3AuthenticationError.loggedOut }
+        self.logger.debug("Forging IAM token for user \(user.id, privacy: .public)")
 
-        guard let url = URL(string: "\(self.urls.forgeAccessJWTURL)?user_id=\(user.id)") else {
-            throw DS3AuthenticationError.invalidURL(
-                url: self.urls.forgeAccessJWTURL
+        do {
+            let ffiToken = try handle.forgeIamToken(userId: user.id)
+            let swiftToken = try Token.fromFFI(ffiToken)
+
+            // The Rust session's refresh_token cookie may have rotated; pull the
+            // up-to-date session and persist so disk matches in-memory state (D-06).
+            try self.syncSessionFromHandle(handle)
+            try self.persist()
+
+            return swiftToken
+        } catch let rustError as Ds3Error {
+            self.logger.error(
+                "forgeIAMToken failed: code=\(ds3ErrorCode(message: DS3AuthenticationError.describe(rustError)), privacy: .public) \(DS3AuthenticationError.describe(rustError), privacy: .public)"
             )
+            throw DS3AuthenticationError.translate(rustError)
         }
-
-        var request = URLRequest(url: url)
-
-        self.logger.debug("Forging IAM token for user \(user.id)")
-
-        request.allHTTPHeaderFields = [
-            "Content-Type": "application/json",
-            "Cookie": "_refresh=\(session.refreshToken)"
-        ]
-        request.httpShouldHandleCookies = true
-        request.httpMethod = "GET"
-
-        let (responseData, response) = try await URLSession.shared.data(for: request)
-
-        let (token, newRefreshToken) = try self.parseTokenResponse(data: responseData, response: response, url: url)
-
-        session.refreshRefreshToken(refreshToken: newRefreshToken)
-
-        try self.persist()
-
-        return token
     }
 
     // MARK: - Proactive Refresh
@@ -228,42 +238,41 @@ public final class DS3Authentication: @unchecked Sendable {
     /// Refresh auth token if expired
     /// - Parameter force: force token refresh
     public func refreshIfNeeded(force: Bool = false) async throws {
-        guard
-            self.isLogged,
-            let session = self.accountSession
-        else { throw DS3AuthenticationError.loggedOut }
+        guard self.isLogged, let session = self.accountSession else {
+            throw DS3AuthenticationError.loggedOut
+        }
+        guard let handle = self.handle else { throw DS3AuthenticationError.loggedOut }
 
-        guard force || Date() > session.token.expDate else { return }
+        if !force, !DS3Authentication.shouldRefreshToken(session.token, threshold: 0) {
+            return
+        }
 
         self.logger.debug("Refreshing access token")
 
-        guard let url = URL(string: self.urls.tokenRefreshURL) else { throw DS3AuthenticationError.invalidURL() }
-
-        var request = URLRequest(url: url)
-
-        request.allHTTPHeaderFields = [
-            "Content-Type": "application/json",
-            "Cookie": "_refresh=\(session.refreshToken)"
-        ]
-        request.httpShouldHandleCookies = true
-        request.httpMethod = "GET"
-
-        let (responseData, response) = try await URLSession.shared.data(for: request)
-
-        let (token, refreshToken) = try self.parseTokenResponse(data: responseData, response: response, url: url)
-
-        session.refreshTokens(token: token, refreshToken: refreshToken)
-
-        try self.persist()
+        do {
+            try handle.refreshToken()
+            try self.syncSessionFromHandle(handle)
+            try self.persist()
+        } catch let rustError as Ds3Error {
+            self.logger.error(
+                "refresh failed: code=\(ds3ErrorCode(message: DS3AuthenticationError.describe(rustError)), privacy: .public) \(DS3AuthenticationError.describe(rustError), privacy: .public)"
+            )
+            throw DS3AuthenticationError.translate(rustError)
+        }
     }
 
     // MARK: - Login
 
-    /// Logs in to Cubbit's IAM service
-    ///  - Parameters:
+    /// Logs in to Cubbit's IAM service.
+    ///
+    /// - Parameters:
     ///   - email: the email to login with
     ///   - password: the password to login with
-    ///   - tfaCode: optional 2FA code
+    ///   - tfaCode: optional 2FA code. When `nil`, calls `authenticate`; when set,
+    ///     calls `verify2fa`. The Rust core's `authenticate` returns code 1007 when
+    ///     the account has 2FA enabled — the catch path below translates that into
+    ///     `DS3AuthenticationError.missing2FA` so the LoginViewModel can re-prompt
+    ///     with a TFA code (D-15, T-16-04-01).
     ///   - tenant: optional tenant identifier for multi-tenant login
     public func login(
         email: String,
@@ -273,19 +282,50 @@ public final class DS3Authentication: @unchecked Sendable {
     ) async throws {
         guard self.isNotLogged else { throw DS3AuthenticationError.alreadyLoggedIn }
 
-        let challenge = try await self.getChallenge(email: email, tenant: tenant)
-        let signedChallenge = try self.signChallenge(challenge: challenge, password: password)
-        let accountSession = try await self.getAccountSession(
-            email: email,
-            signedChallengeBase64: signedChallenge,
-            withTfaToken: tfaCode,
-            tenant: tenant
-        )
+        do {
+            let newHandle: Ds3SessionHandle
+            if let code = tfaCode {
+                self.logger.info("Logging in with 2FA code")
+                newHandle = try Ds3SessionHandle.verify2fa(
+                    email: email,
+                    password: password,
+                    tfaCode: code,
+                    tenantId: tenant,
+                    coordinatorUrl: self.urls.coordinatorURL
+                )
+            } else {
+                self.logger.info("Logging in")
+                newHandle = try Ds3SessionHandle.authenticate(
+                    email: email,
+                    password: password,
+                    tenantId: tenant,
+                    coordinatorUrl: self.urls.coordinatorURL
+                )
+            }
 
-        self.accountSession = accountSession
-        self.isLogged = true
+            // Pull authenticated state out of the Rust handle. The order matters:
+            // assign handle first so the `loggedOut` guards in syncSessionFromHandle
+            // can see it, then mirror session + account into the @Observable shell.
+            self.handle = newHandle
+            let ffiAccount = try newHandle.accountInfo()
+            let ffiSession = try newHandle.currentSession()
+            self.account = Account.fromFFI(ffiAccount)
+            self.accountSession = try AccountSession.fromFFI(ffiSession)
+            self.isLogged = true
 
-        self.account = try await self.accountInfo()
+            try self.persist()
+            self.logger.info("Login succeeded")
+        } catch let rustError as Ds3Error
+            where ds3ErrorCode(message: DS3AuthenticationError.describe(rustError)) == 1007 {
+            // D-15 / T-16-04-01 — preserve 2FA UI flow byte-identically.
+            self.logger.info("2FA required — prompting user")
+            throw DS3AuthenticationError.missing2FA
+        } catch let rustError as Ds3Error {
+            self.logger.error(
+                "login failed: code=\(ds3ErrorCode(message: DS3AuthenticationError.describe(rustError)), privacy: .public) \(DS3AuthenticationError.describe(rustError), privacy: .public)"
+            )
+            throw DS3AuthenticationError.translate(rustError)
+        }
     }
 
     /// Logs out from Cubbit's IAM service.
@@ -311,6 +351,10 @@ public final class DS3Authentication: @unchecked Sendable {
             }
         }
 
+        // Drop the handle FIRST (T-16-04-04 mitigation) so any concurrent S3 op
+        // racing against logout fails with `.loggedOut` instead of using a
+        // stale-credentialed handle.
+        self.handle = nil
         self.accountSession = nil
         self.account = nil
         self.isLogged = false
@@ -323,159 +367,23 @@ public final class DS3Authentication: @unchecked Sendable {
         }
     }
 
-    /// Gets a challenge from Cubbit's IAM service
-    /// - Parameters:
-    ///   - email: the email you want to get the challenge for
-    ///   - tenant: optional tenant identifier for multi-tenant login
-    /// - Returns: the challenge
-    public func getChallenge(email: String, tenant: String? = nil) async throws -> Challenge {
-        guard let url = URL(string: self.urls.challengeURL)
-        else { throw DS3AuthenticationError.invalidURL(url: self.urls.challengeURL) }
+    // MARK: - Session sync (private)
 
-        let challengeRequestBody = DS3ChallengeRequest(email: email, tenantId: tenant)
-
-        self.logger.debug("Retrieving challenge for email \(email)")
-
-        let encoder = JSONEncoder()
-        guard let data = try? encoder.encode(challengeRequestBody) else { throw DS3AuthenticationError.jsonConversion }
-
-        var request = URLRequest(url: url)
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpMethod = "POST"
-        request.httpBody = data
-
-        let (responseData, response) = try await URLSession.shared.data(for: request)
-
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
-            self.logger.error("Challenge request failed: HTTP \(statusCode, privacy: .public)")
-            #if DEBUG
-                let body = String(data: responseData, encoding: .utf8) ?? "<non-utf8>"
-                self.logger.error("Challenge response body: \(body, privacy: .private)")
-            #endif
-            throw DS3AuthenticationError.serverError
+    /// Pulls the current `AccountSession` snapshot out of the Rust handle and
+    /// mirrors it into `self.accountSession`. Called after every state-mutating
+    /// FFI call (login / refresh / forge) so the @Observable property and the
+    /// App Group JSON on disk stay in lockstep with the Rust session (D-06,
+    /// PATTERNS.md §"Pattern 5: App Group Persistence Boundary").
+    private func syncSessionFromHandle(_ handle: Ds3SessionHandle) throws {
+        do {
+            let ffiSession = try handle.currentSession()
+            self.accountSession = try AccountSession.fromFFI(ffiSession)
+        } catch let rustError as Ds3Error {
+            self.logger.error(
+                "syncSessionFromHandle failed: code=\(ds3ErrorCode(message: DS3AuthenticationError.describe(rustError)), privacy: .public)"
+            )
+            throw DS3AuthenticationError.translate(rustError)
         }
-        guard let challenge = try? JSONDecoder().decode(Challenge.self, from: responseData)
-        else { throw DS3AuthenticationError.jsonConversion }
-
-        self.logger.debug("Challenge retrieved")
-
-        return challenge
-    }
-
-    /// Sign a provided challenge with a private key generated from user's password
-    /// - Parameters:
-    ///   - challenge: the challenge to sign
-    ///   - password: the password to use to sign the challenge
-    /// - Returns: the signed challenge in base64 format
-    public func signChallenge(challenge: Challenge, password: String) throws -> String {
-        guard let passwordBuffer = password.data(using: .utf8) else { throw DS3AuthenticationError.encoding }
-        guard let saltBuffer = challenge.salt.data(using: .utf8) else { throw DS3AuthenticationError.encoding }
-
-        self.logger.debug("Signing challenge")
-
-        let buffer = passwordBuffer + saltBuffer
-
-        var sha = SHA256()
-        sha.update(data: buffer)
-        let seed = sha.finalize()
-
-        let keychain = try Curve25519.Signing.PrivateKey(rawRepresentation: seed)
-
-        guard let challengeData = challenge.challenge.data(using: .utf8) else {
-            throw DS3AuthenticationError.encoding
-        }
-        let signedChallenge = try keychain.signature(for: challengeData)
-
-        self.logger.debug("Challenge signed")
-
-        return signedChallenge.base64EncodedString()
-    }
-
-    /// Retrieves an account session token using a challenge and an email. To generate the signed challenge refer to the
-    /// `signChallenge` method
-    /// - Parameters:
-    ///   - email: the email related to the account session to retrieve
-    ///   - signedChallengeBase64: the signed challenge to use for signin in the account
-    /// - Returns: the session for the provided email
-    public func getAccountSession(
-        email: String,
-        signedChallengeBase64: String,
-        withTfaToken tfaCode: String? = nil,
-        tenant: String? = nil
-    ) async throws -> AccountSession {
-        guard let url = URL(string: self.urls.signinURL)
-        else { throw DS3AuthenticationError.invalidURL(url: self.urls.signinURL) }
-
-        let accountSessionRequest = DS3LoginRequest(
-            email: email,
-            signedChallenge: signedChallengeBase64,
-            tfaCode: tfaCode,
-            tenantId: tenant
-        )
-
-        self.logger.debug("Getting account session for email \(email)")
-
-        let encoder = JSONEncoder()
-        encoder.keyEncodingStrategy = .convertToSnakeCase
-        guard let data = try? encoder.encode(accountSessionRequest) else { throw DS3AuthenticationError.encoding }
-
-        var request = URLRequest(url: url)
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpMethod = "POST"
-        request.httpBody = data
-
-        let (responseData, response) = try await URLSession.shared.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
-            self.logger.error("Sign-in request failed: HTTP \(statusCode, privacy: .public)")
-            #if DEBUG
-                let body = String(data: responseData, encoding: .utf8) ?? "<non-utf8>"
-                self.logger.error("Sign-in response body: \(body, privacy: .private)")
-            #endif
-
-            if let mfaResponse = try? JSONDecoder().decode(DS3Missing2FAResponse.self, from: responseData),
-               mfaResponse.message == APIError.Missing2FA {
-                throw DS3AuthenticationError.missing2FA
-            }
-
-            throw DS3AuthenticationError.serverError
-        }
-
-        let (token, refreshToken) = try self.parseTokenResponse(data: responseData, response: response, url: url)
-
-        self.logger.debug("Account session retrieved")
-
-        return AccountSession(token: token, refreshToken: refreshToken)
-    }
-
-    // MARK: - Response Parsing
-
-    /// Parses a token and refresh cookie from an HTTP response.
-    /// Shared by `forgeIAMToken`, `refreshIfNeeded`, and `getAccountSession`.
-    private func parseTokenResponse(
-        data: Data,
-        response: URLResponse,
-        url: URL
-    ) throws -> (token: Token, refreshToken: String) {
-        guard
-            let httpResponse = response as? HTTPURLResponse,
-            httpResponse.statusCode == 200
-        else { throw DS3AuthenticationError.tokenExpired }
-
-        guard let token = try? JSONDecoder().decode(Token.self, from: data)
-        else { throw DS3AuthenticationError.jsonConversion }
-
-        guard let fields = httpResponse.allHeaderFields as? [String: String]
-        else { throw DS3AuthenticationError.serverError }
-
-        let cookies = HTTPCookie.cookies(withResponseHeaderFields: fields, for: url)
-
-        guard let refreshToken = cookies.first(where: { $0.name == "_refresh" })?.value
-        else { throw DS3AuthenticationError.cookies }
-
-        return (token, refreshToken)
     }
 
     // MARK: - Persistence
@@ -492,6 +400,16 @@ public final class DS3Authentication: @unchecked Sendable {
     }
 
     /// Loads authentication state from shared container, or creates a new unauthenticated instance.
+    ///
+    /// **Plan 04 caveat:** the Rust `Ds3SessionHandle` is in-memory only — there
+    /// is no constructor that rebuilds an authenticated handle from a persisted
+    /// `refreshToken`. After app restart, the returned instance has
+    /// `isLogged = true` but `handle = nil`, so any subsequent auth method
+    /// (`login` / `refreshIfNeeded` / `forgeIAMToken`) throws `.loggedOut`.
+    /// The user must explicitly re-login. The File Provider extension is
+    /// unaffected (it constructs an S3-only handle via `Ds3SessionHandle.s3Only`
+    /// using persisted API keys — no auth round-trip required).
+    ///
     /// - Parameter urls: The URL configuration to use. Defaults to the standard coordinator.
     public static func loadFromPersistenceOrCreateNew(urls: CubbitAPIURLs = CubbitAPIURLs()) -> DS3Authentication {
         do {
@@ -530,34 +448,22 @@ public final class DS3Authentication: @unchecked Sendable {
 
     // MARK: - Account
 
-    /// Retrieves Cubbit's account info
-    /// - Returns: info about Cubbit's account
+    /// Retrieves Cubbit's account info.
+    ///
+    /// - Returns: info about Cubbit's account.
     public func accountInfo() async throws -> Account {
-        guard self.isLogged else { throw DS3AuthenticationError.loggedOut }
+        guard let handle = self.handle else { throw DS3AuthenticationError.loggedOut }
 
-        try await self.refreshIfNeeded()
-
-        guard let session = self.accountSession else { throw DS3AuthenticationError.loggedOut }
-        guard let url = URL(string: self.urls.accountsMeURL)
-        else { throw DS3AuthenticationError.invalidURL(url: self.urls.accountsMeURL) }
-
-        var request = URLRequest(url: url)
-
-        request.allHTTPHeaderFields = [
-            "Content-Type": "application/json",
-            "Authorization": "Bearer \(session.token.token)"
-        ]
-
-        request.httpMethod = "GET"
-
-        let (responseData, response) = try await URLSession.shared.data(for: request)
-
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw DS3AuthenticationError.serverError }
-        guard let account = try? JSONDecoder().decode(Account.self, from: responseData)
-        else { throw DS3AuthenticationError.jsonConversion }
-
-        self.logger.info("accountInfo: endpoint_gateway=\(account.endpointGateway, privacy: .public)")
-
-        return account
+        do {
+            let ffiAccount = try handle.accountInfo()
+            let swift = Account.fromFFI(ffiAccount)
+            self.logger.info("accountInfo: endpoint_gateway=\(swift.endpointGateway, privacy: .public)")
+            return swift
+        } catch let rustError as Ds3Error {
+            self.logger.error(
+                "accountInfo failed: code=\(ds3ErrorCode(message: DS3AuthenticationError.describe(rustError)), privacy: .public) \(DS3AuthenticationError.describe(rustError), privacy: .public)"
+            )
+            throw DS3AuthenticationError.translate(rustError)
+        }
     }
 }

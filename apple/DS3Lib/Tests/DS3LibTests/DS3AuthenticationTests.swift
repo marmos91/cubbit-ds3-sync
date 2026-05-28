@@ -1,59 +1,16 @@
-import XCTest
+import DS3CoreFFI
 @testable import DS3Lib
+import XCTest
 
 /// Tests for DS3Authentication pure methods (no network calls).
+///
+/// Phase 16 Plan 04: the Curve25519 signing and the HTTP request-body structs
+/// (`DS3ChallengeRequest` / `DS3LoginRequest`) moved into Rust and were
+/// removed from the Swift surface; the corresponding tests are kept inside
+/// `core/ds3-auth/src/crypto.rs` (sign_challenge unit tests) and
+/// `core/ds3-http/src/serde.rs` (request-body serde tests). The Plan 04
+/// SUMMARY tracks this migration in §"Test refactors".
 final class DS3AuthenticationTests: XCTestCase {
-    // MARK: - Sign Challenge
-
-    func testSignChallengeProducesValidBase64() throws {
-        let auth = DS3Authentication()
-        let challenge = Challenge(challenge: "test-challenge-123", salt: "test-salt-456")
-        let password = "my-password"
-
-        let signature = try auth.signChallenge(challenge: challenge, password: password)
-
-        let decoded = Data(base64Encoded: signature)
-        XCTAssertNotNil(decoded, "Signature should be valid base64")
-        // Ed25519 signatures are 64 bytes
-        XCTAssertEqual(decoded?.count, 64, "Ed25519 signature should be 64 bytes")
-    }
-
-    func testSignChallengeDiffersWithDifferentPasswords() throws {
-        let auth = DS3Authentication()
-        let challenge = Challenge(challenge: "challenge", salt: "salt")
-
-        let sig1 = try auth.signChallenge(challenge: challenge, password: "password1")
-        let sig2 = try auth.signChallenge(challenge: challenge, password: "password2")
-
-        XCTAssertNotEqual(sig1, sig2, "Different passwords should produce different signatures")
-    }
-
-    func testSignChallengeDiffersWithDifferentChallenges() throws {
-        let auth = DS3Authentication()
-        let password = "same-password"
-
-        let challenge1 = Challenge(challenge: "challenge-1", salt: "salt")
-        let challenge2 = Challenge(challenge: "challenge-2", salt: "salt")
-
-        let sig1 = try auth.signChallenge(challenge: challenge1, password: password)
-        let sig2 = try auth.signChallenge(challenge: challenge2, password: password)
-
-        XCTAssertNotEqual(sig1, sig2)
-    }
-
-    func testSignChallengeDiffersWithDifferentSalts() throws {
-        let auth = DS3Authentication()
-        let password = "same-password"
-
-        let challenge1 = Challenge(challenge: "challenge", salt: "salt-1")
-        let challenge2 = Challenge(challenge: "challenge", salt: "salt-2")
-
-        let sig1 = try auth.signChallenge(challenge: challenge1, password: password)
-        let sig2 = try auth.signChallenge(challenge: challenge2, password: password)
-
-        XCTAssertNotEqual(sig1, sig2)
-    }
-
     // MARK: - Login State
 
     func testInitialStateIsLoggedOut() {
@@ -130,9 +87,18 @@ final class DS3AuthenticationTests: XCTestCase {
 
         await auth.logout()
 
-        XCTAssertFalse(FileManager.default.fileExists(atPath: sessionFile.path), "session should be deleted after logout")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: accountFile.path), "account should be deleted after logout")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: apiKeysFile.path), "apiKeys should be deleted after logout")
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: sessionFile.path),
+            "session should be deleted after logout"
+        )
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: accountFile.path),
+            "account should be deleted after logout"
+        )
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: apiKeysFile.path),
+            "apiKeys should be deleted after logout"
+        )
     }
 
     /// Regression: logout must also clear drives.json. Leaving drive entries
@@ -227,44 +193,64 @@ final class DS3AuthenticationTests: XCTestCase {
         XCTAssertEqual(auth.urls.coordinatorURL, "https://custom.api.example.com")
     }
 
-    // MARK: - ChallengeRequest Encoding
+    // MARK: - Error translation (T-16-04-01 / D-15)
 
-    func testChallengeRequestEncoding() throws {
-        let request = DS3ChallengeRequest(email: "test@cubbit.io", tenantId: "my-tenant")
-        let data = try JSONEncoder().encode(request)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+    // The Rust `DS3Error` uses `thiserror` to produce canonical Display strings
+    // (`"2FA code required"`, `"Not logged in"`, etc.). UniFFI's `flat_error`
+    // attribute collapses every variant into a `Case(message: String)` shape
+    // on the Swift side, where `message` IS the Display string. The
+    // `ds3ErrorCode(message:)` free function matches against those canonical
+    // strings — tests must use them verbatim or they fall through to the
+    // unknown-code branch (which the translator maps to `.serverError`).
 
-        XCTAssertEqual(json?["email"] as? String, "test@cubbit.io")
-        XCTAssertEqual(json?["tenant_id"] as? String, "my-tenant")
+    func testTranslateMaps1007ToMissing2FA() {
+        // Load-bearing: code 1007 MUST map to .missing2FA so the LoginViewModel
+        // re-prompts the user for a TFA code. Any other mapping silently
+        // bypasses the 2FA UI (auth bypass — see threat T-16-04-01).
+        let rust = Ds3Error.Missing2Fa(message: "2FA code required")
+        let translated = DS3AuthenticationError.translate(rust)
+        guard case .missing2FA = translated else {
+            XCTFail("Expected .missing2FA for Missing2Fa Ds3Error, got \(translated)")
+            return
+        }
     }
 
-    func testChallengeRequestWithoutTenant() throws {
-        let request = DS3ChallengeRequest(email: "test@cubbit.io", tenantId: nil)
-        let data = try JSONEncoder().encode(request)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-
-        XCTAssertEqual(json?["email"] as? String, "test@cubbit.io")
-        XCTAssertNil(json?["tenant_id"])
+    func testTranslateMaps1005ToLoggedOut() {
+        let rust = Ds3Error.LoggedOut(message: "Not logged in")
+        let translated = DS3AuthenticationError.translate(rust)
+        guard case .loggedOut = translated else {
+            XCTFail("Expected .loggedOut, got \(translated)")
+            return
+        }
     }
 
-    // MARK: - LoginRequest Encoding
+    func testTranslateMaps1006ToTokenExpired() {
+        let rust = Ds3Error.TokenExpired(message: "Token expired")
+        let translated = DS3AuthenticationError.translate(rust)
+        guard case .tokenExpired = translated else {
+            XCTFail("Expected .tokenExpired, got \(translated)")
+            return
+        }
+    }
 
-    func testLoginRequestEncoding() throws {
-        let request = DS3LoginRequest(
-            email: "test@cubbit.io",
-            signedChallenge: "base64sig==",
-            tfaCode: "123456",
-            tenantId: "tenant-1"
-        )
+    func testTranslateMaps1002ToServerError() {
+        let rust = Ds3Error.ServerError(message: "Server error: HTTP 500")
+        let translated = DS3AuthenticationError.translate(rust)
+        guard case .serverError = translated else {
+            XCTFail("Expected .serverError, got \(translated)")
+            return
+        }
+    }
 
-        let encoder = JSONEncoder()
-        encoder.keyEncodingStrategy = .convertToSnakeCase
-        let data = try encoder.encode(request)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-
-        XCTAssertEqual(json?["email"] as? String, "test@cubbit.io")
-        XCTAssertEqual(json?["signed_challenge"] as? String, "base64sig==")
-        XCTAssertEqual(json?["tfa_code"] as? String, "123456")
-        XCTAssertEqual(json?["tenant_id"] as? String, "tenant-1")
+    func testTranslateUnknownCodeFallsBackToServerError() {
+        // S3Error (code 3003) is not an auth error; the auth translator's
+        // default branch falls through to .serverError so the LoginViewModel
+        // still surfaces a non-fatal error.
+        let rust = Ds3Error.S3Error(message: "S3 error: unexpected")
+        let translated = DS3AuthenticationError.translate(rust)
+        guard case .serverError = translated else {
+            XCTFail("Expected .serverError for default branch, got \(translated)")
+            return
+        }
     }
 }

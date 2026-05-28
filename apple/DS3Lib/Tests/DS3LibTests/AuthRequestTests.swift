@@ -1,80 +1,60 @@
-import XCTest
+import DS3CoreFFI
 @testable import DS3Lib
+import XCTest
 
+/// Round-trip tests for the authentication translator on Plan 04.
+///
+/// Phase 16 Plan 04 deleted the Swift-side request-body structs
+/// (`DS3ChallengeRequest` / `DS3LoginRequest`) — the wire-format encoding now
+/// lives in `core/ds3-http/src/serde.rs` and is covered by Rust unit tests.
+/// What remains in Swift is the `Ds3Error -> DS3AuthenticationError`
+/// translator, which is exhaustively pinned here so any future re-numbering
+/// of `DS3Error::code()` flags the LoginViewModel-facing case mapping.
 final class AuthRequestTests: XCTestCase {
-    // MARK: - DS3ChallengeRequest encoding
+    func testTranslateExhaustiveCodeTable() {
+        // Each Rust variant must map to a deterministic Swift case so the
+        // LoginViewModel's switch on DS3AuthenticationError stays accurate.
+        // The `message` field carries the canonical Display string emitted
+        // by `thiserror` in `core/ds3-models/src/error.rs` — `ds3ErrorCode`
+        // matches the prefix to derive the numeric code.
+        let cases: [(Ds3Error, String)] = [
+            (.InvalidUrl(message: "Invalid URL: https://x"), "invalidURL"),
+            (.ServerError(message: "Server error: HTTP 500"), "serverError"),
+            (.JsonError(message: "JSON error: oops"), "jsonConversion"),
+            (.Encoding(message: "Encoding error"), "encoding"),
+            (.LoggedOut(message: "Not logged in"), "loggedOut"),
+            (.TokenExpired(message: "Token expired"), "tokenExpired"),
+            (.Missing2Fa(message: "2FA code required"), "missing2FA"),
+            (.CookieError(message: "Cookie error"), "cookies")
+        ]
 
-    func testChallengeRequestWithoutTenantEncodesEmailOnly() throws {
-        let request = DS3ChallengeRequest(email: "test@cubbit.io")
-        let data = try JSONEncoder().encode(request)
-        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-
-        XCTAssertEqual(json["email"] as? String, "test@cubbit.io")
-        XCTAssertNil(json["tenant_id"], "tenant_id should not appear when tenantId is nil")
+        for (rust, expectedDescription) in cases {
+            let swift = DS3AuthenticationError.translate(rust)
+            XCTAssertEqual(
+                DS3AuthenticationError.shortName(swift),
+                expectedDescription,
+                "Wrong translation for \(rust)"
+            )
+        }
     }
+}
 
-    func testChallengeRequestWithTenantEncodesBothFields() throws {
-        let request = DS3ChallengeRequest(email: "test@cubbit.io", tenantId: "neonswarm")
-        let data = try JSONEncoder().encode(request)
-        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-
-        XCTAssertEqual(json["email"] as? String, "test@cubbit.io")
-        XCTAssertEqual(json["tenant_id"] as? String, "neonswarm")
-    }
-
-    // MARK: - DS3LoginRequest encoding (uses .convertToSnakeCase)
-
-    func testLoginRequestWithTenantEncodesCorrectly() throws {
-        let request = DS3LoginRequest(
-            email: "test@cubbit.io",
-            signedChallenge: "abc123",
-            tfaCode: nil,
-            tenantId: "neonswarm"
-        )
-        let encoder = JSONEncoder()
-        encoder.keyEncodingStrategy = .convertToSnakeCase
-        let data = try encoder.encode(request)
-        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-
-        XCTAssertEqual(json["email"] as? String, "test@cubbit.io")
-        XCTAssertEqual(json["signed_challenge"] as? String, "abc123")
-        XCTAssertNil(json["tfa_code"])
-        XCTAssertEqual(json["tenant_id"] as? String, "neonswarm")
-    }
-
-    func testLoginRequestWithoutTenantOmitsTenantId() throws {
-        let request = DS3LoginRequest(
-            email: "test@cubbit.io",
-            signedChallenge: "abc123",
-            tfaCode: nil,
-            tenantId: nil
-        )
-        let encoder = JSONEncoder()
-        encoder.keyEncodingStrategy = .convertToSnakeCase
-        let data = try encoder.encode(request)
-        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-
-        XCTAssertEqual(json["email"] as? String, "test@cubbit.io")
-        XCTAssertEqual(json["signed_challenge"] as? String, "abc123")
-        XCTAssertNil(json["tfa_code"])
-        XCTAssertNil(json["tenant_id"], "tenant_id should not appear when tenantId is nil")
-    }
-
-    func testLoginRequestWithAllFieldsPopulated() throws {
-        let request = DS3LoginRequest(
-            email: "test@cubbit.io",
-            signedChallenge: "abc123",
-            tfaCode: "654321",
-            tenantId: "neonswarm"
-        )
-        let encoder = JSONEncoder()
-        encoder.keyEncodingStrategy = .convertToSnakeCase
-        let data = try encoder.encode(request)
-        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-
-        XCTAssertEqual(json["email"] as? String, "test@cubbit.io")
-        XCTAssertEqual(json["signed_challenge"] as? String, "abc123")
-        XCTAssertEqual(json["tfa_code"] as? String, "654321")
-        XCTAssertEqual(json["tenant_id"] as? String, "neonswarm")
+private extension DS3AuthenticationError {
+    /// Short string for the test asserts above. Defined locally so we don't
+    /// pollute the production surface with a stringly-typed helper.
+    static func shortName(_ err: DS3AuthenticationError) -> String {
+        switch err {
+        case .invalidURL: "invalidURL"
+        case .timeConversion: "timeConversion"
+        case .cookies: "cookies"
+        case .encoding: "encoding"
+        case .serverError: "serverError"
+        case .jsonConversion: "jsonConversion"
+        case .loggedOut: "loggedOut"
+        case .alreadyLoggedIn: "alreadyLoggedIn"
+        case .alreadyLoggedOut: "alreadyLoggedOut"
+        case .tokenExpired: "tokenExpired"
+        case .missing2FA: "missing2FA"
+        }
     }
 }

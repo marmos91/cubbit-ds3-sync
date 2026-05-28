@@ -1,9 +1,11 @@
-import XCTest
+import DS3CoreFFI
 @testable import DS3Lib
+import XCTest
 
 /// Integration tests for DS3Authentication against the real Cubbit IAM API.
 /// Requires DS3_TEST_EMAIL, DS3_TEST_PASSWORD, DS3_TEST_BUCKET env vars.
 final class DS3AuthenticationIntegrationTests: XCTestCase {
+    // swiftlint:disable:next implicitly_unwrapped_optional
     private var urls: CubbitAPIURLs!
 
     override func setUp() async throws {
@@ -22,16 +24,16 @@ final class DS3AuthenticationIntegrationTests: XCTestCase {
         let auth = DS3Authentication(urls: urls)
 
         try await auth.login(
-            email: IntegrationTestConfig.email!,
-            password: IntegrationTestConfig.password!,
+            email: XCTUnwrap(IntegrationTestConfig.email),
+            password: XCTUnwrap(IntegrationTestConfig.password),
             tenant: IntegrationTestConfig.tenant
         )
 
         XCTAssertTrue(auth.isLogged)
         XCTAssertNotNil(auth.accountSession)
         XCTAssertNotNil(auth.account)
-        XCTAssertFalse(auth.accountSession!.token.token.isEmpty)
-        XCTAssertFalse(auth.accountSession!.refreshToken.isEmpty)
+        XCTAssertFalse(try XCTUnwrap(auth.accountSession?.token.token.isEmpty))
+        XCTAssertFalse(try XCTUnwrap(auth.accountSession?.refreshToken.isEmpty))
 
         await auth.logout()
     }
@@ -41,7 +43,7 @@ final class DS3AuthenticationIntegrationTests: XCTestCase {
 
         do {
             try await auth.login(
-                email: IntegrationTestConfig.email!,
+                email: XCTUnwrap(IntegrationTestConfig.email),
                 password: "definitely-wrong-password-12345",
                 tenant: IntegrationTestConfig.tenant
             )
@@ -72,12 +74,12 @@ final class DS3AuthenticationIntegrationTests: XCTestCase {
     func testAccountInfoAfterLogin() async throws {
         let auth = DS3Authentication(urls: urls)
         try await auth.login(
-            email: IntegrationTestConfig.email!,
-            password: IntegrationTestConfig.password!,
+            email: XCTUnwrap(IntegrationTestConfig.email),
+            password: XCTUnwrap(IntegrationTestConfig.password),
             tenant: IntegrationTestConfig.tenant
         )
 
-        let account = auth.account!
+        let account = try XCTUnwrap(auth.account)
         XCTAssertFalse(account.id.isEmpty)
         XCTAssertFalse(account.firstName.isEmpty)
         XCTAssertFalse(account.emails.isEmpty)
@@ -91,17 +93,17 @@ final class DS3AuthenticationIntegrationTests: XCTestCase {
     func testTokenRefreshAfterLogin() async throws {
         let auth = DS3Authentication(urls: urls)
         try await auth.login(
-            email: IntegrationTestConfig.email!,
-            password: IntegrationTestConfig.password!,
+            email: XCTUnwrap(IntegrationTestConfig.email),
+            password: XCTUnwrap(IntegrationTestConfig.password),
             tenant: IntegrationTestConfig.tenant
         )
 
-        let originalToken = auth.accountSession!.token.token
+        let originalToken = try XCTUnwrap(auth.accountSession?.token.token)
 
         // Force a refresh
         try await auth.refreshIfNeeded(force: true)
 
-        let newToken = auth.accountSession!.token.token
+        let newToken = try XCTUnwrap(auth.accountSession?.token.token)
         // After a forced refresh, we should get a new token
         // (they might occasionally be the same if the server returns cached, but generally differ)
         XCTAssertTrue(auth.isLogged)
@@ -117,8 +119,8 @@ final class DS3AuthenticationIntegrationTests: XCTestCase {
     func testLogoutClearsSession() async throws {
         let auth = DS3Authentication(urls: urls)
         try await auth.login(
-            email: IntegrationTestConfig.email!,
-            password: IntegrationTestConfig.password!,
+            email: XCTUnwrap(IntegrationTestConfig.email),
+            password: XCTUnwrap(IntegrationTestConfig.password),
             tenant: IntegrationTestConfig.tenant
         )
         XCTAssertTrue(auth.isLogged)
@@ -135,15 +137,15 @@ final class DS3AuthenticationIntegrationTests: XCTestCase {
     func testDoubleLoginThrows() async throws {
         let auth = DS3Authentication(urls: urls)
         try await auth.login(
-            email: IntegrationTestConfig.email!,
-            password: IntegrationTestConfig.password!,
+            email: XCTUnwrap(IntegrationTestConfig.email),
+            password: XCTUnwrap(IntegrationTestConfig.password),
             tenant: IntegrationTestConfig.tenant
         )
 
         do {
             try await auth.login(
-                email: IntegrationTestConfig.email!,
-                password: IntegrationTestConfig.password!,
+                email: XCTUnwrap(IntegrationTestConfig.email),
+                password: XCTUnwrap(IntegrationTestConfig.password),
                 tenant: IntegrationTestConfig.tenant
             )
             XCTFail("Double login should throw")
@@ -159,12 +161,16 @@ final class DS3AuthenticationIntegrationTests: XCTestCase {
 
     // MARK: - Challenge
 
-    func testGetChallengeReturnsValidChallenge() async throws {
-        let auth = DS3Authentication(urls: urls)
-
-        let challenge = try await auth.getChallenge(
-            email: IntegrationTestConfig.email!,
-            tenant: IntegrationTestConfig.tenant
+    /// Phase 16 Plan 04: the standalone challenge-fetch helper moved out of
+    /// `DS3Authentication` and into the Rust core. The corresponding
+    /// integration is now exercised end-to-end through `login(...)` rather
+    /// than a probe against the bare `/challenge` endpoint — kept here as a
+    /// smoke test using the free FFI function exposed by Plan 02.
+    func testGetChallengeReturnsValidChallenge() throws {
+        let challenge = try DS3CoreFFI.getChallenge(
+            email: XCTUnwrap(IntegrationTestConfig.email),
+            tenantId: IntegrationTestConfig.tenant,
+            coordinatorUrl: urls.coordinatorURL
         )
 
         XCTAssertFalse(challenge.challenge.isEmpty)
