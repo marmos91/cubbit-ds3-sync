@@ -93,6 +93,11 @@ struct DS3DriveApp: App {
         // crash loop on next init.
         Task {
             guard auth.isLogged else { return }
+            // Plan 04 caveat: after process restart the Rust session handle
+            // is nil until the user re-logs in. `repairCredentials` walks
+            // SDK calls that need the handle and will throw `.loggedOut` —
+            // bail silently so the UI can route to login.
+            guard auth.hasAuthenticatedHandle else { return }
             await driveManager.repairCredentials(authentication: auth)
         }
         #if os(iOS)

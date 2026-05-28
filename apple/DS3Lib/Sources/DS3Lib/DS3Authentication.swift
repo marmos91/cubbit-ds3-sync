@@ -128,6 +128,17 @@ public final class DS3Authentication: @unchecked Sendable {
     /// known-issue note.
     @ObservationIgnored private(set) var handle: Ds3SessionHandle?
 
+    /// Whether an authenticated Rust session handle is currently in memory.
+    /// `true` after a successful `login(...)`; `false` after `logout(...)` and
+    /// after process restart (the handle is in-memory only — see
+    /// `loadFromPersistenceOrCreateNew`). App-level callers that need to skip
+    /// FFI work when the handle is unavailable (e.g. startup credential
+    /// repair) should gate on this flag instead of `isLogged`, which only
+    /// reflects persisted state.
+    public var hasAuthenticatedHandle: Bool {
+        self.handle != nil
+    }
+
     private let sharedData: SharedData
 
     public init(urls: CubbitAPIURLs = CubbitAPIURLs(), sharedData: SharedData = SharedData.default()) {
@@ -197,6 +208,13 @@ public final class DS3Authentication: @unchecked Sendable {
                 try? await Task.sleep(for: .seconds(60))
                 guard let self, self.isLogged, let session = self.accountSession else { continue }
 
+                // Plan 04 caveat: after process restart, `isLogged` may be true
+                // (rehydrated from persistence) but `handle` is nil because the
+                // Rust `Ds3SessionHandle` is in-memory only. The user must
+                // re-login explicitly; until then, silently skip the refresh
+                // rather than logging an error every minute.
+                guard self.handle != nil else { continue }
+
                 if DS3Authentication.shouldRefreshToken(session.token) {
                     do {
                         try await self.refreshIfNeeded(force: true)
@@ -208,6 +226,10 @@ public final class DS3Authentication: @unchecked Sendable {
                         self.logger.error("Refresh token rejected by server — forcing logout")
                         await self.logout()
                         return
+                    } catch DS3AuthenticationError.loggedOut {
+                        // Handle disappeared between the guard above and the refresh call
+                        // (e.g. logout() ran concurrently). Skip silently.
+                        continue
                     } catch {
                         self.logger.error("Proactive token refresh failed: \(error.localizedDescription)")
                     }
