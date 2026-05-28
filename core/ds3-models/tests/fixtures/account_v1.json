@@ -1,0 +1,25 @@
+{
+  "id": "acc-fixture-001",
+  "first_name": "Fixture",
+  "last_name": "User",
+  "internal": false,
+  "banned": false,
+  "created_at": "2024-01-15T10:00:00.000Z",
+  "deleted_at": null,
+  "banned_at": null,
+  "max_allowed_projects": 5,
+  "emails": [
+    {
+      "id": "em-fixture-001",
+      "email": "test-user@example.com",
+      "default": true,
+      "created_at": "2024-01-15T10:00:00.000Z",
+      "verified": true,
+      "tenant_id": "tenant-fixture"
+    }
+  ],
+  "two_factor_enabled": false,
+  "tenant_id": "tenant-fixture",
+  "endpoint_gateway": "https://s3.fixture.example.com",
+  "auth_provider": "cubbit"
+}
