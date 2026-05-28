@@ -1,25 +1,18 @@
 @testable import DS3Lib
 import FileProvider
 import Foundation
-import SotoCore
 import XCTest
 
 /// Verifies the `mapThumbnailFetchError` helper maps every below-the-seam
 /// error to one of the THREE allowed `NSFileProviderError` codes
 /// (Phase 13 D-13). Crucially, Test 13 asserts NO custom error domain
-/// ever escapes this chokepoint.
+/// ever escapes this chokepoint. Phase 16 Plan 03: Soto types replaced
+/// with `DS3S3Error` cases (and `DS3S3Error.unknown(code:message:)` for
+/// non-enum S3 codes like `AllAccessDisabled`).
 final class FetchThumbnailsErrorMappingTests: XCTestCase {
     // MARK: - Test 7 — 404 → .noSuchItem
 
-    /// NoSuchKey errors should NOT reach the mapper in production
-    /// (`getThumbnailBytes` swallows 404 and returns nil, which the consume
-    /// path translates to `.noSuchItem` itself). However, if a future call
-    /// site routes a `NoSuchKey` through here, the mapper still treats it
-    /// as a missing-resource condition and returns `.noSuchItem`.
     func test404MapsToNoSuchItem() async {
-        // We exercise this by asserting that `consumeThumbnail` returns
-        // .noSuchItem on the nil-data path (which IS the 404 path in
-        // production via `getThumbnailBytes`'s silent contract).
         let drive = ProviderTestFixtures.makeDrive()
         let identifier = NSFileProviderItemIdentifier("prefix/photo.jpg")
         let recorder = ResultRecorder()
@@ -44,8 +37,7 @@ final class FetchThumbnailsErrorMappingTests: XCTestCase {
     // MARK: - Test 8 — 5xx (InternalError) → .serverUnreachable
 
     func test5xxMapsToServerUnreachable() {
-        let error = makeS3Error(code: "InternalError", message: "Server error")
-        let mapped = mapThumbnailFetchError(error)
+        let mapped = mapThumbnailFetchError(DS3S3Error.internalError)
         XCTAssertEqual(mapped.domain, NSFileProviderErrorDomain)
         XCTAssertEqual(mapped.code, NSFileProviderError(.serverUnreachable).code.rawValue)
     }
@@ -53,8 +45,7 @@ final class FetchThumbnailsErrorMappingTests: XCTestCase {
     // MARK: - Test 9 — SlowDown → .serverUnreachable (NO inline retry per D-14)
 
     func testSlowDownMapsToServerUnreachable() {
-        let error = makeS3Error(code: "SlowDown", message: "Reduce request rate")
-        let mapped = mapThumbnailFetchError(error)
+        let mapped = mapThumbnailFetchError(DS3S3Error.slowDown)
         XCTAssertEqual(mapped.domain, NSFileProviderErrorDomain)
         XCTAssertEqual(mapped.code, NSFileProviderError(.serverUnreachable).code.rawValue)
     }
@@ -71,9 +62,7 @@ final class FetchThumbnailsErrorMappingTests: XCTestCase {
     // MARK: - Test 11 — Recoverable auth error → .cannotSynchronize
 
     func testAuthErrorMapsToCannotSynchronize() {
-        // S3ErrorRecovery.recoverableErrorCodes = {InvalidAccessKeyId,
-        // SignatureDoesNotMatch, ExpiredToken}. Use one of those.
-        let error = makeS3Error(code: "InvalidAccessKeyId", message: "Bad key")
+        let error = DS3S3Error.invalidAccessKey
         XCTAssertTrue(
             DS3S3Client.isRecoverableAuthError(error),
             "Sanity: precondition for the auth path of the mapper"
@@ -94,13 +83,8 @@ final class FetchThumbnailsErrorMappingTests: XCTestCase {
 
     // MARK: - Test 12b — AccessDenied → .notAuthenticated
 
-    /// `AccessDenied` denotes a bucket-policy / IAM denial that credential
-    /// rotation can't fix. It MUST map to `.notAuthenticated` so the user sees
-    /// the auth-boundary UX rather than retrying indefinitely against
-    /// `.cannotSynchronize`.
     func testAccessDeniedMapsToNotAuthenticated() {
-        let error = makeS3Error(code: "AccessDenied", message: "Forbidden")
-        let mapped = mapThumbnailFetchError(error)
+        let mapped = mapThumbnailFetchError(DS3S3Error.accessDenied)
         XCTAssertEqual(mapped.domain, NSFileProviderErrorDomain)
         XCTAssertEqual(
             mapped.code, NSFileProviderError(.notAuthenticated).code.rawValue,
@@ -108,9 +92,11 @@ final class FetchThumbnailsErrorMappingTests: XCTestCase {
         )
     }
 
-    /// Same routing for `AllAccessDisabled` (account-level shutdown).
+    /// Same routing for `AllAccessDisabled` (account-level shutdown). DS3S3Error
+    /// has no dedicated case, so the Rust→Swift translator surfaces it via
+    /// `.unknown(code: "AllAccessDisabled", ...)`.
     func testAllAccessDisabledMapsToNotAuthenticated() {
-        let error = makeS3Error(code: "AllAccessDisabled", message: "Account disabled")
+        let error = DS3S3Error.unknown(code: "AllAccessDisabled", message: "Account disabled")
         let mapped = mapThumbnailFetchError(error)
         XCTAssertEqual(mapped.domain, NSFileProviderErrorDomain)
         XCTAssertEqual(
@@ -120,25 +106,27 @@ final class FetchThumbnailsErrorMappingTests: XCTestCase {
 
     // MARK: - Test 13 — No custom error domain ever escapes (CRITICAL)
 
-    /// CLAUDE.md mandate: every error crossing the File Provider boundary MUST
-    /// have `domain == NSFileProviderErrorDomain` or
-    /// `domain == NSCocoaErrorDomain`. This test sweeps every kind of error
-    /// the mapper could see in production and asserts the invariant for each.
     func testNoCustomErrorDomainEverEscapes() {
         let allowedDomains: Set<String> = [NSFileProviderErrorDomain, NSCocoaErrorDomain]
 
         let errorCases: [(label: String, error: Error)] = [
-            ("S3 InternalError", makeS3Error(code: "InternalError", message: "5xx")),
-            ("S3 SlowDown", makeS3Error(code: "SlowDown", message: "throttle")),
-            ("S3 ServiceUnavailable", makeS3Error(code: "ServiceUnavailable", message: "503")),
-            ("S3 RequestTimeout", makeS3Error(code: "RequestTimeout", message: "timeout")),
-            ("S3 InvalidAccessKeyId (auth)", makeS3Error(code: "InvalidAccessKeyId", message: "bad")),
-            ("S3 SignatureDoesNotMatch (auth)", makeS3Error(code: "SignatureDoesNotMatch", message: "bad sig")),
-            ("S3 ExpiredToken (auth)", makeS3Error(code: "ExpiredToken", message: "expired")),
-            ("S3 NoSuchKey", makeS3Error(code: "NoSuchKey", message: "missing")),
-            ("S3 AccessDenied (perm denial)", makeS3Error(code: "AccessDenied", message: "denied")),
-            ("S3 AllAccessDisabled (perm denial)", makeS3Error(code: "AllAccessDisabled", message: "off")),
-            ("S3 unknown code", makeS3Error(code: "WeirdCustomCode", message: "what")),
+            ("S3 InternalError", DS3S3Error.internalError),
+            ("S3 SlowDown", DS3S3Error.slowDown),
+            ("S3 ServiceUnavailable", DS3S3Error.serviceUnavailable),
+            ("S3 RequestTimeout", DS3S3Error.requestTimeout),
+            ("S3 InvalidAccessKeyId (auth)", DS3S3Error.invalidAccessKey),
+            ("S3 SignatureDoesNotMatch (auth)", DS3S3Error.signatureDoesNotMatch),
+            ("S3 ExpiredToken (auth)", DS3S3Error.expiredToken),
+            ("S3 NoSuchKey", DS3S3Error.noSuchKey),
+            ("S3 AccessDenied (perm denial)", DS3S3Error.accessDenied),
+            (
+                "S3 AllAccessDisabled (perm denial)",
+                DS3S3Error.unknown(code: "AllAccessDisabled", message: "off")
+            ),
+            (
+                "S3 unknown code",
+                DS3S3Error.unknown(code: "WeirdCustomCode", message: "what")
+            ),
             ("URLError notConnected", URLError(.notConnectedToInternet)),
             ("URLError timeout", URLError(.timedOut)),
             ("URLError host", URLError(.cannotFindHost)),
@@ -154,7 +142,6 @@ final class FetchThumbnailsErrorMappingTests: XCTestCase {
                 allowedDomains.contains(mapped.domain),
                 "Custom domain leaked for \(testCase.label): got '\(mapped.domain)'"
             )
-            // Additional safety: the code must be a known NSFileProviderError code.
             let validCodes: Set<Int> = [
                 NSFileProviderError(.noSuchItem).code.rawValue,
                 NSFileProviderError(.serverUnreachable).code.rawValue,
@@ -167,46 +154,8 @@ final class FetchThumbnailsErrorMappingTests: XCTestCase {
             )
         }
     }
-
-    // MARK: - S3 error fixture
-
-    /// Builds an `AWSErrorType`-conforming error with the given error code.
-    /// `DS3S3Client.s3ErrorCode(from:)` uses `error as? AWSErrorType` and
-    /// reads `errorCode` — we don't need a real Soto error type, only the
-    /// protocol conformance. `AWSErrorContext.init` is internal in SotoCore
-    /// so we can't use the real `AWSResponseError` from outside the module;
-    /// our `TestAWSError` provides the surface the mapper actually inspects.
-    private func makeS3Error(code: String, message: String) -> Error {
-        TestAWSError(code: code, message: message)
-    }
 }
 
 /// Generic Swift error for the "Test 13" sweep — pure Swift type, no
 /// NSError ancestry. Must still get bridged to an allowed domain.
 private struct GenericTestError: Error {}
-
-/// Test-only `AWSErrorType` conformance. `DS3S3Client.s3ErrorCode(from:)`
-/// reads `errorCode` after an `as? AWSErrorType` cast — that's the only
-/// surface the mapper inspects, so this minimal stub is sufficient to drive
-/// every branch in `mapThumbnailFetchError`.
-private struct TestAWSError: AWSErrorType {
-    let errorCode: String
-    let messageText: String
-
-    init(code: String, message: String) {
-        self.errorCode = code
-        self.messageText = message
-    }
-
-    init?(errorCode _: String, context _: AWSErrorContext) {
-        nil
-    }
-
-    var context: AWSErrorContext? {
-        nil
-    }
-
-    var description: String {
-        "TestAWSError(\(errorCode)): \(messageText)"
-    }
-}

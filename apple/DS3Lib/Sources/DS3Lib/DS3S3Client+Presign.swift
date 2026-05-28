@@ -35,6 +35,12 @@ public extension DS3S3Client {
         guard expiresIn > 0, expiresIn <= 604_800 else {
             throw PresignError.invalidPresignExpiry
         }
+        // Cubbit DS3 always uses a custom S3 gateway; reject nil endpoint
+        // early so presign errors are clearly distinguished from network
+        // failures (preserves the Soto-era contract).
+        guard customEndpoint != nil else {
+            throw PresignError.invalidObjectURL
+        }
         do {
             let urlString = try handle.presignGet(
                 bucket: bucket,

@@ -2,7 +2,6 @@
 import FileProvider
 import Foundation
 import os.log
-import SotoS3
 import XCTest
 
 /// Issue #167: folder rename must move the `.ds3keep` marker from old to new
@@ -200,7 +199,7 @@ private final class RenameMockS3Client: DS3S3ClientProtocol, @unchecked Sendable
 
     func headObject(bucket _: String, key: String) async throws -> S3ObjectMetadata {
         guard headKeys.contains(key) else {
-            throw S3ErrorType.noSuchKey
+            throw DS3S3Error.noSuchKey
         }
         return S3ObjectMetadata(
             etag: "mock-etag", contentType: nil, lastModified: nil,
@@ -222,7 +221,7 @@ private final class RenameMockS3Client: DS3S3ClientProtocol, @unchecked Sendable
     ) async throws {
         if let copyObjectError { throw copyObjectError }
         guard headKeys.contains(sourceKey) else {
-            throw S3ErrorType.noSuchKey
+            throw DS3S3Error.noSuchKey
         }
         copiedFrom = sourceKey
         copiedTo = destinationKey
