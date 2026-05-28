@@ -112,6 +112,24 @@ public enum DS3ClientError: Error, Sendable {
     case thumbnailTooLarge(size: Int, limit: Int)
 }
 
+/// Setup-time errors for `DS3S3Client` initialization.
+public enum DS3S3ClientSetupError: Error, LocalizedError {
+    /// The S3 endpoint string was missing or empty. Typically caused by a
+    /// blank `endpointGateway` in `account.json` — re-run the login flow so
+    /// the Rust core repopulates account info.
+    case missingEndpoint
+
+    public var errorDescription: String? {
+        switch self {
+        case .missingEndpoint:
+            NSLocalizedString(
+                "S3 endpoint is missing. Please sign in again to refresh account info.",
+                comment: "DS3S3Client missing endpoint error"
+            )
+        }
+    }
+}
+
 /// Groups the constant parameters shared across all parts of a multipart upload.
 public struct MultipartUploadContext: Sendable {
     public let bucket: String
@@ -219,22 +237,34 @@ public final class DS3S3Client: @unchecked Sendable {
     ///   - endpoint: The S3 endpoint URL (required — Cubbit DS3 always uses a custom endpoint)
     ///   - timeout: Unused (the Rust core's `aws-sdk-s3` has its own timeout config). Kept
     ///     for source compatibility with pre-Plan-03 call sites.
+    /// - Throws: `DS3S3ClientSetupError.missingEndpoint` if `endpoint` is `nil` or empty
+    ///   (e.g. blank `endpointGateway` in `account.json`); `DS3S3Error` if the
+    ///   FFI rejects the endpoint format.
     public init(
         accessKeyId: String,
         secretAccessKey: String,
         endpoint: String?,
         timeout _: Int64 = DefaultSettings.S3.timeoutInSeconds
-    ) {
+    ) throws {
+        // The FFI requires a non-empty endpoint. Cubbit DS3 always passes one
+        // through `account.endpointGateway`, but a blank field in `account.json`
+        // used to crash the extension via `try!`. Surface as a recoverable
+        // error so callers (extension, share extension, drive init) can route
+        // the user to re-login instead of trapping.
+        guard let endpoint, !endpoint.isEmpty else {
+            throw DS3S3ClientSetupError.missingEndpoint
+        }
         self.customEndpoint = endpoint
-        // The FFI requires a non-nil endpoint. Cubbit DS3 always passes one;
-        // fail loudly if a caller violates that invariant.
-        // swiftlint:disable:next force_try
-        self.handle = try! Ds3SessionHandle.s3Only(
-            endpoint: endpoint ?? "",
-            accessKey: accessKeyId,
-            secretKey: secretAccessKey,
-            region: nil
-        )
+        do {
+            self.handle = try Ds3SessionHandle.s3Only(
+                endpoint: endpoint,
+                accessKey: accessKeyId,
+                secretKey: secretAccessKey,
+                region: nil
+            )
+        } catch let rustError as Ds3Error {
+            throw DS3S3Error.translate(rustError)
+        }
     }
 
     /// Plan 04 initializer: takes an authenticated `Ds3SessionHandle` (the

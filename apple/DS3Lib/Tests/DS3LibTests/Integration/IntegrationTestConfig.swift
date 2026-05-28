@@ -129,7 +129,7 @@ class DS3S3IntegrationTestCase: DS3IntegrationTestCase {
             throw XCTSkip("API key has no secret key — delete '\(apiKeyName)' in the Cubbit console and re-run")
         }
 
-        s3Client = DS3S3Client(
+        s3Client = try DS3S3Client(
             accessKeyId: apiKey.apiKey,
             secretAccessKey: secretKey,
             endpoint: authentication.account?.endpointGateway

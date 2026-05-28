@@ -295,6 +295,18 @@ struct DS3DriveApp: App {
     ) {
         Task {
             guard auth.isLogged else { return }
+            // Plan 04 caveat: after process restart, `isLogged` is rehydrated
+            // from persistence but the Rust `Ds3SessionHandle` (required for
+            // any FFI auth call) is in-memory only and nil until the user
+            // re-logs in. Repair walks `DS3SDK.loadOrCreateDS3APIKeys` which
+            // throws `.loggedOut` when handle is nil — bail silently here so
+            // the UI can route the user back to login without crashing or
+            // spamming errors.
+            guard auth.hasAuthenticatedHandle else {
+                Logger(subsystem: LogSubsystem.app, category: LogCategory.auth.rawValue)
+                    .info("Skipping startup credential repair — session handle not yet authenticated")
+                return
+            }
             await manager.repairCredentials(authentication: auth)
             for drive in manager.drives {
                 let fpDomain = manager.fileProviderDomain(forDrive: drive)
