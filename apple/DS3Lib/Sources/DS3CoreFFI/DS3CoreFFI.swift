@@ -809,6 +809,15 @@ public protocol Ds3SessionHandleProtocol: AnyObject, Sendable {
     func loadApiKeys(userId: String, iamToken: String) throws -> [Ds3ApiKey]
 
     /**
+     * Generates a presigned GET URL for an S3 object.
+     *
+     * `expires_in_seconds` must be in `1..=604_800` (7 days, AWS sigv4 limit).
+     * Swift consumes the returned URL for unauthenticated GET access (thumbnail
+     * fetches, iOS background-downloads, etc.).
+     */
+    func presignGet(bucket: String, key: String, expiresInSeconds: Int64) throws -> String
+
+    /**
      * Generates a presigned PUT URL for a multipart upload part.
      *
      * `expires_in_seconds` must be in `1..=604_800` (7 days, AWS sigv4 limit).
@@ -933,6 +942,33 @@ open class Ds3SessionHandle: Ds3SessionHandleProtocol, @unchecked Sendable {
                 FfiConverterString.lower(password),
                 FfiConverterOptionString.lower(tenantId),
                 FfiConverterOptionString.lower(coordinatorUrl), $0
+            )
+        })
+    }
+
+    /**
+     * Constructs a session handle that only supports S3 operations.
+     *
+     * Phase 16 Plan 03 transition: the Swift `DS3S3Client` adapter needs a
+     * Rust-backed S3 path before Plan 04 wires the full IAM session through
+     * `DS3SessionHandle`. This constructor connects the underlying `aws-sdk-s3`
+     * client with the provided credentials and endpoint, leaving `session`
+     * unset. Auth/projects/keys methods on the handle will return
+     * `DS3Error::LoggedOut` until Plan 04 replaces this construction with the
+     * authenticated flow.
+     */
+    public static func s3Only(
+        endpoint: String,
+        accessKey: String,
+        secretKey: String,
+        region: String?
+    ) throws -> Ds3SessionHandle {
+        try FfiConverterTypeDS3SessionHandle_lift(rustCallWithError(FfiConverterTypeDS3Error_lift) {
+            uniffi_ds3_ffi_fn_constructor_ds3sessionhandle_s3_only(
+                FfiConverterString.lower(endpoint),
+                FfiConverterString.lower(accessKey),
+                FfiConverterString.lower(secretKey),
+                FfiConverterOptionString.lower(region), $0
             )
         })
     }
@@ -1207,6 +1243,24 @@ open class Ds3SessionHandle: Ds3SessionHandleProtocol, @unchecked Sendable {
                 self.uniffiCloneHandle(),
                 FfiConverterString.lower(userId),
                 FfiConverterString.lower(iamToken), $0
+            )
+        })
+    }
+
+    /**
+     * Generates a presigned GET URL for an S3 object.
+     *
+     * `expires_in_seconds` must be in `1..=604_800` (7 days, AWS sigv4 limit).
+     * Swift consumes the returned URL for unauthenticated GET access (thumbnail
+     * fetches, iOS background-downloads, etc.).
+     */
+    open func presignGet(bucket: String, key: String, expiresInSeconds: Int64) throws -> String {
+        try FfiConverterString.lift(rustCallWithError(FfiConverterTypeDS3Error_lift) {
+            uniffi_ds3_ffi_fn_method_ds3sessionhandle_presign_get(
+                self.uniffiCloneHandle(),
+                FfiConverterString.lower(bucket),
+                FfiConverterString.lower(key),
+                FfiConverterInt64.lower(expiresInSeconds), $0
             )
         })
     }
@@ -1873,6 +1927,9 @@ private let initializationResult: InitializationResult = {
     if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_load_api_keys() != 8257 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_presign_get() != 65208 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_presign_upload_part() != 18904 {
         return InitializationResult.apiChecksumMismatch
     }
@@ -1892,6 +1949,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_ds3_ffi_checksum_constructor_ds3sessionhandle_authenticate() != 17499 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_ds3_ffi_checksum_constructor_ds3sessionhandle_s3_only() != 4120 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_ds3_ffi_checksum_constructor_ds3sessionhandle_verify_2fa() != 2887 {
