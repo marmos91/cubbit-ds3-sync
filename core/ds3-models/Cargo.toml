@@ -13,4 +13,5 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 thiserror = { workspace = true }
 reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
 uniffi = { version = "0.31", features = ["cli"] }

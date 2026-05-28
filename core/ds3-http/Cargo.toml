@@ -9,6 +9,8 @@ name = "ds3_http"
 [dependencies]
 ds3-models = { path = "../ds3-models" }
 reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
+reqwest-retry = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

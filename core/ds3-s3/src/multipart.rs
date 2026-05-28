@@ -9,6 +9,7 @@ use aws_sdk_s3::types::{CompletedMultipartUpload, CompletedPart};
 use futures::stream::{self, StreamExt};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
+use crate::cancel::CancelToken;
 use crate::client::{normalize_etag, DS3S3Client, MULTIPART_CONCURRENCY, MULTIPART_PART_SIZE};
 use ds3_models::DS3Error;
 
@@ -59,6 +60,7 @@ impl DS3S3Client {
         file_path: &Path,
         total_size: u64,
         on_progress: Option<&(dyn Fn(i64, i64) + Send + Sync)>,
+        cancel_token: Option<Arc<dyn CancelToken>>,
     ) -> Result<String, DS3Error> {
         // Step 1: Create multipart upload.
         let create_response = self
@@ -90,6 +92,7 @@ impl DS3S3Client {
                 total,
                 &uploaded_bytes,
                 on_progress,
+                cancel_token.as_deref(),
             )
             .await;
 
@@ -139,6 +142,7 @@ impl DS3S3Client {
         total: i64,
         uploaded_bytes: &Arc<AtomicI64>,
         on_progress: Option<&(dyn Fn(i64, i64) + Send + Sync)>,
+        cancel_token: Option<&dyn CancelToken>,
     ) -> Result<Vec<CompletedPart>, DS3Error> {
         let mut stream = stream::iter(parts.iter().cloned())
             .map(|part| {
@@ -188,6 +192,13 @@ impl DS3S3Client {
 
         let mut completed = Vec::with_capacity(parts.len());
         while let Some(result) = stream.next().await {
+            if let Some(token) = cancel_token {
+                if token.is_cancelled() {
+                    // Drop the stream — pending parts cancel; outer upload_multipart
+                    // aborts the multipart upload via its abort_multipart_upload call.
+                    return Err(DS3Error::S3Error("cancelled by caller".into()));
+                }
+            }
             completed.push(result?);
             if let Some(cb) = on_progress {
                 cb(uploaded_bytes.load(Ordering::Relaxed), total);

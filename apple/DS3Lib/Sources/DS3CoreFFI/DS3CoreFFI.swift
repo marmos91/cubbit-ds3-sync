@@ -517,6 +517,175 @@ private struct FfiConverterString: FfiConverter {
     }
 }
 
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterData: FfiConverterRustBuffer {
+    typealias SwiftType = Data
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Data {
+        let len: Int32 = try readInt(&buf)
+        return try Data(readBytes(&buf, count: Int(len)))
+    }
+
+    static func write(_ value: Data, into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        writeBytes(&buf, value)
+    }
+}
+
+/**
+ * Cooperative cancellation handle shared between Swift caller and Rust ops.
+ *
+ * Backed by an `Arc<AtomicBool>` so the handle can be cloned and observed
+ * from multiple threads with lock-free reads. Threat T-16-02-01 mitigation:
+ * `Ordering::SeqCst` ensures cancel writes are immediately visible to all
+ * readers.
+ */
+public protocol CancellationHandleProtocol: AnyObject, Sendable {
+    /**
+     * Requests cancellation. Idempotent and thread-safe.
+     */
+    func cancel()
+
+    /**
+     * Returns `true` once `cancel()` has been called.
+     */
+    func isCancelled() -> Bool
+}
+/**
+ * Cooperative cancellation handle shared between Swift caller and Rust ops.
+ *
+ * Backed by an `Arc<AtomicBool>` so the handle can be cloned and observed
+ * from multiple threads with lock-free reads. Threat T-16-02-01 mitigation:
+ * `Ordering::SeqCst` ensures cancel writes are immediately visible to all
+ * readers.
+ */
+open class CancellationHandle: CancellationHandleProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    // Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public required init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may
+    // be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there
+    //     isn't a backing handle the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiCloneHandle() -> UInt64 {
+        try! rustCall { uniffi_ds3_ffi_fn_clone_cancellationhandle(self.handle, $0) }
+    }
+    /**
+     * Creates a fresh handle in the "not cancelled" state.
+     */
+    public convenience init() {
+        let handle =
+            try! rustCall {
+                uniffi_ds3_ffi_fn_constructor_cancellationhandle_new($0
+                )
+            }
+        self.init(unsafeFromHandle: handle)
+    }
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_ds3_ffi_fn_free_cancellationhandle(handle, $0) }
+    }
+
+    /**
+     * Requests cancellation. Idempotent and thread-safe.
+     */
+    open func cancel() {
+        try! rustCall {
+            uniffi_ds3_ffi_fn_method_cancellationhandle_cancel(
+                self.uniffiCloneHandle(), $0
+            )
+        }
+    }
+
+    /**
+     * Returns `true` once `cancel()` has been called.
+     */
+    open func isCancelled() -> Bool {
+        try! FfiConverterBool.lift(try! rustCall {
+            uniffi_ds3_ffi_fn_method_cancellationhandle_is_cancelled(
+                self.uniffiCloneHandle(), $0
+            )
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCancellationHandle: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = CancellationHandle
+
+    public static func lift(_ handle: UInt64) throws -> CancellationHandle {
+        CancellationHandle(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: CancellationHandle) -> UInt64 {
+        value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CancellationHandle {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: CancellationHandle, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCancellationHandle_lift(_ handle: UInt64) throws -> CancellationHandle {
+    try FfiConverterTypeCancellationHandle.lift(handle)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCancellationHandle_lower(_ value: CancellationHandle) -> UInt64 {
+    FfiConverterTypeCancellationHandle.lower(value)
+}
+
 /**
  * Opaque session handle exposed to Swift via UniFFI.
  *
@@ -540,8 +709,12 @@ public protocol Ds3SessionHandleProtocol: AnyObject, Sendable {
 
     /**
      * Copies an S3 object within the same bucket.
+     *
+     * When `metadata` is `Some`, sets `MetadataDirective::Replace` and
+     * applies the new metadata. When `None`, preserves the source object's
+     * metadata (default `COPY` directive).
      */
-    func copyObject(bucket: String, sourceKey: String, destKey: String) throws
+    func copyObject(bucket: String, sourceKey: String, destKey: String, metadata: [String: String]?) throws
 
     /**
      * Creates a new API key for a given IAM user.
@@ -552,6 +725,15 @@ public protocol Ds3SessionHandleProtocol: AnyObject, Sendable {
      * Creates a .ds3keep folder marker for the given folder key.
      */
     func createFolderMarker(bucket: String, folderKey: String) throws
+
+    /**
+     * Returns a clone of the current session (token + refresh token).
+     *
+     * Used after login/refresh/forge so the Swift adapter can persist the
+     * `AccountSession` to the App Group JSON (PATTERNS.md §"App Group
+     * Persistence Boundary", D-04/D-06).
+     */
+    func currentSession() throws -> AccountSession
 
     /**
      * Deletes an API key by its access key ID.
@@ -570,9 +752,25 @@ public protocol Ds3SessionHandleProtocol: AnyObject, Sendable {
 
     /**
      * Downloads an S3 object to a local file path.
+     *
+     * `cancel_token` is currently unused for download (single-call GET); reserved
+     * for future chunked-download cancellation. See CONTEXT D-20.
      */
-    func downloadObject(bucket: String, key: String, filePath: String, progress: ProgressCallback?) throws
-        -> S3DownloadResult
+    func downloadObject(
+        bucket: String,
+        key: String,
+        filePath: String,
+        progress: ProgressCallback?,
+        cancelToken: CancellationHandle?
+    ) throws -> S3DownloadResult
+
+    /**
+     * Downloads an S3 object directly to an in-memory `Vec<u8>`.
+     *
+     * Intended for small payloads (thumbnails, .ds3keep markers, metadata blobs).
+     * For large files, use `download_object` which streams to a file path.
+     */
+    func downloadToMemory(bucket: String, key: String) throws -> Data
 
     /**
      * Forges an IAM-scoped token for the specified user ID.
@@ -611,6 +809,21 @@ public protocol Ds3SessionHandleProtocol: AnyObject, Sendable {
     func loadApiKeys(userId: String, iamToken: String) throws -> [Ds3ApiKey]
 
     /**
+     * Generates a presigned PUT URL for a multipart upload part.
+     *
+     * `expires_in_seconds` must be in `1..=604_800` (7 days, AWS sigv4 limit).
+     * Swift consumes the returned URL to upload a single part via
+     * `URLRequest.httpMethod = "PUT"`.
+     */
+    func presignUploadPart(
+        bucket: String,
+        key: String,
+        uploadId: String,
+        partNumber: Int32,
+        expiresInSeconds: Int64
+    ) throws -> String
+
+    /**
      * Probes whether a folder marker (.ds3keep) exists for the given folder key.
      */
     func probeFolderExists(bucket: String, folderKey: String) throws -> Bool
@@ -621,11 +834,27 @@ public protocol Ds3SessionHandleProtocol: AnyObject, Sendable {
     func refreshToken() throws
 
     /**
+     * Uploads an in-memory `Vec<u8>` to S3 with optional custom metadata.
+     *
+     * Metadata is sent as `x-amz-meta-*` headers. Empty `data` produces a
+     * zero-byte object (`.ds3keep` folder marker shape).
+     */
+    func uploadFromMemory(bucket: String, key: String, data: Data, metadata: [String: String]) throws -> String?
+
+    /**
      * Uploads a local file to S3. Returns the ETag on success (if provided by S3).
      *
-     * Automatically uses multipart upload for files larger than 5MB.
+     * Automatically uses multipart upload for files larger than 5MB. When
+     * `cancel_token` is provided, multipart upload checks it between parts
+     * and aborts cleanly on cancel.
      */
-    func uploadObject(bucket: String, key: String, filePath: String, progress: ProgressCallback?) throws -> String?
+    func uploadObject(
+        bucket: String,
+        key: String,
+        filePath: String,
+        progress: ProgressCallback?,
+        cancelToken: CancellationHandle?
+    ) throws -> String?
 }
 /**
  * Opaque session handle exposed to Swift via UniFFI.
@@ -760,14 +989,19 @@ open class Ds3SessionHandle: Ds3SessionHandleProtocol, @unchecked Sendable {
 
     /**
      * Copies an S3 object within the same bucket.
+     *
+     * When `metadata` is `Some`, sets `MetadataDirective::Replace` and
+     * applies the new metadata. When `None`, preserves the source object's
+     * metadata (default `COPY` directive).
      */
-    open func copyObject(bucket: String, sourceKey: String, destKey: String) throws {
+    open func copyObject(bucket: String, sourceKey: String, destKey: String, metadata: [String: String]?) throws {
         try rustCallWithError(FfiConverterTypeDS3Error_lift) {
             uniffi_ds3_ffi_fn_method_ds3sessionhandle_copy_object(
                 self.uniffiCloneHandle(),
                 FfiConverterString.lower(bucket),
                 FfiConverterString.lower(sourceKey),
-                FfiConverterString.lower(destKey), $0
+                FfiConverterString.lower(destKey),
+                FfiConverterOptionDictionaryStringString.lower(metadata), $0
             )
         }
     }
@@ -797,6 +1031,21 @@ open class Ds3SessionHandle: Ds3SessionHandleProtocol, @unchecked Sendable {
                 FfiConverterString.lower(folderKey), $0
             )
         }
+    }
+
+    /**
+     * Returns a clone of the current session (token + refresh token).
+     *
+     * Used after login/refresh/forge so the Swift adapter can persist the
+     * `AccountSession` to the App Group JSON (PATTERNS.md §"App Group
+     * Persistence Boundary", D-04/D-06).
+     */
+    open func currentSession() throws -> AccountSession {
+        try FfiConverterTypeAccountSession_lift(rustCallWithError(FfiConverterTypeDS3Error_lift) {
+            uniffi_ds3_ffi_fn_method_ds3sessionhandle_current_session(
+                self.uniffiCloneHandle(), $0
+            )
+        })
     }
 
     /**
@@ -841,12 +1090,16 @@ open class Ds3SessionHandle: Ds3SessionHandleProtocol, @unchecked Sendable {
 
     /**
      * Downloads an S3 object to a local file path.
+     *
+     * `cancel_token` is currently unused for download (single-call GET); reserved
+     * for future chunked-download cancellation. See CONTEXT D-20.
      */
     open func downloadObject(
         bucket: String,
         key: String,
         filePath: String,
-        progress: ProgressCallback?
+        progress: ProgressCallback?,
+        cancelToken: CancellationHandle?
     ) throws -> S3DownloadResult {
         try FfiConverterTypeS3DownloadResult_lift(rustCallWithError(FfiConverterTypeDS3Error_lift) {
             uniffi_ds3_ffi_fn_method_ds3sessionhandle_download_object(
@@ -854,7 +1107,24 @@ open class Ds3SessionHandle: Ds3SessionHandleProtocol, @unchecked Sendable {
                 FfiConverterString.lower(bucket),
                 FfiConverterString.lower(key),
                 FfiConverterString.lower(filePath),
-                FfiConverterOptionCallbackInterfaceProgressCallback.lower(progress), $0
+                FfiConverterOptionCallbackInterfaceProgressCallback.lower(progress),
+                FfiConverterOptionTypeCancellationHandle.lower(cancelToken), $0
+            )
+        })
+    }
+
+    /**
+     * Downloads an S3 object directly to an in-memory `Vec<u8>`.
+     *
+     * Intended for small payloads (thumbnails, .ds3keep markers, metadata blobs).
+     * For large files, use `download_object` which streams to a file path.
+     */
+    open func downloadToMemory(bucket: String, key: String) throws -> Data {
+        try FfiConverterData.lift(rustCallWithError(FfiConverterTypeDS3Error_lift) {
+            uniffi_ds3_ffi_fn_method_ds3sessionhandle_download_to_memory(
+                self.uniffiCloneHandle(),
+                FfiConverterString.lower(bucket),
+                FfiConverterString.lower(key), $0
             )
         })
     }
@@ -942,6 +1212,32 @@ open class Ds3SessionHandle: Ds3SessionHandleProtocol, @unchecked Sendable {
     }
 
     /**
+     * Generates a presigned PUT URL for a multipart upload part.
+     *
+     * `expires_in_seconds` must be in `1..=604_800` (7 days, AWS sigv4 limit).
+     * Swift consumes the returned URL to upload a single part via
+     * `URLRequest.httpMethod = "PUT"`.
+     */
+    open func presignUploadPart(
+        bucket: String,
+        key: String,
+        uploadId: String,
+        partNumber: Int32,
+        expiresInSeconds: Int64
+    ) throws -> String {
+        try FfiConverterString.lift(rustCallWithError(FfiConverterTypeDS3Error_lift) {
+            uniffi_ds3_ffi_fn_method_ds3sessionhandle_presign_upload_part(
+                self.uniffiCloneHandle(),
+                FfiConverterString.lower(bucket),
+                FfiConverterString.lower(key),
+                FfiConverterString.lower(uploadId),
+                FfiConverterInt32.lower(partNumber),
+                FfiConverterInt64.lower(expiresInSeconds), $0
+            )
+        })
+    }
+
+    /**
      * Probes whether a folder marker (.ds3keep) exists for the given folder key.
      */
     open func probeFolderExists(bucket: String, folderKey: String) throws -> Bool {
@@ -966,15 +1262,36 @@ open class Ds3SessionHandle: Ds3SessionHandleProtocol, @unchecked Sendable {
     }
 
     /**
+     * Uploads an in-memory `Vec<u8>` to S3 with optional custom metadata.
+     *
+     * Metadata is sent as `x-amz-meta-*` headers. Empty `data` produces a
+     * zero-byte object (`.ds3keep` folder marker shape).
+     */
+    open func uploadFromMemory(bucket: String, key: String, data: Data, metadata: [String: String]) throws -> String? {
+        try FfiConverterOptionString.lift(rustCallWithError(FfiConverterTypeDS3Error_lift) {
+            uniffi_ds3_ffi_fn_method_ds3sessionhandle_upload_from_memory(
+                self.uniffiCloneHandle(),
+                FfiConverterString.lower(bucket),
+                FfiConverterString.lower(key),
+                FfiConverterData.lower(data),
+                FfiConverterDictionaryStringString.lower(metadata), $0
+            )
+        })
+    }
+
+    /**
      * Uploads a local file to S3. Returns the ETag on success (if provided by S3).
      *
-     * Automatically uses multipart upload for files larger than 5MB.
+     * Automatically uses multipart upload for files larger than 5MB. When
+     * `cancel_token` is provided, multipart upload checks it between parts
+     * and aborts cleanly on cancel.
      */
     open func uploadObject(
         bucket: String,
         key: String,
         filePath: String,
-        progress: ProgressCallback?
+        progress: ProgressCallback?,
+        cancelToken: CancellationHandle?
     ) throws -> String? {
         try FfiConverterOptionString.lift(rustCallWithError(FfiConverterTypeDS3Error_lift) {
             uniffi_ds3_ffi_fn_method_ds3sessionhandle_upload_object(
@@ -982,7 +1299,8 @@ open class Ds3SessionHandle: Ds3SessionHandleProtocol, @unchecked Sendable {
                 FfiConverterString.lower(bucket),
                 FfiConverterString.lower(key),
                 FfiConverterString.lower(filePath),
-                FfiConverterOptionCallbackInterfaceProgressCallback.lower(progress), $0
+                FfiConverterOptionCallbackInterfaceProgressCallback.lower(progress),
+                FfiConverterOptionTypeCancellationHandle.lower(cancelToken), $0
             )
         })
     }
@@ -1216,6 +1534,30 @@ private struct FfiConverterOptionString: FfiConverterRustBuffer {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterOptionTypeCancellationHandle: FfiConverterRustBuffer {
+    typealias SwiftType = CancellationHandle?
+
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeCancellationHandle.write(value, into: &buf)
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeCancellationHandle.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterOptionCallbackInterfaceProgressCallback: FfiConverterRustBuffer {
     typealias SwiftType = ProgressCallback?
 
@@ -1232,6 +1574,30 @@ private struct FfiConverterOptionCallbackInterfaceProgressCallback: FfiConverter
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterCallbackInterfaceProgressCallback.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterOptionDictionaryStringString: FfiConverterRustBuffer {
+    typealias SwiftType = [String: String]?
+
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterDictionaryStringString.write(value, into: &buf)
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterDictionaryStringString.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -1336,6 +1702,32 @@ private struct FfiConverterSequenceTypeProject: FfiConverterRustBuffer {
         return seq
     }
 }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterDictionaryStringString: FfiConverterRustBuffer {
+    static func write(_ value: [String: String], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for (key, value) in value {
+            FfiConverterString.write(key, into: &buf)
+            FfiConverterString.write(value, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String: String] {
+        let len: Int32 = try readInt(&buf)
+        var dict = [String: String]()
+        dict.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            let key = try FfiConverterString.read(from: &buf)
+            let value = try FfiConverterString.read(from: &buf)
+            dict[key] = value
+        }
+        return dict
+    }
+}
 /**
  * Computes the diff between local and remote file tree snapshots.
  *
@@ -1361,6 +1753,26 @@ public func conflictKey(originalKey: String, hostname: String, nonce: String?) -
             FfiConverterString.lower(originalKey),
             FfiConverterString.lower(hostname),
             FfiConverterOptionString.lower(nonce), $0
+        )
+    })
+}
+/**
+ * Returns the numeric error code matching a [`DS3Error`] Display string.
+ *
+ * The UniFFI `flat_error` attribute on `DS3Error` collapses all enum variants
+ * to a `(message: String)` shape on the Swift side, so the Swift adapter can
+ * only inspect the error's stringified Display when it catches one
+ * (FFI-AUDIT.md A1). This helper maps that Display string back to the
+ * numeric code defined by `DS3Error::code()` so per-adapter translation
+ * tables (PATTERNS.md Pattern 3) can dispatch on integers 1001..=3004.
+ *
+ * Returns `-1` for inputs that don't match any known variant (the Swift
+ * adapter maps this to a generic "unknown" case).
+ */
+public func ds3ErrorCode(message: String) -> Int32 {
+    try! FfiConverterInt32.lift(try! rustCall {
+        uniffi_ds3_ffi_fn_func_ds3_error_code(
+            FfiConverterString.lower(message), $0
         )
     })
 }
@@ -1398,7 +1810,16 @@ private let initializationResult: InitializationResult = {
     if uniffi_ds3_ffi_checksum_func_conflict_key() != 41470 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_ds3_ffi_checksum_func_ds3_error_code() != 58643 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_ds3_ffi_checksum_func_get_challenge() != 14364 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_ds3_ffi_checksum_method_cancellationhandle_cancel() != 35292 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_ds3_ffi_checksum_method_cancellationhandle_is_cancelled() != 59677 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_account_info() != 44131 {
@@ -1407,13 +1828,16 @@ private let initializationResult: InitializationResult = {
     if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_connect_s3() != 33655 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_copy_object() != 44312 {
+    if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_copy_object() != 27808 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_create_api_key() != 21954 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_create_folder_marker() != 17365 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_current_session() != 14493 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_delete_api_key() != 910 {
@@ -1425,7 +1849,10 @@ private let initializationResult: InitializationResult = {
     if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_delete_objects() != 33026 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_download_object() != 15710 {
+    if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_download_object() != 55647 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_download_to_memory() != 29178 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_forge_iam_token() != 60725 {
@@ -1446,13 +1873,22 @@ private let initializationResult: InitializationResult = {
     if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_load_api_keys() != 8257 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_presign_upload_part() != 18904 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_probe_folder_exists() != 22319 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_refresh_token() != 20179 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_upload_object() != 3462 {
+    if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_upload_from_memory() != 47842 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_ds3_ffi_checksum_method_ds3sessionhandle_upload_object() != 62369 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_ds3_ffi_checksum_constructor_cancellationhandle_new() != 9464 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_ds3_ffi_checksum_constructor_ds3sessionhandle_authenticate() != 17499 {

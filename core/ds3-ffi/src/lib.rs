@@ -11,10 +11,12 @@
 uniffi::setup_scaffolding!();
 
 pub mod c_exports;
+pub mod cancellation;
 pub mod handles;
 pub mod panic_guard;
 pub mod progress;
 pub mod uniffi_exports;
 
 // Re-export the primary FFI handle type.
-pub use uniffi_exports::DS3SessionHandle;
+pub use cancellation::CancellationHandle;
+pub use uniffi_exports::{ds3_error_code, DS3SessionHandle};
