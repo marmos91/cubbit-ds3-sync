@@ -9,8 +9,11 @@ let package = Package(
         .library(name: "DS3CoreFFI", targets: ["DS3CoreFFI"])
     ],
     dependencies: [
-        .package(url: "https://github.com/soto-project/soto", from: "6.8.0"),
         .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0"),
+        // swift-nio retained solely for `NIOCore.ByteBuffer` in
+        // `DS3LibTests/StreamingIOTests.swift` (IEXT-03 streaming-pattern
+        // smoke test). No production code in DS3Lib imports NIO after the
+        // Soto removal in Phase 16 Plan 05.
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.62.0")
     ],
     targets: [
@@ -19,8 +22,8 @@ let package = Package(
         // `DS3CoreFFIFFI` (Headers/module.modulemap) covering both
         // ds3-ffi and ds3-models scaffolding outputs. See
         // `core/scripts/build-xcframework.sh` for the build pipeline.
-        // Phase 16 Plan 01: keep Soto + swift-nio for now — those are
-        // deleted atomically in Plan 05.
+        // Phase 16 Plan 05: Soto removed; swift-nio kept only for
+        // `NIOCore.ByteBuffer` in StreamingIOTests.
         .binaryTarget(
             name: "DS3CoreFFIBinary",
             path: "../../core/out/DS3CoreFFI.xcframework"
@@ -58,7 +61,6 @@ let package = Package(
             name: "DS3Lib",
             dependencies: [
                 "DS3CoreFFI",
-                .product(name: "SotoS3", package: "soto"),
                 .product(name: "Atomics", package: "swift-atomics")
             ],
             swiftSettings: [
