@@ -220,7 +220,7 @@ extension FileProviderExtension {
                             "Failed to restore \(actualTrashKey, privacy: .public): \(DS3S3Client.describeSotoError(error), privacy: .public)"
                         )
                     if firstError == nil {
-                        firstError = (error as? S3ErrorType)?.toFileProviderError()
+                        firstError = (error as? DS3S3Error)?.toFileProviderError()
                             ?? NSFileProviderError(.cannotSynchronize) as NSError
                     }
                 }

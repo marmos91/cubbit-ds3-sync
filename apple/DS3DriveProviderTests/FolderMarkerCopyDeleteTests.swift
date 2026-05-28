@@ -2,7 +2,6 @@
 import FileProvider
 import Foundation
 import os.log
-import SotoS3
 import XCTest
 
 /// Phase A: empty-folder copy must produce a `.ds3keep` marker at the
@@ -31,8 +30,8 @@ final class FolderMarkerCopyDeleteTests: XCTestCase {
     func testFallsBackToPutWhenSourceMarkerMissing() async throws {
         let mock = MarkerCopyMockS3Client()
         // Soto's canonical NoSuchKey — `DS3S3Client.isNotFoundError(_:)` recovers
-        // `errorCode == "NoSuchKey"` via the `AWSErrorType` conformance.
-        mock.copyObjectError = S3ErrorType.noSuchKey
+        // `errorCode == "NoSuchKey"` via the `DS3S3Error` conformance.
+        mock.copyObjectError = DS3S3Error.noSuchKey
         try await materializeEmptyFolderMarker(
             sourcePrefix: "prefix/src/",
             destinationPrefix: "prefix/dst/",
@@ -69,7 +68,7 @@ final class FolderMarkerCopyDeleteTests: XCTestCase {
 
     func testFallbackPutFailurePropagates() async {
         let mock = MarkerCopyMockS3Client()
-        mock.copyObjectError = S3ErrorType.noSuchKey
+        mock.copyObjectError = DS3S3Error.noSuchKey
         mock.putObjectError = NSError(
             domain: "S3", code: 403,
             userInfo: [NSLocalizedDescriptionKey: "AccessDenied"]

@@ -157,6 +157,38 @@ impl DS3S3Client {
         Ok(bytes.to_vec())
     }
 
+    /// Generates a presigned GET URL for an S3 object.
+    ///
+    /// `expires_in` is in seconds and must be ≤ [`MAX_PRESIGN_EXPIRY_SECS`]
+    /// (AWS sigv4 imposes the 7-day cap). The returned URL is consumed by the
+    /// Swift FileProvider extension for thumbnail fetches and other
+    /// unauthenticated GET flows.
+    pub async fn presign_get(
+        &self,
+        bucket: &str,
+        key: &str,
+        expires_in: i64,
+    ) -> Result<String, DS3Error> {
+        if expires_in <= 0 || (expires_in as u64) > MAX_PRESIGN_EXPIRY_SECS {
+            return Err(DS3Error::S3Error(format!(
+                "expires_in out of range: {expires_in} (must be 1..={MAX_PRESIGN_EXPIRY_SECS})"
+            )));
+        }
+        let config = PresigningConfig::expires_in(Duration::from_secs(expires_in as u64))
+            .map_err(|e| DS3Error::S3Error(format!("presign config: {e}")))?;
+
+        let presigned = self
+            .client
+            .get_object()
+            .bucket(bucket)
+            .key(key)
+            .presigned(config)
+            .await
+            .map_err(|e| DS3Error::S3Error(e.to_string()))?;
+
+        Ok(presigned.uri().to_string())
+    }
+
     /// Generates a presigned PUT URL for a multipart upload part.
     ///
     /// `expires_in` is in seconds and must be ≤ [`MAX_PRESIGN_EXPIRY_SECS`].

@@ -1,15 +1,6 @@
+import DS3CoreFFI
 import Foundation
 import os.log
-import SotoS3
-
-/// Re-export Soto error types so consumers can catch S3 errors via `import DS3Lib`
-/// without importing SotoS3 directly.
-///
-/// `S3ErrorType` only covers 9 S3-specific codes (NoSuchKey, NoSuchBucket, etc.).
-/// Auth errors (InvalidAccessKeyId, SignatureDoesNotMatch, ExpiredToken) arrive as
-/// `AWSClientError` or `AWSResponseError`. Use `AWSErrorType` to catch all of them.
-public typealias S3ErrorType = SotoS3.S3ErrorType
-public typealias AWSErrorType = SotoCore.AWSErrorType
 
 // MARK: - Supporting Types
 
@@ -171,153 +162,185 @@ public struct MultipartCompleteResult: Sendable {
 
 // MARK: - DS3S3Client
 
-/// Centralized S3 client that wraps all SotoS3 operations.
-/// Other targets should use this instead of importing SotoS3 directly.
-public final class DS3S3Client: Sendable {
-    let s3: S3
+/// Centralized S3 client backed by the Rust core (Phase 16 Plan 03).
+///
+/// Wraps a `DS3SessionHandle` (`DS3CoreFFI`) and translates between FFI types
+/// and the Swift public surface. Until Plan 04 wires the full session through
+/// `DS3Authentication`, this adapter constructs an S3-only handle via
+/// `Ds3SessionHandle.s3Only(...)` — only S3 methods are reachable on that
+/// handle; auth/projects/keys remain in `DS3Authentication` + `DS3SDK` until
+/// Plan 04.
+///
+/// Per D-13: this adapter owns its own error translation (`DS3S3Error.translate(_:)`).
+/// Per D-16: every catch logs the Rust error code + Display BEFORE translating.
+public final class DS3S3Client: @unchecked Sendable {
+    let handle: Ds3SessionHandle
     let logger = os.Logger(subsystem: LogSubsystem.provider, category: LogCategory.transfer.rawValue)
 
-    /// The underlying AWSClient, exposed for lifecycle management (shutdown).
-    public let awsClient: AWSClient
-
-    /// The custom S3 endpoint URL, if provided at init. Nil when using AWS defaults.
+    /// The custom S3 endpoint URL, if provided at init. Nil when not configured.
     public let customEndpoint: String?
 
-    /// Creates a new DS3S3Client with the given credentials and endpoint.
+    // MARK: - Date formatting (FFI returns ISO 8601 strings)
+
+    /// ISO 8601 parser used to deserialize the FFI's RFC 3339 / ISO 8601 timestamps.
+    /// `ISO8601DateFormatter` is not Sendable; the static is annotated to
+    /// allow the Swift 6 strict-concurrency mode to absorb its de-facto
+    /// thread-safety (parsing-only usage on read-only formatter state).
+    private nonisolated(unsafe) static let iso8601: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    /// Fallback parser without fractional seconds (some S3 implementations omit them).
+    private nonisolated(unsafe) static let iso8601NoFrac: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    static func parseDate(_ isoString: String?) -> Date? {
+        guard let isoString else { return nil }
+        if let date = iso8601.date(from: isoString) { return date }
+        return iso8601NoFrac.date(from: isoString)
+    }
+
+    // MARK: - Init
+
+    /// Creates a Rust-backed `DS3S3Client` with the given S3 credentials.
+    ///
+    /// Constructs an S3-only `Ds3SessionHandle` via the FFI; Plan 04 will
+    /// migrate this constructor to accept a full `Ds3SessionHandle` already
+    /// authenticated through DS3Authentication.
+    ///
     /// - Parameters:
-    ///   - accessKeyId: The AWS access key ID
-    ///   - secretAccessKey: The AWS secret access key
-    ///   - endpoint: The S3 endpoint URL
-    ///   - timeout: Optional timeout in seconds (defaults to DefaultSettings.S3.timeoutInSeconds)
+    ///   - accessKeyId: The S3 access key ID
+    ///   - secretAccessKey: The S3 secret access key
+    ///   - endpoint: The S3 endpoint URL (required — Cubbit DS3 always uses a custom endpoint)
+    ///   - timeout: Unused (the Rust core's `aws-sdk-s3` has its own timeout config). Kept
+    ///     for source compatibility with pre-Plan-03 call sites.
     public init(
         accessKeyId: String,
         secretAccessKey: String,
         endpoint: String?,
-        timeout: Int64 = DefaultSettings.S3.timeoutInSeconds
+        timeout _: Int64 = DefaultSettings.S3.timeoutInSeconds
     ) {
-        let client = AWSClient(
-            credentialProvider: .static(
-                accessKeyId: accessKeyId,
-                secretAccessKey: secretAccessKey
-            ),
-            httpClientProvider: .createNew
-        )
-        self.awsClient = client
         self.customEndpoint = endpoint
-        self.s3 = S3(client: client, endpoint: endpoint, timeout: .seconds(timeout))
+        // The FFI requires a non-nil endpoint. Cubbit DS3 always passes one;
+        // fail loudly if a caller violates that invariant.
+        // swiftlint:disable:next force_try
+        self.handle = try! Ds3SessionHandle.s3Only(
+            endpoint: endpoint ?? "",
+            accessKey: accessKeyId,
+            secretKey: secretAccessKey,
+            region: nil
+        )
     }
 
-    deinit {
-        try? awsClient.syncShutdown()
-    }
-
-    /// Shuts down the underlying AWSClient. Must be called when the client is no longer needed.
+    /// Lifecycle no-op: handle ownership is via Swift's reference counting + Rust
+    /// `Arc<DS3SessionHandle>`. The aws-sdk-s3 client is dropped when the handle
+    /// is dropped. Kept for source compatibility with the Soto-era API.
     public func shutdown() throws {
-        try awsClient.syncShutdown()
+        // Intentionally empty.
     }
 
     // MARK: - Bucket Operations
 
     /// Lists all buckets accessible with the current credentials.
     public func listBuckets() async throws -> [(name: String, creationDate: Date?)] {
-        let response = try await s3.listBuckets()
-        return (response.buckets ?? []).map { bucket in
-            (name: bucket.name ?? "<No name>", creationDate: bucket.creationDate)
+        do {
+            let buckets = try handle.listBuckets()
+            return buckets.map { ($0.name, Self.parseDate($0.creationDate)) }
+        } catch let error as Ds3Error {
+            logS3Error(operation: "listBuckets", error: error)
+            throw DS3S3Error.translate(error)
         }
     }
 
     // MARK: - List and Metadata
 
     /// Lists objects in an S3 bucket with the given parameters.
-    /// - Parameters:
-    ///   - bucket: The bucket name
-    ///   - prefix: Optional prefix to filter objects
-    ///   - delimiter: Optional delimiter for hierarchical listing
-    ///   - maxKeys: Maximum number of keys to return
-    ///   - continuationToken: Token for paginated results
-    ///   - encodingType: URL encoding type (defaults to .url)
-    /// - Returns: An S3ListingResult containing objects, prefixes, and pagination info
+    /// - Note: The `encodingType` parameter is preserved for API compatibility but is
+    ///   ignored — the Rust core handles URL encoding internally and always returns
+    ///   decoded keys.
     public func listObjects(
         bucket: String,
         prefix: String? = nil,
         delimiter: String? = nil,
         maxKeys: Int? = nil,
         continuationToken: String? = nil,
-        encodingType: S3.EncodingType? = .url
+        encodingType _: S3EncodingType? = .url
     ) async throws -> S3ListingResult {
-        let request = S3.ListObjectsV2Request(
-            bucket: bucket,
-            continuationToken: continuationToken,
-            delimiter: delimiter,
-            encodingType: encodingType,
-            maxKeys: maxKeys,
-            prefix: prefix
-        )
-
-        let response = try await s3.listObjectsV2(request)
-
-        let decode: (String) -> String? = encodingType == .url
-            ? { try? Self.decodeS3Key($0) }
-            : { $0 }
-
-        let objects = (response.contents ?? []).compactMap { object -> S3ObjectSummary? in
-            guard let rawKey = object.key, let key = decode(rawKey) else { return nil }
-            return S3ObjectSummary(
-                key: key,
-                etag: ETagUtils.normalize(object.eTag),
-                lastModified: object.lastModified,
-                size: object.size ?? 0
+        do {
+            let result = try handle.listObjects(
+                bucket: bucket,
+                prefix: prefix,
+                delimiter: delimiter,
+                maxKeys: maxKeys.map(Int32.init),
+                continuationToken: continuationToken
             )
+            let objects = result.objects.map { ffi -> S3ObjectSummary in
+                S3ObjectSummary(
+                    key: ffi.key,
+                    etag: ETagUtils.normalize(ffi.etag),
+                    lastModified: Self.parseDate(ffi.lastModified),
+                    size: ffi.size
+                )
+            }
+            return S3ListingResult(
+                objects: objects,
+                commonPrefixes: result.commonPrefixes,
+                nextContinuationToken: result.isTruncated ? result.nextContinuationToken : nil,
+                isTruncated: result.isTruncated
+            )
+        } catch let error as Ds3Error {
+            logS3Error(operation: "listObjects", error: error)
+            throw DS3S3Error.translate(error)
         }
-
-        let prefixes: [String] = (response.commonPrefixes ?? []).compactMap { commonPrefix in
-            guard let rawPrefix = commonPrefix.prefix else { return nil }
-            return decode(rawPrefix)
-        }
-
-        let isTruncated = response.isTruncated ?? false
-
-        return S3ListingResult(
-            objects: objects,
-            commonPrefixes: prefixes,
-            nextContinuationToken: isTruncated ? response.nextContinuationToken : nil,
-            isTruncated: isTruncated
-        )
     }
 
     /// Retrieves metadata for an S3 object using a HEAD request.
     public func headObject(bucket: String, key: String) async throws -> S3ObjectMetadata {
-        let request = S3.HeadObjectRequest(bucket: bucket, key: key)
-        let response = try await s3.headObject(request)
-
-        return S3ObjectMetadata(
-            etag: ETagUtils.normalize(response.eTag),
-            contentType: response.contentType,
-            lastModified: response.lastModified,
-            versionId: response.versionId,
-            contentLength: response.contentLength ?? 0,
-            metadata: response.metadata
-        )
+        do {
+            let meta = try handle.headObject(bucket: bucket, key: key)
+            return S3ObjectMetadata(
+                etag: ETagUtils.normalize(meta.etag),
+                contentType: meta.contentType,
+                lastModified: Self.parseDate(meta.lastModified),
+                versionId: meta.versionId,
+                contentLength: meta.contentLength,
+                metadata: meta.metadata
+            )
+        } catch let error as Ds3Error {
+            logS3Error(operation: "headObject", error: error)
+            throw DS3S3Error.translate(error)
+        }
     }
 
     // MARK: - Delete
 
     /// Deletes a single object from S3.
     public func deleteObject(bucket: String, key: String) async throws {
-        let request = S3.DeleteObjectRequest(bucket: bucket, key: key)
-        _ = try await s3.deleteObject(request)
+        do {
+            try handle.deleteObject(bucket: bucket, key: key)
+        } catch let error as Ds3Error {
+            logS3Error(operation: "deleteObject", error: error)
+            throw DS3S3Error.translate(error)
+        }
     }
 
     /// Deletes multiple objects from S3 in a single batch request.
-    /// - Returns: The number of errors (failed deletions)
+    /// - Returns: The number of errors (failed deletions); 0 if all succeeded.
+    ///   The FFI returns the count of successful deletions; we convert to error
+    ///   count to preserve the legacy Soto-era contract.
     public func deleteObjects(bucket: String, keys: [String]) async throws -> Int {
-        let objects = keys.map { S3.ObjectIdentifier(key: $0) }
-        let request = S3.DeleteObjectsRequest(
-            bucket: bucket,
-            delete: S3.Delete(objects: objects, quiet: true)
-        )
-        let response = try await s3.deleteObjects(request)
-        return response.errors?.count ?? 0
+        do {
+            let successCount = try handle.deleteObjects(bucket: bucket, keys: keys)
+            return max(0, keys.count - Int(successCount))
+        } catch let error as Ds3Error {
+            logS3Error(operation: "deleteObjects", error: error)
+            throw DS3S3Error.translate(error)
+        }
     }
 
     // MARK: - Copy
@@ -326,28 +349,24 @@ public final class DS3S3Client: Sendable {
     public func copyObject(
         bucket: String, sourceKey: String, destinationKey: String, metadata: [String: String]? = nil
     ) async throws {
-        guard let copySource = "\(bucket)/\(sourceKey)".addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)
-        else {
-            throw DS3ClientError.parseError
+        do {
+            try handle.copyObject(
+                bucket: bucket,
+                sourceKey: sourceKey,
+                destKey: destinationKey,
+                metadata: metadata
+            )
+        } catch let error as Ds3Error {
+            logS3Error(operation: "copyObject", error: error)
+            throw DS3S3Error.translate(error)
         }
-
-        let request = S3.CopyObjectRequest(
-            bucket: bucket,
-            copySource: copySource,
-            key: destinationKey,
-            metadata: metadata,
-            metadataDirective: (metadata?.isEmpty == false) ? .replace : nil
-        )
-        _ = try await s3.copyObject(request)
     }
 
     // MARK: - Utility
 
     /// Safely decode S3 URL-encoded keys.
-    /// S3 with `encodingType: .url` uses `+` for spaces (form-URL style),
-    /// but Swift's `removingPercentEncoding` only handles `%XX` sequences.
-    /// We first replace `+` with `%20`, then percent-decode.
-    /// Literal `+` characters in keys are returned by S3 as `%2B`, so this is safe.
+    /// Preserved for source compatibility with pre-Plan-03 callers. The Rust core
+    /// already decodes keys, so this helper is now a no-op for FFI-returned values.
     public static func decodeS3Key(_ key: String) throws -> String {
         let normalized = key.replacingOccurrences(of: "+", with: "%20")
         guard let decoded = normalized.removingPercentEncoding else {
@@ -367,51 +386,102 @@ public final class DS3S3Client: Sendable {
         return data
     }
 
-    // MARK: - S3 Error Inspection
+    // MARK: - S3 Error Inspection (post-swap helpers)
 
-    /// Extracts the error code from any Soto error type (S3ErrorType, AWSClientError,
-    /// AWSServerError, AWSResponseError). All conform to `AWSErrorType`.
+    /// Extracts the AWS-style S3 error code substring from any error.
+    /// Returns nil if not a known DS3S3Error/Ds3Error, or if the case has no
+    /// specific AWS code mapping.
     public static func s3ErrorCode(from error: Error) -> String? {
-        (error as? AWSErrorType)?.errorCode
-    }
-
-    /// Checks if an error is an S3 "not found" error (NoSuchKey, NotFound).
-    public static func isNotFoundError(_ error: Error) -> Bool {
-        guard let code = s3ErrorCode(from: error) else { return false }
-        return code == "NoSuchKey" || code == "NotFound"
-    }
-
-    /// Checks if an error is a recoverable S3 auth error.
-    public static func isRecoverableAuthError(_ error: Error) -> Bool {
-        guard let code = s3ErrorCode(from: error) else { return false }
-        return S3ErrorRecovery.isRecoverableAuthError(code)
-    }
-
-    /// Phase 13.1 Finding 5b (D-06): formats any error so logs surface the
-    /// AWS error code instead of Foundation's opaque "Module.Type error N"
-    /// bridge form. Soto's `AWSErrorType.localizedDescription` is a
-    /// statically-dispatched protocol-extension default that is NOT visible
-    /// when the error is bound as `any Error` in a catch — so
-    /// `error.localizedDescription` yields the Foundation-bridge artifact.
-    /// `String(describing: error)` dispatches via `CustomStringConvertible`
-    /// on the concrete S3ErrorType, yielding the readable form (e.g.,
-    /// "noSuchKey: The specified key does not exist."). When an AWS code is
-    /// present we prefix it for grep-ability.
-    ///
-    /// Use at every Soto-throws catch site that logs the error. Falls back
-    /// gracefully on non-Soto errors (returns plain `String(describing:)`).
-    public static func describeSotoError(_ error: Error) -> String {
-        let described = String(describing: error)
-        if let code = s3ErrorCode(from: error) {
-            // Soto's S3ErrorType conforms to CustomStringConvertible and renders as
-            // "noSuchKey: The specified key does not exist." — i.e. the lowercased
-            // code is already embedded. Avoid double-prefixing in that case.
-            let lcCode = code.prefix(1).lowercased() + code.dropFirst()
-            if described.hasPrefix("\(lcCode):") || described.hasPrefix("\(code):") {
-                return described
-            }
-            return "\(code): \(described)"
+        if let ds3Error = error as? DS3S3Error {
+            let code = ds3Error.errorCode
+            return code.isEmpty ? nil : code
         }
-        return described
+        if let rust = error as? Ds3Error {
+            return s3ErrorCode(from: DS3S3Error.translate(rust))
+        }
+        return nil
+    }
+
+    /// Checks if an error is an S3 "not found" error (NoSuchKey, NoSuchBucket).
+    public static func isNotFoundError(_ error: Error) -> Bool {
+        if let ds3Error = error as? DS3S3Error { return ds3Error.isNotFound }
+        if let rust = error as? Ds3Error { return DS3S3Error.translate(rust).isNotFound }
+        return false
+    }
+
+    /// Checks if an error is a recoverable S3 auth error (InvalidAccessKeyId,
+    /// SignatureDoesNotMatch, ExpiredToken).
+    public static func isRecoverableAuthError(_ error: Error) -> Bool {
+        if let ds3Error = error as? DS3S3Error { return ds3Error.isRecoverableAuthError }
+        if let rust = error as? Ds3Error { return DS3S3Error.translate(rust).isRecoverableAuthError }
+        return false
+    }
+
+    /// Formats any error so logs surface the AWS error code instead of
+    /// Foundation's opaque "Module.Type error N" bridge form.
+    ///
+    /// Renamed from `describeSotoError` per Plan 03 (no more Soto). Behavior:
+    /// - DS3S3Error: returns `errorDescription` with code prefix.
+    /// - Ds3Error: returns `String(describing:)` (Rust Display is already
+    ///   structured and grep-friendly — e.g. "S3 error: NoSuchKey: ...").
+    /// - Other errors: returns `String(describing:)`.
+    public static func describeS3Error(_ error: Error) -> String {
+        if let ds3Error = error as? DS3S3Error {
+            if let code = s3ErrorCode(from: ds3Error) {
+                return "\(code): \(ds3Error.errorDescription ?? String(describing: ds3Error))"
+            }
+            return ds3Error.errorDescription ?? String(describing: ds3Error)
+        }
+        return String(describing: error)
+    }
+
+    /// Soto-era name retained as an alias so legacy call sites compile during Plan 03.
+    /// New code should call `describeS3Error(_:)`. Plan 05 will delete this alias.
+    public static func describeSotoError(_ error: Error) -> String {
+        describeS3Error(error)
+    }
+
+    // MARK: - Logging helper
+
+    func logS3Error(operation: String, error: Ds3Error) {
+        let code = ds3ErrorCode(message: ds3ErrorMessage(error))
+        logger.error(
+            "S3 \(operation, privacy: .public) failed: code=\(code, privacy: .public) \(String(describing: error), privacy: .public)"
+        )
+    }
+}
+
+// MARK: - S3 EncodingType replacement
+
+/// Source-compatibility shim for `S3.EncodingType` (formerly Soto-provided).
+/// The Rust core handles URL encoding internally, so this value is ignored at
+/// the FFI boundary. Kept as an enum so existing call sites with
+/// `encodingType: .url` compile unchanged.
+public enum S3EncodingType: Sendable {
+    case url
+}
+
+/// Helper: extract the Display string from a `Ds3Error` (UniFFI flat_error).
+/// All variants carry the Rust `Display` text in the `message` field.
+func ds3ErrorMessage(_ rust: Ds3Error) -> String {
+    switch rust {
+    case let .InvalidUrl(message),
+         let .ServerError(message),
+         let .JsonError(message),
+         let .Encoding(message),
+         let .LoggedOut(message),
+         let .TokenExpired(message),
+         let .Missing2Fa(message),
+         let .CookieError(message),
+         let .MissingUploadId(message),
+         let .EmptyFileData(message),
+         let .MissingETag(message),
+         let .ParseError(message),
+         let .UnableToOpenFile(message),
+         let .IoError(message),
+         let .HttpError(message),
+         let .S3Error(message),
+         let .AuthError(message):
+        message
     }
 }

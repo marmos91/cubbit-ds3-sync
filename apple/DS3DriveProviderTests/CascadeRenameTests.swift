@@ -2,7 +2,6 @@
 import FileProvider
 import Foundation
 import os.log
-import SotoS3
 import SwiftData
 import XCTest
 
@@ -238,8 +237,8 @@ final class CascadeRenameTests: XCTestCase {
         let drive = ProviderTestFixtures.makeDrive()
         let mock = CascadeMockS3Client()
         // Soto's canonical NoSuchKey — `DS3S3Client.isNotFoundError(_:)`
-        // recovers `errorCode == "NoSuchKey"` via the `AWSErrorType` conformance.
-        mock.copyObjectError = S3ErrorType.noSuchKey
+        // recovers `errorCode == "NoSuchKey"` via the `DS3S3Error` conformance.
+        mock.copyObjectError = DS3S3Error.noSuchKey
 
         let oldOriginalKey = "prefix/photos/old.png"
         let newOriginalKey = "prefix/photos/new.png"

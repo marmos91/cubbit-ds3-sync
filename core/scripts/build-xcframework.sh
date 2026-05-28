@@ -29,6 +29,13 @@ CORE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_DIR="${CORE_DIR}/out"
 CARGO_MANIFEST="${CORE_DIR}/Cargo.toml"
 
+# Ensure all cargo invocations resolve `Cargo.toml` from the workspace root.
+# Xcode's Run Script Phase launches this script with cwd=$SRCROOT (apple/),
+# and `cargo run --bin uniffi-bindgen` spawns a child that calls
+# `cargo metadata` internally without `--manifest-path`. Without this cd
+# the child fails with "could not find Cargo.toml" (Phase 16 Plan 03).
+cd "${CORE_DIR}"
+
 # Default to release builds; pass --debug for development.
 BUILD_PROFILE="release"
 CARGO_PROFILE_FLAG="--release"

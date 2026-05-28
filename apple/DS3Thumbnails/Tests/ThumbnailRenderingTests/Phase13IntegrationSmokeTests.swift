@@ -4,38 +4,37 @@ import SwiftData
 @testable import ThumbnailRendering
 import XCTest
 
-/// Phase-13 integration smoke tests (Plan 13-11, D-34).
-///
-/// These wire all Phase-13 production components together against a
-/// **stateful** in-memory S3 bucket and a real (in-memory) `MetadataStore`.
-/// Per-component unit tests (`ThumbnailUploaderTests`,
-/// `MetadataStoreThumbnailQueriesTests`, `CopyThumbnailTests`) all use lighter
-/// mocks that record calls but don't actually share storage between components.
-///
-/// The bug class these tests exist to catch: **contract drift between the
-/// uploader and the consumer.** If the uploader writes a thumbnail to key
-/// `X` and the consumer reads from key `Y`, every per-component test passes
-/// but the user sees a perpetual default UTType icon. Sharing the in-memory
-/// bucket across both calls makes the contract drift fail loudly.
-///
-/// The two surviving tests cover:
-///   1. `testUploadFlowEndToEnd` — uploader writes → store marks `.uploaded`
-///      → cache-first read returns the SAME bytes. Single shared bucket.
-///   2. `testCascadeRoundTrip` — uploader writes → copyThumbnail copies →
-///      deleteThumbnail removes old → reads on new key hit, reads on old
-///      key miss (Plan 13-08 rename cascade contract).
-///
-/// Phase 13.2 Plan 07 deleted `testBackfillFlowEndToEnd` and
-/// `testStrikeRuleEndToEnd` along with the BFS coordinator they exercised
-/// (D-10). Per-folder discovery is now driven entirely by Apple's
-/// `enumerateItems` plus the reactive cache-miss fallback render path.
-///
-/// All tests are macOS-only — the uploader and the renderer are
-/// `#if os(macOS)`-gated (D-09); iOS test runs compile this file as an
-/// empty translation unit.
+// Phase-13 integration smoke tests (Plan 13-11, D-34).
+//
+// These wire all Phase-13 production components together against a
+// **stateful** in-memory S3 bucket and a real (in-memory) `MetadataStore`.
+// Per-component unit tests (`ThumbnailUploaderTests`,
+// `MetadataStoreThumbnailQueriesTests`, `CopyThumbnailTests`) all use lighter
+// mocks that record calls but don't actually share storage between components.
+//
+// The bug class these tests exist to catch: **contract drift between the
+// uploader and the consumer.** If the uploader writes a thumbnail to key
+// `X` and the consumer reads from key `Y`, every per-component test passes
+// but the user sees a perpetual default UTType icon. Sharing the in-memory
+// bucket across both calls makes the contract drift fail loudly.
+//
+// The two surviving tests cover:
+//   1. `testUploadFlowEndToEnd` — uploader writes → store marks `.uploaded`
+//      → cache-first read returns the SAME bytes. Single shared bucket.
+//   2. `testCascadeRoundTrip` — uploader writes → copyThumbnail copies →
+//      deleteThumbnail removes old → reads on new key hit, reads on old
+//      key miss (Plan 13-08 rename cascade contract).
+//
+// Phase 13.2 Plan 07 deleted `testBackfillFlowEndToEnd` and
+// `testStrikeRuleEndToEnd` along with the BFS coordinator they exercised
+// (D-10). Per-folder discovery is now driven entirely by Apple's
+// `enumerateItems` plus the reactive cache-miss fallback render path.
+//
+// All tests are macOS-only — the uploader and the renderer are
+// `#if os(macOS)`-gated (D-09); iOS test runs compile this file as an
+// empty translation unit.
 #if os(macOS)
     final class Phase13IntegrationSmokeTests: XCTestCase {
-
         // MARK: - In-memory S3 bucket (richer than MockDS3S3Client)
 
         /// Fully stateful S3 client: putObject(Data) stores bytes + metadata
@@ -70,12 +69,13 @@ import XCTest
                 set { withLock { _renderUndecodableForKey = newValue } }
             }
 
-            // All lock-protected access funnels through these synchronous
-            // helpers so the public async `DS3S3ClientProtocol` methods
-            // can stay free of `NSLock` calls (Swift 6 forbids `NSLock`
-            // from async contexts).
+            /// All lock-protected access funnels through these synchronous
+            /// helpers so the public async `DS3S3ClientProtocol` methods
+            /// can stay free of `NSLock` calls (Swift 6 forbids `NSLock`
+            /// from async contexts).
             private func withLock<T>(_ body: () -> T) -> T {
-                lock.lock(); defer { lock.unlock() }
+                lock.lock()
+                defer { lock.unlock() }
                 return body()
             }
 
@@ -128,7 +128,9 @@ import XCTest
 
             // MARK: DS3S3ClientProtocol
 
-            func listBuckets() async throws -> [(name: String, creationDate: Date?)] { [] }
+            func listBuckets() async throws -> [(name: String, creationDate: Date?)] {
+                []
+            }
 
             func listObjects(
                 bucket _: String, prefix _: String?, delimiter _: String?,
@@ -149,14 +151,14 @@ import XCTest
                 if !didRemove {
                     // Mirror Soto's NoSuchKey for absent keys so deleteThumbnail's
                     // silent-on-404 contract gets exercised end-to-end.
-                    throw S3ErrorType.noSuchKey
+                    throw DS3S3Error.noSuchKey
                 }
             }
 
             func deleteObjects(bucket _: String, keys: [String]) async throws -> Int {
                 var removed = 0
-                for key in keys {
-                    if removeObject(forKey: key) { removed += 1 }
+                for key in keys where removeObject(forKey: key) {
+                    removed += 1
                 }
                 return removed
             }
@@ -167,7 +169,7 @@ import XCTest
             ) async throws {
                 record("copyObject(\(sourceKey)->\(destinationKey))")
                 guard let src = storedObject(forKey: sourceKey) else {
-                    throw S3ErrorType.noSuchKey
+                    throw DS3S3Error.noSuchKey
                 }
                 // metadata: nil → preserve source metadata (AWS COPY default).
                 setObject(src, forKey: destinationKey)
@@ -179,16 +181,15 @@ import XCTest
             ) async throws -> S3DownloadResult {
                 record("getObject(\(key))")
                 guard let payload = storedObject(forKey: key)?.data else {
-                    throw S3ErrorType.noSuchKey
+                    throw DS3S3Error.noSuchKey
                 }
                 // Write the stored bytes (or a deliberate non-decodable payload
                 // for the strike-rule fixture) so the coordinator's
                 // render-from-temp flows naturally.
-                let toWrite: Data
-                if renderUndecodableForKey == key {
-                    toWrite = Data([0x00, 0x01, 0x02, 0x03, 0x04, 0x05])
+                let toWrite: Data = if renderUndecodableForKey == key {
+                    Data([0x00, 0x01, 0x02, 0x03, 0x04, 0x05])
                 } else {
-                    toWrite = payload
+                    payload
                 }
                 try toWrite.write(to: fileURL)
                 return S3DownloadResult(
@@ -202,7 +203,7 @@ import XCTest
             func getObjectData(bucket _: String, key: String) async throws -> Data {
                 record("getObjectData(\(key))")
                 guard let payload = storedObject(forKey: key)?.data else {
-                    throw S3ErrorType.noSuchKey
+                    throw DS3S3Error.noSuchKey
                 }
                 return payload
             }
@@ -241,17 +242,24 @@ import XCTest
                 MultipartCompleteResult(etag: "\"final-etag\"")
             }
 
-            func abortMultipartUpload(bucket _: String, key _: String, uploadId _: String) async throws {}
+            func abortMultipartUpload(bucket _: String, key _: String, uploadId _: String) async throws {
+                // Intentionally empty — no-op mock for tests.
+            }
 
-            func shutdown() throws {}
+            func shutdown() throws {
+                // Intentionally empty — no-op mock for tests.
+            }
         }
 
         // MARK: - Fixtures
 
+        // swiftlint:disable implicitly_unwrapped_optional
         private var container: ModelContainer!
         private var metadataStore: MetadataStore!
         private var bucket: InMemoryS3Bucket!
+        // swiftlint:enable implicitly_unwrapped_optional
 
+        // swiftlint:disable:next force_unwrapping
         private let driveId = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
         private let drivePrefix: String? = nil
 
@@ -325,7 +333,7 @@ import XCTest
 
             // Phase 1 — uploader renders + PUTs.
             try await uploader.generateAndUpload(
-                localURL: try fixtureURL(name: "exif6-portrait", ext: "jpg"),
+                localURL: fixtureURL(name: "exif6-portrait", ext: "jpg"),
                 drive: drive,
                 sourceETag: "\"original-etag\"",
                 originalKey: originalKey
@@ -382,7 +390,7 @@ import XCTest
             // Phase 1 — uploader writes the original thumbnail.
             let uploader = ThumbnailUploader(s3Client: bucket, metadataStore: metadataStore)
             try await uploader.generateAndUpload(
-                localURL: try fixtureURL(name: "exif6-portrait", ext: "jpg"),
+                localURL: fixtureURL(name: "exif6-portrait", ext: "jpg"),
                 drive: drive,
                 sourceETag: "\"original-etag\"",
                 originalKey: oldOriginal
@@ -437,6 +445,5 @@ import XCTest
                 "deleted thumbnail key must return nil (silent-on-404)"
             )
         }
-
     }
 #endif

@@ -46,48 +46,18 @@ enum FileProviderExtensionError: Error {
     }
 }
 
-extension AWSErrorType {
-    var isNotFound: Bool {
-        errorCode == "NoSuchKey" || errorCode == "NotFound"
-    }
+// MARK: - DS3S3Error → NSFileProviderError mapping
 
-    /// True if this error is a transient S3 throttling / unavailability signal.
-    /// Reaching this point after `listWithRetries` means retries are exhausted,
-    /// so the enumerator should surface the error instead of silently falling
-    /// back to a potentially stale MetadataStore (Gap 28).
-    var isThrottling: Bool {
-        switch errorCode {
-        case "SlowDown", "ServiceUnavailable", "RequestTimeout", "InternalError":
-            true
-        default:
-            false
-        }
-    }
-
-    /// Maps S3/AWS error codes to NSFileProviderError codes for correct system retry behavior.
-    /// Handles all Soto error types (S3ErrorType, AWSClientError, AWSServerError, AWSResponseError).
-    /// - .notAuthenticated: system throttles domain, shows re-auth UI, waits for signalErrorResolved()
-    /// - .noSuchItem: system removes item from working set
-    /// - .insufficientQuota: system shows quota UI
-    /// - .serverUnreachable: system retries with exponential backoff
-    /// - .cannotSynchronize: generic retryable error
-    func toFileProviderError() -> NSError {
-        let code: NSFileProviderError.Code = switch self.errorCode {
-        case "InvalidAccessKeyId", "SignatureDoesNotMatch", "ExpiredToken":
-            .notAuthenticated
-        case "AccessDenied":
-            // Permission denial (not credential failure). Maps to cannotSynchronize rather than
-            // notAuthenticated to avoid domain-wide throttling. System will retry with backoff.
-            .cannotSynchronize
-        case "NoSuchKey", "NoSuchBucket", "NotFound", "404 Not Found":
-            .noSuchItem
-        case "EntityTooLarge":
-            .insufficientQuota
-        case "SlowDown", "ServiceUnavailable", "InternalError", "RequestTimeout":
-            .serverUnreachable
-        default:
-            .cannotSynchronize
-        }
-        return NSFileProviderError(code) as NSError
-    }
-}
+//
+// The legacy `extension AWSErrorType` mapping moved onto `DS3S3Error` in DS3Lib
+// (see DS3Lib/Sources/DS3Lib/DS3S3Error.swift). FileProvider catch blocks now
+// catch `DS3S3Error` directly. The mapping is byte-identical:
+// - .notAuthenticated for credential errors
+// - .noSuchItem for missing keys
+// - .insufficientQuota for size
+// - .serverUnreachable for transient
+// - .cannotSynchronize as catch-all
+//
+// Project memory rule (D-21): NEVER return custom error types to the File Provider
+// system. Always call `.toFileProviderError()` (defined on DS3S3Error) at the
+// extension boundary, then throw the resulting NSError.

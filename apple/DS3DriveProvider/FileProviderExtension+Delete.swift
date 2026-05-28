@@ -43,7 +43,7 @@ extension FileProviderExtension {
                     await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                     self.signalTrashChanges()
                     boxedCb.value(nil)
-                } catch let s3Error as AWSErrorType {
+                } catch let s3Error as DS3S3Error {
                     // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
                     progress.completedUnitCount = progress.totalUnitCount
                     self.logger.error("Failed to empty trash: \(s3Error.errorCode, privacy: .public)")
@@ -193,7 +193,7 @@ extension FileProviderExtension {
                 completionHandler(trashedItem, NSFileProviderItemFields(), false, nil)
                 self.signalChanges()
                 self.signalTrashChanges()
-            } catch let s3Error as AWSErrorType {
+            } catch let s3Error as DS3S3Error {
                 // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
                 progress.completedUnitCount = progress.totalUnitCount
                 self.logger.error("Move to trash failed: \(s3Error.errorCode, privacy: .public)")
@@ -267,7 +267,7 @@ extension FileProviderExtension {
                 self.signalChanges()
                 self.signalTrashChanges()
                 completionHandler(nil)
-            } catch let s3Error as AWSErrorType {
+            } catch let s3Error as DS3S3Error {
                 // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
                 progress.completedUnitCount = progress.totalUnitCount
                 self.logger.error("Soft-delete failed with S3 error \(s3Error.errorCode, privacy: .public)")
@@ -313,7 +313,7 @@ extension FileProviderExtension {
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 self.signalTrashChanges()
                 completionHandler(nil)
-            } catch let s3Error as AWSErrorType {
+            } catch let s3Error as DS3S3Error {
                 // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
                 progress.completedUnitCount = progress.totalUnitCount
                 self.logger.error("Hard-delete failed with S3 error \(s3Error.errorCode, privacy: .public)")
@@ -379,7 +379,7 @@ extension FileProviderExtension {
                             completionHandler(NSFileProviderError(.cannotSynchronize) as NSError)
                             return
                         }
-                    } catch let s3Error as AWSErrorType
+                    } catch let s3Error as DS3S3Error
                         where s3Error.errorCode == "NoSuchKey" || s3Error.errorCode == "NotFound" {
                         self.logger.debug("File already deleted remotely: \(identifier.rawValue, privacy: .public)")
                         try? await self.metadataStore?.deleteItem(byKey: identifier.rawValue, driveId: drive.id)
@@ -436,7 +436,7 @@ extension FileProviderExtension {
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 self.signalChanges()
                 completionHandler(nil)
-            } catch let s3Error as AWSErrorType
+            } catch let s3Error as DS3S3Error
                 where s3Error.errorCode == "NoSuchKey" || s3Error.errorCode == "NotFound" {
                 self.logger.debug("File deleted remotely during our delete: \(identifier.rawValue, privacy: .public)")
                 try? await self.metadataStore?.deleteItem(byKey: identifier.rawValue, driveId: drive.id)
@@ -444,7 +444,7 @@ extension FileProviderExtension {
                 await nm.sendDriveChangedNotificationWithDebounce(status: .idle)
                 self.signalChanges()
                 completionHandler(nil)
-            } catch let s3Error as AWSErrorType {
+            } catch let s3Error as DS3S3Error {
                 // Phase 13.1-06 / D-13: finalize Progress on terminal error path.
                 progress.completedUnitCount = progress.totalUnitCount
                 self.logger
