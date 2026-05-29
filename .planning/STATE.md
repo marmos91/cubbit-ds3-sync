@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: macOS App
 status: executing
-stopped_at: Completed 17-05-PLAN.md
-last_updated: "2026-05-29T14:24:10.032Z"
+stopped_at: Completed 17-07-PLAN.md
+last_updated: "2026-05-29T15:10:00.000Z"
 last_activity: 2026-05-29
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 26
-  completed_plans: 19
-  percent: 25
+  completed_plans: 20
+  percent: 27
 ---
 
 # Project State
@@ -33,12 +33,12 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 ## Current Position
 
 Phase: 17 (windows-shell) — EXECUTING
-Plan: 7 of 12
+Plan: 8 of 12
 Status: Ready to execute
 Last activity: 2026-05-29
 
 ```
-Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17: 6/12 plans)
+Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17: 7/12 plans)
 ```
 
 ## Performance Metrics
@@ -62,6 +62,7 @@ Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17
 | Phase 17 P04 | 6min | 2 tasks | 4 files |
 | Phase 17 P05 | 17min | 3 tasks | 17 files |
 | Phase 17 P06 | 8min | 3 tasks | 9 files |
+| Phase 17 P07 | 12min | 1 task | 4 files |
 
 ### Decisions
 
@@ -82,6 +83,8 @@ Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17
 - [17-06]: schema_version table is created by migration 001 itself; SchemaMigrator must NOT pre-create it (would conflict with the 001 CREATE TABLE) — applied versions read defensively via a sqlite_master probe
 - [17-06]: sync.db uses private cache + WAL (not shared cache); WAL alone gives the concurrent cfapi-reader/engine-writer behaviour D-11 needs for a file-backed store
 - [17-06]: PlaceholderStore is fully parameterized (SqliteParameter, STRIDE T-17-06-01); EnumerationDiff.cs is the unit-testable reference while production uses Rust ds3_compute_diff (D-17)
+- [17-07]: ds3_set_log_callback ABI is a C# function pointer (delegate* unmanaged[Cdecl]), not a marshaled delegate — RustLogBridge uses an [UnmanagedCallersOnly] static target (&OnNativeCallback, GC-stable, no pinning); Shutdown clears via ds3_clear_log_callback (function-ptr ABI can't pass managed null) — supersedes RESEARCH §POL-01 marshaled-delegate sketch
+- [17-07]: POL-01 log dispatch is non-blocking — Rust callback decodes + TryWrite onto bounded Channel(1024, DropOldest); dedicated drainer Task is the only EventSource writer (Pitfall 5 re-entrancy ban enforced by Test 7). RustLogBridge.CallbackRegistrar seam keeps all 7 tests Category!=Integration; real native round-trip deferred to windows-latest CI (17-02 MSVC blocker)
 
 ### Blockers
 
@@ -91,6 +94,6 @@ yet.
 
 ## Session Continuity
 
-Last session: 2026-05-29T14:24:10.023Z
-Stopped at: Completed 17-05-PLAN.md
+Last session: 2026-05-29T15:10:00.000Z
+Stopped at: Completed 17-07-PLAN.md
 Resume file: None
