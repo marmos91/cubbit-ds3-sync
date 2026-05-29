@@ -779,8 +779,9 @@ pub unsafe extern "C" fn ds3_get_challenge(
             None => ds3_http::urls::CubbitAPIURLs::default_coordinator(),
         };
         let http = ds3_http::client::SharedHttpClient::new()?;
-        let challenge =
-            runtime().block_on(ds3_auth::challenge::get_challenge(&http, &urls, email, tenant))?;
+        let challenge = runtime().block_on(ds3_auth::challenge::get_challenge(
+            &http, &urls, email, tenant,
+        ))?;
 
         let json = serde_json::to_string(&challenge)?;
         unsafe { write_ffi_string(&json, out_challenge_json, out_challenge_json_len) };
@@ -1057,13 +1058,20 @@ pub unsafe extern "C" fn ds3_error_code(message_ptr: *const u8, message_len: usi
 ///
 /// # Ownership
 /// The returned `*mut CancellationHandle` is heap-allocated. The caller MUST
-/// destroy it exactly once with `ds3_cancellation_destroy`.
+/// destroy it exactly once with `ds3_cancellation_destroy`. Returns
+/// `null_mut()` if the allocation panics (unwinding across the FFI boundary
+/// is UB; the panic is caught here).
 #[no_mangle]
-pub unsafe extern "C" fn ds3_cancellation_create() -> *mut CancellationHandle {
-    let handle = CancellationHandle::new();
-    // Convert Arc<CancellationHandle> into a raw pointer for the C ABI;
-    // the matching destroy reconstructs the Arc and drops it.
-    std::sync::Arc::into_raw(handle) as *mut CancellationHandle
+pub extern "C" fn ds3_cancellation_create() -> *mut CancellationHandle {
+    match std::panic::catch_unwind(|| {
+        let handle = CancellationHandle::new();
+        // Convert Arc<CancellationHandle> into a raw pointer for the C ABI;
+        // the matching destroy reconstructs the Arc and drops it.
+        std::sync::Arc::into_raw(handle) as *mut CancellationHandle
+    }) {
+        Ok(ptr) => ptr,
+        Err(_panic) => std::ptr::null_mut(),
+    }
 }
 
 /// Requests cancellation. Idempotent and thread-safe.
@@ -1076,13 +1084,16 @@ pub unsafe extern "C" fn ds3_cancellation_cancel(handle: *mut CancellationHandle
     if handle.is_null() {
         return;
     }
-    // SAFETY: caller guarantees `handle` was produced by `Arc::into_raw`.
-    // We temporarily reconstruct the `Arc` to call `cancel()` without
-    // dropping it (forget the clone after the call).
-    let arc = unsafe { std::sync::Arc::from_raw(handle as *const CancellationHandle) };
-    arc.cancel();
-    // Re-leak so the caller still owns the pointer until `ds3_cancellation_destroy`.
-    let _ = std::sync::Arc::into_raw(arc);
+    let _ = std::panic::catch_unwind(|| {
+        // SAFETY: caller guarantees `handle` was produced by `Arc::into_raw`.
+        // `ManuallyDrop` ensures the Arc cannot be dropped during unwind —
+        // even if `cancel()` ever panics, the caller still owns the handle
+        // until `ds3_cancellation_destroy` is called (no double-free).
+        let arc = std::mem::ManuallyDrop::new(unsafe {
+            std::sync::Arc::from_raw(handle as *const CancellationHandle)
+        });
+        arc.cancel();
+    });
 }
 
 /// Destroys a cancellation handle, freeing its resources.
@@ -1095,9 +1106,11 @@ pub unsafe extern "C" fn ds3_cancellation_destroy(handle: *mut CancellationHandl
     if handle.is_null() {
         return;
     }
-    // SAFETY: caller guarantees `handle` was produced by `Arc::into_raw`.
-    // Reconstructing the Arc and letting it drop frees the underlying state.
-    let _ = unsafe { std::sync::Arc::from_raw(handle as *const CancellationHandle) };
+    let _ = std::panic::catch_unwind(|| {
+        // SAFETY: caller guarantees `handle` was produced by `Arc::into_raw`.
+        // Reconstructing the Arc and letting it drop frees the underlying state.
+        let _ = unsafe { std::sync::Arc::from_raw(handle as *const CancellationHandle) };
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -1113,19 +1126,23 @@ pub unsafe extern "C" fn ds3_cancellation_destroy(handle: *mut CancellationHandl
 ///
 /// Returns:
 ///   - `0` on success
-///   - `1` if a global `tracing` subscriber was already installed before us
-///     (the `CCallbackLayer` could not be added, so the callback would
-///     never fire — caller must surface this so the silent-failure mode
-///     does not leak into production)
+///   - `1` if the caller attempted to install a non-null callback but a
+///     global `tracing` subscriber was already installed before us — the
+///     `CCallbackLayer` could not be added, so the callback would never
+///     fire. Caller must surface this so the silent-failure mode does not
+///     leak into production. Clearing (`None`) ALWAYS returns `0` regardless
+///     of subscriber install state — clearing an absent callback is a no-op.
+///   - `-2` on panic caught crossing the FFI boundary (should never happen)
 ///
 /// Pass `None` (a null function pointer) to clear the callback. Callers that
 /// cannot pass null function pointers through their FFI binding should use
 /// `ds3_clear_log_callback` instead.
 #[no_mangle]
 pub extern "C" fn ds3_set_log_callback(cb: Option<DS3LogCallbackFn>) -> i32 {
-    match log_bridge::set_callback(cb) {
-        Ok(()) => 0,
-        Err(log_bridge::SetCallbackError::SubscriberAlreadyInstalled) => 1,
+    match std::panic::catch_unwind(|| log_bridge::set_callback(cb)) {
+        Ok(Ok(())) => 0,
+        Ok(Err(log_bridge::SetCallbackError::SubscriberAlreadyInstalled)) => 1,
+        Err(_panic) => -2,
     }
 }
 
@@ -1135,6 +1152,8 @@ pub extern "C" fn ds3_set_log_callback(cb: Option<DS3LogCallbackFn>) -> i32 {
 /// that cannot represent a null function pointer.
 #[no_mangle]
 pub extern "C" fn ds3_clear_log_callback() -> i32 {
-    log_bridge::clear_callback();
-    0
+    match std::panic::catch_unwind(log_bridge::clear_callback) {
+        Ok(()) => 0,
+        Err(_panic) => -2,
+    }
 }

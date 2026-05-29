@@ -9,7 +9,14 @@
 # on a darwin / Linux host via cross-compilation.
 #
 # Usage:
-#   pwsh -NoProfile -File .\core\scripts\build-dll-windows.ps1 [-Profile release|debug]
+#   pwsh -NoProfile -File .\core\scripts\build-dll-windows.ps1 [-BuildProfile release|debug]
+#
+# NOTE: the parameter is `-BuildProfile`, NOT `-Profile` — PowerShell exposes
+# `$PROFILE` as an automatic variable holding the path to the current user's
+# profile script. Shadowing it with `param([string]$Profile)` works inside
+# this script but creates a silent footgun if a helper function is later
+# extracted: outside the script's param scope `$Profile` reverts to the
+# profile-script path and cargo receives a garbage `--release`/empty value.
 #
 # Prerequisites:
 #   - Visual Studio 2022 Build Tools with the MSVC x64/ARM64 toolsets
@@ -18,7 +25,7 @@
 
 param(
     [ValidateSet('release','debug')]
-    [string]$Profile = 'release'
+    [string]$BuildProfile = 'release'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -34,10 +41,10 @@ $CargoManifest = Join-Path $CoreDir 'Cargo.toml'
 
 Set-Location $CoreDir
 
-if ($Profile -eq 'release') {
-    $ProfileFlag = '--release'
+if ($BuildProfile -eq 'release') {
+    $BuildProfileFlag = '--release'
 } else {
-    $ProfileFlag = ''
+    $BuildProfileFlag = ''
 }
 
 # Cargo target triple -> NuGet runtime identifier (D-06 layout).
@@ -46,7 +53,7 @@ $Targets = @(
     @{ Triple = 'aarch64-pc-windows-msvc'; Rid = 'win-arm64' }
 )
 
-Write-Host "==> Building $DllName for $($Targets.Count) Windows targets ($Profile)..."
+Write-Host "==> Building $DllName for $($Targets.Count) Windows targets ($BuildProfile)..."
 Write-Host "    Artifact name: $DllName (canonical per 17-RESEARCH Pitfall 6)"
 
 # ---------------------------------------------------------------------------
@@ -71,13 +78,13 @@ foreach ($t in $Targets) {
         '--package', 'ds3-ffi',
         '--target', $triple
     )
-    if ($ProfileFlag -ne '') { $cargoArgs += $ProfileFlag }
+    if ($BuildProfileFlag -ne '') { $cargoArgs += $BuildProfileFlag }
     & cargo @cargoArgs
     if ($LASTEXITCODE -ne 0) {
         throw "cargo build failed for $triple (exit $LASTEXITCODE)"
     }
 
-    $srcDll  = Join-Path $CoreDir "target\$triple\$Profile\$DllName"
+    $srcDll  = Join-Path $CoreDir "target\$triple\$BuildProfile\$DllName"
     $destDir = Join-Path $OutBase "runtimes\$rid\native"
     $destDll = Join-Path $destDir $DllName
 

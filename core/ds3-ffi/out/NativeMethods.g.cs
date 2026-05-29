@@ -283,7 +283,9 @@ namespace DS3Drive.Core
         ///
         ///  # Ownership
         ///  The returned `*mut CancellationHandle` is heap-allocated. The caller MUST
-        ///  destroy it exactly once with `ds3_cancellation_destroy`.
+        ///  destroy it exactly once with `ds3_cancellation_destroy`. Returns
+        ///  `null_mut()` if the allocation panics (unwinding across the FFI boundary
+        ///  is UB; the panic is caught here).
         /// </summary>
         [DllImport(__DllName, EntryPoint = "ds3_cancellation_create", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern CancellationHandle* ds3_cancellation_create();
@@ -318,10 +320,13 @@ namespace DS3Drive.Core
         ///
         ///  Returns:
         ///    - `0` on success
-        ///    - `1` if a global `tracing` subscriber was already installed before us
-        ///      (the `CCallbackLayer` could not be added, so the callback would
-        ///      never fire — caller must surface this so the silent-failure mode
-        ///      does not leak into production)
+        ///    - `1` if the caller attempted to install a non-null callback but a
+        ///      global `tracing` subscriber was already installed before us — the
+        ///      `CCallbackLayer` could not be added, so the callback would never
+        ///      fire. Caller must surface this so the silent-failure mode does not
+        ///      leak into production. Clearing (`None`) ALWAYS returns `0` regardless
+        ///      of subscriber install state — clearing an absent callback is a no-op.
+        ///    - `-2` on panic caught crossing the FFI boundary (should never happen)
         ///
         ///  Pass `None` (a null function pointer) to clear the callback. Callers that
         ///  cannot pass null function pointers through their FFI binding should use

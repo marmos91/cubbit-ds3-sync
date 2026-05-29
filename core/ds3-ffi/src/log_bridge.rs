@@ -85,9 +85,15 @@ pub enum SetCallbackError {
 ///
 /// The first call also installs the `CCallbackLayer` as a global
 /// `tracing-subscriber` layer. If install fails because another global
-/// subscriber is already set, this returns `Err(SubscriberAlreadyInstalled)`
-/// and does NOT store the callback — emitting events would silently never
-/// fire and that is worse than reporting the failure to the caller.
+/// subscriber is already set, registering a non-null callback returns
+/// `Err(SubscriberAlreadyInstalled)` and does NOT store the callback —
+/// emitting events would silently never fire and that is worse than
+/// reporting the failure to the caller.
+///
+/// **Clearing (`cb == None`) ALWAYS succeeds**, even if the subscriber was
+/// never installed: a clear is a no-op when no callback is registered, and
+/// callers must be able to drop their function pointer regardless of
+/// subscriber state.
 pub fn set_callback(cb: Option<DS3LogCallbackFn>) -> Result<(), SetCallbackError> {
     INSTALL.call_once(|| {
         if tracing_subscriber::registry()
@@ -98,6 +104,11 @@ pub fn set_callback(cb: Option<DS3LogCallbackFn>) -> Result<(), SetCallbackError
             INSTALLED.store(true, Ordering::Release);
         }
     });
+
+    if cb.is_none() {
+        CALLBACK.store(0, Ordering::Release);
+        return Ok(());
+    }
 
     if !INSTALLED.load(Ordering::Acquire) {
         return Err(SetCallbackError::SubscriberAlreadyInstalled);
@@ -192,16 +203,15 @@ impl Visit for MessageVisitor {
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
         if field.name() == "message" && self.message.is_empty() {
             use std::fmt::Write as _;
+            // Use Debug formatting verbatim — the prior version stripped a
+            // surrounding quote pair on the assumption that strings always
+            // arrive quoted, but that heuristic silently corrupts messages
+            // like `tracing::info!("she said \"hi\"")` which arrive as
+            // `"she said \"hi\""` (the strip removed the outer pair but left
+            // inner escapes). Callers that want unescaped text should emit
+            // with Display formatting: `tracing::info!(message = %value)` —
+            // that routes through `record_str` instead.
             let _ = write!(self.message, "{value:?}");
-            // Strings going through `record_debug` arrive quoted; strip a
-            // single surrounding quote pair so consumers see `hello` not `"hello"`.
-            if let Some(unquoted) = self
-                .message
-                .strip_prefix('"')
-                .and_then(|s| s.strip_suffix('"'))
-            {
-                self.message = unquoted.to_string();
-            }
         }
     }
 }
@@ -292,7 +302,10 @@ mod tests {
 
         tracing::info!(target: "test_clear", "before");
         let before = EVENT_COUNT.load(TestOrdering::SeqCst);
-        assert!(before > 0, "callback should have received the pre-clear event");
+        assert!(
+            before > 0,
+            "callback should have received the pre-clear event"
+        );
 
         set_callback(None).expect("subscriber installed");
         let baseline = EVENT_COUNT.load(TestOrdering::SeqCst);
