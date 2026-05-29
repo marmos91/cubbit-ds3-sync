@@ -20,6 +20,7 @@
     <PackageReference Include="Vanara.PInvoke.CldApi" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
 
   <!-- SQL migrations are embedded so SchemaMigrator can enumerate + apply them
