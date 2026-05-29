@@ -26,7 +26,6 @@ $ErrorActionPreference = 'Stop'
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-$CrateName    = 'ds3_ffi'
 $DllName      = 'ds3_ffi.dll'
 $ScriptDir    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $CoreDir      = (Resolve-Path (Join-Path $ScriptDir '..')).Path

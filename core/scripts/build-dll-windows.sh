@@ -28,7 +28,6 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-CRATE_NAME="ds3_ffi"
 DLL_NAME="ds3_ffi.dll"
 CORE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_BASE="${CORE_DIR}/out/windows"
@@ -37,7 +36,6 @@ CARGO_MANIFEST="${CORE_DIR}/Cargo.toml"
 cd "${CORE_DIR}"
 
 BUILD_PROFILE="release"
-CARGO_PROFILE_FLAG="--release"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in

@@ -58,10 +58,17 @@ unsafe fn ffi_opt_str<'a>(ptr: *const u8, len: usize) -> Result<Option<&'a str>,
 /// # Safety
 /// `out_ptr` and `out_len` must be valid writable pointers.
 unsafe fn write_ffi_string(s: &str, out_ptr: *mut *mut u8, out_len: *mut usize) {
-    let bytes = s.as_bytes().to_vec();
+    unsafe { write_ffi_bytes(s.as_bytes().to_vec(), out_ptr, out_len) };
+}
+
+/// Writes an owned byte buffer into FFI out-pointers. The caller must later
+/// free the allocation with `ds3_free_bytes` (or `ds3_free_string`).
+///
+/// # Safety
+/// `out_ptr` and `out_len` must be valid writable pointers.
+unsafe fn write_ffi_bytes(bytes: Vec<u8>, out_ptr: *mut *mut u8, out_len: *mut usize) {
     let len = bytes.len();
-    let boxed = bytes.into_boxed_slice();
-    let raw = Box::into_raw(boxed) as *mut u8;
+    let raw = Box::into_raw(bytes.into_boxed_slice()) as *mut u8;
     unsafe {
         *out_ptr = raw;
         *out_len = len;
@@ -840,13 +847,7 @@ pub unsafe extern "C" fn ds3_download_to_memory(
         let key = unsafe { ffi_str(key, key_len)? };
 
         let bytes = runtime().block_on(client.download_to_memory(bucket, key))?;
-        let len = bytes.len();
-        let boxed = bytes.into_boxed_slice();
-        let raw = Box::into_raw(boxed) as *mut u8;
-        unsafe {
-            *out_buf = raw;
-            *out_len = len;
-        }
+        unsafe { write_ffi_bytes(bytes, out_buf, out_len) };
         Ok(0)
     })
 }

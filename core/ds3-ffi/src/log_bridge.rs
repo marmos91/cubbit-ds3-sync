@@ -82,10 +82,7 @@ pub fn set_callback(cb: Option<DS3LogCallbackFn>) {
             .try_init();
     });
 
-    let ptr: *mut () = match cb {
-        Some(f) => f as *mut (),
-        None => std::ptr::null_mut(),
-    };
+    let ptr = cb.map_or(std::ptr::null_mut(), |f| f as *mut ());
     CALLBACK.store(ptr, Ordering::Release);
 }
 
@@ -175,11 +172,12 @@ impl Visit for MessageVisitor {
             let _ = write!(self.message, "{value:?}");
             // Strings going through `record_debug` arrive quoted; strip a
             // single surrounding quote pair so consumers see `hello` not `"hello"`.
-            if self.message.starts_with('"')
-                && self.message.ends_with('"')
-                && self.message.len() >= 2
+            if let Some(unquoted) = self
+                .message
+                .strip_prefix('"')
+                .and_then(|s| s.strip_suffix('"'))
             {
-                self.message = self.message[1..self.message.len() - 1].to_string();
+                self.message = unquoted.to_string();
             }
         }
     }
