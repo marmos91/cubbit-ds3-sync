@@ -374,7 +374,7 @@ Plans:
   4. User can save or create files in the synced folder and they upload to S3 automatically (triggered by `NOTIFY_FILE_CLOSE_COMPLETION`, not `ReadDirectoryChangesW` -- no spurious re-upload on hydration)
   5. Remote changes made from another device or the web console appear as updated placeholders within one polling cycle, and the system tray icon reflects sync status (idle/syncing/error)
 
-**Plans:** 8/12 plans executed
+**Plans:** 9/12 plans executed
 **UI hint**: yes
 
 Plans:
@@ -394,7 +394,7 @@ Plans:
 **Wave 2**
 
 - [x] 17-08-PLAN.md -- App shell: DI host, Mica MainWindow, Tokens.xaml (UI-SPEC Rev1+2+3: 4 sizes 12/14/24/32, 2 weights Regular/SemiBold, spacing 4/8/16/24/32/48), Figtree fonts, BrandPrimaryButton, Login + 2FA + Tutorial pages, SingleInstanceService (named Mutex per-user SID)
-- [ ] 17-09-PLAN.md -- Drive setup wizard (Project to Bucket to Prefix to Confirm), DS3SdkService (API-key reconciliation byte-for-byte port of DS3SDK.swift), DriveManagementService (persistence triple PATTERNS section 3.3), DrivesListPage with 3-drive cap (D-23)
+- [x] 17-09-PLAN.md -- Drive setup wizard (Project to Bucket to Prefix to Confirm), DS3SdkService (API-key reconciliation byte-for-byte port of DS3SDK.swift), DriveManagementService (persistence triple PATTERNS section 3.3), DrivesListPage with 3-drive cap (D-23)
 
 **Wave 3**
 
@@ -449,7 +449,7 @@ Plans:
 | 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
 | 15. Rust Core + FFI Foundation | v2.0.0 | 7/7 | Complete   | 2026-05-27 |
 | 16. Apple Incremental Swap | v2.0.0 | 6/7 | In Progress|  |
-| 17. Windows Shell | v2.0.0 | 8/12 | In Progress|  |
+| 17. Windows Shell | v2.0.0 | 9/12 | In Progress|  |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
 
 ---

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: macOS App
 status: executing
-stopped_at: Completed 17-07-PLAN.md
-last_updated: "2026-05-29T15:10:00.000Z"
+stopped_at: Completed 17-09-PLAN.md
+last_updated: "2026-05-29T16:02:27.880Z"
 last_activity: 2026-05-29
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 26
-  completed_plans: 20
-  percent: 27
+  completed_plans: 22
+  percent: 25
 ---
 
 # Project State
@@ -33,12 +33,12 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 ## Current Position
 
 Phase: 17 (windows-shell) — EXECUTING
-Plan: 8 of 12
+Plan: 9 of 12
 Status: Ready to execute
 Last activity: 2026-05-29
 
 ```
-Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17: 7/12 plans)
+Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17: 9/12 plans)
 ```
 
 ## Performance Metrics
@@ -63,6 +63,7 @@ Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17
 | Phase 17 P05 | 17min | 3 tasks | 17 files |
 | Phase 17 P06 | 8min | 3 tasks | 9 files |
 | Phase 17 P07 | 12min | 1 task | 4 files |
+| Phase 17 P09 | 27min | 2 tasks | 31 files |
 
 ### Decisions
 
@@ -85,6 +86,10 @@ Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17
 - [17-06]: PlaceholderStore is fully parameterized (SqliteParameter, STRIDE T-17-06-01); EnumerationDiff.cs is the unit-testable reference while production uses Rust ds3_compute_diff (D-17)
 - [17-07]: ds3_set_log_callback ABI is a C# function pointer (delegate* unmanaged[Cdecl]), not a marshaled delegate — RustLogBridge uses an [UnmanagedCallersOnly] static target (&OnNativeCallback, GC-stable, no pinning); Shutdown clears via ds3_clear_log_callback (function-ptr ABI can't pass managed null) — supersedes RESEARCH §POL-01 marshaled-delegate sketch
 - [17-07]: POL-01 log dispatch is non-blocking — Rust callback decodes + TryWrite onto bounded Channel(1024, DropOldest); dedicated drainer Task is the only EventSource writer (Pitfall 5 re-entrancy ban enforced by Test 7). RustLogBridge.CallbackRegistrar seam keeps all 7 tests Category!=Integration; real native round-trip deferred to windows-latest CI (17-02 MSVC blocker)
+- [17-09]: DriveSetupViewModel + DS3SdkService + DriveManagementService + repositories live in DS3Drive.ViewModels (WinUI-free), not DS3Drive.App — referencing the WinUI App exe into the headless xUnit host crashes it (same root cause as 17-08 split). XAML pages + WizardStepIndicator stay in DS3Drive.App
+- [17-09]: IDS3SessionGateway seam wraps the sealed DS3Session so the API-key reconcile tests can mock remote calls; AuthenticationService (the single session owner) implements it and is registered as the same singleton for both IAuthenticationService + IDS3SessionGateway
+- [17-09]: InstallationId (Apple appUUID analog for the deterministic API-key name) persisted in a new singleton_state SQLite table (migration 002), lazily GUID-generated on first read — threat T-17-09-04
+- [17-09]: DriveManagementService persistence triple (mutate → SQLite UPSERT → DriveAdded event) is byte-aligned with DS3DriveManager.swift:244-248; remove does the inverse (unregister event → DELETE → drop). 3-drive cap (D-23) enforced at the service + UI. Manual end-to-end smoke deferred to phase HUMAN-UAT (entries 10-19)
 
 ### Blockers
 
@@ -94,6 +99,6 @@ yet.
 
 ## Session Continuity
 
-Last session: 2026-05-29T15:10:00.000Z
-Stopped at: Completed 17-07-PLAN.md
+Last session: 2026-05-29T16:02:27.873Z
+Stopped at: Completed 17-09-PLAN.md
 Resume file: None

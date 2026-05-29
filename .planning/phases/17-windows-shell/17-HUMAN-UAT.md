@@ -1,7 +1,7 @@
 ---
 status: partial
 phase: 17-windows-shell
-source: [17-08-PLAN.md Task 4]
+source: [17-08-PLAN.md Task 4, 17-09-PLAN.md Task 3]
 started: 2026-05-29
 updated: 2026-05-29
 ---
@@ -48,12 +48,52 @@ result: [pending]
 expected: `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` has a "Cubbit DS3 Drive" entry iff the toggle was ON.
 result: [pending]
 
+### 10. Drives list empty state (17-09)
+expected: After sign-in + tutorial, DrivesListPage shows the "No drives yet" empty state with the "Add your first drive" CTA.
+result: [pending]
+
+### 11. Wizard opens to Project step (17-09)
+expected: Click "Add your first drive" → wizard opens to ProjectSelectionPage; projects load (ProgressRing "Loading projects…" → list).
+result: [pending]
+
+### 12. Project → Bucket + step indicator (17-09, D-09)
+expected: Click a project → navigates to BucketSelectionPage; WizardStepIndicator shows step 2 of 4 with the BrandPrimary accent on the active circle.
+result: [pending]
+
+### 13. Bucket → Prefix tree + "Use root" (17-09)
+expected: Click a bucket → PrefixSelectionPage; the "Use root" option works and a tree of object prefixes lazy-loads from S3.
+result: [pending]
+
+### 14. Confirm summary card (17-09)
+expected: Continue with root selected → DriveConfirmPage shows summary (Project / Bucket / Folder=Root / Drive name defaulting to bucket name).
+result: [pending]
+
+### 15. Create drive end-to-end (17-09, PATTERNS §3.3)
+expected: Edit the drive name, click "Create drive" → "Setting up your drive…" ProgressRing, then navigation back to DrivesListPage with the new drive visible.
+result: [pending]
+
+### 16. API key in Cubbit console (17-09, D-10)
+expected: The Cubbit web console shows an API key named `ds3drive({username}_{project}_{installation_id})` (deterministic name pattern, matches macOS).
+result: [pending]
+
+### 17. 3-drive cap hides Add (17-09, D-23)
+expected: Add two more drives; on the third success the "Add drive" button is hidden/disabled.
+result: [pending]
+
+### 18. Back preserves picker state (17-09, UI-SPEC Open Q #4)
+expected: From the wizard's Bucket step click Back → lands on the Project step with the previous project still selected/highlighted.
+result: [pending]
+
+### 19. SQLite rows (17-09)
+expected: `%LOCALAPPDATA%\Cubbit\DS3Drive\sync.db` → `SELECT * FROM drives;` returns 3 rows and `SELECT * FROM api_keys;` returns 3 rows.
+result: [pending]
+
 ## Summary
 
-total: 9
+total: 19
 passed: 0
 issues: 0
-pending: 9
+pending: 19
 skipped: 0
 blocked: 0
 
