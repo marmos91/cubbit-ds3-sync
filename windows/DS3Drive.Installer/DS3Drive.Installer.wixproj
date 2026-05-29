@@ -1,0 +1,56 @@
+<Project Sdk="WixToolset.Sdk/4.0.5">
+
+  <!--
+    DS3Drive.Installer — WiX v4 MSI for Cubbit DS3 Drive (WIN-09 / CONTEXT D-28).
+
+    Build modes:
+      - `dotnet build` of this .wixproj (or `wix build` via build-msi.ps1) produces
+        DS3Drive-<version>-x64.msi.
+      - The MSI harvests the DS3Drive.App `dotnet publish` output via the `publish`
+        bindpath (build-msi.ps1 passes -bindpath publish=...). The ProjectReference
+        below sequences the App build before the installer when built from the solution.
+
+    Central Package Management (windows/Directory.Packages.props) pins versions, so the
+    WixToolset.UI.wixext PackageReference is intentionally version-less here.
+
+    The native DLL packaged via the harvest is ds3_ffi.dll (the Phase 15 [lib] name),
+    per RESEARCH Pitfall 6.
+  -->
+  <PropertyGroup>
+    <OutputName>DS3Drive</OutputName>
+    <OutputType>Package</OutputType>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <!-- Per RESEARCH Pitfall 7: keep in sync with Variables.wxi ProductVersion and the
+         sparse manifest <Identity Version>. build-msi.ps1 overrides this at build time. -->
+    <DefineConstants>ProductVersion=2.0.0.0</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Product.wxs" />
+    <Compile Include="Components.wxs" />
+    <Compile Include="UI.wxs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WixUI_Minimal dialog set (UI.wxs / Product.wxs reference it). -->
+    <PackageReference Include="WixToolset.UI.wixext" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Sequences the WinUI 3 app build before the installer when built from the
+         solution. The actual file harvest happens against the publish bindpath that
+         build-msi.ps1 supplies; this reference only establishes build ordering. -->
+    <ProjectReference Include="..\DS3Drive.App\DS3Drive.App.csproj">
+      <DoNotHarvest>true</DoNotHarvest>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Variables.wxi" />
+    <Content Include="LICENSE.rtf" />
+    <Content Include="banner.bmp" />
+    <Content Include="dialog.bmp" />
+    <Content Include="SyncRootIcon.ico" />
+  </ItemGroup>
+
+</Project>

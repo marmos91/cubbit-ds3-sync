@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Product.wxs — DS3 Drive WiX v4 MSI product definition (WIN-09 / CONTEXT D-28).
+
+  Load-bearing decisions baked in here:
+    - D-26 (auto-start): RunKeyComponent writes HKCU\...\CurrentVersion\Run so the app
+      launches at user login. Per-user key (HKCU) per D-26; removed on uninstall.
+    - Pitfall 1 (sparse identity): RegisterSparsePackage custom action runs Add-AppxPackage
+      -ExternalLocation AFTER InstallFiles so the unpackaged exe gains package identity that
+      StorageProviderSyncRootManager.Register requires. Verbatim from RESEARCH §Code Examples.
+    - Pitfall 7 (version collision): MajorUpgrade + UnregisterSparsePackage (Remove-AppxPackage)
+      so an upgrade tears down the old sparse package before the new one registers; sparse
+      manifest Version is pinned to ProductVersion (build-msi.ps1 syncs them).
+    - Pitfall 8 (NTFS only): VerifyNtfs custom action runs Before LaunchConditions; cfapi
+      (cldflt.sys) supports NTFS only, so installing onto exFAT/FAT32 is blocked up front.
+
+  The native DLL shipped is ds3_ffi.dll (the Phase 15 [lib] name), per RESEARCH Pitfall 6
+  — the older "core" dll name must never appear in installer artifacts.
+-->
+<?include Variables.wxi ?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="$(var.ProductDisplayName)"
+           Manufacturer="$(var.ManufacturerName)"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="$(var.ProductUpgradeCode)"
+           Scope="perMachine"
+           InstallerVersion="500"
+           Compressed="yes">
+
+    <!-- Pitfall 7: a major upgrade removes the prior install (and, via the
+         UnregisterSparsePackage custom action below, the prior sparse package)
+         before laying down the new files. Scheduled afterInstallExecute so the new
+         payload is staged before the old one is removed (avoids a window with no app). -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of $(var.ProductDisplayName) is already installed."
+                  Schedule="afterInstallExecute" />
+
+    <Media Id="1" Cabinet="DS3Drive.cab" EmbedCab="yes" />
+
+    <!-- Branding for the WixUI dialog set (D-28 silent install still references these). -->
+    <WixVariable Id="WixUILicenseRtf" Value="LICENSE.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="dialog.bmp" />
+    <Icon Id="AppIcon.ico" SourceFile="SyncRootIcon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    <Property Id="ARPHELPLINK" Value="https://cubbit.io" />
+
+    <!-- Install location: %ProgramFiles%\Cubbit\DS3 Drive (admin-write-only;
+         threat T-17-12-02 / T-17-12-05 rely on this). -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="CubbitFolder" Name="Cubbit">
+        <Directory Id="INSTALLFOLDER" Name="$(var.InstallFolderName)" />
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="$(var.ProductDisplayName)" />
+    </StandardDirectory>
+
+    <!-- ============================================================
+         Pitfall 8: NTFS prerequisite guard.
+         cfapi (cldflt.sys) only works on NTFS. A Type 1 (PowerShell-driven)
+         immediate custom action inspects the target volume and aborts with 1603
+         on a non-NTFS volume rather than letting cfapi fail silently post-install.
+         Scheduled Before LaunchConditions so it runs at the very start of the
+         install UI/execute sequence. Condition: only when actually installing.
+         ============================================================ -->
+    <CustomAction Id="VerifyNtfs"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="powershell.exe -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command &quot;$root = [System.IO.Path]::GetPathRoot('[INSTALLFOLDER]'); $fs = (Get-Volume -FilePath $root).FileSystem; if ($fs -ne 'NTFS') { Write-Error ('Cubbit DS3 Drive requires an NTFS volume (cfapi/cldflt.sys is NTFS-only). Target volume is ' + $fs); exit 1603 }; exit 0&quot;"
+                  Execute="immediate"
+                  Return="check" />
+
+    <!-- ============================================================
+         Pitfall 1: register the sparse identity package AFTER files land.
+         Verbatim from RESEARCH §"Registering a sparse identity package from a WiX
+         custom action". Execute=deferred + Impersonate=yes => runs as the installing
+         user (threat T-17-12-01: not SYSTEM). Add-AppxPackage -ExternalLocation grants
+         the unpackaged exe package identity so StorageProviderSyncRootManager.Register
+         succeeds (Package.Current is otherwise null).
+         ============================================================ -->
+    <CustomAction Id="RegisterSparsePackage"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand='powershell.exe -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command "Add-AppxPackage -Path &quot;[INSTALLFOLDER]Identity\DS3Drive.Identity.msix&quot; -ExternalLocation &quot;[INSTALLFOLDER]&quot;"'
+                  Execute="deferred"
+                  Impersonate="yes"
+                  Return="check" />
+
+    <!-- ============================================================
+         Pitfall 7: on uninstall / upgrade-replace, remove the sparse package by its
+         full name so the next Add-AppxPackage doesn't collide with a same-Version
+         registration (0x80073CF9). Impersonate=yes so Get-AppxPackage sees the
+         installing user's registered packages.
+         ============================================================ -->
+    <CustomAction Id="UnregisterSparsePackage"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="powershell.exe -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command &quot;$pkg = Get-AppxPackage -Name 'Cubbit.DS3Drive'; if ($pkg) { Remove-AppxPackage -Package $pkg.PackageFullName }&quot;"
+                  Execute="deferred"
+                  Impersonate="yes"
+                  Return="ignore" />
+
+    <InstallExecuteSequence>
+      <!-- Pitfall 8: fail fast on non-NTFS before anything is committed. -->
+      <Custom Action="VerifyNtfs" Before="LaunchConditions" Condition="NOT Installed AND NOT REMOVE" />
+      <!-- Pitfall 1: identity must exist before first launch / sync-root registration. -->
+      <Custom Action="RegisterSparsePackage" After="InstallFiles" Condition="NOT REMOVE" />
+      <!-- Pitfall 7: tear down old identity before files are removed. -->
+      <Custom Action="UnregisterSparsePackage" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot;" />
+    </InstallExecuteSequence>
+
+    <!-- ============================================================
+         D-26: auto-start at login. HKCU Run key pointing at the installed exe.
+         Removed automatically on uninstall (component removal removes the value).
+         ============================================================ -->
+    <Component Id="RunKeyComponent" Directory="INSTALLFOLDER" Guid="*">
+      <RegistryValue Root="HKCU"
+                     Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                     Name="$(var.ProductDisplayName)"
+                     Value="[INSTALLFOLDER]DS3Drive.App.exe"
+                     Type="string"
+                     KeyPath="yes" />
+    </Component>
+
+    <!-- Start Menu shortcut. -->
+    <Component Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Guid="*">
+      <Shortcut Id="AppStartMenuShortcut"
+                Name="$(var.ProductDisplayName)"
+                Description="Cubbit DS3 cloud storage drive"
+                Target="[INSTALLFOLDER]DS3Drive.App.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon.ico" />
+      <RemoveFolder Id="RemoveApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\Cubbit\DS3Drive"
+                     Name="StartMenuShortcut"
+                     Value="1"
+                     Type="integer"
+                     KeyPath="yes" />
+    </Component>
+
+    <!-- Sparse identity package payload: DS3Drive.Identity.msix staged under Identity\
+         (Plan 04 build-sparse.ps1 emits it). RegisterSparsePackage above consumes this
+         exact path. The Add-AppxPackage|Package.appxmanifest key-link is satisfied here. -->
+    <Component Id="SparsePackageFiles" Directory="INSTALLFOLDER" Guid="*">
+      <File Id="SparseMsix"
+            Source="!(bindpath.publish)Identity\DS3Drive.Identity.msix"
+            Name="DS3Drive.Identity.msix"
+            Subdirectory="Identity" />
+    </Component>
+
+    <!-- SyncRoot icon consumed by Plan 10 StorageProviderSyncRootManager registration
+         (sets the Explorer sidebar / sync-root glyph). -->
+    <Component Id="SyncRootIconFile" Directory="INSTALLFOLDER" Guid="*">
+      <File Id="SyncRootIco"
+            Source="SyncRootIcon.ico"
+            Name="SyncRoot.ico"
+            Subdirectory="Assets" />
+    </Component>
+
+    <!-- ============================================================
+         Feature: the whole product. AppFiles (Components.wxs, harvested from
+         dotnet publish output) + the explicit components above.
+         ============================================================ -->
+    <Feature Id="MainFeature" Title="$(var.ProductDisplayName)" Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="RunKeyComponent" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="SparsePackageFiles" />
+      <ComponentRef Id="SyncRootIconFile" />
+    </Feature>
+
+    <!-- Minimal UI sufficient for D-28 silent install via /qn (UI.wxs). -->
+    <ui:WixUI Id="WixUI_Minimal" InstallDirectory="INSTALLFOLDER" />
+
+  </Package>
+</Wix>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Variables.wxi — shared preprocessor variables for the DS3 Drive WiX v4 MSI.
+
+  Per RESEARCH Pitfall 7 (sparse package version collision): bump ProductVersion on
+  every release. The sparse manifest version (windows/DS3Drive.Installer/SparsePackage/
+  Package.appxmanifest <Identity Version>) MUST match ProductVersion below exactly
+  byte-for-byte — Add-AppxPackage refuses to overwrite an already-registered package
+  with the same Version, and build-msi.ps1 syncs the two via regex replace at build time.
+
+  ProductUpgradeCode is a stable GUID that identifies the product family across versions
+  (RESEARCH Pitfall 7 / D-28). It MUST never change once shipped, or MajorUpgrade can no
+  longer detect and remove prior installs. Generated once via [guid]::NewGuid().
+-->
+<Include>
+  <?define ProductVersion = "2.0.0.0" ?>
+  <?define ProductUpgradeCode = "CC7FD1D4-A8CF-4FB2-9299-99250A4FCC6E" ?>
+  <?define ManufacturerName = "Cubbit Srl" ?>
+  <?define InstallFolderName = "DS3 Drive" ?>
+  <?define ProductDisplayName = "Cubbit DS3 Drive" ?>
+</Include>

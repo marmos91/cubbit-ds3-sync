@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Components.wxs — the AppFiles ComponentGroup.
+
+  The <Files> auto-harvest element (WiX v4) walks the dotnet publish output rooted at
+  the `publish` bindpath (build-msi.ps1 passes `-bindpath publish=<OutputDir>\publish`)
+  and emits one File per published artifact: DS3Drive.App.exe, ds3_ffi.dll (the Phase 15
+  [lib] name, per RESEARCH Pitfall 6), all .NET dependencies, the WindowsAppSDK runtime,
+  fonts and tray-icon assets. This keeps the component list maintenance-free as the
+  publish output evolves.
+
+  The Identity\DS3Drive.Identity.msix and Assets\SyncRoot.ico payloads are declared
+  explicitly in Product.wxs (SparsePackageFiles / SyncRootIconFile) and EXCLUDED here
+  so they aren't double-installed — the sparse msix lives under publish\Identity but is
+  owned by its dedicated component for the Add-AppxPackage custom-action path.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="!(bindpath.publish)\**">
+        <!-- Owned by the dedicated SparsePackageFiles component (Add-AppxPackage target). -->
+        <Exclude Files="!(bindpath.publish)\Identity\DS3Drive.Identity.msix" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>

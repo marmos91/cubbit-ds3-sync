@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DS3Drive.Tests", "DS3Drive.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DS3Drive.ViewModels", "DS3Drive.ViewModels\DS3Drive.ViewModels.csproj", "{50742F7D-CC87-415E-9954-FA0A310F6859}"
 EndProject
+Project("{6FFF4144-9610-4D8B-AB37-C39F6F76B58D}") = "DS3Drive.Installer", "DS3Drive.Installer\DS3Drive.Installer.wixproj", "{E1234567-89AB-4CDE-8F01-23456789ABCD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -61,6 +63,12 @@ Global
 		{50742F7D-CC87-415E-9954-FA0A310F6859}.Release|x64.Build.0 = Release|Any CPU
 		{50742F7D-CC87-415E-9954-FA0A310F6859}.Release|ARM64.ActiveCfg = Release|Any CPU
 		{50742F7D-CC87-415E-9954-FA0A310F6859}.Release|ARM64.Build.0 = Release|Any CPU
+		{E1234567-89AB-4CDE-8F01-23456789ABCD}.Debug|x64.ActiveCfg = Debug|x64
+		{E1234567-89AB-4CDE-8F01-23456789ABCD}.Debug|x64.Build.0 = Debug|x64
+		{E1234567-89AB-4CDE-8F01-23456789ABCD}.Debug|ARM64.ActiveCfg = Debug|x64
+		{E1234567-89AB-4CDE-8F01-23456789ABCD}.Release|x64.ActiveCfg = Release|x64
+		{E1234567-89AB-4CDE-8F01-23456789ABCD}.Release|x64.Build.0 = Release|x64
+		{E1234567-89AB-4CDE-8F01-23456789ABCD}.Release|ARM64.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
