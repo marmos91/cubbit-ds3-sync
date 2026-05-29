@@ -64,10 +64,8 @@ Global
 		{50742F7D-CC87-415E-9954-FA0A310F6859}.Release|ARM64.ActiveCfg = Release|Any CPU
 		{50742F7D-CC87-415E-9954-FA0A310F6859}.Release|ARM64.Build.0 = Release|Any CPU
 		{E1234567-89AB-4CDE-8F01-23456789ABCD}.Debug|x64.ActiveCfg = Debug|x64
-		{E1234567-89AB-4CDE-8F01-23456789ABCD}.Debug|x64.Build.0 = Debug|x64
 		{E1234567-89AB-4CDE-8F01-23456789ABCD}.Debug|ARM64.ActiveCfg = Debug|x64
 		{E1234567-89AB-4CDE-8F01-23456789ABCD}.Release|x64.ActiveCfg = Release|x64
-		{E1234567-89AB-4CDE-8F01-23456789ABCD}.Release|x64.Build.0 = Release|x64
 		{E1234567-89AB-4CDE-8F01-23456789ABCD}.Release|ARM64.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution

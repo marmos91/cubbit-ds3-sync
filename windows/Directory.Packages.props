@@ -36,6 +36,10 @@
     <!-- Local structured storage -->
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="8.0.10" />
 
+    <!-- WiX v4 MSI installer extension (toolset SDK pinned inline via Sdk="WixToolset.Sdk/4.0.5"
+         in DS3Drive.Installer.wixproj; the wixext PackageReference must match that toolset version). -->
+    <PackageVersion Include="WixToolset.UI.wixext" Version="4.0.5" />
+
     <!-- Test stack -->
     <PackageVersion Include="xunit" Version="2.9.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
