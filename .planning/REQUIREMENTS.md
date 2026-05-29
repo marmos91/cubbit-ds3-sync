@@ -37,7 +37,7 @@
 - [ ] **WIN-06**: Remote changes sync to local placeholders via periodic polling and diff
 - [ ] **WIN-07**: System tray icon shows sync status (idle/syncing/error)
 - [ ] **WIN-08**: Hydration progress shown in Explorer (CfReportProviderProgress)
-- [ ] **WIN-09**: WiX MSI installer with silent install support and auto-start
+- [x] **WIN-09**: WiX MSI installer with silent install support and auto-start
 
 ### Polish
 
@@ -106,7 +106,7 @@
 | WIN-06 | Phase 17 | Pending |
 | WIN-07 | Phase 17 | Pending |
 | WIN-08 | Phase 17 | Pending |
-| WIN-09 | Phase 17 | Pending |
+| WIN-09 | Phase 17 | Complete |
 | POL-01 | Phase 18 | Pending |
 | POL-02 | Phase 18 | Pending |
 | POL-03 | Phase 18 | Pending |
@@ -117,6 +117,7 @@
 | POL-08 | Phase 18 | Pending |
 
 **Coverage:**
+
 - v2.0.0 requirements: 33 total
 - Mapped to phases: 33
 - Unmapped: 0

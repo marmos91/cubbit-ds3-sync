@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: macOS App
 status: executing
-stopped_at: Completed 17-02-PLAN.md
-last_updated: "2026-05-29T13:27:30.063Z"
+stopped_at: Completed 17-03-PLAN.md
+last_updated: "2026-05-29T13:35:14.446Z"
 last_activity: 2026-05-29
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 26
-  completed_plans: 15
-  percent: 25
+  completed_plans: 16
+  percent: 62
 ---
 
 # Project State
@@ -33,12 +33,12 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 ## Current Position
 
 Phase: 17 (windows-shell) — EXECUTING
-Plan: 2 of 12
+Plan: 4 of 12
 Status: Ready to execute
 Last activity: 2026-05-29
 
 ```
-Milestone v2.0.0: [          ] 0/4 phases complete (0%)
+Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17: 3/12 plans)
 ```
 
 ## Performance Metrics
@@ -58,6 +58,7 @@ Milestone v2.0.0: [          ] 0/4 phases complete (0%)
 ## Accumulated Context
 
 | Phase 17 P02 | 15min | 3 tasks | 12 files |
+| Phase 17 P03 | 3min | 3 tasks | 5 files |
 
 ### Decisions
 
@@ -67,6 +68,8 @@ Milestone v2.0.0: [          ] 0/4 phases complete (0%)
 - [v2.0.0 Roadmap]: cfapi upload trigger is NOTIFY_FILE_CLOSE_COMPLETION exclusively (never ReadDirectoryChangesW) to avoid spurious re-upload loops
 - [Phase ?]: [17-02] H.NotifyIcon.WinUI pinned to 2.3.2 (not 2.4.1) — 2.4.1 is net10-only, incompatible with .NET 8 LTS TFM
 - [Phase ?]: [17-02] Windows native DLL build requires MSVC C++ workload — blocked on dev machine, deferred to windows-latest CI (plan 03)
+- [17-03]: windows-build.yml stages the script-built ds3_ffi.dll then builds with DS3SkipRustCore=true, so cargo runs exactly once per CI job (the DS3Drive.Core BuildRustCore MSBuild target would otherwise re-invoke it)
+- [17-03]: Integration tests gated by [Trait("Category","Integration")] + RequiresCredentialsAttribute auto-skip; CI Category!=Integration filter keeps CUBBIT_TEST_* out of untrusted PR runs
 
 ### Blockers
 
@@ -76,6 +79,6 @@ yet.
 
 ## Session Continuity
 
-Last session: 2026-05-29T13:26:59.884Z
-Stopped at: Completed 17-02-PLAN.md
+Last session: 2026-05-29T13:35:07.005Z
+Stopped at: Completed 17-03-PLAN.md
 Resume file: None

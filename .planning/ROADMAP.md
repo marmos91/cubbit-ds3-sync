@@ -374,7 +374,7 @@ Plans:
   4. User can save or create files in the synced folder and they upload to S3 automatically (triggered by `NOTIFY_FILE_CLOSE_COMPLETION`, not `ReadDirectoryChangesW` -- no spurious re-upload on hydration)
   5. Remote changes made from another device or the web console appear as updated placeholders within one polling cycle, and the system tray icon reflects sync status (idle/syncing/error)
 
-**Plans:** 2/12 plans executed
+**Plans:** 3/12 plans executed
 **UI hint**: yes
 
 Plans:
@@ -382,7 +382,7 @@ Plans:
 
 - [x] 17-01-PLAN.md -- Rust C ABI gap closure (download_to_memory, presign_get, delete_objects, get_challenge, ds3_error_code, cancellation, ds3_set_log_callback) + tracing-to-C log_bridge.rs + Windows DLL build scripts
 - [x] 17-02-PLAN.md -- Solution scaffold (DS3Drive.sln, App/Sync/Core/Tests projects), central package management, DS3Core.Build.targets cargo invocation, NuGet legitimacy checkpoint for Vanara + H.NotifyIcon
-- [ ] 17-03-PLAN.md -- CI windows-build.yml + xunit.runner.json (parallelizeAssembly=false) + CubbitCredentials fixture + manual-smoke-D-33.md checklist
+- [x] 17-03-PLAN.md -- CI windows-build.yml + xunit.runner.json (parallelizeAssembly=false) + CubbitCredentials fixture + manual-smoke-D-33.md checklist
 - [ ] 17-04-PLAN.md -- Sparse identity package manifest (Cubbit.DS3Drive, AllowExternalContent, runFullTrust, cfapi extension) + build-sparse.ps1 (MakeAppx + SignTool)
 
 **Wave 1**
@@ -449,7 +449,7 @@ Plans:
 | 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
 | 15. Rust Core + FFI Foundation | v2.0.0 | 7/7 | Complete   | 2026-05-27 |
 | 16. Apple Incremental Swap | v2.0.0 | 6/7 | In Progress|  |
-| 17. Windows Shell | v2.0.0 | 2/12 | In Progress|  |
+| 17. Windows Shell | v2.0.0 | 3/12 | In Progress|  |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
 
 ---
