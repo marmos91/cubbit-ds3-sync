@@ -21,6 +21,14 @@ public interface IDS3SdkService
     Task<IReadOnlyList<DS3Bucket>> GetBucketsAsync(DS3Project project, CancellationToken ct);
 
     /// <summary>
+    /// Lists the immediate child prefixes (folder-style keys ending in <c>/</c>) under
+    /// <paramref name="prefix"/> in <paramref name="bucket"/>, delimited by <c>/</c> — the
+    /// data source for the prefix-tree lazy expand (UI-SPEC PrefixSelectionPage). Returns
+    /// the full child keys; the caller renders the leaf segment.
+    /// </summary>
+    Task<IReadOnlyList<string>> ListChildPrefixesAsync(string bucket, string? prefix, CancellationToken ct);
+
+    /// <summary>
     /// Loads the matching API key from disk, or reconciles it against the remote list
     /// and (re)creates it — the byte-for-byte port of DS3SDK.swift:163-195 (D-10,
     /// PATTERNS §2.6). The same deterministic name pattern Apple uses → the same key

@@ -92,10 +92,11 @@ public partial class TutorialViewModel : ObservableObject
     {
         ApplyLoginItemPreference();
 
-        // TODO(Plan 09): mark tutorial_shown in the SQLite ConfigStore and navigate to
-        // DrivesListPage / DriveSetupWizardPage. For now the tutorial is the end of the
-        // wired flow in this plan.
+        // Plan 09: the tutorial hands off to the drives list (the post-tutorial landing
+        // page). Persisting tutorial_shown (D-25) lands with a later plan; for now an
+        // authenticated relaunch routes straight to DrivesListPage from App.RouteInitialPage.
         _logger.LogInformation("Tutorial completed (startAtLogin={StartAtLogin}).", StartAtLoginEnabled);
+        _navigation.Navigate(PageKey.DrivesList);
     }
 
     /// <summary>

@@ -54,8 +54,8 @@ public sealed class NavigationService : INavigationService
         PageKey.Login => typeof(LoginPage),
         PageKey.TwoFactor => typeof(TwoFactorPage),
         PageKey.Tutorial => typeof(TutorialPage),
-        // Plan 09 wires DrivesListPage; fall back to the tutorial until then.
-        PageKey.DrivesList => typeof(TutorialPage),
+        PageKey.DrivesList => typeof(DrivesListPage),
+        PageKey.DriveSetupWizard => typeof(DriveSetupWizardPage),
         _ => typeof(LoginPage),
     };
 }

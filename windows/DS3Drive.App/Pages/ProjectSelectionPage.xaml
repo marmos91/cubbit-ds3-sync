@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    ProjectSelectionPage — wizard step 1 (Project). Per 17-UI-SPEC.md §"Component
+    Inventory": ListView of DS3Project (Type.Body name, Type.Caption organization),
+    centered ProgressRing "Loading projects…" while loading, InfoBar on error, and the
+    "No projects available" empty state (UI-SPEC §Empty states). Selecting a row calls
+    DriveSetupViewModel.SelectProject (advances to Bucket).
+-->
+<Page
+    x:Class="DS3Drive.App.Pages.ProjectSelectionPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:DS3Drive.ViewModels.ViewModels"
+    xmlns:records="using:DS3Drive.Core.Records"
+    xmlns:conv="using:DS3Drive.App.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+    </Page.Resources>
+
+    <Grid Padding="24">
+        <!-- Loading. -->
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16"
+                    Visibility="{x:Bind ViewModel.IsLoadingProjects, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+            <ProgressRing Width="24" Height="24" IsActive="True" HorizontalAlignment="Center" />
+            <TextBlock Style="{StaticResource Type.BodySecondary}" HorizontalAlignment="Center" Text="Loading projects…" />
+        </StackPanel>
+
+        <StackPanel Spacing="16"
+                    Visibility="{x:Bind ViewModel.IsLoadingProjects, Mode=OneWay, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
+
+            <InfoBar IsOpen="True" Severity="Error"
+                     Title="Couldn't load projects."
+                     Message="Check your connection and try again."
+                     Visibility="{x:Bind ViewModel.CreationError, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+
+            <ListView x:Name="ProjectsList"
+                      ItemsSource="{x:Bind ViewModel.Projects, Mode=OneWay}"
+                      SelectionMode="Single"
+                      SelectionChanged="ProjectsList_SelectionChanged">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="records:DS3Project">
+                        <StackPanel Spacing="4" Padding="0,8">
+                            <TextBlock Style="{StaticResource Type.Body}" Text="{x:Bind Name}" />
+                            <TextBlock Style="{StaticResource Type.Caption}" Text="{x:Bind OrganizationId}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <!-- Empty state (UI-SPEC §Empty states — Project picker). -->
+            <StackPanel Spacing="8" HorizontalAlignment="Center" Padding="0,32"
+                        Visibility="{x:Bind HasNoProjects(ViewModel.Projects.Count, ViewModel.IsLoadingProjects), Mode=OneWay}">
+                <TextBlock Style="{StaticResource Type.H2}" HorizontalAlignment="Center" Text="No projects available" />
+                <TextBlock Style="{StaticResource Type.BodySecondary}" HorizontalAlignment="Center" TextAlignment="Center"
+                           TextWrapping="Wrap" MaxWidth="420"
+                           Text="Your account does not have access to any projects. Contact your administrator to be granted access." />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Page>

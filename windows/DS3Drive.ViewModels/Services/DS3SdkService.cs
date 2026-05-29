@@ -55,6 +55,20 @@ public sealed class DS3SdkService : IDS3SdkService
         Task.Run(() => _session.ListBuckets(), ct);
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<string>> ListChildPrefixesAsync(string bucket, string? prefix, CancellationToken ct) =>
+        Task.Run<IReadOnlyList<string>>(() =>
+        {
+            // Delimiter "/" gives folder-style listing; the FFI returns objects whose keys
+            // end in "/" for child prefixes. Keep only those (the tree shows folders).
+            IReadOnlyList<DS3Object> objects = _session.ListObjects(bucket, prefix ?? string.Empty, "/", null);
+            return objects
+                .Select(o => o.Key)
+                .Where(k => k.EndsWith('/') && k != (prefix ?? string.Empty))
+                .Distinct()
+                .ToList();
+        }, ct);
+
+    /// <inheritdoc />
     public string ApiKeyName(DS3IAMUser user, string projectName)
     {
         // Port of DS3SDK.swift:242-248 — DO NOT modify the format string. The Swift

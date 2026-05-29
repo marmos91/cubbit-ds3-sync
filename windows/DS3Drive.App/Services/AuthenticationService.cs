@@ -6,6 +6,10 @@ using DS3Drive.Core.Records;
 using DS3Drive.ViewModels.Services;
 using Microsoft.Extensions.Logging;
 
+// Plan 09: AuthenticationService also adapts the live session onto IDS3SessionGateway
+// (it is the single owner of the DS3Session handle, so it is the natural adapter). The SDK
+// service borrows the session through this seam — no second handle, no widened interface.
+
 /// <summary>
 /// Default <see cref="IAuthenticationService"/>. Owns the <see cref="DS3Session"/> handle
 /// minted at login and persists the refresh token to the Windows Credential Manager via
@@ -22,7 +26,7 @@ using Microsoft.Extensions.Logging;
 /// worker thread and never stored on this service or the view-model; the only retained
 /// secret is the refresh token, which lives in the OS-sealed Credential Manager.
 /// </summary>
-public sealed class AuthenticationService : IAuthenticationService, IDisposable
+public sealed class AuthenticationService : IAuthenticationService, IDS3SessionGateway, IDisposable
 {
     private const string RefreshTokenKey = "refreshToken";
 
@@ -159,4 +163,47 @@ public sealed class AuthenticationService : IAuthenticationService, IDisposable
 
     private void RaiseAuthStateChanged(bool isAuthenticated) =>
         AuthStateChanged?.Invoke(this, isAuthenticated);
+
+    // === IDS3SessionGateway (Plan 09): adapts the live session for the SDK service ===
+
+    private DS3Session EnsureSession()
+    {
+        lock (_gate)
+        {
+            if (_session is { IsAuthenticated: true } s)
+            {
+                return s;
+            }
+        }
+
+        throw new DS3AuthenticationException(AuthFailureReason.LoggedOut, errorCode: 1005);
+    }
+
+    /// <inheritdoc />
+    string IDS3SessionGateway.AccountId => CurrentAccount?.AccountId ?? string.Empty;
+
+    /// <inheritdoc />
+    IReadOnlyList<DS3Project> IDS3SessionGateway.GetProjects() => EnsureSession().GetProjects();
+
+    /// <inheritdoc />
+    IReadOnlyList<DS3Bucket> IDS3SessionGateway.ListBuckets() => EnsureSession().ListBuckets();
+
+    /// <inheritdoc />
+    IReadOnlyList<DS3Object> IDS3SessionGateway.ListObjects(string bucket, string prefix, string delimiter, string? continuationToken) =>
+        EnsureSession().ListObjects(bucket, prefix, delimiter, continuationToken);
+
+    /// <inheritdoc />
+    string IDS3SessionGateway.ForgeIamToken(string iamUserId) => EnsureSession().ForgeIamToken(iamUserId);
+
+    /// <inheritdoc />
+    IReadOnlyList<DS3ApiKey> IDS3SessionGateway.LoadApiKeys(string iamUserId, string iamToken) =>
+        EnsureSession().LoadApiKeys(iamUserId, iamToken);
+
+    /// <inheritdoc />
+    DS3ApiKey IDS3SessionGateway.CreateApiKey(string iamUserId, string iamToken, string apiKeyName) =>
+        EnsureSession().CreateApiKey(iamUserId, iamToken, apiKeyName);
+
+    /// <inheritdoc />
+    void IDS3SessionGateway.DeleteApiKey(string iamUserId, string apiKeyId, string iamToken) =>
+        EnsureSession().DeleteApiKey(iamUserId, apiKeyId, iamToken);
 }

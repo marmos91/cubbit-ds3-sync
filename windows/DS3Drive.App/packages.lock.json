@@ -438,6 +438,8 @@
         "dependencies": {
           "CommunityToolkit.Mvvm": "[8.4.0, )",
           "DS3Drive.Core": "[1.0.0, )",
+          "DS3Drive.Sync": "[1.0.0, )",
+          "Microsoft.Data.Sqlite": "[8.0.10, )",
           "Microsoft.Extensions.Logging.Abstractions": "[8.0.2, )"
         }
       },

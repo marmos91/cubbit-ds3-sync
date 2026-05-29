@@ -12,6 +12,9 @@ public enum PageKey
     TwoFactor,
     Tutorial,
 
-    /// <summary>Drives list / setup wizard entry — wired by Plan 09.</summary>
+    /// <summary>Post-tutorial drives list landing page (wired by Plan 09).</summary>
     DrivesList,
+
+    /// <summary>Drive-setup wizard shell (Project → Bucket → Prefix → Confirm; Plan 09).</summary>
+    DriveSetupWizard,
 }

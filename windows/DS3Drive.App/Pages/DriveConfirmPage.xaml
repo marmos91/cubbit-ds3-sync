@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    DriveConfirmPage — wizard step 4 (Confirm). Per 17-UI-SPEC.md §"Component Inventory":
+    a summary card (Type.H2 "Confirm your drive") listing Project / Bucket / Prefix / Drive
+    Name (Type.Body), an editable Drive Name TextBox (defaults to bucket name), an InfoBar
+    for validation errors, and the modal "Setting up your drive…" overlay during creation.
+    The "Create drive" CTA lives on the wizard's bottom bar (IsDefault=true).
+-->
+<Page
+    x:Class="DS3Drive.App.Pages.DriveConfirmPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:DS3Drive.ViewModels.ViewModels"
+    xmlns:conv="using:DS3Drive.App.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+    </Page.Resources>
+
+    <Grid Padding="24">
+        <StackPanel Spacing="16" MaxWidth="480" HorizontalAlignment="Left">
+            <TextBlock Style="{StaticResource Type.H2}" Text="Confirm your drive" />
+
+            <!-- Summary card. -->
+            <Border CornerRadius="8" Padding="16"
+                    Background="{ThemeResource BrandBg800Brush}"
+                    BorderBrush="{ThemeResource BorderSubtleBrush}" BorderThickness="1">
+                <StackPanel Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Style="{StaticResource Type.BodySecondary}" Text="Project" Width="80" />
+                        <TextBlock Style="{StaticResource Type.Body}" x:Name="ProjectValue" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Style="{StaticResource Type.BodySecondary}" Text="Bucket" Width="80" />
+                        <TextBlock Style="{StaticResource Type.Body}" x:Name="BucketValue" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Style="{StaticResource Type.BodySecondary}" Text="Folder" Width="80" />
+                        <TextBlock Style="{StaticResource Type.Body}" x:Name="PrefixValue" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <TextBox x:Name="DriveNameBox" Header="Drive name"
+                     Text="{x:Bind ViewModel.DriveName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     AutomationProperties.Name="Drive name" />
+
+            <InfoBar IsOpen="True" Severity="Error"
+                     Title="Couldn't create the drive."
+                     Message="{x:Bind ViewModel.CreationError, Mode=OneWay}"
+                     Visibility="{x:Bind ViewModel.CreationError, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+
+            <!-- Loading overlay (UI-SPEC §Loading states — "Setting up your drive…"). -->
+            <StackPanel Orientation="Horizontal" Spacing="8"
+                        Visibility="{x:Bind ViewModel.IsCreating, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                <ProgressRing Width="24" Height="24" IsActive="True" />
+                <TextBlock Style="{StaticResource Type.BodySecondary}" VerticalAlignment="Center" Text="Setting up your drive…" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Page>

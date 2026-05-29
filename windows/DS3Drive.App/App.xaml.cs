@@ -4,6 +4,7 @@ using DS3Drive.App.Pages;
 using DS3Drive.App.Services;
 using DS3Drive.Core;
 using DS3Drive.Core.Logging;
+using DS3Drive.Sync.Storage;
 using DS3Drive.ViewModels.Navigation;
 using DS3Drive.ViewModels.Platform;
 using DS3Drive.ViewModels.Services;
@@ -15,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
+using System.Threading;
 
 /// <summary>
 /// Application entry point + composition root for the DS3 Drive Windows shell.
@@ -59,13 +61,25 @@ public partial class App : Application
         s.AddSingleton<IConfiguration>(_ => builder.Configuration);
         s.AddSingleton<CredentialStore>(_ => new CredentialStore());
 
-        // App services.
-        s.AddSingleton<IAuthenticationService, AuthenticationService>();
+        // App services. AuthenticationService owns the live DS3Session and also adapts it
+        // onto IDS3SessionGateway (Plan 09) — register the SAME instance for both interfaces.
+        s.AddSingleton<AuthenticationService>();
+        s.AddSingleton<IAuthenticationService>(sp => sp.GetRequiredService<AuthenticationService>());
+        s.AddSingleton<IDS3SessionGateway>(sp => sp.GetRequiredService<AuthenticationService>());
         s.AddSingleton<NavigationService>();
         s.AddSingleton<INavigationService>(sp => sp.GetRequiredService<NavigationService>());
         // View-models consume the WinUI-free INavigator; forward it to the same instance.
         s.AddSingleton<INavigator>(sp => sp.GetRequiredService<NavigationService>());
         s.AddSingleton<ISingleInstanceService, SingleInstanceService>();
+
+        // Persistence + SDK + drive management (Plan 09). SyncDatabase is the SQLite store
+        // (Plan 06); it is opened once in OnLaunched before any consumer runs.
+        s.AddSingleton<SyncDatabase>(_ => new SyncDatabase());
+        s.AddSingleton<IInstallationIdProvider, SqliteInstallationIdProvider>();
+        s.AddSingleton<IDS3SdkService, DS3SdkService>();
+        s.AddSingleton<DrivesRepository>();
+        s.AddSingleton<DriveManagementService>();
+        s.AddSingleton<IDriveManagementService>(sp => sp.GetRequiredService<DriveManagementService>());
 
         // Window (resolved once at launch).
         s.AddSingleton<MainWindow>();
@@ -74,6 +88,8 @@ public partial class App : Application
         s.AddTransient<LoginViewModel>();
         s.AddTransient<TwoFactorViewModel>();
         s.AddTransient<TutorialViewModel>();
+        s.AddTransient<DriveSetupViewModel>();
+        s.AddTransient<DrivesListViewModel>();
 
         // ILogger<T> → EventSource (Plan 07: provider Cubbit-DS3Drive-App).
         s.AddLogging(b => b.AddEventSourceLogger());
@@ -95,6 +111,12 @@ public partial class App : Application
         // POL-01: install the Rust tracing → C# EventSource bridge BEFORE any FFI call so
         // authentication-time core logs are captured (Plan 07).
         RustLogBridge.Initialize();
+
+        // Open the SQLite store (Plan 06) before the SDK / drive manager touch it. Runs
+        // migrations on first open; failures here are surfaced via the store's recovery path.
+        Host.Services.GetRequiredService<SyncDatabase>()
+            .OpenAsync(CancellationToken.None)
+            .GetAwaiter().GetResult();
 
         // Surface a second-launch signal by bringing the existing window forward.
         singleInstance.SecondInstanceLaunched += (_, _) =>
@@ -129,9 +151,9 @@ public partial class App : Application
         }
 
         // First-run tutorial flag. The persistent store (SQLite tutorial_shown, D-25)
-        // lands with the wizard plumbing; until then, an authenticated launch shows the
-        // tutorial. Plan 09 wires the DrivesListPage branch:
-        //   else navigation.Navigate(typeof(DrivesListPage));
-        navigation.Navigate(typeof(TutorialPage));
+        // lands with a later plan; until then, an authenticated launch shows the tutorial
+        // on first run and the drives list thereafter. Plan 09 wires the DrivesListPage
+        // landing page (Plan 08 TODO resolved): authenticated → DrivesListPage.
+        navigation.Navigate(typeof(DrivesListPage));
     }
 }

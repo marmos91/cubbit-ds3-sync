@@ -15,6 +15,10 @@ namespace DS3Drive.Tests;
 /// </summary>
 public sealed class SyncDatabaseTests
 {
+    // Number of embedded migration scripts: 001_initial + 002_singleton_state (Plan 09).
+    // Each script inserts one schema_version row, so a fully-migrated db has this many rows.
+    private const long MigrationCount = 2L;
+
     private static string NewTempDbPath() =>
         Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "sync.db");
 
@@ -54,7 +58,8 @@ public sealed class SyncDatabaseTests
             await db.OpenAsync(CancellationToken.None);
 
             Assert.True(File.Exists(dbPath));
-            Assert.Equal(1L, await CountSchemaVersionRowsAsync(db));
+            // One row per applied migration: 001_initial + 002_singleton_state (Plan 09).
+            Assert.Equal(MigrationCount, await CountSchemaVersionRowsAsync(db));
         }
         finally
         {
@@ -77,8 +82,8 @@ public sealed class SyncDatabaseTests
             await using var db = new SyncDatabase(dbPath);
             await db.OpenAsync(CancellationToken.None);
 
-            // Recovery succeeded: a valid schema now exists.
-            Assert.Equal(1L, await CountSchemaVersionRowsAsync(db));
+            // Recovery succeeded: a valid schema now exists (all migrations re-applied).
+            Assert.Equal(MigrationCount, await CountSchemaVersionRowsAsync(db));
         }
         finally
         {
@@ -120,7 +125,8 @@ public sealed class SyncDatabaseTests
             await using var second = new SyncDatabase(dbPath);
             await second.OpenAsync(CancellationToken.None);
 
-            Assert.Equal(1L, await CountSchemaVersionRowsAsync(second));
+            // Re-open must not duplicate rows: still exactly one row per migration.
+            Assert.Equal(MigrationCount, await CountSchemaVersionRowsAsync(second));
         }
         finally
         {
