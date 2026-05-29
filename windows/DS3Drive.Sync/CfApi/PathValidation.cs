@@ -1,0 +1,159 @@
+using System;
+using System.IO;
+using System.Security;
+using System.Text.RegularExpressions;
+
+namespace DS3Drive.Sync.CfApi;
+
+/// <summary>
+/// Per RESEARCH §Security Domain T-17-10-01: every S3 key is validated before any local
+/// write (FetchData / Rename / Delete handlers call this before touching the file system).
+/// <see cref="ResolveLocalPath"/> provides defense-in-depth even if
+/// <see cref="TryValidateS3Key"/> missed an exotic edge case — it canonicalizes the path
+/// via <see cref="Path.GetFullPath(string)"/> and re-asserts the result stays under the
+/// sync root.
+///
+/// <para>
+/// Rejection vectors (mitigating path traversal into e.g. <c>..\..\windows\system32</c>):
+/// <c>..</c> segments, leading <c>/</c>, drive letters (<c>X:</c>), null bytes, control
+/// chars, Windows reserved device names (CON/PRN/AUX/NUL/COM1-9/LPT1-9), and keys longer
+/// than the cfapi path limit (260 chars).
+/// </para>
+/// </summary>
+public static class PathValidation
+{
+    // Max length cfapi tolerates for a relative key before MAX_PATH composition.
+    private const int MaxKeyLength = 260;
+
+    // Drive-letter prefix, e.g. "C:".
+    private static readonly Regex DriveLetterRegex =
+        new(@"^[A-Za-z]:", RegexOptions.Compiled);
+
+    // Windows reserved device names (case-insensitive), matched per path segment
+    // against the base name (the part before any extension).
+    private static readonly string[] ReservedNames =
+    {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    };
+
+    /// <summary>
+    /// Validates an S3 key for safe composition into a local path. Returns true for a
+    /// safe key; false with a human-readable <paramref name="reason"/> otherwise.
+    /// </summary>
+    public static bool TryValidateS3Key(string key, out string? reason)
+    {
+        if (string.IsNullOrEmpty(key))
+        {
+            reason = "empty key";
+            return false;
+        }
+
+        if (key.Length > MaxKeyLength)
+        {
+            reason = $"key exceeds the {MaxKeyLength}-char cfapi path limit";
+            return false;
+        }
+
+        // Null bytes / control chars (covers '\0', '\r', '\n', etc.).
+        foreach (char c in key)
+        {
+            if (c == '\0' || char.IsControl(c))
+            {
+                reason = "key contains a null byte or control character";
+                return false;
+            }
+        }
+
+        // Drive letter (C:\Windows\System32).
+        if (DriveLetterRegex.IsMatch(key))
+        {
+            reason = "key contains an absolute drive letter";
+            return false;
+        }
+
+        // Leading slash / backslash => absolute path.
+        if (key[0] == '/' || key[0] == '\\')
+        {
+            reason = "key is an absolute path (leading separator)";
+            return false;
+        }
+
+        // Path traversal: any ".." segment (../ or ..\ or trailing "..").
+        // Split on both separators and inspect each segment.
+        string[] segments = key.Split('/', '\\');
+        foreach (string segment in segments)
+        {
+            if (segment == "..")
+            {
+                reason = "key contains a path-traversal segment (..\\ or ../)";
+                return false;
+            }
+
+            if (IsReservedName(segment))
+            {
+                reason = $"key contains the Windows reserved device name '{segment}'";
+                return false;
+            }
+        }
+
+        reason = null;
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves an S3 key to a canonical local path under <paramref name="syncRootPath"/>.
+    /// Throws <see cref="SecurityException"/> if validation fails OR if the canonicalized
+    /// path escapes the sync root (defense-in-depth — see Test 12).
+    /// </summary>
+    public static string ResolveLocalPath(string syncRootPath, string s3Key)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(syncRootPath);
+
+        if (!TryValidateS3Key(s3Key, out string? reason))
+        {
+            throw new SecurityException($"rejected S3 key '{s3Key}': {reason}");
+        }
+
+        string relative = s3Key.Replace('/', Path.DirectorySeparatorChar);
+        string rootFull = Path.GetFullPath(syncRootPath);
+        string candidate = Path.GetFullPath(Path.Combine(rootFull, relative));
+
+        // Defense in depth: even if TryValidateS3Key missed an exotic edge case, the
+        // canonicalized result must remain strictly inside the sync root.
+        string rootWithSep = rootFull.EndsWith(Path.DirectorySeparatorChar)
+            ? rootFull
+            : rootFull + Path.DirectorySeparatorChar;
+
+        if (!candidate.StartsWith(rootWithSep, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new SecurityException(
+                $"resolved path '{candidate}' escapes the sync root '{rootFull}'");
+        }
+
+        return candidate;
+    }
+
+    private static bool IsReservedName(string segment)
+    {
+        if (string.IsNullOrEmpty(segment))
+        {
+            return false;
+        }
+
+        // Compare the base name (strip extension) case-insensitively.
+        int dot = segment.IndexOf('.');
+        string baseName = dot >= 0 ? segment[..dot] : segment;
+
+        foreach (string reserved in ReservedNames)
+        {
+            if (string.Equals(baseName, reserved, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
