@@ -1,0 +1,111 @@
+# Windows release pipeline — tag-triggered (v*). Builds the Rust ds3_ffi.dll, publishes
+# the WinUI 3 app, packs the sparse identity package, builds the WiX v4 MSI, optionally
+# signs it, and attaches the MSI to the matching GitHub Release.
+#
+# Code signing (CONTEXT D-29): if the AUTHENTICODE_PFX_BASE64 + AUTHENTICODE_PFX_PASSWORD
+# secrets are present the MSI is Authenticode-signed; otherwise it ships UNSIGNED with a
+# documented SmartScreen warning. Cert procurement timing is a Phase 18 (POL-05) workstream
+# — the P17 beta accepts an unsigned MSI.
+#
+# Phase 18 carryover: there is no in-app auto-update mechanism in P17. The install model is
+# "download the new MSI and reinstall" (MajorUpgrade handles the replace). An auto-update
+# mechanism (Squirrel.Windows / WiX bootstrapper) is Phase 18 POL-06. The ARM64 MSI is
+# Phase 18 POL-08 — this workflow ships x64 only (D-06 split).
+
+name: Windows Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# Release upload needs write access to create/attach to the GitHub Release.
+permissions:
+  contents: write
+
+# Never cancel an in-flight release build (a partial release upload is worse than a
+# slightly stale queue).
+concurrency:
+  group: windows-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build + sign MSI (windows-latest, x64)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Rust toolchain (x64 + arm64 MSVC targets)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc, aarch64-pc-windows-msvc
+
+      - name: Install WiX v4 CLI
+        run: dotnet tool install --global wix --version 4.*
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('core/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - name: Extract version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          Write-Host "Release version: $version"
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Build, pack + sign MSI
+        shell: pwsh
+        env:
+          AUTHENTICODE_PFX_BASE64: ${{ secrets.AUTHENTICODE_PFX_BASE64 }}
+          AUTHENTICODE_PFX_PASSWORD: ${{ secrets.AUTHENTICODE_PFX_PASSWORD }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $buildArgs = @{ Version = $version; Profile = 'Release' }
+
+          if ($env:AUTHENTICODE_PFX_BASE64) {
+            # Decode the signing cert to a temp .pfx and pass it through (CONTEXT D-29).
+            $certPath = Join-Path $env:RUNNER_TEMP 'authenticode.pfx'
+            [IO.File]::WriteAllBytes($certPath,
+              [Convert]::FromBase64String($env:AUTHENTICODE_PFX_BASE64))
+            $buildArgs.CertPath = $certPath
+            if ($env:AUTHENTICODE_PFX_PASSWORD) {
+              $buildArgs.CertPassword = (ConvertTo-SecureString `
+                -String $env:AUTHENTICODE_PFX_PASSWORD -AsPlainText -Force)
+            }
+          } else {
+            Write-Warning "No signing secret present; building UNSIGNED MSI (D-29 beta)."
+            $buildArgs.SkipSign = $true
+          }
+
+          & windows\DS3Drive.Installer\build-msi.ps1 @buildArgs
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DS3Drive-${{ steps.version.outputs.version }}-x64-msi
+          path: windows/bin/Release/DS3Drive-*-x64.msi
+          if-no-files-found: error
+
+      - name: Attach MSI to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: windows/bin/Release/DS3Drive-*-x64.msi
+          fail_on_unmatched_files: true
