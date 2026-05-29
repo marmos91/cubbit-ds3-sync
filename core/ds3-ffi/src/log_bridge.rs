@@ -13,10 +13,25 @@
 //! `runtime().block_on(...)`. The C# side routes callbacks through a
 //! `Channel<LogEvent>` + dedicated dispatcher thread for this reason.
 //!
-//! NOTE: This file currently contains the RED-phase failing tests for the
-//! Plan 01 Task 2 TDD flow. The `set_callback` body is intentionally a
-//! no-op until the GREEN commit replaces it with the
-//! `tracing-subscriber::Layer` implementation.
+//! Implementation overview:
+//! - The C callback pointer lives in a `static AtomicPtr<()>` (the function
+//!   pointer is stored as an opaque address so the atomic stays lock-free).
+//! - A `CCallbackLayer` is installed as a `tracing_subscriber::Layer` on the
+//!   global `Registry` exactly once via `Once`. After installation the
+//!   subscriber is permanent; subsequent `set_callback` calls only swap the
+//!   stored function pointer (idempotent replacement).
+//! - On every event the layer extracts (level, target, message) and, if a
+//!   callback is registered, invokes it with non-owning UTF-8 pointers +
+//!   lengths borrowed from local stack allocations.
+
+use std::sync::atomic::{AtomicPtr, Ordering};
+use std::sync::Once;
+
+use tracing::field::{Field, Visit};
+use tracing::{Event, Subscriber};
+use tracing_subscriber::layer::Context;
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::Layer;
 
 /// C function pointer registered with `ds3_set_log_callback`.
 ///
@@ -38,20 +53,136 @@ pub type DS3LogCallbackFn = extern "C" fn(
     message_len: usize,
 );
 
+/// Stores the currently-registered callback as an opaque pointer.
+///
+/// We store the function pointer (which fits in a `usize`/raw pointer per
+/// the Rust ABI) via `AtomicPtr<()>` so the hot path (`Layer::on_event`)
+/// needs only a single acquire-ordering load.
+static CALLBACK: AtomicPtr<()> = AtomicPtr::new(std::ptr::null_mut());
+
+/// Ensures the global `CCallbackLayer` is installed exactly once.
+static INSTALL: Once = Once::new();
+
 /// Registers (or, when `cb` is `None`, clears) the global log callback.
 ///
 /// Idempotent — calling twice replaces the previously registered callback.
-/// Thread-safe.
+/// Thread-safe (the underlying storage is an `AtomicPtr`).
 ///
-/// NOTE: RED-phase stub. Plan 01 Task 2 GREEN commit replaces this with the
-/// `tracing-subscriber` layer implementation backed by `AtomicPtr`.
-pub fn set_callback(_cb: Option<DS3LogCallbackFn>) {
-    // Intentionally empty — see module docs.
+/// The first call also installs the `CCallbackLayer` as a global
+/// `tracing-subscriber` layer. Subsequent calls only swap the stored
+/// callback pointer; they tolerate the subscriber already being set.
+pub fn set_callback(cb: Option<DS3LogCallbackFn>) {
+    INSTALL.call_once(|| {
+        // `try_init` returns `Err` if a global subscriber was already set
+        // by another caller. We intentionally swallow that error —
+        // re-installing would panic, and the host process that owns the
+        // FFI surface is documented to install nothing else.
+        let _ = tracing_subscriber::registry()
+            .with(CCallbackLayer)
+            .try_init();
+    });
+
+    let ptr: *mut () = match cb {
+        Some(f) => f as *mut (),
+        None => std::ptr::null_mut(),
+    };
+    CALLBACK.store(ptr, Ordering::Release);
 }
 
 /// Clears any previously registered log callback.
 pub fn clear_callback() {
-    set_callback(None);
+    CALLBACK.store(std::ptr::null_mut(), Ordering::Release);
+}
+
+/// Returns the currently registered callback, if any.
+fn current_callback() -> Option<DS3LogCallbackFn> {
+    let raw = CALLBACK.load(Ordering::Acquire);
+    if raw.is_null() {
+        None
+    } else {
+        // SAFETY: `raw` was produced by casting a `DS3LogCallbackFn`
+        // (an `extern "C" fn`) to `*mut ()`. We never store anything else
+        // in `CALLBACK`, so the round-trip is sound.
+        Some(unsafe { std::mem::transmute::<*mut (), DS3LogCallbackFn>(raw) })
+    }
+}
+
+/// `tracing-subscriber` layer that forwards events to the registered C
+/// callback. Stateless — all the per-event work happens on the stack.
+struct CCallbackLayer;
+
+impl<S> Layer<S> for CCallbackLayer
+where
+    S: Subscriber,
+{
+    fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
+        let Some(cb) = current_callback() else {
+            return;
+        };
+
+        let metadata = event.metadata();
+        let level = level_to_code(metadata.level());
+        let target = metadata.target();
+
+        let mut visitor = MessageVisitor::default();
+        event.record(&mut visitor);
+        let message = visitor.message;
+
+        // Borrow UTF-8 bytes on the stack — the callback is invoked
+        // synchronously and is contractually required not to retain the
+        // pointers after returning (see Pitfall 5 re-entrancy note).
+        let target_bytes = target.as_bytes();
+        let message_bytes = message.as_bytes();
+        cb(
+            level,
+            target_bytes.as_ptr(),
+            target_bytes.len(),
+            message_bytes.as_ptr(),
+            message_bytes.len(),
+        );
+    }
+}
+
+/// Maps a `tracing::Level` to the wire-format integer.
+fn level_to_code(level: &tracing::Level) -> i32 {
+    match *level {
+        tracing::Level::TRACE => 0,
+        tracing::Level::DEBUG => 1,
+        tracing::Level::INFO => 2,
+        tracing::Level::WARN => 3,
+        tracing::Level::ERROR => 4,
+    }
+}
+
+/// Visits a single `message` field. Other fields are ignored — the host
+/// receives just the formatted text (matching the EventSource bridge spec
+/// in 17-RESEARCH §"Bridging Rust tracing to C# EventSource").
+#[derive(Default)]
+struct MessageVisitor {
+    message: String,
+}
+
+impl Visit for MessageVisitor {
+    fn record_str(&mut self, field: &Field, value: &str) {
+        if field.name() == "message" && self.message.is_empty() {
+            self.message.push_str(value);
+        }
+    }
+
+    fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
+        if field.name() == "message" && self.message.is_empty() {
+            use std::fmt::Write as _;
+            let _ = write!(self.message, "{value:?}");
+            // Strings going through `record_debug` arrive quoted; strip a
+            // single surrounding quote pair so consumers see `hello` not `"hello"`.
+            if self.message.starts_with('"')
+                && self.message.ends_with('"')
+                && self.message.len() >= 2
+            {
+                self.message = self.message[1..self.message.len() - 1].to_string();
+            }
+        }
+    }
 }
 
 #[cfg(test)]
