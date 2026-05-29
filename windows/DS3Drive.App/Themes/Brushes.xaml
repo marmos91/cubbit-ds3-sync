@@ -26,7 +26,13 @@
     <SolidColorBrush x:Key="StatusErrorMainBrush" Color="{StaticResource StatusErrorMain}" />
     <SolidColorBrush x:Key="StatusErrorDarkBrush" Color="{StaticResource StatusErrorDark}" />
     <SolidColorBrush x:Key="StatusInfoBrush" Color="{StaticResource StatusInfo}" />
+    <SolidColorBrush x:Key="StatusConflictBrush" Color="{StaticResource StatusConflict}" />
     <SolidColorBrush x:Key="StatusCloudOnlyBrush" Color="{StaticResource StatusCloudOnly}" />
+
+    <!-- Drive-row hover tint: brand accent @ 8% (UI-SPEC §Visual States "subtle accent tint @ 8%").
+         The TrayDriveRow overlay carrying this brush MUST set IsHitTestVisible="False" (project
+         memory hover-tint gotcha) — a filled overlay eats clicks even at opacity 0. -->
+    <SolidColorBrush x:Key="BrandPrimaryHover8pctBrush" Color="#14005CE8" />
 
     <!-- ===== Theme-flipped surface / text / border brushes ===== -->
     <ResourceDictionary.ThemeDictionaries>
@@ -36,6 +42,8 @@
             <!-- Surfaces. -->
             <SolidColorBrush x:Key="BrandBg900Brush" Color="{StaticResource BrandBg900}" />
             <SolidColorBrush x:Key="BrandBg800Brush" Color="{StaticResource BrandBg800}" />
+            <!-- Card surface (macOS brandSurface analog) — drive-row / pill backing. -->
+            <SolidColorBrush x:Key="BrandSurfaceBrush" Color="#14FFFFFF" />
             <!-- Text. -->
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFFFFFFF" />
             <SolidColorBrush x:Key="TextSecondaryBrush" Color="#99FFFFFF" />
@@ -52,6 +60,7 @@
         <ResourceDictionary x:Key="Light">
             <SolidColorBrush x:Key="BrandBg900Brush" Color="#FFFFFFFF" />
             <SolidColorBrush x:Key="BrandBg800Brush" Color="#FFF5F5F7" />
+            <SolidColorBrush x:Key="BrandSurfaceBrush" Color="#0A000000" />
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FF121212" />
             <SolidColorBrush x:Key="TextSecondaryBrush" Color="#99000000" />
             <SolidColorBrush x:Key="TextTertiaryBrush" Color="#73000000" />

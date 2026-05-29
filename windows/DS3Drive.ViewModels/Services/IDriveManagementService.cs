@@ -42,6 +42,18 @@ public interface IDriveManagementService
     /// <summary>Records a per-drive status transition and recomputes <see cref="AggregateStatus"/>.</summary>
     void ReportStatus(Guid driveId, DS3DriveStatus status);
 
+    /// <summary>The last reported status for a drive (defaults to <see cref="DS3DriveStatus.Idle"/>
+    /// when the engine has not reported yet). Plan 11's tray rows read this to render the StatusPill.</summary>
+    DS3DriveStatus GetStatus(Guid driveId);
+
+    /// <summary>Sets the user pause flag for a drive and reports the resulting status
+    /// (<see cref="DS3DriveStatus.Paused"/> when paused, else <see cref="DS3DriveStatus.Idle"/>).
+    /// The polling timer (Plan 10) skips ticks for paused drives.</summary>
+    void SetPaused(Guid driveId, bool paused);
+
+    /// <summary>True while the given drive is user-paused (tray + polling timer read this).</summary>
+    bool IsPaused(Guid driveId);
+
     /// <summary>Re-runs key reconciliation for any drive whose Credential Manager secret is
     /// missing (silent recovery; port of DS3DriveManager.swift:285-314).</summary>
     Task RepairCredentialsAsync(CancellationToken ct);

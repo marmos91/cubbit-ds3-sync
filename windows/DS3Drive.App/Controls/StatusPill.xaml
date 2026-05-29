@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    StatusPill — 5 status variants (UI-SPEC §Visual States Inventory StatusPill row):
+    Synced (StatusSuccess) / Syncing (StatusSyncing) / Paused (StatusWarning) /
+    Error (StatusErrorMain) / Conflict (StatusConflict). One pill component, 5 colour styles,
+    all using Type.CaptionEmphasis (12px SemiBold per UI-SPEC Revision 2 — NOT Medium).
+
+    Rendered as a rounded Border (corner radius 999), padding 4|8, background = status colour
+    @ 16% opacity (0x29 alpha), label = status colour. The variant→colour mapping + label
+    defaulting live in StatusPill.xaml.cs (code-behind), driven by the Status DependencyProperty.
+    Port of the macOS status pill in TrayDriveRowView / DS3Colors status palette.
+-->
+<UserControl
+    x:Class="DS3Drive.App.Controls.StatusPill"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Border x:Name="PillBorder"
+            CornerRadius="999"
+            Padding="8,4"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center">
+        <TextBlock x:Name="PillLabel"
+                   Style="{StaticResource Type.CaptionEmphasis}"
+                   VerticalAlignment="Center" />
+    </Border>
+</UserControl>

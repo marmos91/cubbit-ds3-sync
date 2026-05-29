@@ -34,6 +34,8 @@
     <Color x:Key="StatusErrorMain">#FFE56363</Color>
     <Color x:Key="StatusErrorDark">#FFDC2D20</Color>
     <Color x:Key="StatusInfo">#FF5498FF</Color>
+    <!-- Conflict (StatusPill 5th variant, UI-SPEC §Visual States) — distinct amber/orange. -->
+    <Color x:Key="StatusConflict">#FFE8833A</Color>
     <!-- 45% white — placeholder / cloud-only dimming. -->
     <Color x:Key="StatusCloudOnly">#73FFFFFF</Color>
 

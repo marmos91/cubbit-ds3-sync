@@ -30,6 +30,7 @@ public sealed partial class DriveManagementService : IDriveManagementService
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly ObservableCollection<DS3Drive> _drives = new();
     private readonly Dictionary<Guid, DS3DriveStatus> _statuses = new();
+    private readonly HashSet<Guid> _paused = new();
     private bool _loaded;
 
     public DriveManagementService(
@@ -171,9 +172,42 @@ public sealed partial class DriveManagementService : IDriveManagementService
     /// <inheritdoc />
     public void ReportStatus(Guid driveId, DS3DriveStatus status)
     {
-        _statuses[driveId] = status;
+        // A user-paused drive stays Paused regardless of engine reports (the engine should
+        // be skipping it anyway, but guard against a late in-flight transition surfacing).
+        _statuses[driveId] = _paused.Contains(driveId) ? DS3DriveStatus.Paused : status;
         RaiseChanged();
     }
+
+    /// <inheritdoc />
+    public DS3DriveStatus GetStatus(Guid driveId)
+    {
+        if (_paused.Contains(driveId))
+        {
+            return DS3DriveStatus.Paused;
+        }
+
+        return _statuses.TryGetValue(driveId, out var s) ? s : DS3DriveStatus.Idle;
+    }
+
+    /// <inheritdoc />
+    public void SetPaused(Guid driveId, bool paused)
+    {
+        if (paused)
+        {
+            _paused.Add(driveId);
+            _statuses[driveId] = DS3DriveStatus.Paused;
+        }
+        else
+        {
+            _paused.Remove(driveId);
+            _statuses[driveId] = DS3DriveStatus.Idle;
+        }
+
+        RaiseChanged();
+    }
+
+    /// <inheritdoc />
+    public bool IsPaused(Guid driveId) => _paused.Contains(driveId);
 
     /// <inheritdoc />
     public async Task RepairCredentialsAsync(CancellationToken ct)

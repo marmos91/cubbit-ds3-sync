@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    TrayDriveRow — per-drive row, IA-verbatim port of apple/DS3Drive/Views/Tray/Views/
+    TrayDriveRowView.swift (PATTERNS §2.14, lines 37-104). Layout:
+      [3px accent stripe] [28x28 drive icon + status dot] [name / anchor / metrics] [spacer] [gear]
+    inside a rounded BrandSurface card. Padding horizontal Space.md (16), vertical Space.sm (8)
+    per UI-SPEC Revision 3.
+
+    PROJECT MEMORY (load-bearing — do NOT remove): the hover-tint overlay MUST set
+    IsHitTestVisible="False". A filled overlay shape captures clicks even at opacity 0, which
+    on macOS ate taps on the gear button underneath and stopped the menu from opening (cost an
+    hour to find — see TrayDriveRowView.swift:76-84 "allowsHitTesting(false)"). The same rule
+    applies in WinUI: a Border with a Background eats pointer input regardless of Opacity.
+    Smoke test step #6 (17-HUMAN-UAT) guards against regressions here.
+
+    DataContext = DS3Drive.ViewModels.ViewModels.TrayDriveRowViewModel.
+-->
+<UserControl
+    x:Class="DS3Drive.App.Controls.TrayDriveRow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:DS3Drive.App.Controls"
+    xmlns:vm="using:DS3Drive.ViewModels.ViewModels"
+    xmlns:conv="using:DS3Drive.App.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    PointerEntered="OnPointerEntered"
+    PointerExited="OnPointerExited">
+
+    <UserControl.Resources>
+        <conv:RelativeTimeConverter x:Key="RelativeTime" />
+    </UserControl.Resources>
+
+    <!-- Card backing. -->
+    <Grid x:Name="CardRoot" CornerRadius="10" Background="{StaticResource BrandSurfaceBrush}">
+        <Grid ColumnSpacing="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Leading accent stripe — colour reflects the per-drive status (TrayDriveRowView.swift:42-44). -->
+            <Rectangle x:Name="AccentStripe" Grid.Column="0" Fill="{StaticResource StatusSuccessBrush}" />
+
+            <!-- Content row. -->
+            <Grid Grid.Column="1" Padding="16,8" ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 28x28 drive icon with a small status dot. -->
+                <Grid Grid.Column="0" Width="28" Height="28" VerticalAlignment="Center">
+                    <FontIcon FontFamily="Segoe Fluent Icons" FontSize="22" Glyph=""
+                              Foreground="{StaticResource TextSecondaryBrush}" />
+                    <Ellipse x:Name="StatusDot" Width="10" Height="10"
+                             HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                             Fill="{StaticResource StatusSuccessBrush}" />
+                </Grid>
+
+                <!-- Name / sync anchor / metrics. -->
+                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                    <TextBlock x:Name="DriveName"
+                               Style="{StaticResource Type.Body}"
+                               TextTrimming="CharacterEllipsis" MaxLines="1"
+                               Text="{x:Bind ViewModel.Drive.Name, Mode=OneWay}" />
+                    <TextBlock x:Name="AnchorLine"
+                               Style="{StaticResource Type.Caption}"
+                               TextTrimming="CharacterEllipsis" MaxLines="1"
+                               Text="{x:Bind ViewModel.SyncAnchorString, Mode=OneWay}" />
+
+                    <!-- metricsRow: upload + download speed + relative time (TrayDriveRowView.swift:145-189). -->
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <controls:TransferSpeedLabel Direction="Upload"
+                                                     BytesPerSecond="{x:Bind ViewModel.UploadBytesPerSec, Mode=OneWay}" />
+                        <controls:TransferSpeedLabel Direction="Download"
+                                                     BytesPerSecond="{x:Bind ViewModel.DownloadBytesPerSec, Mode=OneWay}" />
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                            <FontIcon FontFamily="Segoe Fluent Icons" FontSize="12" Glyph=""
+                                      Foreground="{StaticResource TextSecondaryBrush}" />
+                            <!-- tnum has no WinUI TextBlock analog (see TransferSpeedLabel); stable advance via IsTextScaleFactorEnabled. -->
+                            <TextBlock Style="{StaticResource Type.Caption}" IsTextScaleFactorEnabled="False"
+                                       Text="{x:Bind ViewModel.LastUpdated, Mode=OneWay, Converter={StaticResource RelativeTime}}" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Gear MenuFlyout: Pause/Resume, Open in Explorer, Remove drive (destructive). -->
+                <Button Grid.Column="2" x:Name="GearButton"
+                        Width="32" Height="32" Padding="0"
+                        Background="Transparent" BorderThickness="0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="Drive actions">
+                    <FontIcon FontFamily="Segoe Fluent Icons" FontSize="16" Glyph=""
+                              Foreground="{StaticResource TextSecondaryBrush}" />
+                    <Button.Flyout>
+                        <MenuFlyout>
+                            <MenuFlyoutItem x:Name="PauseResumeItem"
+                                            Text="Pause"
+                                            Command="{x:Bind ViewModel.PauseResumeCommand}"
+                                            AutomationProperties.Name="Pause or resume drive" />
+                            <MenuFlyoutItem Text="Open in Explorer"
+                                            Command="{x:Bind ViewModel.OpenInExplorerCommand}"
+                                            AutomationProperties.Name="Open in Explorer" />
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="Remove drive"
+                                            Command="{x:Bind ViewModel.RemoveDriveCommand}"
+                                            AutomationProperties.Name="Remove drive">
+                                <MenuFlyoutItem.Foreground>
+                                    <SolidColorBrush Color="{StaticResource StatusErrorMain}" />
+                                </MenuFlyoutItem.Foreground>
+                            </MenuFlyoutItem>
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
+            </Grid>
+        </Grid>
+
+        <!-- HOVER-TINT OVERLAY — IsHitTestVisible="False" is MANDATORY (project memory; see
+             header). The filled Border would otherwise eat clicks on the gear button + row body
+             even while transparent. -->
+        <Border x:Name="HoverTint"
+                CornerRadius="10"
+                Background="{StaticResource BrandPrimaryHover8pctBrush}"
+                Opacity="0"
+                IsHitTestVisible="False" />
+    </Grid>
+</UserControl>
