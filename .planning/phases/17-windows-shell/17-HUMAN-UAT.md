@@ -1,7 +1,7 @@
 ---
 status: partial
 phase: 17-windows-shell
-source: [17-08-PLAN.md Task 4, 17-09-PLAN.md Task 3, 17-10-PLAN.md Task 5]
+source: [17-08-PLAN.md Task 4, 17-09-PLAN.md Task 3, 17-10-PLAN.md Task 5, 17-11-PLAN.md Task 4]
 started: 2026-05-29
 updated: 2026-05-29
 ---
@@ -136,12 +136,60 @@ result: [pending]
 expected: Point a drive at a non-NTFS volume (e.g. a FAT32/exFAT USB) → registration fails with a clear "NTFS required" error, not a crash. Without the sparse package registered, registration surfaces the E_NOT_VALID_STATE / "not supported" guidance rather than silently failing.
 result: [pending]
 
+### 32. Tray icon appears in the notification area (17-11, WIN-07)
+expected: With the app running, the DS3 Drive icon appears in the notification area (Windows 11 may park it in the overflow flyout — drag it onto the taskbar to confirm). Tooltip reads "DS3 Drive — Idle" with no drives.
+result: [pending]
+
+### 33. Single-click opens the Acrylic flyout (17-11, UI-SPEC §Interaction Contracts)
+expected: Single-click the tray icon → the 360×540 flyout appears with a visible Acrylic backdrop (translucent blur, not a solid fill) and a 200ms fade-in. Header shows "DS3 Drive" + an aggregate StatusPill.
+result: [pending]
+
+### 34. Flyout contents with 2 drives (17-11, D-22)
+expected: With 2 drives created, the flyout lists two TrayDriveRows (name + bucket, StatusPill, transfer speed, gear menu), a "Recent activity" list (may be empty initially), and a footer row: Add drive (visible) / Settings / Help / Quit.
+result: [pending]
+
+### 35. Drive StatusPill + TransferSpeedLabel during sync (17-11)
+expected: Drop a file into one drive's sync folder → that drive's StatusPill turns to Syncing (blue) and the TransferSpeedLabel shows the upload rate (e.g. "1.5 MB/s", tabular numerals).
+result: [pending]
+
+### 36. Tray icon reflects aggregate state precedence (17-11, UI-SPEC §Tray-specific)
+expected: While one drive syncs, the tray icon swaps to the syncing state. Multi-state precedence holds: Error > Syncing > Paused > Idle (an errored drive outranks a syncing one).
+result: [pending]
+
+### 37. Hover tint does NOT eat the click (17-11, PROJECT MEMORY — CRITICAL)
+expected: Hover a TrayDriveRow → a subtle accent-tinted background appears. Click the row body → it still routes (navigation/main window). The hover overlay MUST NOT swallow the click (IsHitTestVisible="False" discipline). If the click does nothing, this step is REJECTED.
+result: [pending]
+
+### 38. Gear MenuFlyout on a drive row (17-11)
+expected: Click the gear on a drive row → a MenuFlyout with Pause/Resume + Open in Explorer + Remove drive.
+result: [pending]
+
+### 39. Pause from the row updates state (17-11)
+expected: Click Pause → that drive's StatusPill turns Paused (yellow); the tray icon overlay updates to paused if no other drive is syncing.
+result: [pending]
+
+### 40. Right-click compact menu (17-11, UI-SPEC §Tray-specific)
+expected: Right-click the tray icon → a compact MenuFlyout: Open Cubbit / Pause all / Resume all / Settings / Help / Quit.
+result: [pending]
+
+### 41. Settings page 4 sections + typography (17-11, D-24, UI-SPEC §2.15)
+expected: Flyout "Settings" → SettingsPage with a 4-item left rail (Account / Coordinator URL / Drives / Logging). Each section heading is 24px SemiBold (Type.H2 — NO H3, NO Medium weight).
+result: [pending]
+
+### 42. Sign-out destructive dialog copy (17-11, UI-SPEC §Destructive)
+expected: Account → Sign out → ContentDialog titled "Sign out of Cubbit?" with body "Your drives will stop syncing on this PC. You can sign back in any time — no files will be deleted." Primary button "Sign out"; cancel button "Stay signed in" (NOT "Cancel").
+result: [pending]
+
+### 43. Reduced-motion respect on the flyout (17-11, UI-SPEC §Animation)
+expected: Settings → Accessibility → "Animation effects" OFF → reopen the flyout → it appears immediately with no fade/slide animation.
+result: [pending]
+
 ## Summary
 
-total: 31
+total: 43
 passed: 0
 issues: 0
-pending: 31
+pending: 43
 skipped: 0
 blocked: 0
 

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: macOS App
 status: executing
-stopped_at: Completed 17-10-PLAN.md
-last_updated: "2026-05-29T16:26:00.000Z"
+stopped_at: Completed 17-11-PLAN.md
+last_updated: "2026-05-29T18:50:00.000Z"
 last_activity: 2026-05-29
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 26
-  completed_plans: 23
-  percent: 26
+  completed_plans: 24
+  percent: 28
 ---
 
 # Project State
@@ -33,12 +33,12 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 ## Current Position
 
 Phase: 17 (windows-shell) — EXECUTING
-Plan: 10 of 12
-Status: Ready to execute (11 next)
+Plan: 11 of 12
+Status: Ready to execute (12 next)
 Last activity: 2026-05-29
 
 ```
-Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17: 10/12 plans)
+Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17: 11/12 plans)
 ```
 
 ## Performance Metrics
@@ -65,6 +65,7 @@ Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17
 | Phase 17 P07 | 12min | 1 task | 4 files |
 | Phase 17 P09 | 27min | 2 tasks | 31 files |
 | Phase 17 P10 | 19min | 4 tasks | 22 files |
+| Phase 17 P11 | continuation | 3 tasks | 28 files |
 
 ### Decisions
 
@@ -94,6 +95,8 @@ Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17
 - [17-10]: IDS3SessionAccess + IDriveLifecycleSource seams added in DS3Drive.Sync — DS3Session is sealed and DS3Drive.Sync cannot reverse-reference DS3Drive.ViewModels (which already depends on Sync), so the lifecycle seam lives in Sync and the App adapts IDriveManagementService onto it
 - [17-10]: DriveStatusBroadcaster ports NotificationsManager.swift verbatim using SemaphoreSlim(1,1) as the actor-equivalent gate + PeriodicTimer counter watchdog (emits .Error on leak); upload trigger is NOTIFY_FILE_CLOSE_COMPLETION-only with an IsDirty anti-loop guard (Pitfall 3); SemaphoreSlim(20) bounds both fetch + upload concurrency (HTTP/2, PATTERNS §3.5)
 - [17-10]: SyncEngine.ApplyDeltaAsync takes an injectable conflictKeyFactory (default = Rust ds3_conflict_key, D-17) so the conflict test stays Category!=Integration; cfapi/Explorer/live-S3 smoke (12 steps #20-31) deferred to phase HUMAN-UAT
+- [17-11]: WinUI 3 forbids {x:Bind} on a <Window> root (Window is not a FrameworkElement → CS1503 in generated Bindings). TrayFlyoutWindow is a thin Window (Acrylic backdrop + chrome removal + 360×540 AppWindow.Resize) hosting a FrameworkElement-rooted TrayFlyoutView UserControl that owns all x:Bind via a ViewModel DP — the standard WinUI 3 flyout pattern (same as TrayDriveRow/StatusPill)
+- [17-11]: TrayViewModel/SettingsViewModel/RecentFilesService live in DS3Drive.ViewModels (WinUI-free) for headless xUnit testability (Plan 09/10 split); aggregate precedence Error>Syncing>Paused>Idle is the WinUI-free reducer. Recent files = global top-5 (not per-drive) for flyout compactness. Tray + Settings manual smoke deferred to phase HUMAN-UAT (#32-43)
 
 ### Blockers
 
@@ -103,6 +106,6 @@ yet.
 
 ## Session Continuity
 
-Last session: 2026-05-29T16:26:00.000Z
-Stopped at: Completed 17-10-PLAN.md
+Last session: 2026-05-29T18:50:00.000Z
+Stopped at: Completed 17-11-PLAN.md
 Resume file: None
