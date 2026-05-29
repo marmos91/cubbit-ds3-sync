@@ -8,6 +8,16 @@
         "resolved": "8.4.0",
         "contentHash": "tqVU8yc/ADO9oiTRyTnwhFN68hCwvkliMierptWOudIAvWY1mWCh5VFh+guwHJmpMwfg0J0rY+yyd5Oy7ty9Uw=="
       },
+      "Microsoft.Data.Sqlite": {
+        "type": "Direct",
+        "requested": "[8.0.10, )",
+        "resolved": "8.0.10",
+        "contentHash": "WN+qgrEcXg66YHtICl0W4If9v98PBenIj/INVkJaC+wqGX/Zus3aqyv6EI17EBRsw6tcvWsKd980X5iQ7wcj1Q==",
+        "dependencies": {
+          "Microsoft.Data.Sqlite.Core": "8.0.10",
+          "SQLitePCLRaw.bundle_e_sqlite3": "2.1.6"
+        }
+      },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "Direct",
         "requested": "[8.0.2, )",
@@ -15,6 +25,14 @@
         "contentHash": "nroMDjS7hNBPtkZqVBbSiQaQjWRDxITI8Y7XnDs97rqG3EbzVTNLZQf7bIeUJcaHOV8bca47s1Uxq94+2oGdxA==",
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.2"
+        }
+      },
+      "Microsoft.Data.Sqlite.Core": {
+        "type": "Transitive",
+        "resolved": "8.0.10",
+        "contentHash": "i95bgLqp6rJzmhQEtGhVVHnk1nYAhr/pLDul676PnwI/d7uDSSGs2ZPU9aP0VOuppkZaNinQOUCrD7cstDbQiQ==",
+        "dependencies": {
+          "SQLitePCLRaw.core": "2.1.6"
         }
       },
       "Microsoft.Extensions.Configuration.Abstractions": {
@@ -35,11 +53,68 @@
         "resolved": "8.0.0",
         "contentHash": "bXJEZrW9ny8vjMF1JV253WeLhpEVzFo1lyaZu1vQ4ZxWUlVvknZ/+ftFgVheLubb4eZPSwwxBeqS1JkCOjxd8g=="
       },
+      "SQLitePCLRaw.bundle_e_sqlite3": {
+        "type": "Transitive",
+        "resolved": "2.1.6",
+        "contentHash": "BmAf6XWt4TqtowmiWe4/5rRot6GerAeklmOPfviOvwLoF5WwgxcJHAxZtySuyW9r9w+HLILnm8VfJFLCUJYW8A==",
+        "dependencies": {
+          "SQLitePCLRaw.lib.e_sqlite3": "2.1.6",
+          "SQLitePCLRaw.provider.e_sqlite3": "2.1.6"
+        }
+      },
+      "SQLitePCLRaw.core": {
+        "type": "Transitive",
+        "resolved": "2.1.6",
+        "contentHash": "wO6v9GeMx9CUngAet8hbO7xdm+M42p1XeJq47ogyRoYSvNSp0NGLI+MgC0bhrMk9C17MTVFlLiN6ylyExLCc5w==",
+        "dependencies": {
+          "System.Memory": "4.5.3"
+        }
+      },
+      "SQLitePCLRaw.lib.e_sqlite3": {
+        "type": "Transitive",
+        "resolved": "2.1.6",
+        "contentHash": "2ObJJLkIUIxRpOUlZNGuD4rICpBnrBR5anjyfUFQep4hMOIeqW+XGQYzrNmHSVz5xSWZ3klSbh7sFR6UyDj68Q=="
+      },
+      "SQLitePCLRaw.provider.e_sqlite3": {
+        "type": "Transitive",
+        "resolved": "2.1.6",
+        "contentHash": "PQ2Oq3yepLY4P7ll145P3xtx2bX8xF4PzaKPRpw9jZlKvfe4LE/saAV82inND9usn1XRpmxXk7Lal3MTI+6CNg==",
+        "dependencies": {
+          "SQLitePCLRaw.core": "2.1.6"
+        }
+      },
+      "System.Memory": {
+        "type": "Transitive",
+        "resolved": "4.5.3",
+        "contentHash": "3oDzvc/zzetpTKWMShs1AADwZjQ/36HnsufHRPcOjyRAAMLDlu2iD33MBI2opxnezcVUtXyqDXXjoFMOU9c7SA=="
+      },
+      "Vanara.Core": {
+        "type": "Transitive",
+        "resolved": "5.0.5",
+        "contentHash": "e3+5FNx0tJGKXCl/2yieiiU2WoIQN3A3AO6xuKIQVhQlo45CGBrM5riU6FYDPC4iX3WBypty/h0EZL4xWV2ucA=="
+      },
+      "Vanara.PInvoke.Kernel32": {
+        "type": "Transitive",
+        "resolved": "5.0.5",
+        "contentHash": "RyUEG8DN5BUttC82xTdiVz/HpCKa/zeqv2j7kNfABSj3m/3hyH9PSQdeg/fwkOY5VbIWyBegnp+2AKfYAJL3PA==",
+        "dependencies": {
+          "Vanara.Core": "5.0.5"
+        }
+      },
       "ds3drive.core": {
         "type": "Project",
         "dependencies": {
           "Microsoft.Extensions.Configuration": "[8.0.0, )",
           "Microsoft.Extensions.Logging.Abstractions": "[8.0.2, )"
+        }
+      },
+      "ds3drive.sync": {
+        "type": "Project",
+        "dependencies": {
+          "DS3Drive.Core": "[1.0.0, )",
+          "Microsoft.Data.Sqlite": "[8.0.10, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[8.0.2, )",
+          "Vanara.PInvoke.CldApi": "[5.0.5, )"
         }
       },
       "Microsoft.Extensions.Configuration": {
@@ -51,9 +126,31 @@
           "Microsoft.Extensions.Configuration.Abstractions": "8.0.0",
           "Microsoft.Extensions.Primitives": "8.0.0"
         }
+      },
+      "Vanara.PInvoke.CldApi": {
+        "type": "CentralTransitive",
+        "requested": "[5.0.5, )",
+        "resolved": "5.0.5",
+        "contentHash": "tLrGxJkjXYtJE2f9rf0tlTCavcFVWBTUuJHeUdwYoff/lxZ5owhJFsem1uX+eihwq2yPL+B1uwyjK19YXbLiGA==",
+        "dependencies": {
+          "Vanara.Core": "5.0.5",
+          "Vanara.PInvoke.Kernel32": "5.0.5"
+        }
       }
     },
-    "net8.0-windows10.0.19041/win-arm64": {},
-    "net8.0-windows10.0.19041/win-x64": {}
+    "net8.0-windows10.0.19041/win-arm64": {
+      "SQLitePCLRaw.lib.e_sqlite3": {
+        "type": "Transitive",
+        "resolved": "2.1.6",
+        "contentHash": "2ObJJLkIUIxRpOUlZNGuD4rICpBnrBR5anjyfUFQep4hMOIeqW+XGQYzrNmHSVz5xSWZ3klSbh7sFR6UyDj68Q=="
+      }
+    },
+    "net8.0-windows10.0.19041/win-x64": {
+      "SQLitePCLRaw.lib.e_sqlite3": {
+        "type": "Transitive",
+        "resolved": "2.1.6",
+        "contentHash": "2ObJJLkIUIxRpOUlZNGuD4rICpBnrBR5anjyfUFQep4hMOIeqW+XGQYzrNmHSVz5xSWZ3klSbh7sFR6UyDj68Q=="
+      }
+    }
   }
 }

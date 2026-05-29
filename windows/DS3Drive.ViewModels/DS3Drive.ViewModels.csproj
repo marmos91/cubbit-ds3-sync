@@ -19,11 +19,21 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DS3Drive.Core\DS3Drive.Core.csproj" />
+    <!--
+      Plan 09 deviation (Rule 3): DriveSetupViewModel + DS3SdkService +
+      DriveManagementService live HERE (WinUI-free) instead of DS3Drive.App so their
+      18 unit tests run in the headless xUnit host (referencing the WinUI App exe crashes
+      it on the Windows App Runtime bootstrap — same root cause as the 17-08 split). The
+      SQLite-backed persistence (DrivesRepository, api_keys reconcile store) needs
+      DS3Drive.Sync's SyncDatabase, which is itself WinUI-free, so this reference stays clean.
+    -->
+    <ProjectReference Include="..\DS3Drive.Sync\DS3Drive.Sync.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
   </ItemGroup>
 
 </Project>

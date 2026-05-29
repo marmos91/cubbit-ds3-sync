@@ -26,6 +26,7 @@
        at first-open via GetManifestResourceStream (PATTERNS §2.12). -->
   <ItemGroup>
     <EmbeddedResource Include="Migrations\001_initial.sql" />
+    <EmbeddedResource Include="Migrations\002_singleton_state.sql" />
   </ItemGroup>
 
 </Project>
