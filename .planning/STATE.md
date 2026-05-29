@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: macOS App
 status: executing
-stopped_at: Phase 17 context gathered
-last_updated: "2026-05-29T13:09:18.124Z"
-last_activity: 2026-05-29 -- Phase 17 execution started
+stopped_at: Completed 17-02-PLAN.md
+last_updated: "2026-05-29T13:27:30.063Z"
+last_activity: 2026-05-29
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 26
-  completed_plans: 14
+  completed_plans: 15
   percent: 25
 ---
 
@@ -33,9 +33,9 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 ## Current Position
 
 Phase: 17 (windows-shell) — EXECUTING
-Plan: 1 of 12
-Status: Executing Phase 17
-Last activity: 2026-05-29 -- Phase 17 execution started
+Plan: 2 of 12
+Status: Ready to execute
+Last activity: 2026-05-29
 
 ```
 Milestone v2.0.0: [          ] 0/4 phases complete (0%)
@@ -57,19 +57,25 @@ Milestone v2.0.0: [          ] 0/4 phases complete (0%)
 
 ## Accumulated Context
 
+| Phase 17 P02 | 15min | 3 tasks | 12 files |
+
 ### Decisions
 
 - [v2.0.0 Roadmap]: Rust core as shared library (ds3-models, ds3-http, ds3-auth, ds3-s3, ds3-sync, ds3-ffi) consumed via UniFFI (Swift) and csbindgen (C#)
 - [v2.0.0 Roadmap]: Phase 16 and 17 can execute in parallel after Phase 15 completes -- Apple swap and Windows shell are independent
 - [v2.0.0 Roadmap]: FileProvider extension stays Swift forever -- only DS3Lib internals behind DS3S3ClientProtocol are swapped to Rust
 - [v2.0.0 Roadmap]: cfapi upload trigger is NOTIFY_FILE_CLOSE_COMPLETION exclusively (never ReadDirectoryChangesW) to avoid spurious re-upload loops
+- [Phase ?]: [17-02] H.NotifyIcon.WinUI pinned to 2.3.2 (not 2.4.1) — 2.4.1 is net10-only, incompatible with .NET 8 LTS TFM
+- [Phase ?]: [17-02] Windows native DLL build requires MSVC C++ workload — blocked on dev machine, deferred to windows-latest CI (plan 03)
 
 ### Blockers
 
-None yet.
+yet.
+
+- [17-02] Dev machine lacks MSVC C++ build tools workload — cargo cannot link *-windows-msvc targets (Git's GNU link.exe shadows MSVC linker). Native ds3_ffi.dll build blocked locally; managed scaffold builds clean. Install 'Desktop development with C++' workload to unblock; CI (windows-latest) unaffected.
 
 ## Session Continuity
 
-Last session: 2026-05-28T19:11:20.302Z
-Stopped at: Phase 17 context gathered
-Resume file: .planning/phases/17-windows-shell/17-CONTEXT.md
+Last session: 2026-05-29T13:26:59.884Z
+Stopped at: Completed 17-02-PLAN.md
+Resume file: None
