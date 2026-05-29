@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: macOS App
 status: executing
 stopped_at: Phase 17 context gathered
-last_updated: "2026-05-28T19:11:20.309Z"
-last_activity: 2026-05-28 -- Phase 16 execution started
+last_updated: "2026-05-29T13:09:18.124Z"
+last_activity: 2026-05-29 -- Phase 17 execution started
 progress:
-  total_phases: 5
-  completed_phases: 4
-  total_plans: 37
-  completed_plans: 36
-  percent: 97
+  total_phases: 4
+  completed_phases: 1
+  total_plans: 26
+  completed_plans: 14
+  percent: 25
 ---
 
 # Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-26)
 
 **Core value:** Files sync reliably and transparently between Mac, iPhone, iPad, Windows PC and Cubbit DS3, with zero friction on every platform.
-**Current focus:** Phase 16 — apple-incremental-swap
+**Current focus:** Phase 17 — windows-shell
 
 **v2.0.0 phase shape:**
 
@@ -32,10 +32,10 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 
 ## Current Position
 
-Phase: 16 (apple-incremental-swap) — EXECUTING
-Plan: 1 of 7
-Status: Executing Phase 16
-Last activity: 2026-05-28 -- Phase 16 execution started
+Phase: 17 (windows-shell) — EXECUTING
+Plan: 1 of 12
+Status: Executing Phase 17
+Last activity: 2026-05-29 -- Phase 17 execution started
 
 ```
 Milestone v2.0.0: [          ] 0/4 phases complete (0%)
