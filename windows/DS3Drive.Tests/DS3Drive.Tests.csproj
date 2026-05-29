@@ -24,4 +24,15 @@
     <PackageReference Include="NSubstitute" />
   </ItemGroup>
 
+  <!--
+    xunit.runner.json must sit next to the test assembly for xUnit to honour the
+    parallelizeAssembly=false / maxParallelThreads=1 settings (cfapi-style tests
+    cannot interleave — VALIDATION Wave 0). PreserveNewest keeps it in bin/.
+  -->
+  <ItemGroup>
+    <None Update="xunit.runner.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
