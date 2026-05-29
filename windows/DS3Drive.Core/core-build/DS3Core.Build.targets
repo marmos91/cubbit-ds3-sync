@@ -1,0 +1,59 @@
+<Project>
+
+  <!--
+    DS3Core.Build.targets — invokes cargo to build the Rust core (ds3-ffi) and
+    stages the resulting ds3_ffi.dll into DS3Drive.Core/runtimes/{rid}/native/.
+
+    Analogous to core/scripts/build-xcframework.sh on the Apple side.
+    Runs on EVERY build (CONTEXT.md D-07) — cargo's own incremental compile
+    keeps the overhead low, so we deliberately do NOT gate this on freshness.
+
+    RID → cargo target triple:
+      win-x64   → x86_64-pc-windows-msvc
+      win-arm64 → aarch64-pc-windows-msvc
+      (empty)   → x86_64-pc-windows-msvc (default)
+
+    Security (threat T-17-02-02): the cargo WorkingDirectory is pinned to the
+    repo's core/ directory via an absolute path derived from this file's
+    location; no user-supplied input flows into the command.
+  -->
+
+  <Target Name="BuildRustCore" BeforeTargets="BeforeBuild">
+
+    <PropertyGroup>
+      <!-- debug | release, lower-cased from $(Configuration); used in target/<triple>/<profile>. -->
+      <DS3CoreProfile>$([System.String]::Copy('$(Configuration)').ToLowerInvariant().Replace('debug','debug').Replace('release','release'))</DS3CoreProfile>
+
+      <!-- cargo emits to target/<triple>/release only with --release; debug has no flag. -->
+      <DS3CoreProfileFlag Condition="'$(DS3CoreProfile)' == 'release'">--release</DS3CoreProfileFlag>
+      <DS3CoreProfileFlag Condition="'$(DS3CoreProfile)' != 'release'"></DS3CoreProfileFlag>
+
+      <!-- core-build/ -> DS3Drive.Core/ -> windows/ -> repo root. -->
+      <DS3CoreRepoRoot>$(MSBuildThisFileDirectory)..\..\..</DS3CoreRepoRoot>
+
+      <!-- RID -> Rust target triple. -->
+      <DS3CoreTarget Condition="'$(RuntimeIdentifier)' == 'win-x64'">x86_64-pc-windows-msvc</DS3CoreTarget>
+      <DS3CoreTarget Condition="'$(RuntimeIdentifier)' == 'win-arm64'">aarch64-pc-windows-msvc</DS3CoreTarget>
+      <DS3CoreTarget Condition="'$(DS3CoreTarget)' == ''">x86_64-pc-windows-msvc</DS3CoreTarget>
+
+      <!-- Resolve win-x64 default when no RID is set so the copy lands somewhere sane. -->
+      <DS3CoreRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</DS3CoreRid>
+      <DS3CoreRid Condition="'$(RuntimeIdentifier)' == ''">win-x64</DS3CoreRid>
+    </PropertyGroup>
+
+    <Message Importance="high"
+             Text="DS3Core: cargo build -p ds3-ffi --target $(DS3CoreTarget) $(DS3CoreProfileFlag) (profile=$(DS3CoreProfile), rid=$(DS3CoreRid))" />
+
+    <Exec Command="cargo build -p ds3-ffi --target $(DS3CoreTarget) $(DS3CoreProfileFlag)"
+          WorkingDirectory="$(DS3CoreRepoRoot)\core" />
+
+    <!-- Ensure the runtimes destination exists, then copy the freshly-built DLL. -->
+    <MakeDir Directories="$(MSBuildThisFileDirectory)..\runtimes\$(DS3CoreRid)\native\" />
+
+    <Copy SourceFiles="$(DS3CoreRepoRoot)\core\target\$(DS3CoreTarget)\$(DS3CoreProfile)\ds3_ffi.dll"
+          DestinationFolder="$(MSBuildThisFileDirectory)..\runtimes\$(DS3CoreRid)\native\"
+          SkipUnchangedFiles="true" />
+
+  </Target>
+
+</Project>

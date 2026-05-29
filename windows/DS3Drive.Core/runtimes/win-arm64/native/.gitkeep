@@ -1,0 +1,2 @@
+# ds3_ffi.dll (aarch64-pc-windows-msvc) is staged here by DS3Core.Build.targets on build.
+# The built DLL itself is a build artifact (see .gitignore); this keeps the folder in git.

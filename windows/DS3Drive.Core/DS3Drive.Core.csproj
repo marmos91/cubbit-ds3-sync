@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    DS3Drive.Core — P/Invoke facade over the Rust core (ds3_ffi.dll).
+    Pure facade: depends only on Microsoft.Extensions.Logging.Abstractions.
+    See 17-CONTEXT.md D-05/D-06/D-07 and 17-PATTERNS.md §1.1.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <!-- Required for `fixed` / pointer marshalling in DS3Session FFI calls. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <!--
+    Stage the cargo-built native library into the NuGet runtimes folders so it
+    resolves automatically at run time and on publish. The DLLs are produced by
+    the BuildRustCore target below (DS3Core.Build.targets).
+  -->
+  <ItemGroup>
+    <None Include="runtimes\win-x64\native\ds3_ffi.dll"
+          Pack="true"
+          PackagePath="runtimes\win-x64\native\"
+          CopyToOutputDirectory="PreserveNewest"
+          Condition="Exists('runtimes\win-x64\native\ds3_ffi.dll')" />
+    <None Include="runtimes\win-arm64\native\ds3_ffi.dll"
+          Pack="true"
+          PackagePath="runtimes\win-arm64\native\"
+          CopyToOutputDirectory="PreserveNewest"
+          Condition="Exists('runtimes\win-arm64\native\ds3_ffi.dll')" />
+  </ItemGroup>
+
+  <!-- Invokes cargo and copies ds3_ffi.dll into runtimes/ on every build. -->
+  <Import Project="core-build\DS3Core.Build.targets" />
+
+</Project>
