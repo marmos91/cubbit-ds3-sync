@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: macOS App
 status: executing
-stopped_at: Completed 17-03-PLAN.md
-last_updated: "2026-05-29T13:42:38.546Z"
+stopped_at: Completed 17-05-PLAN.md
+last_updated: "2026-05-29T13:59:45.000Z"
 last_activity: 2026-05-29
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 26
-  completed_plans: 17
+  completed_plans: 18
   percent: 25
 ---
 
@@ -33,12 +33,12 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 ## Current Position
 
 Phase: 17 (windows-shell) — EXECUTING
-Plan: 5 of 12
+Plan: 6 of 12
 Status: Ready to execute
 Last activity: 2026-05-29
 
 ```
-Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17: 3/12 plans)
+Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17: 5/12 plans)
 ```
 
 ## Performance Metrics
@@ -60,6 +60,7 @@ Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17
 | Phase 17 P02 | 15min | 3 tasks | 12 files |
 | Phase 17 P03 | 3min | 3 tasks | 5 files |
 | Phase 17 P04 | 6min | 2 tasks | 4 files |
+| Phase 17 P05 | 17min | 3 tasks | 17 files |
 
 ### Decisions
 
@@ -74,6 +75,9 @@ Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17
 - [Phase ?]: [17-04] Sparse identity package (Cubbit.DS3Drive) grants the unpackaged WinUI 3 exe package identity; MSI (Plan 12) packs build-sparse.ps1 output then Add-AppxPackage -ExternalLocation so cfapi StorageProviderSyncRootManager.Register (Plan 10) succeeds
 - [Phase ?]: [17-04] Sparse manifest Publisher + Version are placeholders: Publisher must equal Authenticode cert subject byte-for-byte (RESEARCH Pitfall 1, CONTEXT D-29); Version (2.0.0.0) must bump every MSI release (Pitfall 7)
 - [Phase ?]: [17-04] MakeAppx/SignTool absent locally (no Windows SDK, per 17-02 MSVC blocker); build-sparse.ps1 pack+sign deferred to CI/install-time. Manifests validated as well-formed XML, script as parseable PowerShell
+- [17-05]: DS3Native.cs is a hand-mirror of the committed Phase 15 csbindgen output (core/ds3-ffi/out/NativeMethods.g.cs); opaque handles surfaced as IntPtr for managed lifetime via Interlocked guards. Regeneration deferred to CI (MSVC linker blocker)
+- [17-05]: CredentialStore target name format is 'Cubbit DS3 Drive — <accountId> — <credentialKey>' (em-dash U+2014, per-key suffix) so refreshToken/secretKey per account don't collide — supersedes CONTEXT D-12's shorter account-only form
+- [17-05]: Managed P/Invoke compiles + unit-tests without ds3_ffi.dll (DllImport binds at runtime); live native-calling tests gated Category=Integration, deferred to windows-latest CI
 
 ### Blockers
 
@@ -83,6 +87,6 @@ yet.
 
 ## Session Continuity
 
-Last session: 2026-05-29T13:42:08.484Z
-Stopped at: Completed 17-03-PLAN.md
+Last session: 2026-05-29T13:59:45.000Z
+Stopped at: Completed 17-05-PLAN.md
 Resume file: None
