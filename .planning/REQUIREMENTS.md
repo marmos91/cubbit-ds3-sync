@@ -34,7 +34,7 @@
 - [x] **WIN-03**: Drive appears in Explorer sidebar via cfapi sync root registration
 - [ ] **WIN-04**: User can open files that hydrate on-demand (FETCH_DATA via Rust download with streaming)
 - [ ] **WIN-05**: User can save/create files that upload to S3 (NOTIFY_FILE_CLOSE_COMPLETION trigger)
-- [ ] **WIN-06**: Remote changes sync to local placeholders via periodic polling and diff
+- [x] **WIN-06**: Remote changes sync to local placeholders via periodic polling and diff
 - [ ] **WIN-07**: System tray icon shows sync status (idle/syncing/error)
 - [ ] **WIN-08**: Hydration progress shown in Explorer (CfReportProviderProgress)
 - [x] **WIN-09**: WiX MSI installer with silent install support and auto-start
@@ -103,7 +103,7 @@
 | WIN-03 | Phase 17 | Complete |
 | WIN-04 | Phase 17 | Pending |
 | WIN-05 | Phase 17 | Pending |
-| WIN-06 | Phase 17 | Pending |
+| WIN-06 | Phase 17 | Complete |
 | WIN-07 | Phase 17 | Pending |
 | WIN-08 | Phase 17 | Pending |
 | WIN-09 | Phase 17 | Complete |

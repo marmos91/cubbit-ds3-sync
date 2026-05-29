@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: macOS App
 status: executing
 stopped_at: Completed 17-05-PLAN.md
-last_updated: "2026-05-29T13:59:45.000Z"
+last_updated: "2026-05-29T14:24:10.032Z"
 last_activity: 2026-05-29
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 26
-  completed_plans: 18
+  completed_plans: 19
   percent: 25
 ---
 
@@ -33,12 +33,12 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 ## Current Position
 
 Phase: 17 (windows-shell) — EXECUTING
-Plan: 6 of 12
+Plan: 7 of 12
 Status: Ready to execute
 Last activity: 2026-05-29
 
 ```
-Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17: 5/12 plans)
+Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17: 6/12 plans)
 ```
 
 ## Performance Metrics
@@ -61,6 +61,7 @@ Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17
 | Phase 17 P03 | 3min | 3 tasks | 5 files |
 | Phase 17 P04 | 6min | 2 tasks | 4 files |
 | Phase 17 P05 | 17min | 3 tasks | 17 files |
+| Phase 17 P06 | 8min | 3 tasks | 9 files |
 
 ### Decisions
 
@@ -78,6 +79,9 @@ Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17
 - [17-05]: DS3Native.cs is a hand-mirror of the committed Phase 15 csbindgen output (core/ds3-ffi/out/NativeMethods.g.cs); opaque handles surfaced as IntPtr for managed lifetime via Interlocked guards. Regeneration deferred to CI (MSVC linker blocker)
 - [17-05]: CredentialStore target name format is 'Cubbit DS3 Drive — <accountId> — <credentialKey>' (em-dash U+2014, per-key suffix) so refreshToken/secretKey per account don't collide — supersedes CONTEXT D-12's shorter account-only form
 - [17-05]: Managed P/Invoke compiles + unit-tests without ds3_ffi.dll (DllImport binds at runtime); live native-calling tests gated Category=Integration, deferred to windows-latest CI
+- [17-06]: schema_version table is created by migration 001 itself; SchemaMigrator must NOT pre-create it (would conflict with the 001 CREATE TABLE) — applied versions read defensively via a sqlite_master probe
+- [17-06]: sync.db uses private cache + WAL (not shared cache); WAL alone gives the concurrent cfapi-reader/engine-writer behaviour D-11 needs for a file-backed store
+- [17-06]: PlaceholderStore is fully parameterized (SqliteParameter, STRIDE T-17-06-01); EnumerationDiff.cs is the unit-testable reference while production uses Rust ds3_compute_diff (D-17)
 
 ### Blockers
 
@@ -87,6 +91,6 @@ yet.
 
 ## Session Continuity
 
-Last session: 2026-05-29T13:59:45.000Z
+Last session: 2026-05-29T14:24:10.023Z
 Stopped at: Completed 17-05-PLAN.md
 Resume file: None

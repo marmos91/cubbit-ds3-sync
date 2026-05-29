@@ -374,7 +374,7 @@ Plans:
   4. User can save or create files in the synced folder and they upload to S3 automatically (triggered by `NOTIFY_FILE_CLOSE_COMPLETION`, not `ReadDirectoryChangesW` -- no spurious re-upload on hydration)
   5. Remote changes made from another device or the web console appear as updated placeholders within one polling cycle, and the system tray icon reflects sync status (idle/syncing/error)
 
-**Plans:** 5/12 plans executed
+**Plans:** 6/12 plans executed
 **UI hint**: yes
 
 Plans:
@@ -388,7 +388,7 @@ Plans:
 **Wave 1**
 
 - [x] 17-05-PLAN.md -- DS3Drive.Core P/Invoke facade (DS3Native csbindgen-style bindings, DS3Session : IDisposable, Exceptions w/ 1007 to TwoFactorRequired per D-15, Records, CredentialStore via Advapi32 CredWrite/Read, ConfigStore)
-- [ ] 17-06-PLAN.md -- SyncDatabase (Microsoft.Data.Sqlite at %LOCALAPPDATA%) + 001_initial.sql (5 tables) + PlaceholderStore CRUD + EnumerationDiff port of Apple algorithm + schema-recovery
+- [x] 17-06-PLAN.md -- SyncDatabase (Microsoft.Data.Sqlite at %LOCALAPPDATA%) + 001_initial.sql (5 tables) + PlaceholderStore CRUD + EnumerationDiff port of Apple algorithm + schema-recovery
 - [ ] 17-07-PLAN.md -- POL-01 logging bridge: RustLogBridge (Channel+drainer, Pitfall 5 compliant) + RustCoreEventSource (Cubbit-DS3Drive-Core ETW) + AppEventSource (Cubbit-DS3Drive-App)
 
 **Wave 2**
@@ -449,7 +449,7 @@ Plans:
 | 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
 | 15. Rust Core + FFI Foundation | v2.0.0 | 7/7 | Complete   | 2026-05-27 |
 | 16. Apple Incremental Swap | v2.0.0 | 6/7 | In Progress|  |
-| 17. Windows Shell | v2.0.0 | 5/12 | In Progress|  |
+| 17. Windows Shell | v2.0.0 | 6/12 | In Progress|  |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
 
 ---
