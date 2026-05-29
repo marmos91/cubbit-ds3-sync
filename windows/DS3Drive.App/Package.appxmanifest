@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  App-side package manifest for DS3 Drive (WinUI 3 exe in DS3Drive.App).
+
+  PURPOSE
+  Mirrors the <Identity> block of the sparse identity manifest at
+  windows/DS3Drive.Installer/SparsePackage/Package.appxmanifest. The Identity
+  Name/Publisher/Version MUST match exactly — this is what links the running exe to
+  the sparse package identity at activation time, so cfapi's
+  StorageProviderSyncRootManager.Register succeeds (RESEARCH Pitfall 1). MSIX build
+  tooling reads this manifest during sparse identity resolution.
+
+  LOAD-BEARING WARNINGS
+  Per RESEARCH Pitfall 7: bump the Version attribute on EVERY MSI release (keep in lockstep
+  with the sparse manifest). Per RESEARCH Pitfall 1: the Publisher subject MUST equal the
+  Authenticode cert subject byte-for-byte — the value below is a PLACEHOLDER (CONTEXT D-29)
+  and a mismatch = registration fails.
+-->
+<Package
+    xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+    xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+    xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+    xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+    IgnorableNamespaces="uap uap10 rescap">
+
+  <!-- Identity MUST match SparsePackage\Package.appxmanifest byte-for-byte.
+       Publisher is a PLACEHOLDER per CONTEXT D-29 (RESEARCH Pitfall 1). -->
+  <Identity
+      Name="Cubbit.DS3Drive"
+      Publisher="CN=Cubbit Srl, O=Cubbit Srl, L=Bologna, S=BO, C=IT"
+      Version="2.0.0.0"
+      ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Cubbit DS3 Drive</DisplayName>
+    <PublisherDisplayName>Cubbit Srl</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <uap10:AllowExternalContent>true</uap10:AllowExternalContent>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-US" />
+  </Resources>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+
+  <Applications>
+    <Application
+        Id="DS3DriveApp"
+        Executable="DS3Drive.App.exe"
+        EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+          DisplayName="Cubbit DS3 Drive"
+          Description="Cubbit DS3 cloud storage drive for Windows"
+          Square150x150Logo="Assets\Square150x150Logo.png"
+          Square44x44Logo="Assets\Square44x44Logo.png"
+          BackgroundColor="#0E0E15">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <uap:Extension Category="windows.cloudFiles">
+          <uap:CloudFiles>
+            <uap:CloudFilesContextMenus>
+              <uap:Verb Id="DS3Verb" Clsid="00000000-0000-0000-0000-000000000000">Cubbit DS3 Drive</uap:Verb>
+            </uap:CloudFilesContextMenus>
+            <uap:CustomStateHandler Clsid="00000000-0000-0000-0000-000000000000" />
+          </uap:CloudFiles>
+        </uap:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+</Package>

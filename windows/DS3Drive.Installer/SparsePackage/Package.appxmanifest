@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Sparse identity package manifest for DS3 Drive (Cubbit DS3 Drive on Windows).
+
+  PURPOSE
+  This MSIX manifest grants the *unpackaged* WinUI 3 exe a package identity via the
+  "external location" sparse-package model. cfapi's
+  StorageProviderSyncRootManager.Register requires package identity; without it the
+  call throws E_NOT_VALID_STATE and the drive never appears in Explorer's sidebar
+  (RESEARCH §"Sparse package not registered before StorageProviderSyncRootManager.Register",
+  Pitfall 1). The WiX MSI (Plan 12) packs this with build-sparse.ps1 and registers
+  the resulting DS3Drive.Identity.msix via `Add-AppxPackage -ExternalLocation`.
+
+  LOAD-BEARING WARNINGS
+  Per RESEARCH Pitfall 7: bump the Version attribute on EVERY MSI release. Per RESEARCH
+  Pitfall 1: the Publisher subject MUST equal the Authenticode cert subject byte-for-byte.
+  The Publisher below is a PLACEHOLDER (CONTEXT D-29 — cert procurement pending) and MUST
+  be replaced with the Authenticode cert subject exactly — a mismatch = registration fails.
+
+  The <Identity> block here must match windows/DS3Drive.App/Package.appxmanifest and the
+  assemblyIdentity in windows/DS3Drive.App/app.manifest (Name/Version load-bearing).
+-->
+<Package
+    xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+    xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+    xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+    xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+    IgnorableNamespaces="uap uap10 rescap">
+
+  <!-- Publisher is a PLACEHOLDER per CONTEXT D-29; replace byte-for-byte with the
+       Authenticode cert subject (RESEARCH Pitfall 1). Version bump per release (Pitfall 7). -->
+  <Identity
+      Name="Cubbit.DS3Drive"
+      Publisher="CN=Cubbit Srl, O=Cubbit Srl, L=Bologna, S=BO, C=IT"
+      Version="2.0.0.0"
+      ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Cubbit DS3 Drive</DisplayName>
+    <PublisherDisplayName>Cubbit Srl</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <!-- Sparse-package marker: allows the package to reference content at an
+         external (unpackaged) location supplied at Add-AppxPackage time. -->
+    <uap10:AllowExternalContent>true</uap10:AllowExternalContent>
+  </Properties>
+
+  <Dependencies>
+    <!-- 10.0.19041.0 is the sparse-package AllowExternalContent floor (RESEARCH §TFM note). -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-US" />
+  </Resources>
+
+  <Capabilities>
+    <!-- runFullTrust is mandatory for an unpackaged Win32 exe granted sparse identity. -->
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+
+  <Applications>
+    <Application
+        Id="DS3DriveApp"
+        Executable="DS3Drive.App.exe"
+        EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+          DisplayName="Cubbit DS3 Drive"
+          Description="Cubbit DS3 cloud storage drive for Windows"
+          Square150x150Logo="Assets\Square150x150Logo.png"
+          Square44x44Logo="Assets\Square44x44Logo.png"
+          BackgroundColor="#0E0E15">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <!-- cfapi cloud-files extension declaration: registers DS3 Drive as a cloud
+             storage provider so Explorer surfaces the sync root and context menus
+             (RESEARCH §cfapi extension declaration). -->
+        <uap:Extension Category="windows.cloudFiles">
+          <uap:CloudFiles>
+            <uap:CloudFilesContextMenus>
+              <uap:Verb Id="DS3Verb" Clsid="00000000-0000-0000-0000-000000000000">Cubbit DS3 Drive</uap:Verb>
+            </uap:CloudFilesContextMenus>
+            <uap:CustomStateHandler Clsid="00000000-0000-0000-0000-000000000000" />
+            <uap:ThumbnailProviderHandler Clsid="00000000-0000-0000-0000-000000000000" />
+            <uap:ExtendedPropertyHandler Clsid="00000000-0000-0000-0000-000000000000" />
+            <uap:BannerHandler Clsid="00000000-0000-0000-0000-000000000000" />
+          </uap:CloudFiles>
+        </uap:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+</Package>
