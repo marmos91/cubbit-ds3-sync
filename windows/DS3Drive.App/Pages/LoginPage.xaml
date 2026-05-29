@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    LoginPage.xaml — sign-in form. Port of
+    apple/DS3Drive/Views/Login/Views/LoginView.swift lines 1-291 (PATTERNS §2.4):
+    every visible macOS element has a XAML twin. Copy is verbatim per
+    17-UI-SPEC.md §Copywriting Contract ("Sign in", "Signing in…", error InfoBar).
+    Typography: Type.Display (32 SemiBold) headline, Type.H2 (24 SemiBold) subhead —
+    no H3, no Medium weight (UI-SPEC Revision 1+2). Spacing on the 8/16/24/32 grid.
+-->
+<Page
+    x:Class="DS3Drive.App.Pages.LoginPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:DS3Drive.ViewModels.ViewModels"
+    xmlns:conv="using:DS3Drive.App.Converters"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <conv:NotNullToBoolConverter x:Key="NotNullToBool" />
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+    </Page.Resources>
+
+    <Grid Padding="32">
+        <StackPanel HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="16"
+                    MaxWidth="360">
+
+            <!-- Cubbit logo placeholder (96x36); brand SVG ships via Plan 04 assets. -->
+            <Border Width="96" Height="36" HorizontalAlignment="Center" />
+
+            <TextBlock Style="{StaticResource Type.Display}"
+                       HorizontalAlignment="Center"
+                       Text="DS3 Drive" />
+
+            <TextBlock Style="{StaticResource Type.H2}"
+                       HorizontalAlignment="Center"
+                       Margin="0,0,0,8"
+                       Text="Sign in to your account" />
+
+            <TextBox x:Name="EmailBox"
+                     Header="Email"
+                     InputScope="EmailSmtpAddress"
+                     Text="{x:Bind ViewModel.Email, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     AutomationProperties.Name="Email" />
+
+            <PasswordBox x:Name="PasswordBox"
+                         Header="Password"
+                         Password="{x:Bind ViewModel.Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         AutomationProperties.Name="Password" />
+
+            <Expander Header="Advanced"
+                      HorizontalAlignment="Stretch"
+                      HorizontalContentAlignment="Stretch">
+                <StackPanel Spacing="16">
+                    <TextBox Header="Tenant"
+                             Text="{x:Bind ViewModel.Tenant, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             AutomationProperties.Name="Tenant" />
+                    <TextBox Header="Coordinator URL"
+                             Text="{x:Bind ViewModel.CoordinatorUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             AutomationProperties.Name="Coordinator URL" />
+                </StackPanel>
+            </Expander>
+
+            <CheckBox Content="Remember me"
+                      IsChecked="{x:Bind ViewModel.RememberMe, Mode=TwoWay}"
+                      AutomationProperties.Name="Remember me" />
+
+            <Button x:Name="SignInButton"
+                    Style="{StaticResource BrandPrimaryButton}"
+                    HorizontalAlignment="Stretch"
+                    IsEnabled="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource NotNullToBool}, ConverterParameter=invert}"
+                    Command="{x:Bind ViewModel.LoginCommand}"
+                    AutomationProperties.Name="Sign in">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ProgressRing Width="16" Height="16"
+                                  IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+                                  Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock Text="{x:Bind SignInLabel(ViewModel.IsLoading), Mode=OneWay}" />
+                </StackPanel>
+            </Button>
+
+            <InfoBar Severity="Error"
+                     IsOpen="{x:Bind ViewModel.LoginError, Mode=OneWay, Converter={StaticResource NotNullToBool}}"
+                     Message="{x:Bind ViewModel.LoginError, Mode=OneWay}"
+                     IsClosable="False" />
+
+            <HyperlinkButton Content="Forgot your password?"
+                             HorizontalAlignment="Center"
+                             NavigateUri="https://console.cubbit.eu/reset-password" />
+        </StackPanel>
+    </Grid>
+</Page>

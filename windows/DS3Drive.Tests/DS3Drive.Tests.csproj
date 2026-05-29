@@ -15,6 +15,10 @@
   <ItemGroup>
     <ProjectReference Include="..\DS3Drive.Core\DS3Drive.Core.csproj" />
     <ProjectReference Include="..\DS3Drive.Sync\DS3Drive.Sync.csproj" />
+    <!-- ViewModels reference exercises the LoginViewModel 2FA routing + tutorial registry
+         write WITHOUT the WinUI App project (which crashes the headless test host on the
+         Windows App Runtime bootstrap) — Plan 08 Task 2/3 / deviation. -->
+    <ProjectReference Include="..\DS3Drive.ViewModels\DS3Drive.ViewModels.csproj" />
   </ItemGroup>
 
   <ItemGroup>
