@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: macOS App
 status: executing
 stopped_at: Completed 17-03-PLAN.md
-last_updated: "2026-05-29T13:35:14.446Z"
+last_updated: "2026-05-29T13:42:38.546Z"
 last_activity: 2026-05-29
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 26
-  completed_plans: 16
-  percent: 62
+  completed_plans: 17
+  percent: 25
 ---
 
 # Project State
@@ -33,7 +33,7 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 ## Current Position
 
 Phase: 17 (windows-shell) — EXECUTING
-Plan: 4 of 12
+Plan: 5 of 12
 Status: Ready to execute
 Last activity: 2026-05-29
 
@@ -59,6 +59,7 @@ Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17
 
 | Phase 17 P02 | 15min | 3 tasks | 12 files |
 | Phase 17 P03 | 3min | 3 tasks | 5 files |
+| Phase 17 P04 | 6min | 2 tasks | 4 files |
 
 ### Decisions
 
@@ -70,6 +71,9 @@ Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17
 - [Phase ?]: [17-02] Windows native DLL build requires MSVC C++ workload — blocked on dev machine, deferred to windows-latest CI (plan 03)
 - [17-03]: windows-build.yml stages the script-built ds3_ffi.dll then builds with DS3SkipRustCore=true, so cargo runs exactly once per CI job (the DS3Drive.Core BuildRustCore MSBuild target would otherwise re-invoke it)
 - [17-03]: Integration tests gated by [Trait("Category","Integration")] + RequiresCredentialsAttribute auto-skip; CI Category!=Integration filter keeps CUBBIT_TEST_* out of untrusted PR runs
+- [Phase ?]: [17-04] Sparse identity package (Cubbit.DS3Drive) grants the unpackaged WinUI 3 exe package identity; MSI (Plan 12) packs build-sparse.ps1 output then Add-AppxPackage -ExternalLocation so cfapi StorageProviderSyncRootManager.Register (Plan 10) succeeds
+- [Phase ?]: [17-04] Sparse manifest Publisher + Version are placeholders: Publisher must equal Authenticode cert subject byte-for-byte (RESEARCH Pitfall 1, CONTEXT D-29); Version (2.0.0.0) must bump every MSI release (Pitfall 7)
+- [Phase ?]: [17-04] MakeAppx/SignTool absent locally (no Windows SDK, per 17-02 MSVC blocker); build-sparse.ps1 pack+sign deferred to CI/install-time. Manifests validated as well-formed XML, script as parseable PowerShell
 
 ### Blockers
 
@@ -79,6 +83,6 @@ yet.
 
 ## Session Continuity
 
-Last session: 2026-05-29T13:35:07.005Z
+Last session: 2026-05-29T13:42:08.484Z
 Stopped at: Completed 17-03-PLAN.md
 Resume file: None
