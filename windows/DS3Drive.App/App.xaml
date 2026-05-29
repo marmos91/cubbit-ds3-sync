@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Minimal WinUI 3 Application definition for the empty scaffold (Plan 02).
+    Provides the auto-generated entry point so the WinExe links. Plan 04 fleshes
+    this out with merged resource dictionaries, brand tokens, and app lifecycle
+    wiring (Host.CreateApplicationBuilder DI container).
+-->
+<Application
+    x:Class="DS3Drive.App.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

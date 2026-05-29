@@ -24,8 +24,11 @@
     <PackageVersion Include="Microsoft.Extensions.Logging.EventSource" Version="8.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
 
-    <!-- System tray (WinUI 3 NotifyIcon) -->
-    <PackageVersion Include="H.NotifyIcon.WinUI" Version="2.4.1" />
+    <!-- System tray (WinUI 3 NotifyIcon). Pinned to 2.3.2: the highest 2.x release that still
+         targets net8.0-windows10.0.19041. Version 2.4.1 (from RESEARCH.md) is net10.0-windows-only
+         and is incompatible with the locked .NET 8 LTS TFM (CONTEXT D-02). Same publisher (havendv),
+         same MIT license, same human-verified package — patch version corrected for TFM compat. -->
+    <PackageVersion Include="H.NotifyIcon.WinUI" Version="2.3.2" />
 
     <!-- cfapi (Cloud Files API) P/Invoke wrappers -->
     <PackageVersion Include="Vanara.PInvoke.CldApi" Version="5.0.5" />

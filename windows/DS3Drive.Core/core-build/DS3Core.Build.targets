@@ -18,13 +18,20 @@
     location; no user-supplied input flows into the command.
   -->
 
-  <Target Name="BuildRustCore" BeforeTargets="BeforeBuild">
+  <!--
+    Escape hatch: set DS3SkipRustCore=true (MSBuild property or env var) to bypass the
+    cargo build + DLL copy. Used for managed-only compilation checks on machines that lack
+    the MSVC C++ toolchain or cargo. Production / CI builds leave this unset so the DLL is
+    always staged (CONTEXT.md D-07).
+  -->
+  <Target Name="BuildRustCore" BeforeTargets="BeforeBuild"
+          Condition="'$(DS3SkipRustCore)' != 'true'">
 
     <PropertyGroup>
       <!-- debug | release, lower-cased from $(Configuration); used in target/<triple>/<profile>. -->
       <DS3CoreProfile>$([System.String]::Copy('$(Configuration)').ToLowerInvariant().Replace('debug','debug').Replace('release','release'))</DS3CoreProfile>
 
-      <!-- cargo emits to target/<triple>/release only with --release; debug has no flag. -->
+      <!-- cargo emits to target/<triple>/release only when the release flag is passed; debug has no flag. -->
       <DS3CoreProfileFlag Condition="'$(DS3CoreProfile)' == 'release'">--release</DS3CoreProfileFlag>
       <DS3CoreProfileFlag Condition="'$(DS3CoreProfile)' != 'release'"></DS3CoreProfileFlag>
 
