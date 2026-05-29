@@ -1,0 +1,126 @@
+# Windows shell CI — builds the Rust ds3_ffi.dll (x64), the .NET solution, and
+# runs the non-integration test suite on every push touching windows/ or core/.
+#
+# Environment split (CONTEXT D-32):
+#   - This CI job runs on `windows-latest`, which is x64 ONLY. It builds and tests
+#     the x86_64-pc-windows-msvc target.
+#   - The Windows 11 ARM64 dev VM (Parallels/UTM on Apple Silicon) is reserved for
+#     MANUAL smoke testing (windows/manual-smoke-D-33.md). cfapi runtime behaviour
+#     (sync-root registration, hydration, Explorer overlays) is not unit-testable
+#     and is therefore verified on the VM, never here.
+#
+# Integration tests (Category=Integration) require live Cubbit credentials and are
+# EXCLUDED from PR builds via `--filter "Category!=Integration"` (threat T-17-03-01:
+# keeps CUBBIT_TEST_* out of untrusted PR runs). A future workflow_dispatch run with
+# repo secrets can drop the filter to exercise the full suite.
+
+name: Windows Build
+
+on:
+  push:
+    branches:
+      - gsd/phase-17-windows-shell
+      - main
+    paths:
+      - "windows/**"
+      - "core/**"
+      - ".github/workflows/windows-build.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "windows/**"
+      - "core/**"
+      - ".github/workflows/windows-build.yml"
+
+# Cancel superseded runs for the same ref so a rapid push series only keeps the
+# newest build alive (threat T-17-03-03: bounds cargo-cache contention).
+concurrency:
+  group: windows-build-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege (threat T-17-03-02): the build needs read access only; no
+# write token is exposed to the workflow.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build + Test (windows-latest, x64)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Rust toolchain (x64 MSVC target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('core/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      # Builds ds3_ffi.dll for the Windows targets into core/out/windows/runtimes/.
+      # The script (Plan 01) installs the rustup target if missing and is the single
+      # source of truth for the x64 + arm64 cargo invocation. Release profile keeps
+      # the staged DLL consistent with the Release .NET build below.
+      - name: Build ds3_ffi.dll (Rust core)
+        shell: pwsh
+        run: pwsh -NoProfile -File core/scripts/build-dll-windows.ps1 -BuildProfile release
+
+      # Stage the freshly-built x64 DLL where DS3Drive.Core expects it at run/publish
+      # time (NuGet runtimes layout). We copy from the script's out/ folder rather than
+      # letting the MSBuild BuildRustCore target re-invoke cargo, then pass
+      # DS3SkipRustCore=true on the build so cargo runs exactly once per job.
+      - name: Stage native DLL into DS3Drive.Core/runtimes
+        shell: pwsh
+        run: |
+          $dest = "windows/DS3Drive.Core/runtimes/win-x64/native"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -Force `
+            -Path "core/out/windows/runtimes/win-x64/native/ds3_ffi.dll" `
+            -Destination "$dest/ds3_ffi.dll"
+          Get-ChildItem $dest
+
+      - name: Restore solution
+        run: dotnet restore windows/DS3Drive.sln
+
+      - name: Build solution (Release, x64)
+        run: >-
+          dotnet build windows/DS3Drive.sln
+          --configuration Release
+          --no-restore
+          /p:RuntimeIdentifier=win-x64
+          /p:DS3SkipRustCore=true
+
+      - name: Test (non-integration)
+        run: >-
+          dotnet test windows/DS3Drive.Tests
+          --no-build
+          --configuration Release
+          --filter "Category!=Integration"
+          --logger "trx"
+          --results-directory TestResults
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-test-results
+          path: TestResults
+          if-no-files-found: ignore
