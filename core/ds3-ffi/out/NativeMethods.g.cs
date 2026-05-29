@@ -171,6 +171,155 @@ namespace DS3Drive.Core
         [DllImport(__DllName, EntryPoint = "ds3_conflict_key", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern int ds3_conflict_key(byte* original_key, nuint original_key_len, byte* hostname, nuint hostname_len, byte* nonce, nuint nonce_len, byte** out_key, nuint* out_key_len, int* out_error);
 
+        /// <summary>
+        ///  Retrieves a Curve25519 challenge from the IAM coordinator.
+        ///
+        ///  Mirrors `ds3_auth::challenge::get_challenge`. The result is serialized as
+        ///  a JSON `Challenge { challenge, salt }` document.
+        ///
+        ///  # Ownership
+        ///  - `email`, `tenant_id`, `coordinator_url` are borrowed input UTF-8 slices.
+        ///    `tenant_id` / `coordinator_url` are optional (pass null/0 to omit).
+        ///  - On success, `*out_challenge_json` holds a heap allocation of length
+        ///    `*out_challenge_json_len`. The caller MUST free it with `ds3_free_string`.
+        ///
+        ///  # Error contract
+        ///  Returns 0 on success, -1 on `DS3Error` (code in `*out_error`), -2 on panic.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_get_challenge", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_get_challenge(byte* email, nuint email_len, byte* tenant_id, nuint tenant_id_len, byte* coordinator_url, nuint coordinator_url_len, byte** out_challenge_json, nuint* out_challenge_json_len, int* out_error);
+
+        /// <summary>
+        ///  Returns a clone of the current `AccountSession` (token + refreshToken)
+        ///  serialized as JSON, matching the Swift `AccountSession` schema (camelCase
+        ///  `refreshToken`). Used by the C# adapter to persist session state.
+        ///
+        ///  # Ownership
+        ///  - `handle` is borrowed (must be a valid `*const DS3Session`).
+        ///  - On success, `*out_session_json` holds a heap allocation of length
+        ///    `*out_session_json_len`. The caller MUST free it with `ds3_free_string`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_current_session", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_current_session(DS3Session* handle, byte** out_session_json, nuint* out_session_json_len, int* out_error);
+
+        /// <summary>
+        ///  Downloads an S3 object directly into a freshly allocated byte buffer.
+        ///
+        ///  Intended for small payloads (thumbnails, `.ds3keep` markers, JSON metadata).
+        ///  For large objects use `ds3_download_object` which streams to a file.
+        ///
+        ///  # Ownership
+        ///  - On success, `*out_buf` holds a heap allocation of length `*out_len`.
+        ///    The caller MUST free it with `ds3_free_bytes`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_download_to_memory", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_download_to_memory(DS3S3Client* s3_handle, byte* bucket, nuint bucket_len, byte* key, nuint key_len, byte** out_buf, nuint* out_len, int* out_error);
+
+        /// <summary>
+        ///  Uploads an in-memory byte buffer to S3 with optional `Content-Type`
+        ///  metadata (sent as `x-amz-meta-content-type`). Returns the normalized ETag
+        ///  (or empty pointer when absent) via `out_etag` / `out_etag_len`.
+        ///
+        ///  # Ownership
+        ///  - `body` is borrowed (the byte buffer is consumed only for the duration
+        ///    of the call; the caller retains ownership).
+        ///  - On success, `*out_etag` may hold a heap allocation (or null when the
+        ///    server did not return an ETag). When non-null, the caller MUST free it
+        ///    with `ds3_free_string`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_upload_from_memory", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_upload_from_memory(DS3S3Client* s3_handle, byte* bucket, nuint bucket_len, byte* key, nuint key_len, byte* content_type, nuint content_type_len, byte* body, nuint body_len, byte** out_etag, nuint* out_etag_len, int* out_error);
+
+        /// <summary>
+        ///  Generates a presigned GET URL for an S3 object.
+        ///
+        ///  `ttl_seconds` must be in `1..=604_800` (7-day AWS sigv4 cap).
+        ///
+        ///  # Ownership
+        ///  - On success, `*out_url` holds a heap allocation of length `*out_url_len`.
+        ///    The caller MUST free it with `ds3_free_string`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_presign_get", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_presign_get(DS3S3Client* s3_handle, byte* bucket, nuint bucket_len, byte* key, nuint key_len, long ttl_seconds, byte** out_url, nuint* out_url_len, int* out_error);
+
+        /// <summary>
+        ///  Generates a presigned PUT URL for a single multipart upload part.
+        ///
+        ///  `ttl_seconds` must be in `1..=604_800` (7-day AWS sigv4 cap).
+        ///
+        ///  # Ownership
+        ///  - On success, `*out_url` holds a heap allocation of length `*out_url_len`.
+        ///    The caller MUST free it with `ds3_free_string`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_presign_upload_part", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_presign_upload_part(DS3S3Client* s3_handle, byte* bucket, nuint bucket_len, byte* key, nuint key_len, byte* upload_id, nuint upload_id_len, int part_number, long ttl_seconds, byte** out_url, nuint* out_url_len, int* out_error);
+
+        /// <summary>
+        ///  Deletes multiple S3 objects in a single batch request.
+        ///
+        ///  `keys_json` is a UTF-8 JSON array of strings, e.g. `["a.txt","sub/b.bin"]`,
+        ///  matching the format the Apple adapter already emits. Returns the number of
+        ///  successfully deleted objects via `*out_deleted_count` (-1 if the pointer
+        ///  is null).
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_delete_objects", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_delete_objects(DS3S3Client* s3_handle, byte* bucket, nuint bucket_len, byte* keys_json, nuint keys_json_len, int* out_deleted_count, int* out_error);
+
+        /// <summary>
+        ///  Maps a `DS3Error::Display` string back to its numeric error code.
+        ///
+        ///  `message` is a UTF-8 byte slice carrying the error's stringified Display
+        ///  (Swift / C# catch the error as a flat record and only have the message
+        ///  available — Phase 16 Plan 02 baseline). Returns -1 for unknown messages.
+        ///
+        ///  This function does NOT use `ffi_guard!` because it cannot fail or panic —
+        ///  the worst case (invalid UTF-8) returns -1.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_error_code", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_error_code(byte* message_ptr, nuint message_len);
+
+        /// <summary>
+        ///  Creates a fresh cancellation handle in the "not cancelled" state.
+        ///
+        ///  # Ownership
+        ///  The returned `*mut CancellationHandle` is heap-allocated. The caller MUST
+        ///  destroy it exactly once with `ds3_cancellation_destroy`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_cancellation_create", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern CancellationHandle* ds3_cancellation_create();
+
+        /// <summary>
+        ///  Requests cancellation. Idempotent and thread-safe.
+        ///
+        ///  # Safety
+        ///  `handle` must be a valid pointer obtained from `ds3_cancellation_create`.
+        ///  Calling on a null pointer is a no-op.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_cancellation_cancel", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern void ds3_cancellation_cancel(CancellationHandle* handle);
+
+        /// <summary>
+        ///  Destroys a cancellation handle, freeing its resources.
+        ///
+        ///  # Safety
+        ///  `handle` must be a valid pointer obtained from `ds3_cancellation_create`.
+        ///  Must not be called twice for the same handle.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_cancellation_destroy", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern void ds3_cancellation_destroy(CancellationHandle* handle);
+
+        /// <summary>
+        ///  Installs (or clears, when `cb` is `None`) a C callback that receives every
+        ///  Rust `tracing` event emitted from any `ds3-*` crate. See
+        ///  `core/ds3-ffi/src/log_bridge.rs` for the dispatch semantics and the
+        ///  re-entrancy contract (Phase 17 RESEARCH §"Pitfall 5").
+        ///
+        ///  Idempotent — calling twice replaces the previously registered callback.
+        ///  Returns 0 on success.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_set_log_callback", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_set_log_callback(DS3LogCallbackFn cb);
+
 
     }
 
