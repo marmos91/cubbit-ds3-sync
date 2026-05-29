@@ -21,6 +21,8 @@ tokio = { workspace = true }
 uniffi = { version = "0.31", features = ["cli"] }
 serde_json = { workspace = true }
 chrono = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["registry"] }
 
 [build-dependencies]
 uniffi = { version = "0.31", features = ["build"] }

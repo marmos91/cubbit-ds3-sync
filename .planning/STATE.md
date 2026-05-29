@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: macOS App
 status: executing
-stopped_at: Phase 16 context gathered
-last_updated: "2026-05-28T08:17:16.170Z"
+stopped_at: Phase 17 context gathered
+last_updated: "2026-05-28T19:11:20.309Z"
 last_activity: 2026-05-28 -- Phase 16 execution started
 progress:
   total_phases: 5
@@ -70,6 +70,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-28T07:03:32.327Z
-Stopped at: Phase 16 context gathered
-Resume file: .planning/phases/16-apple-incremental-swap/16-CONTEXT.md
+Last session: 2026-05-28T19:11:20.302Z
+Stopped at: Phase 17 context gathered
+Resume file: .planning/phases/17-windows-shell/17-CONTEXT.md
