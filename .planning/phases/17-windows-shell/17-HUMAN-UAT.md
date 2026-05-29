@@ -1,7 +1,7 @@
 ---
 status: partial
 phase: 17-windows-shell
-source: [17-08-PLAN.md Task 4, 17-09-PLAN.md Task 3]
+source: [17-08-PLAN.md Task 4, 17-09-PLAN.md Task 3, 17-10-PLAN.md Task 5]
 started: 2026-05-29
 updated: 2026-05-29
 ---
@@ -88,12 +88,60 @@ result: [pending]
 expected: `%LOCALAPPDATA%\Cubbit\DS3Drive\sync.db` → `SELECT * FROM drives;` returns 3 rows and `SELECT * FROM api_keys;` returns 3 rows.
 result: [pending]
 
+### 20. Sync root in Explorer sidebar (17-10, WIN-03)
+expected: On a Win11 ARM64 VM with the Plan 04 sparse package registered + a dev sideload, sign in and create a drive pointing at a bucket with ≥10 objects (incl. one ≥100MB file). Open Explorer → "Cubbit DS3 Drive — <drive name>" appears under "This PC" / in the sidebar with the Cubbit icon.
+result: [pending]
+
+### 21. Hydration progress on a ≥100MB file (17-10, WIN-08)
+expected: Right-click a ≥100MB cloud-only file → Open. Explorer's status column shows a visible progress percentage during hydration; the file opens after hydration completes.
+result: [pending]
+
+### 22. Hydration streaming never stalls > 30s (17-10, WIN-04, Pitfall 2)
+expected: Repeat for a 1GB file (if available). Hydration never has a >30s "no progress" stretch. Event Viewer (`Cubbit-DS3Drive-Core`) shows chunks logged every few seconds (CfReportProviderProgress resets the watchdog).
+result: [pending]
+
+### 23. Upload on save (17-10, WIN-05)
+expected: Create a new file in the sync folder → save. Exactly ONE upload event in Event Viewer; the file appears in the Cubbit web console under the expected key.
+result: [pending]
+
+### 24. No spurious upload after hydration (17-10, WIN-05, Pitfall 3 CRITICAL)
+expected: Take a cloud-only file → double-click to hydrate → close WITHOUT editing. Tail the log → ZERO upload PUT requests. A PUT here means the IsDirty guard failed → REJECT.
+result: [pending]
+
+### 25. Remote-change detection within one poll cycle (17-10, WIN-06)
+expected: From the Cubbit web console, upload a new object to the bucket. Within ≤60s (D-18 polling cadence) the placeholder appears in Explorer.
+result: [pending]
+
+### 26. Rename round-trips to S3 (17-10)
+expected: Rename a file in Explorer → Cubbit console shows the old key deleted + the new key created (S3 has no rename: CopyObject + DeleteObject).
+result: [pending]
+
+### 27. Delete round-trips to S3 (17-10)
+expected: Delete a file in Explorer → the object disappears from Cubbit.
+result: [pending]
+
+### 28. No shell icon-overlay handler (17-10, Pitfall 4)
+expected: `grep -ri "IShellIconOverlayIdentifier" windows/` returns only doc-comment references (the ban note), never an implemented `IShellIconOverlayIdentifier` COM class. State icons come from cfapi placeholder pin/in-sync states, not an overlay handler.
+result: [pending]
+
+### 29. No ReadDirectoryChangesW upload trigger (17-10, Pitfall 3)
+expected: `grep -ri "ReadDirectoryChangesW" windows/` returns only the doc-comment ban note, never a live call. The only upload trigger is NOTIFY_FILE_CLOSE_COMPLETION.
+result: [pending]
+
+### 30. Parent folder status not stuck (17-10, PATTERNS §2.8, f8917ee regression)
+expected: Open the parent folder of an active sync operation. The parent folder's sync status badge updates correctly and does NOT stay stuck in "syncing" after the child file completes (regression check on the NotificationManager counter/debounce logic).
+result: [pending]
+
+### 31. NTFS guard + sparse-identity guard (17-10, Pitfalls 1 & 8)
+expected: Point a drive at a non-NTFS volume (e.g. a FAT32/exFAT USB) → registration fails with a clear "NTFS required" error, not a crash. Without the sparse package registered, registration surfaces the E_NOT_VALID_STATE / "not supported" guidance rather than silently failing.
+result: [pending]
+
 ## Summary
 
-total: 19
+total: 31
 passed: 0
 issues: 0
-pending: 19
+pending: 31
 skipped: 0
 blocked: 0
 

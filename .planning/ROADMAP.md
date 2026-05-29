@@ -374,7 +374,7 @@ Plans:
   4. User can save or create files in the synced folder and they upload to S3 automatically (triggered by `NOTIFY_FILE_CLOSE_COMPLETION`, not `ReadDirectoryChangesW` -- no spurious re-upload on hydration)
   5. Remote changes made from another device or the web console appear as updated placeholders within one polling cycle, and the system tray icon reflects sync status (idle/syncing/error)
 
-**Plans:** 9/12 plans executed
+**Plans:** 10/12 plans executed
 **UI hint**: yes
 
 Plans:
@@ -398,7 +398,7 @@ Plans:
 
 **Wave 3**
 
-- [ ] 17-10-PLAN.md -- cfapi sync engine: SyncRootRegistration (sparse identity required, Pitfall 1), CallbackTable (FETCH_DATA streaming 4KB-aligned, NOTIFY_FILE_CLOSE_COMPLETION with IsDirty guard Pitfall 3, NOTIFY_RENAME, NOTIFY_DELETE), SyncEngine (60s polling D-18, ds3_compute_diff per D-17), DriveStatusBroadcaster (verbatim port of NotificationsManager.swift), PathValidation, SemaphoreSlim(20,20) per PATTERNS section 3.5
+- [x] 17-10-PLAN.md -- cfapi sync engine: SyncRootRegistration (sparse identity required, Pitfall 1), CallbackTable (FETCH_DATA streaming 4KB-aligned, NOTIFY_FILE_CLOSE_COMPLETION with IsDirty guard Pitfall 3, NOTIFY_RENAME, NOTIFY_DELETE), SyncEngine (60s polling D-18, ds3_compute_diff per D-17), DriveStatusBroadcaster (verbatim port of NotificationsManager.swift), PathValidation, SemaphoreSlim(20,20) per PATTERNS section 3.5
 - [ ] 17-11-PLAN.md -- Tray + flyout: H.NotifyIcon TaskbarIcon with state-swap, Acrylic 360x540 TrayFlyoutWindow, TrayDriveRow (IsHitTestVisible=False discipline per project memory), StatusPill 5 variants, TransferSpeedLabel, RecentFilesService, SettingsPage 4 sections
 
 **Wave 4**
@@ -449,7 +449,7 @@ Plans:
 | 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
 | 15. Rust Core + FFI Foundation | v2.0.0 | 7/7 | Complete   | 2026-05-27 |
 | 16. Apple Incremental Swap | v2.0.0 | 6/7 | In Progress|  |
-| 17. Windows Shell | v2.0.0 | 9/12 | In Progress|  |
+| 17. Windows Shell | v2.0.0 | 10/12 | In Progress|  |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
 
 ---
