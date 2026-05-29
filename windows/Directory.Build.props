@@ -1,0 +1,25 @@
+<Project>
+
+  <!--
+    Shared MSBuild properties for the DS3 Drive Windows solution.
+    Applied automatically to every project under windows/ (App, Sync, Core, Tests).
+    See .planning/phases/17-windows-shell/17-CONTEXT.md D-01, D-02, D-04.
+  -->
+  <PropertyGroup>
+    <!-- C# 12 default for net8.0; bump only if a specific feature warrants (CONTEXT Claude's Discretion). -->
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Quality gates: warnings are errors, code style enforced at build. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- Reproducible restores: lock file pins transitive package versions. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+
+    <!-- Deterministic builds for reproducible installer artifacts. -->
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+</Project>
