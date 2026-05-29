@@ -13,6 +13,7 @@ uniffi::setup_scaffolding!();
 pub mod c_exports;
 pub mod cancellation;
 pub mod handles;
+pub mod log_bridge;
 pub mod panic_guard;
 pub mod progress;
 pub mod uniffi_exports;
