@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: macOS App
 status: executing
-stopped_at: Completed 17-11-PLAN.md
-last_updated: "2026-05-29T18:50:00.000Z"
+stopped_at: Completed 17-12-PLAN.md
+last_updated: "2026-05-29T18:15:06.819Z"
 last_activity: 2026-05-29
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 26
-  completed_plans: 24
-  percent: 28
+  completed_plans: 25
+  percent: 50
 ---
 
 # Project State
@@ -32,13 +32,13 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 
 ## Current Position
 
-Phase: 17 (windows-shell) — EXECUTING
-Plan: 11 of 12
-Status: Ready to execute (12 next)
+Phase: 17 (windows-shell) — IMPLEMENTATION COMPLETE (pending D-33 HUMAN-UAT sign-off)
+Plan: 12 of 12 (all plans have SUMMARYs)
+Status: Phase 17 implementation done; gated on HUMAN-UAT #1–#53 before phase close
 Last activity: 2026-05-29
 
 ```
-Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17: 11/12 plans)
+Milestone v2.0.0: [████░░░░░░] Phase 17: 12/12 plans implemented (HUMAN-UAT pending)
 ```
 
 ## Performance Metrics
@@ -66,6 +66,7 @@ Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17
 | Phase 17 P09 | 27min | 2 tasks | 31 files |
 | Phase 17 P10 | 19min | 4 tasks | 22 files |
 | Phase 17 P11 | continuation | 3 tasks | 28 files |
+| Phase 17 P12 | 8min | 2 tasks | 12 files |
 
 ### Decisions
 
@@ -97,6 +98,8 @@ Milestone v2.0.0: [█░░░░░░░░░] 0/4 phases complete (Phase 17
 - [17-10]: SyncEngine.ApplyDeltaAsync takes an injectable conflictKeyFactory (default = Rust ds3_conflict_key, D-17) so the conflict test stays Category!=Integration; cfapi/Explorer/live-S3 smoke (12 steps #20-31) deferred to phase HUMAN-UAT
 - [17-11]: WinUI 3 forbids {x:Bind} on a <Window> root (Window is not a FrameworkElement → CS1503 in generated Bindings). TrayFlyoutWindow is a thin Window (Acrylic backdrop + chrome removal + 360×540 AppWindow.Resize) hosting a FrameworkElement-rooted TrayFlyoutView UserControl that owns all x:Bind via a ViewModel DP — the standard WinUI 3 flyout pattern (same as TrayDriveRow/StatusPill)
 - [17-11]: TrayViewModel/SettingsViewModel/RecentFilesService live in DS3Drive.ViewModels (WinUI-free) for headless xUnit testability (Plan 09/10 split); aggregate precedence Error>Syncing>Paused>Idle is the WinUI-free reducer. Recent files = global top-5 (not per-drive) for flyout compactness. Tray + Settings manual smoke deferred to phase HUMAN-UAT (#32-43)
+- [Phase ?]: [17-12] MSI ProductVersion (Variables.wxi) and sparse manifest <Identity Version> synced byte-for-byte by build-msi.ps1 at build time so Add-AppxPackage never hits a same-version collision 0x80073CF9 (RESEARCH Pitfall 7)
+- [Phase ?]: [17-12] WiX toolset absent on dev machine (same MSVC/SDK blocker as 17-02/17-04); WiX sources + build-msi.ps1 + windows-release.yml authored and validated (well-formed XML, parseable PS, structured YAML). Actual MSI build/sign deferred to windows-release.yml on tag; D-33 live smoke deferred to HUMAN-UAT #44-#53
 
 ### Blockers
 
@@ -106,6 +109,6 @@ yet.
 
 ## Session Continuity
 
-Last session: 2026-05-29T18:50:00.000Z
-Stopped at: Completed 17-11-PLAN.md
+Last session: 2026-05-29T18:15:06.813Z
+Stopped at: Completed 17-12-PLAN.md
 Resume file: None

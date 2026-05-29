@@ -277,7 +277,7 @@ Plans:
 
 - [x] **Phase 15: Rust Core + FFI Foundation** - Cargo workspace with 6 crates, UniFFI Swift XCFramework, csbindgen C# bindings, integration tests against real Cubbit S3 (completed 2026-05-27)
 - [ ] **Phase 16: Apple Incremental Swap** - Replace DS3S3Client, DS3Authentication, DS3SDK internals with Rust via UniFFI; remove Soto and CryptoKit from DS3Lib
-- [ ] **Phase 17: Windows Shell** - WinUI 3 tray app with cfapi Cloud Filter integration, Explorer sidebar, on-demand hydration, upload, remote sync, MSI installer
+- [x] **Phase 17: Windows Shell** - WinUI 3 tray app with cfapi Cloud Filter integration, Explorer sidebar, on-demand hydration, upload, remote sync, MSI installer (completed 2026-05-29)
 - [ ] **Phase 18: Polish + Beta Hardening** - Cross-FFI logging, error mapping, DPAPI credentials, multi-drive, auto-update, ARM64 Windows, tray flyout, conflict resolution
 
 ### Phase 15: Rust Core + FFI Foundation
@@ -374,7 +374,7 @@ Plans:
   4. User can save or create files in the synced folder and they upload to S3 automatically (triggered by `NOTIFY_FILE_CLOSE_COMPLETION`, not `ReadDirectoryChangesW` -- no spurious re-upload on hydration)
   5. Remote changes made from another device or the web console appear as updated placeholders within one polling cycle, and the system tray icon reflects sync status (idle/syncing/error)
 
-**Plans:** 11/12 plans executed
+**Plans:** 12/12 plans complete
 **UI hint**: yes
 
 Plans:
@@ -403,7 +403,7 @@ Plans:
 
 **Wave 4**
 
-- [ ] 17-12-PLAN.md -- WiX v4 MSI installer: Product.wxs with NTFS guard (Pitfall 8), MajorUpgrade (Pitfall 7), Add-AppxPackage custom action (Pitfall 1), HKCU Run key (D-26), build-msi.ps1, windows-release.yml tag-triggered, final D-33 smoke checklist sign-off
+- [x] 17-12-PLAN.md -- WiX v4 MSI installer: Product.wxs with NTFS guard (Pitfall 8), MajorUpgrade (Pitfall 7), Add-AppxPackage custom action (Pitfall 1), HKCU Run key (D-26), build-msi.ps1, windows-release.yml tag-triggered, final D-33 smoke checklist sign-off
 
 ### Phase 18: Polish + Beta Hardening
 
@@ -449,7 +449,7 @@ Plans:
 | 14. iOS Generation & Polish | v3.1 | 0/0 | Not started | - |
 | 15. Rust Core + FFI Foundation | v2.0.0 | 7/7 | Complete   | 2026-05-27 |
 | 16. Apple Incremental Swap | v2.0.0 | 6/7 | In Progress|  |
-| 17. Windows Shell | v2.0.0 | 11/12 | In Progress|  |
+| 17. Windows Shell | v2.0.0 | 12/12 | Complete   | 2026-05-29 |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
 
 ---

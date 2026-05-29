@@ -1,7 +1,7 @@
 ---
 status: partial
 phase: 17-windows-shell
-source: [17-08-PLAN.md Task 4, 17-09-PLAN.md Task 3, 17-10-PLAN.md Task 5, 17-11-PLAN.md Task 4]
+source: [17-08-PLAN.md Task 4, 17-09-PLAN.md Task 3, 17-10-PLAN.md Task 5, 17-11-PLAN.md Task 4, 17-12-PLAN.md Task 3, 17-12-PLAN.md Task 4]
 started: 2026-05-29
 updated: 2026-05-29
 ---
@@ -184,12 +184,63 @@ result: [pending]
 expected: Settings → Accessibility → "Animation effects" OFF → reopen the flyout → it appears immediately with no fade/slide animation.
 result: [pending]
 
+---
+
+> ## MSI install + packaging (17-12, WIN-09)
+>
+> Build the MSI on the Windows 11 ARM64 dev VM first:
+> `pwsh -File windows\DS3Drive.Installer\build-msi.ps1 -Version 2.0.0.0 -Profile Release -SkipSign`
+> (WiX v4 CLI required: `dotnet tool install --global wix --version 4.*`). The MSI lands at
+> `windows\bin\Release\DS3Drive-2.0.0.0-x64.msi`. These items cover only the MSI-install /
+> packaging surface — sign-in, wizard, hydration, upload, tray and conflict behaviour are
+> already covered by items 1–43 above and by `windows/manual-smoke-D-33.md`.
+
+### 44. MSI builds via the WiX CLI (17-12, WIN-09)
+expected: `build-msi.ps1 -Version 2.0.0.0 -SkipSign` exits 0 and emits `windows\bin\Release\DS3Drive-2.0.0.0-x64.msi`; the run prints a SHA256 + byte size. The publish output under `windows\bin\Release\publish\` contains `ds3_ffi.dll` (NOT a "core"-named dll) and `Identity\DS3Drive.Identity.msix`.
+result: [pending]
+
+### 45. Silent install exits 0 (17-12, WIN-09, D-28)
+expected: `msiexec /i windows\bin\Release\DS3Drive-2.0.0.0-x64.msi /qn /L*v install.log` exits 0; `install.log` shows no errors; `Get-ChildItem "$env:ProgramFiles\Cubbit\DS3 Drive"` lists `DS3Drive.App.exe`, `ds3_ffi.dll`, `Identity\DS3Drive.Identity.msix`, and `Assets\SyncRoot.ico`.
+result: [pending]
+
+### 46. Sparse identity package registered (17-12, WIN-09, Pitfall 1)
+expected: After install, `Get-AppxPackage Cubbit.DS3Drive` returns one row with Version `2.0.0.0` (matching the MSI ProductVersion). This is the load-bearing link that lets `StorageProviderSyncRootManager.Register` succeed — without it the sync root never appears in Explorer.
+result: [pending]
+
+### 47. Run key written for auto-start (17-12, D-26)
+expected: `Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'` shows a `Cubbit DS3 Drive` value pointing at the installed `DS3Drive.App.exe`.
+result: [pending]
+
+### 48. Start Menu shortcut present (17-12)
+expected: A "Cubbit DS3 Drive" shortcut exists in the user's Start Menu (folder "Cubbit DS3 Drive") and launches the installed exe.
+result: [pending]
+
+### 49. Auto-start after reboot (17-12, D-26)
+expected: Reboot the VM, log in, and within ~30s the tray icon appears with no manual launch — confirming the Run key drives auto-start end-to-end.
+result: [pending]
+
+### 50. Sync root works through the installed MSI (17-12, WIN-03)
+expected: With the MSI-installed build (not a `dotnet run` build), complete the wizard for a test drive; the sync root appears in the Explorer sidebar. This proves the sparse package + cfapi registration path works through the real installer, not just a dev build.
+result: [pending]
+
+### 51. Silent uninstall cleans up (17-12, WIN-09, Pitfall 7)
+expected: `msiexec /x windows\bin\Release\DS3Drive-2.0.0.0-x64.msi /qn /L*v uninstall.log` exits 0; `%ProgramFiles%\Cubbit\DS3 Drive` is removed; `Get-AppxPackage Cubbit.DS3Drive` returns nothing; the `Cubbit DS3 Drive` Run-key value is gone.
+result: [pending]
+
+### 52. NTFS guard rejects a non-NTFS target (17-12, Pitfall 8)
+expected: Attempt to install with `INSTALLFOLDER` redirected to a FAT32/exFAT volume (e.g. `msiexec /i ...msi INSTALLFOLDER="X:\Cubbit" /qn /L*v ntfs.log`). The install FAILS via the VerifyNtfs guard message rather than silently producing a non-functional cfapi install on a non-NTFS volume.
+result: [pending]
+
+### 53. Phase 17 WIN-XX sign-off (17-12, Task 4, CONTEXT D-33)
+expected: With the MSI-installed build, complete EVERY item in `windows/manual-smoke-D-33.md` (WIN-01 … WIN-09 + multi-drive + conflict + Pitfall 3 zero-PUT + Pitfall 4 no-overlay-handler negative checks). Tick all checkboxes, fill the Sign-off table, and commit the completed checklist. Phase 17 closes only when this checklist is fully green.
+result: [pending]
+
 ## Summary
 
-total: 43
+total: 53
 passed: 0
 issues: 0
-pending: 43
+pending: 53
 skipped: 0
 blocked: 0
 
