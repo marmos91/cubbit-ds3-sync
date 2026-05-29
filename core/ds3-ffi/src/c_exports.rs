@@ -1104,19 +1104,37 @@ pub unsafe extern "C" fn ds3_cancellation_destroy(handle: *mut CancellationHandl
 // Log bridge (POL-01 Rust side — see core/ds3-ffi/src/log_bridge.rs)
 // ---------------------------------------------------------------------------
 
-/// Installs (or clears, when `cb` is `None`) a C callback that receives every
-/// Rust `tracing` event emitted from any `ds3-*` crate. See
-/// `core/ds3-ffi/src/log_bridge.rs` for the dispatch semantics and the
-/// re-entrancy contract (Phase 17 RESEARCH §"Pitfall 5").
+/// Installs a C callback that receives every Rust `tracing` event emitted
+/// from any `ds3-*` crate. See `core/ds3-ffi/src/log_bridge.rs` for the
+/// dispatch semantics and the re-entrancy contract (Phase 17 RESEARCH
+/// §"Pitfall 5").
 ///
 /// Idempotent — calling twice replaces the previously registered callback.
-/// Returns 0 on success.
+///
+/// Returns:
+///   - `0` on success
+///   - `1` if a global `tracing` subscriber was already installed before us
+///     (the `CCallbackLayer` could not be added, so the callback would
+///     never fire — caller must surface this so the silent-failure mode
+///     does not leak into production)
+///
+/// Pass `None` (a null function pointer) to clear the callback. Callers that
+/// cannot pass null function pointers through their FFI binding should use
+/// `ds3_clear_log_callback` instead.
 #[no_mangle]
-pub unsafe extern "C" fn ds3_set_log_callback(cb: Option<DS3LogCallbackFn>) -> i32 {
-    let mut sink: i32 = 0;
-    let sink_ptr: *mut i32 = &mut sink;
-    ffi_guard!(sink_ptr, {
-        log_bridge::set_callback(cb);
-        Ok::<i32, DS3Error>(0)
-    })
+pub extern "C" fn ds3_set_log_callback(cb: Option<DS3LogCallbackFn>) -> i32 {
+    match log_bridge::set_callback(cb) {
+        Ok(()) => 0,
+        Err(log_bridge::SetCallbackError::SubscriberAlreadyInstalled) => 1,
+    }
+}
+
+/// Clears any previously registered log callback. Always returns `0`; safe
+/// to call even if the subscriber install failed or no callback was ever
+/// set. Provided as a companion to `ds3_set_log_callback` for FFI bindings
+/// that cannot represent a null function pointer.
+#[no_mangle]
+pub extern "C" fn ds3_clear_log_callback() -> i32 {
+    log_bridge::clear_callback();
+    0
 }

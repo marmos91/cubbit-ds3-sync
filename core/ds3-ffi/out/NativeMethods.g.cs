@@ -309,16 +309,35 @@ namespace DS3Drive.Core
         internal static extern void ds3_cancellation_destroy(CancellationHandle* handle);
 
         /// <summary>
-        ///  Installs (or clears, when `cb` is `None`) a C callback that receives every
-        ///  Rust `tracing` event emitted from any `ds3-*` crate. See
-        ///  `core/ds3-ffi/src/log_bridge.rs` for the dispatch semantics and the
-        ///  re-entrancy contract (Phase 17 RESEARCH §"Pitfall 5").
+        ///  Installs a C callback that receives every Rust `tracing` event emitted
+        ///  from any `ds3-*` crate. See `core/ds3-ffi/src/log_bridge.rs` for the
+        ///  dispatch semantics and the re-entrancy contract (Phase 17 RESEARCH
+        ///  §"Pitfall 5").
         ///
         ///  Idempotent — calling twice replaces the previously registered callback.
-        ///  Returns 0 on success.
+        ///
+        ///  Returns:
+        ///    - `0` on success
+        ///    - `1` if a global `tracing` subscriber was already installed before us
+        ///      (the `CCallbackLayer` could not be added, so the callback would
+        ///      never fire — caller must surface this so the silent-failure mode
+        ///      does not leak into production)
+        ///
+        ///  Pass `None` (a null function pointer) to clear the callback. Callers that
+        ///  cannot pass null function pointers through their FFI binding should use
+        ///  `ds3_clear_log_callback` instead.
         /// </summary>
         [DllImport(__DllName, EntryPoint = "ds3_set_log_callback", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern int ds3_set_log_callback(DS3LogCallbackFn cb);
+        internal static extern int ds3_set_log_callback(delegate* unmanaged[Cdecl]<int, byte*, nuint, byte*, nuint, void> cb);
+
+        /// <summary>
+        ///  Clears any previously registered log callback. Always returns `0`; safe
+        ///  to call even if the subscriber install failed or no callback was ever
+        ///  set. Provided as a companion to `ds3_set_log_callback` for FFI bindings
+        ///  that cannot represent a null function pointer.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_clear_log_callback", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_clear_log_callback();
 
 
     }

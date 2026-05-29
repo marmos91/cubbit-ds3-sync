@@ -14,17 +14,18 @@
 //! `Channel<LogEvent>` + dedicated dispatcher thread for this reason.
 //!
 //! Implementation overview:
-//! - The C callback pointer lives in a `static AtomicPtr<()>` (the function
-//!   pointer is stored as an opaque address so the atomic stays lock-free).
+//! - The C callback pointer lives in a `static AtomicUsize` (the function
+//!   pointer is stored as a `usize` so the round-trip is provenance-clean
+//!   and Miri-friendly — Pitfall 6 note in PR review).
 //! - A `CCallbackLayer` is installed as a `tracing_subscriber::Layer` on the
-//!   global `Registry` exactly once via `Once`. After installation the
-//!   subscriber is permanent; subsequent `set_callback` calls only swap the
-//!   stored function pointer (idempotent replacement).
+//!   global `Registry` exactly once via `Once`. The install result is
+//!   recorded in `INSTALLED`; `set_callback` returns `Err` if the subscriber
+//!   could not be installed (another global subscriber was already set).
 //! - On every event the layer extracts (level, target, message) and, if a
 //!   callback is registered, invokes it with non-owning UTF-8 pointers +
 //!   lengths borrowed from local stack allocations.
 
-use std::sync::atomic::{AtomicPtr, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Once;
 
 use tracing::field::{Field, Visit};
@@ -53,54 +54,76 @@ pub type DS3LogCallbackFn = extern "C" fn(
     message_len: usize,
 );
 
-/// Stores the currently-registered callback as an opaque pointer.
-///
-/// We store the function pointer (which fits in a `usize`/raw pointer per
-/// the Rust ABI) via `AtomicPtr<()>` so the hot path (`Layer::on_event`)
-/// needs only a single acquire-ordering load.
-static CALLBACK: AtomicPtr<()> = AtomicPtr::new(std::ptr::null_mut());
+/// Stores the currently-registered callback as a `usize`-encoded function
+/// pointer (0 = unset). Stored as `usize` rather than `*mut ()` to avoid
+/// the implementation-defined `extern "C" fn` ↔ data-pointer transmute that
+/// Miri flags under strict provenance.
+static CALLBACK: AtomicUsize = AtomicUsize::new(0);
 
-/// Ensures the global `CCallbackLayer` is installed exactly once.
+/// Ensures the global `CCallbackLayer` install is attempted exactly once.
 static INSTALL: Once = Once::new();
+
+/// `true` once `CCallbackLayer` has been successfully registered as a global
+/// `tracing-subscriber` layer. Stays `false` if another global subscriber
+/// pre-empts us — in that case `set_callback` returns `Err`.
+static INSTALLED: AtomicBool = AtomicBool::new(false);
+
+/// Reasons `set_callback` can fail.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SetCallbackError {
+    /// Another global `tracing` subscriber was installed before us, so
+    /// `CCallbackLayer` was never added to the dispatch chain. Registering a
+    /// callback now would silently never fire — return `Err` instead of
+    /// reporting success.
+    SubscriberAlreadyInstalled,
+}
 
 /// Registers (or, when `cb` is `None`, clears) the global log callback.
 ///
 /// Idempotent — calling twice replaces the previously registered callback.
-/// Thread-safe (the underlying storage is an `AtomicPtr`).
+/// Thread-safe (the underlying storage is an `AtomicUsize`).
 ///
 /// The first call also installs the `CCallbackLayer` as a global
-/// `tracing-subscriber` layer. Subsequent calls only swap the stored
-/// callback pointer; they tolerate the subscriber already being set.
-pub fn set_callback(cb: Option<DS3LogCallbackFn>) {
+/// `tracing-subscriber` layer. If install fails because another global
+/// subscriber is already set, this returns `Err(SubscriberAlreadyInstalled)`
+/// and does NOT store the callback — emitting events would silently never
+/// fire and that is worse than reporting the failure to the caller.
+pub fn set_callback(cb: Option<DS3LogCallbackFn>) -> Result<(), SetCallbackError> {
     INSTALL.call_once(|| {
-        // `try_init` returns `Err` if a global subscriber was already set
-        // by another caller. We intentionally swallow that error —
-        // re-installing would panic, and the host process that owns the
-        // FFI surface is documented to install nothing else.
-        let _ = tracing_subscriber::registry()
+        if tracing_subscriber::registry()
             .with(CCallbackLayer)
-            .try_init();
+            .try_init()
+            .is_ok()
+        {
+            INSTALLED.store(true, Ordering::Release);
+        }
     });
 
-    let ptr = cb.map_or(std::ptr::null_mut(), |f| f as *mut ());
-    CALLBACK.store(ptr, Ordering::Release);
+    if !INSTALLED.load(Ordering::Acquire) {
+        return Err(SetCallbackError::SubscriberAlreadyInstalled);
+    }
+
+    let val = cb.map_or(0usize, |f| f as usize);
+    CALLBACK.store(val, Ordering::Release);
+    Ok(())
 }
 
-/// Clears any previously registered log callback.
+/// Clears any previously registered log callback. Safe to call even if the
+/// subscriber was never installed.
 pub fn clear_callback() {
-    CALLBACK.store(std::ptr::null_mut(), Ordering::Release);
+    CALLBACK.store(0, Ordering::Release);
 }
 
 /// Returns the currently registered callback, if any.
 fn current_callback() -> Option<DS3LogCallbackFn> {
-    let raw = CALLBACK.load(Ordering::Acquire);
-    if raw.is_null() {
+    let val = CALLBACK.load(Ordering::Acquire);
+    if val == 0 {
         None
     } else {
-        // SAFETY: `raw` was produced by casting a `DS3LogCallbackFn`
-        // (an `extern "C" fn`) to `*mut ()`. We never store anything else
-        // in `CALLBACK`, so the round-trip is sound.
-        Some(unsafe { std::mem::transmute::<*mut (), DS3LogCallbackFn>(raw) })
+        // SAFETY: `val` was produced by casting a `DS3LogCallbackFn`
+        // (an `extern "C" fn`) to `usize`. Function-pointer ↔ `usize`
+        // round-trip is sound on every Rust-supported FFI target.
+        Some(unsafe { std::mem::transmute::<usize, DS3LogCallbackFn>(val) })
     }
 }
 
@@ -224,11 +247,24 @@ mod tests {
         captured().lock().unwrap().clear();
     }
 
+    /// Skips the test body when `INSTALLED` is false — another global
+    /// subscriber pre-empted ours (typical in `cargo test` runs that also
+    /// load `tracing-test` or similar). The install path is exercised in
+    /// isolation by `cargo test --lib log_bridge::` on a clean run.
+    fn require_installed() -> bool {
+        // Force the install attempt without storing a real callback.
+        let _ = set_callback(None);
+        INSTALLED.load(Ordering::Acquire)
+    }
+
     #[test]
     fn test_dispatch_invokes_callback_with_level_target_message() {
         let _guard = test_lock().lock().unwrap();
+        if !require_installed() {
+            return;
+        }
         reset_capture();
-        set_callback(Some(capture_callback));
+        set_callback(Some(capture_callback)).expect("subscriber installed");
 
         tracing::info!(target: "ds3_auth", "login complete");
 
@@ -248,14 +284,17 @@ mod tests {
     #[test]
     fn test_clear_callback_stops_dispatch() {
         let _guard = test_lock().lock().unwrap();
+        if !require_installed() {
+            return;
+        }
         reset_capture();
-        set_callback(Some(capture_callback));
+        set_callback(Some(capture_callback)).expect("subscriber installed");
 
         tracing::info!(target: "test_clear", "before");
         let before = EVENT_COUNT.load(TestOrdering::SeqCst);
         assert!(before > 0, "callback should have received the pre-clear event");
 
-        set_callback(None);
+        set_callback(None).expect("subscriber installed");
         let baseline = EVENT_COUNT.load(TestOrdering::SeqCst);
         tracing::error!(target: "test_clear", "after");
         let after = EVENT_COUNT.load(TestOrdering::SeqCst);
@@ -265,8 +304,11 @@ mod tests {
     #[test]
     fn test_thread_safe_multi_emitter() {
         let _guard = test_lock().lock().unwrap();
+        if !require_installed() {
+            return;
+        }
         reset_capture();
-        set_callback(Some(capture_callback));
+        set_callback(Some(capture_callback)).expect("subscriber installed");
 
         let mut handles = Vec::new();
         for _ in 0..8 {
@@ -281,9 +323,19 @@ mod tests {
         }
 
         let total = EVENT_COUNT.load(TestOrdering::SeqCst);
-        assert!(
-            total >= 800,
-            "expected at least 800 events, got {total}"
+        // Strict equality on the multi-emitter target — any drop or duplicate
+        // exposes an `AtomicUsize` ordering bug. We do NOT count events
+        // emitted by other tests (different target) thanks to `reset_capture`
+        // + serialization via `test_lock`.
+        let captured_target_hits = captured()
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(_, t, _)| t == "test_mt")
+            .count();
+        assert_eq!(
+            captured_target_hits, 800,
+            "expected exactly 800 events at target=test_mt, got {captured_target_hits} (total counter: {total})"
         );
 
         clear_callback();
