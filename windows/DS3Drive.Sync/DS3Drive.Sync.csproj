@@ -22,4 +22,10 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
+  <!-- SQL migrations are embedded so SchemaMigrator can enumerate + apply them
+       at first-open via GetManifestResourceStream (PATTERNS §2.12). -->
+  <ItemGroup>
+    <EmbeddedResource Include="Migrations\001_initial.sql" />
+  </ItemGroup>
+
 </Project>
