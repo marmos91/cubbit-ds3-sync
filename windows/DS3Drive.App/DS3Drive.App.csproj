@@ -23,6 +23,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DS3Drive.Sync\DS3Drive.Sync.csproj" />
+    <ProjectReference Include="..\DS3Drive.ViewModels\DS3Drive.ViewModels.csproj" />
+  </ItemGroup>
+
+  <!-- Figtree Regular + SemiBold only (UI-SPEC Revision 2: Medium NOT bundled). -->
+  <ItemGroup>
+    <Content Include="Assets\Fonts\*.ttf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

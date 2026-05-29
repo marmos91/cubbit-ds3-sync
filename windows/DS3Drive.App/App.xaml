@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Minimal WinUI 3 Application definition for the empty scaffold (Plan 02).
-    Provides the auto-generated entry point so the WinExe links. Plan 04 fleshes
-    this out with merged resource dictionaries, brand tokens, and app lifecycle
-    wiring (Host.CreateApplicationBuilder DI container).
+    App.xaml — application resources for the DS3 Drive Windows shell (Plan 08).
+    Merges the brand design system (Tokens.xaml colors/spacing/typography +
+    Brushes.xaml theme-aware brushes) and the reusable brand button styles on top
+    of the Fluent v2 XamlControlsResources base, per 17-UI-SPEC.md §Design System.
 -->
 <Application
     x:Class="DS3Drive.App.App"
@@ -13,6 +13,10 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+                <ResourceDictionary Source="ms-appx:///Themes/Brushes.xaml" />
+                <ResourceDictionary Source="ms-appx:///Themes/Tokens.xaml" />
+                <ResourceDictionary Source="ms-appx:///Controls/BrandPrimaryButton.xaml" />
+                <ResourceDictionary Source="ms-appx:///Controls/BrandSecondaryButton.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    DS3Drive.ViewModels — WinUI-FREE class library holding the MVVM view-models and
+    their service abstractions (IAuthenticationService, INavigator). Split out of
+    DS3Drive.App (Plan 08 deviation, Rule 2/3) so the view-models are unit-testable:
+    referencing the WinUI 3 App project (WinExe + UseWinUI) into a headless xUnit host
+    crashes the test host on the Windows App Runtime bootstrap. View-models are pure
+    CommunityToolkit.Mvvm POCOs and need no WinUI runtime — this library keeps them that way.
+
+    Navigation is abstracted behind INavigator (PageKey enum), not WinUI Frame/Type, so
+    the App's Frame-based NavigationService implements it without leaking WinUI here.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DS3Drive.Core\DS3Drive.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+</Project>

@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.10.0.0
@@ -10,6 +10,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DS3Drive.Core", "DS3Drive.Core\DS3Drive.Core.csproj", "{C3333333-3333-3333-3333-333333333333}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DS3Drive.Tests", "DS3Drive.Tests\DS3Drive.Tests.csproj", "{D4444444-4444-4444-4444-444444444444}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DS3Drive.ViewModels", "DS3Drive.ViewModels\DS3Drive.ViewModels.csproj", "{50742F7D-CC87-415E-9954-FA0A310F6859}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,6 +53,14 @@ Global
 		{D4444444-4444-4444-4444-444444444444}.Release|x64.Build.0 = Release|x64
 		{D4444444-4444-4444-4444-444444444444}.Release|ARM64.ActiveCfg = Release|ARM64
 		{D4444444-4444-4444-4444-444444444444}.Release|ARM64.Build.0 = Release|ARM64
+		{50742F7D-CC87-415E-9954-FA0A310F6859}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{50742F7D-CC87-415E-9954-FA0A310F6859}.Debug|x64.Build.0 = Debug|Any CPU
+		{50742F7D-CC87-415E-9954-FA0A310F6859}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{50742F7D-CC87-415E-9954-FA0A310F6859}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{50742F7D-CC87-415E-9954-FA0A310F6859}.Release|x64.ActiveCfg = Release|Any CPU
+		{50742F7D-CC87-415E-9954-FA0A310F6859}.Release|x64.Build.0 = Release|Any CPU
+		{50742F7D-CC87-415E-9954-FA0A310F6859}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{50742F7D-CC87-415E-9954-FA0A310F6859}.Release|ARM64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
