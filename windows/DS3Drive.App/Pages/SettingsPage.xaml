@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    SettingsPage — the Windows Settings surface, port of PreferencesView.swift trimmed from
+    Apple's 5 tabs to the 4 sections per CONTEXT D-24 / UI-SPEC §2.15:
+      Account / Coordinator URL / Drives / Logging.
+    NavigationView left rail switches the visible section (panels toggled by Visibility bound to
+    the selected NavigationViewItem Tag). Section headings use Type.H2 (24px SemiBold, UI-SPEC
+    Revision 1 — NO H3, NO Medium weight). Destructive actions (Sign out, Remove drive) show the
+    UI-SPEC §Destructive ContentDialog from code-behind; the buttons use BrandDestructiveButton.
+-->
+<Page
+    x:Class="DS3Drive.App.Pages.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:DS3Drive.ViewModels.ViewModels"
+    xmlns:records="using:DS3Drive.Core.Records"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <NavigationView x:Name="SectionNav"
+                    PaneDisplayMode="Left"
+                    IsBackButtonVisible="Collapsed"
+                    IsSettingsVisible="False"
+                    SelectionChanged="OnSectionChanged">
+        <NavigationView.MenuItems>
+            <NavigationViewItem Content="Account" Tag="Account" IsSelected="True">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xE77B;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="Coordinator URL" Tag="Coordinator">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xE71B;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="Drives" Tag="Drives">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xE8B7;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="Logging" Tag="Logging">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xE7C3;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+        </NavigationView.MenuItems>
+
+        <ScrollViewer Padding="32">
+            <Grid>
+                <!-- Account section. -->
+                <StackPanel x:Name="AccountSection" Spacing="16">
+                    <TextBlock Style="{StaticResource Type.H2}" Text="Account" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Style="{StaticResource Type.Caption}" Text="Name" />
+                        <TextBlock Style="{StaticResource Type.Body}" Text="{x:Bind ViewModel.DisplayName, Mode=OneWay}" />
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Style="{StaticResource Type.Caption}" Text="Email" />
+                        <TextBlock Style="{StaticResource Type.Body}" Text="{x:Bind ViewModel.Email, Mode=OneWay}" />
+                    </StackPanel>
+                    <Button Style="{StaticResource BrandDestructiveButton}"
+                            Content="Sign out"
+                            Command="{x:Bind ViewModel.SignOutCommand}"
+                            HorizontalAlignment="Left"
+                            AutomationProperties.Name="Sign out" />
+                </StackPanel>
+
+                <!-- Coordinator URL section. -->
+                <StackPanel x:Name="CoordinatorSection" Spacing="16" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource Type.H2}" Text="Coordinator URL" />
+                    <TextBlock Style="{StaticResource Type.Caption}" TextWrapping="Wrap"
+                               Text="Advanced. Override the Cubbit coordinator endpoint. Leave the default unless instructed by support." />
+                    <TextBox Header="Coordinator URL"
+                             Text="{x:Bind ViewModel.CoordinatorUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             AutomationProperties.Name="Coordinator URL" />
+                    <Button Style="{StaticResource BrandSecondaryButton}"
+                            Content="Use default"
+                            Command="{x:Bind ViewModel.UseDefaultCoordinatorUrlCommand}"
+                            HorizontalAlignment="Left"
+                            AutomationProperties.Name="Use default coordinator URL" />
+                </StackPanel>
+
+                <!-- Drives section. -->
+                <StackPanel x:Name="DrivesSection" Spacing="16" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource Type.H2}" Text="Drives" />
+                    <ListView SelectionMode="None"
+                              ItemsSource="{x:Bind ViewModel.Drives, Mode=OneWay}">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="records:DS3Drive">
+                                <Grid ColumnSpacing="12" Padding="0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource Type.Body}" Text="{x:Bind Name}" />
+                                        <TextBlock Style="{StaticResource Type.Caption}" Text="{x:Bind SyncAnchor.Bucket}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1"
+                                            Style="{StaticResource BrandSecondaryButton}"
+                                            Content="Pause / Resume"
+                                            Click="OnTogglePauseClick"
+                                            Tag="{x:Bind}"
+                                            AutomationProperties.Name="Pause or resume drive" />
+                                    <Button Grid.Column="2"
+                                            Style="{StaticResource BrandDestructiveButton}"
+                                            Content="Remove drive"
+                                            Click="OnRemoveDriveClick"
+                                            Tag="{x:Bind}"
+                                            AutomationProperties.Name="Remove drive" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+
+                <!-- Logging section. -->
+                <StackPanel x:Name="LoggingSection" Spacing="16" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource Type.H2}" Text="Logging" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Style="{StaticResource Type.Caption}" Text="Verbosity (Trace / Debug / Info / Warn / Error)" />
+                        <Slider Minimum="0" Maximum="4" StepFrequency="1" TickFrequency="1"
+                                Value="{x:Bind ViewModel.LogLevel, Mode=TwoWay}"
+                                Width="320" HorizontalAlignment="Left"
+                                AutomationProperties.Name="Log verbosity" />
+                    </StackPanel>
+                    <HyperlinkButton x:Name="OpenLogFolderButton"
+                                     Content="Open log folder"
+                                     Command="{x:Bind ViewModel.OpenLogFolderCommand}"
+                                     AutomationProperties.Name="Open log folder" />
+                    <muxc:TeachingTip x:Name="LogExportTip"
+                                      Target="{x:Bind OpenLogFolderButton}"
+                                      Title="Coming soon"
+                                      Subtitle="Log export coming in Phase 18." />
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+    </NavigationView>
+</Page>

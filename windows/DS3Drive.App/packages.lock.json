@@ -429,6 +429,7 @@
         "dependencies": {
           "DS3Drive.Core": "[1.0.0, )",
           "Microsoft.Data.Sqlite": "[8.0.10, )",
+          "Microsoft.Extensions.Hosting": "[8.0.1, )",
           "Microsoft.Extensions.Logging.Abstractions": "[8.0.2, )",
           "Vanara.PInvoke.CldApi": "[5.0.5, )"
         }

@@ -17,4 +17,7 @@ public enum PageKey
 
     /// <summary>Drive-setup wizard shell (Project → Bucket → Prefix → Confirm; Plan 09).</summary>
     DriveSetupWizard,
+
+    /// <summary>Settings page — Account / Coordinator URL / Drives / Logging (Plan 11, UI-SPEC §2.15).</summary>
+    Settings,
 }

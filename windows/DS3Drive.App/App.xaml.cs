@@ -4,6 +4,7 @@ using DS3Drive.App.Pages;
 using DS3Drive.App.Services;
 using DS3Drive.Core;
 using DS3Drive.Core.Logging;
+using DS3Drive.Core.Records;
 using DS3Drive.Sync.Storage;
 using DS3Drive.ViewModels.Navigation;
 using DS3Drive.ViewModels.Platform;
@@ -16,6 +17,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
+using System;
+using System.Diagnostics;
+using System.IO;
 using System.Threading;
 
 /// <summary>
@@ -90,6 +94,30 @@ public partial class App : Application
         s.AddTransient<TutorialViewModel>();
         s.AddTransient<DriveSetupViewModel>();
         s.AddTransient<DrivesListViewModel>();
+        s.AddTransient<SettingsViewModel>();
+
+        // Tray (Plan 11). RecentFilesService is in-memory (T-17-11-01, no persistence).
+        s.AddSingleton<IRecentFilesService, RecentFilesService>();
+
+        // Per-drive row factory: the App owns the platform Open-in-Explorer hook
+        // (Process.Start) so the WinUI-free row VM stays shell-coupling-free.
+        s.AddSingleton<Func<DS3Drive, TrayDriveRowViewModel>>(sp => drive =>
+            new TrayDriveRowViewModel(
+                drive,
+                sp.GetRequiredService<IDriveManagementService>(),
+                sp.GetRequiredService<INavigator>(),
+                sp.GetRequiredService<ILoggerFactory>().CreateLogger<TrayDriveRowViewModel>(),
+                OpenDriveInExplorer));
+
+        s.AddSingleton<TrayViewModel>(sp => new TrayViewModel(
+            sp.GetRequiredService<IDriveManagementService>(),
+            sp.GetRequiredService<IRecentFilesService>(),
+            sp.GetRequiredService<INavigator>(),
+            sp.GetRequiredService<ILogger<TrayViewModel>>(),
+            sp.GetRequiredService<Func<DS3Drive, TrayDriveRowViewModel>>(),
+            showMainWindow: BringMainWindowForward));
+
+        s.AddSingleton<ITrayService, TrayService>();
 
         // ILogger<T> → EventSource (Plan 07: provider Cubbit-DS3Drive-App).
         s.AddLogging(b => b.AddEventSourceLogger());
@@ -133,6 +161,37 @@ public partial class App : Application
         RouteInitialPage(navigation);
 
         _window.Activate();
+
+        // Initialise the tray AFTER MainWindow activation — the H.NotifyIcon TaskbarIcon needs
+        // a live UI dispatcher (Plan 11, UI-SPEC §Component Inventory TrayHost row).
+        Host.Services.GetRequiredService<ITrayService>().Initialize();
+    }
+
+    /// <summary>Brings the main window forward (tray "Open Cubbit" / double-click).</summary>
+    private static void BringMainWindowForward() =>
+        ((App)Current)._window?.DispatcherQueue.TryEnqueue(() =>
+            ((App)Current)._window?.BringToForeground());
+
+    /// <summary>
+    /// Opens a drive's local sync-root folder in Explorer (tray row "Open in Explorer").
+    /// The local root mirrors the cfapi sync-root convention (Plan 10):
+    /// <c>%USERPROFILE%\Cubbit\&lt;drive name&gt;</c>.
+    /// </summary>
+    private static void OpenDriveInExplorer(string driveName)
+    {
+        string root = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "Cubbit",
+            driveName);
+
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{root}\"") { UseShellExecute = true });
+        }
+        catch (Exception)
+        {
+            // Opening Explorer is non-critical (folder may not exist before first sync).
+        }
     }
 
     /// <summary>

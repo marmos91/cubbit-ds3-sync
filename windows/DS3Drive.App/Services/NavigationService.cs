@@ -56,6 +56,7 @@ public sealed class NavigationService : INavigationService
         PageKey.Tutorial => typeof(TutorialPage),
         PageKey.DrivesList => typeof(DrivesListPage),
         PageKey.DriveSetupWizard => typeof(DriveSetupWizardPage),
+        PageKey.Settings => typeof(SettingsPage),
         _ => typeof(LoginPage),
     };
 }

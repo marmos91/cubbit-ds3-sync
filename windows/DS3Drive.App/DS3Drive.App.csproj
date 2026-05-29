@@ -31,6 +31,12 @@
     <Content Include="Assets\Fonts\*.ttf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Tray icon state assets (Plan 11 placeholders; Phase 18 ships final art). Resolved via
+       ms-appx:///Assets/TrayIcons/*.ico by the H.NotifyIcon TaskbarIcon. -->
+  <ItemGroup>
+    <Content Include="Assets\TrayIcons\*.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <PackageReference Include="CommunityToolkit.Mvvm" />

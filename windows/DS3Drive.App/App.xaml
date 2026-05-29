@@ -17,6 +17,7 @@
                 <ResourceDictionary Source="ms-appx:///Themes/Tokens.xaml" />
                 <ResourceDictionary Source="ms-appx:///Controls/BrandPrimaryButton.xaml" />
                 <ResourceDictionary Source="ms-appx:///Controls/BrandSecondaryButton.xaml" />
+                <ResourceDictionary Source="ms-appx:///Controls/BrandDestructiveButton.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
