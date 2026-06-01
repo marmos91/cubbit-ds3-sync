@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: macOS App
-status: executing
-stopped_at: Completed 17-12-PLAN.md
-last_updated: "2026-05-29T18:15:06.819Z"
+status: completed
+stopped_at: Phase 17.1 context gathered
+last_updated: "2026-06-01T18:39:41.264Z"
 last_activity: 2026-05-29
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 2
   total_plans: 26
   completed_plans: 25
-  percent: 50
+  percent: 40
 ---
 
 # Project State
@@ -109,6 +109,6 @@ yet.
 
 ## Session Continuity
 
-Last session: 2026-05-29T18:15:06.813Z
-Stopped at: Completed 17-12-PLAN.md
-Resume file: None
+Last session: 2026-06-01T18:39:41.255Z
+Stopped at: Phase 17.1 context gathered
+Resume file: .planning/phases/17.1-windows-s3-client-ffi-wiring-sync-enablement/17.1-CONTEXT.md
