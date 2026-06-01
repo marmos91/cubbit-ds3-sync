@@ -208,6 +208,32 @@ public partial class App : Application
         Host.Services.GetRequiredService<ITrayService>().Initialize();
     }
 
+    /// <summary>
+    /// Stops the sync host (per-drive <c>CfDisconnectSyncRoot</c>, engine stop, upload drain,
+    /// status-broadcaster shutdown) and disposes the DI host. Called from the tray Quit path so
+    /// a clean exit doesn't leak cfapi sync-root registrations or abandon in-flight uploads — the
+    /// <see cref="IHost"/> is otherwise never stopped. Best-effort and time-bounded so a stuck
+    /// teardown cannot wedge the quit; all of SyncHostedService awaits with ConfigureAwait(false),
+    /// so blocking here does not deadlock the UI thread.
+    /// </summary>
+    internal static void ShutdownHost()
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            Host.StopAsync(cts.Token).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            Host.Services.GetService<ILogger<App>>()?
+                .LogWarning(ex, "Sync host did not stop cleanly on quit.");
+        }
+        finally
+        {
+            Host.Dispose();
+        }
+    }
+
     /// <summary>Brings the main window forward (tray "Open Cubbit" / double-click).</summary>
     private static void BringMainWindowForward() =>
         ((App)Current)._window?.DispatcherQueue.TryEnqueue(() =>

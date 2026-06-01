@@ -12,7 +12,8 @@ angles + verify) over `git diff main...HEAD -- windows/`, before opening the Pha
 | `c17d1f5` | **0-byte object hydration hangs** to the 30s cfapi watchdog (no TRANSFER_DATA ack sent when the read loop never runs). | Send one zero-length success ack for empty objects. |
 | `c17d1f5` | **One drive's registration failure aborts all drives** at host start (unguarded `foreach`). | Per-drive try/catch, mirroring `OnDriveAdded`. |
 | `d93a041` | Cleanup: `NormalizedPathToS3Key` (×4) and `ParentOf` (×3) duplicated across cfapi handlers; `SyncRootId` inline dup; `AggregateStatus` inline status lookup; redundant self-import. | Extracted to `PathValidation`; used `SyncRootId()`/`GetStatus()`; dropped dup. |
-| `<pending>` | **Conflict resolution preserved the WRONG version (data loss, item 13)** — `CopyObject(key→conflictKey)` server-copied the *remote* object; local edits were lost on re-hydrate. | `SyncEngine` now takes the local-root path and **uploads the local file** to the conflict key (preserving the user's edits), with a fallback to the remote copy only when the local file isn't materialized. +1 unit test (`Test5b`). |
+| `d1f1f01` | **Conflict resolution preserved the WRONG version (data loss, item 13)** — `CopyObject(key→conflictKey)` server-copied the *remote* object; local edits were lost on re-hydrate. | `SyncEngine` now takes the local-root path and **uploads the local file** to the conflict key (preserving the user's edits), with a fallback to the remote copy only when the local file isn't materialized. +1 unit test (`Test5b`). |
+| `<pending>` | **`Host.StopAsync()` never called on exit** — each quit leaked the cfapi sync-root registration + abandoned in-flight uploads (`SyncHostedService.StopAsync` was dead code). | `App.ShutdownHost()` (guarded, 8s-bounded `StopAsync` + `Dispose`) called from `TrayService.OnQuit` before `Application.Exit()`. |
 
 ## Deferred — recommended before/with GA (not blocking the first single-session smoke)
 
@@ -23,10 +24,8 @@ angles + verify) over `git diff main...HEAD -- windows/`, before opening the Pha
    unauthenticated; `SyncHostedService` isn't subscribed to `AuthStateChanged`, so a later interactive
    login does not (re)register existing drives. First-run (login→wizard→sync in one session) is fine;
    app-restart sync is not. Fix: persist/restore the refresh token and (re)register on `AuthStateChanged`.
-3. **`Host.StopAsync()` never called on exit** — `SyncHostedService.StopAsync` (per-drive
-   `CfDisconnectSyncRoot`, engine stop, upload drain, broadcaster shutdown) is dead at runtime; tray
-   Quit disposes only the `TrayHost` icon. Leaks sync-root registrations/handles across sessions and
-   abandons in-flight uploads. Fix: own the `IHost`, run `StopAsync`+`Dispose` on app exit.
+3. ~~**`Host.StopAsync()` never called on exit**~~ — **FIXED** (see table above): `App.ShutdownHost()`
+   runs the host teardown from the tray Quit path.
 4. **Session use-after-dispose on logout-during-sync** — `IDS3SessionAccess` calls use the `DS3Session`
    handle outside `_gate`; `Logout()`/`Dispose()` can free the native handle mid-download/upload →
    potential access violation. Fix: coordinate teardown (cancel + drain) before disposing the session.

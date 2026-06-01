@@ -113,6 +113,9 @@ public sealed class TrayService : ITrayService, IDisposable
     private void OnQuit()
     {
         _logger.LogInformation("Quit requested from tray");
+        // Stop the sync host first so each cfapi sync root is disconnected and in-flight uploads
+        // drain, rather than being leaked/abandoned by an abrupt Exit().
+        App.ShutdownHost();
         Shutdown();
         Application.Current.Exit();
     }
