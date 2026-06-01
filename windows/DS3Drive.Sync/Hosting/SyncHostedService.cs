@@ -23,7 +23,7 @@ using SyncEngineType = DS3Drive.Sync.SyncEngine.SyncEngine;
 public sealed class SyncHostedService : IHostedService
 {
     private readonly IDriveLifecycleSource _lifecycle;
-    private readonly IDS3SessionAccess _session;
+    private readonly IDriveS3CredentialProvider _credentials;
     private readonly PlaceholderStore _store;
     private readonly ConfigStore? _config;
     private readonly ILoggerFactory _loggerFactory;
@@ -32,17 +32,26 @@ public sealed class SyncHostedService : IHostedService
     private readonly Dictionary<Guid, ActiveDrive> _active = new();
     private readonly SemaphoreSlim _lock = new(1, 1);
 
-    private sealed record ActiveDrive(CfApiProvider Provider, SyncEngineType Engine, DriveStatusBroadcaster Status, CancellationTokenSource Cts);
+    // The per-drive S3 client + the creds it was built from. The adapter (DriveS3SessionAccess)
+    // routes the 6 cfapi ops through S3; Creds let a later StartDriveAsync detect a
+    // credential/endpoint change and rebuild (Pitfall 5, macOS reloadDriveCredentials parity).
+    private sealed record ActiveDrive(
+        CfApiProvider Provider,
+        SyncEngineType Engine,
+        DriveStatusBroadcaster Status,
+        CancellationTokenSource Cts,
+        DS3DriveS3Client S3,
+        DriveS3Credentials Creds);
 
     public SyncHostedService(
         IDriveLifecycleSource lifecycle,
-        IDS3SessionAccess session,
+        IDriveS3CredentialProvider credentials,
         PlaceholderStore store,
         ConfigStore? config = null,
         ILoggerFactory? loggerFactory = null)
     {
         _lifecycle = lifecycle ?? throw new ArgumentNullException(nameof(lifecycle));
-        _session = session ?? throw new ArgumentNullException(nameof(session));
+        _credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _config = config;
         _loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
@@ -128,32 +137,67 @@ public sealed class SyncHostedService : IHostedService
 
     private async Task StartDriveAsync(DS3DriveModel drive, CancellationToken ct)
     {
+        // Resolve the per-drive S3 credentials OUTSIDE the lock (the reconcile does network
+        // I/O — forge IAM token + load/create API key — and the lock must not be held across
+        // an await of unbounded duration). Mirrors macOS s3Client(forProject:iamUser:), which
+        // does the API-key fetch outside its NSLock.
+        DriveS3Credentials creds = await _credentials.GetCredentialsAsync(drive, ct).ConfigureAwait(false);
+
         await _lock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (_active.ContainsKey(drive.Id))
+            // Rebuild-on-change (Pitfall 5 / macOS reloadDriveCredentials): if the drive is
+            // already active but the persisted endpoint/key differs from the live client's,
+            // tear the old one down and rebuild from the fresh creds. Unchanged creds => no-op.
+            if (_active.TryGetValue(drive.Id, out ActiveDrive? existing))
             {
-                return;
+                if (existing.Creds == creds)
+                {
+                    return;
+                }
+
+                _logger.LogInformation("credentials changed for drive {DriveId}; rebuilding S3 client", drive.Id);
+                _active.Remove(drive.Id);
+                await StopActiveAsync(existing).ConfigureAwait(false);
             }
 
             string localRoot = _lifecycle.GetLocalRootPath(drive);
+
+            // Build the per-drive S3 client from the reconciled creds (NOT the session token).
+            // Region null => Rust defaults to us-east-1 (macOS parity). The host owns this
+            // handle and disposes it LAST in StopActiveAsync (Pitfall 4).
+            var s3 = DS3DriveS3Client.Create(creds.Endpoint, creds.AccessKey, creds.SecretKey);
+            var access = new DriveS3SessionAccess(s3, drive.SyncAnchor.IamUserId);
+
             var debounce = TimeSpan.FromMilliseconds(400);
             var status = new DriveStatusBroadcaster(drive.Id, debounce, _loggerFactory.CreateLogger<DriveStatusBroadcaster>());
-            var uploads = new UploadQueue(_session, _store, status, _loggerFactory.CreateLogger<UploadQueue>());
+            var uploads = new UploadQueue(access, _store, status, _loggerFactory.CreateLogger<UploadQueue>());
             var provider = new CfApiProvider(
-                drive, localRoot, AppContext.BaseDirectory, _session, _store, uploads, status,
+                drive, localRoot, AppContext.BaseDirectory, access, _store, uploads, status,
                 _loggerFactory.CreateLogger<CfApiProvider>());
             var engine = new SyncEngineType(
-                drive, _session, _store, uploads, status, _config,
+                drive, access, _store, uploads, status, _config,
                 isPaused: () => _lifecycle.IsPaused(drive.Id),
                 logger: _loggerFactory.CreateLogger<SyncEngineType>(),
                 localRootPath: localRoot);
 
             var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            await provider.RegisterAsync(cts.Token).ConfigureAwait(false);
-            await engine.StartAsync(cts.Token).ConfigureAwait(false);
+            try
+            {
+                await provider.RegisterAsync(cts.Token).ConfigureAwait(false);
+                await engine.StartAsync(cts.Token).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Startup failed after the handle was minted: dispose it so a failed drive
+                // does not leak the native S3 client. The cts/engine/provider are torn down
+                // by the caller's per-drive guard re-raising; only the S3 handle is ours here.
+                s3.Dispose();
+                cts.Dispose();
+                throw;
+            }
 
-            _active[drive.Id] = new ActiveDrive(provider, engine, status, cts);
+            _active[drive.Id] = new ActiveDrive(provider, engine, status, cts, s3, creds);
             _logger.LogInformation("sync started for drive {DriveId}", drive.Id);
         }
         finally
@@ -172,6 +216,12 @@ public sealed class SyncHostedService : IHostedService
             await active.Engine.DisposeAsync().ConfigureAwait(false);
             await active.Status.ShutdownAsync().ConfigureAwait(false);
             active.Cts.Dispose();
+
+            // Dispose the S3 client LAST (Pitfall 4 / T-17.1-11): only after the engine +
+            // provider have fully stopped, so no in-flight FETCH/upload can race the free.
+            // Interlocked.Exchange in the facade makes this single-shot; ordering is what
+            // prevents the use-after-free.
+            active.S3.Dispose();
         }
         catch (Exception ex)
         {
