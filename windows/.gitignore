@@ -11,6 +11,10 @@ runtimes/**/native/*.pdb
 .vs/
 *.user
 
+# VS project-upgrade log (emitted when opening the solution)
+UpgradeLog*.htm
+UpgradeLog*/
+
 # WinUI / MSIX generated output
 AppPackages/
 BundleArtifacts/
