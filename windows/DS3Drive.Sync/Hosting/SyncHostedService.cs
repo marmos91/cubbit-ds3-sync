@@ -145,7 +145,8 @@ public sealed class SyncHostedService : IHostedService
             var engine = new SyncEngineType(
                 drive, _session, _store, uploads, status, _config,
                 isPaused: () => _lifecycle.IsPaused(drive.Id),
-                _loggerFactory.CreateLogger<SyncEngineType>());
+                logger: _loggerFactory.CreateLogger<SyncEngineType>(),
+                localRootPath: localRoot);
 
             var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             await provider.RegisterAsync(cts.Token).ConfigureAwait(false);

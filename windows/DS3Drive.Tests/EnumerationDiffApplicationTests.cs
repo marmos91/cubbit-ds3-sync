@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using DS3Drive.Core.Native;
 using DS3Drive.Core.Records;
 using DS3Drive.Sync;
+using DS3Drive.Sync.CfApi;
 using DS3Drive.Sync.Storage;
 using DS3Drive.Sync.SyncEngine;
 using Microsoft.Data.Sqlite;
@@ -25,6 +26,8 @@ public sealed class EnumerationDiffApplicationTests : IAsyncLifetime
 {
     private readonly string _dbPath =
         Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "sync.db");
+    private readonly string _localRoot =
+        Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "DS3Root");
     private SyncDatabase _db = null!;
     private PlaceholderStore _store = null!;
     private readonly Guid _driveId = Guid.NewGuid();
@@ -46,12 +49,15 @@ public sealed class EnumerationDiffApplicationTests : IAsyncLifetime
         _session = Substitute.For<IDS3SessionAccess>();
         _session.AccountId.Returns("acct-1");
 
+        Directory.CreateDirectory(_localRoot);
+
         var status = new DriveStatusBroadcaster(_driveId, TimeSpan.FromMilliseconds(20));
         var uploads = new UploadQueue(_session, _store, status);
         _engine = new SyncEngine(
             drive, _session, _store, uploads, status,
             config: null, isPaused: null, logger: null,
-            conflictKeyFactory: (key, device) => key + ".conflict-" + device);
+            conflictKeyFactory: (key, device) => key + ".conflict-" + device,
+            localRootPath: _localRoot);
     }
 
     public async Task DisposeAsync()
@@ -59,17 +65,19 @@ public sealed class EnumerationDiffApplicationTests : IAsyncLifetime
         await _engine.DisposeAsync();
         await _db.DisposeAsync();
         SqliteConnection.ClearAllPools();
-        var dir = Path.GetDirectoryName(_dbPath);
-        try
+        foreach (string? dir in new[] { Path.GetDirectoryName(_dbPath), Path.GetDirectoryName(_localRoot) })
         {
-            if (dir is not null && Directory.Exists(dir))
+            try
             {
-                Directory.Delete(dir, recursive: true);
+                if (dir is not null && Directory.Exists(dir))
+                {
+                    Directory.Delete(dir, recursive: true);
+                }
             }
-        }
-        catch
-        {
-            // best effort
+            catch
+            {
+                // best effort
+            }
         }
     }
 
@@ -137,17 +145,43 @@ public sealed class EnumerationDiffApplicationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Test5_LocalDirtyAndRemoteModified_InvokesConflictResolver()
+    public async Task Test5_LocalDirtyAndRemoteModified_UploadsLocalFileUnderConflictKey()
     {
         // Local placeholder is dirty (user wrote) AND remote etag differs => conflict.
         await SeedPlaceholderAsync("a", "e1", isDirty: true);
 
+        // The user's local edits live on disk at the sync-root-relative path.
+        string localPath = PathValidation.ResolveLocalPath(_localRoot, "a");
+        await File.WriteAllTextAsync(localPath, "the user's local edits", CancellationToken.None);
+
         var delta = new EnumerationDelta(new HashSet<string> { "a" }, new HashSet<string>());
         await _engine.ApplyDeltaAsync(delta, new[] { Obj("a", "e2") }, CancellationToken.None);
 
-        // ConflictResolver factory produced "a.conflict-<device>" and the engine copied it.
-        _session.Received(1).CopyObject("bucket-a", "a", "bucket-a",
-            Arg.Is<string>(k => k.StartsWith("a.conflict-")));
+        // The conflict copy must preserve the LOCAL file (upload it under the conflict key),
+        // NOT server-copy the remote object (which would discard the user's edits).
+        _session.Received(1).UploadObject("bucket-a",
+            Arg.Is<string>(k => k.StartsWith("a.conflict-")), localPath,
+            Arg.Any<DS3ProgressCallback?>(), Arg.Any<CancellationHandle?>());
+        _session.DidNotReceive().CopyObject(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task Test5b_ConflictWithNoLocalFile_FallsBackToRemoteCopy()
+    {
+        // Conflict where the local file isn't materialized (e.g. cloud-only placeholder went
+        // dirty via metadata): we can't preserve local edits, so fall back to copying the
+        // remote object rather than silently dropping the conflict key.
+        await SeedPlaceholderAsync("b", "e1", isDirty: true);
+
+        var delta = new EnumerationDelta(new HashSet<string> { "b" }, new HashSet<string>());
+        await _engine.ApplyDeltaAsync(delta, new[] { Obj("b", "e2") }, CancellationToken.None);
+
+        _session.Received(1).CopyObject("bucket-a", "b", "bucket-a",
+            Arg.Is<string>(k => k.StartsWith("b.conflict-")));
+        _session.DidNotReceive().UploadObject(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<DS3ProgressCallback?>(), Arg.Any<CancellationHandle?>());
     }
 
     private async Task InsertDriveAsync(Guid driveId, string bucket)

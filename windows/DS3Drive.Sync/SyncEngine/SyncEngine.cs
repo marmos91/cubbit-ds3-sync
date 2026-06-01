@@ -1,6 +1,7 @@
 namespace DS3Drive.Sync.SyncEngine;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using DS3Drive.Core;
@@ -31,6 +32,9 @@ public sealed class SyncEngine : IAsyncDisposable
     private readonly PollingTimer _timer;
     private readonly string _deviceName;
     private readonly Func<string, string, string> _conflictKeyFactory;
+    // Sync-root path for this drive; used to locate the local file when materializing a
+    // conflict copy. Null only in tests that never exercise the conflict branch.
+    private readonly string? _localRootPath;
 
     private CancellationTokenSource? _cts;
     private Task? _loop;
@@ -46,7 +50,8 @@ public sealed class SyncEngine : IAsyncDisposable
         ConfigStore? config = null,
         Func<bool>? isPaused = null,
         ILogger<SyncEngine>? logger = null,
-        Func<string, string, string>? conflictKeyFactory = null)
+        Func<string, string, string>? conflictKeyFactory = null,
+        string? localRootPath = null)
     {
         _drive = drive ?? throw new ArgumentNullException(nameof(drive));
         _session = session ?? throw new ArgumentNullException(nameof(session));
@@ -61,6 +66,7 @@ public sealed class SyncEngine : IAsyncDisposable
         // Default to the Rust-backed conflict key (D-17); tests inject a fake so they stay
         // Category!=Integration (no ds3_ffi.dll dependency).
         _conflictKeyFactory = conflictKeyFactory ?? ConflictResolver.CreateConflictKey;
+        _localRootPath = localRootPath;
     }
 
     /// <summary>Starts the polling loop. Each tick runs <see cref="PollOnceAsync"/>.</summary>
@@ -192,11 +198,27 @@ public sealed class SyncEngine : IAsyncDisposable
                 string conflictKey = _conflictKeyFactory(key, _deviceName);
                 _logger.LogWarning("conflict on {Key} -> {ConflictKey}", key, conflictKey);
 
-                // Upload the local copy under the conflict key so it is not lost.
                 string bucket = _drive.SyncAnchor.Bucket;
                 try
                 {
-                    _session.CopyObject(bucket, key, bucket, conflictKey);
+                    // Preserve the user's LOCAL edits under the conflict key. A server-side
+                    // CopyObject(key -> conflictKey) would only duplicate the REMOTE object; the
+                    // local edits (on disk, never uploaded) would then be overwritten when this
+                    // placeholder resets to cloud-only below and re-hydrates the remote version.
+                    string? localPath = _localRootPath is null
+                        ? null
+                        : PathValidation.ResolveLocalPath(_localRootPath, key);
+
+                    if (localPath is not null && File.Exists(localPath))
+                    {
+                        _session.UploadObject(bucket, conflictKey, localPath, null, null);
+                    }
+                    else
+                    {
+                        // Local file not materialized (or root unknown): fall back to copying the
+                        // remote object so the conflict key still exists rather than being dropped.
+                        _session.CopyObject(bucket, key, bucket, conflictKey);
+                    }
                 }
                 catch (Exception ex)
                 {

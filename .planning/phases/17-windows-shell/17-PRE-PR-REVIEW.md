@@ -12,14 +12,12 @@ angles + verify) over `git diff main...HEAD -- windows/`, before opening the Pha
 | `c17d1f5` | **0-byte object hydration hangs** to the 30s cfapi watchdog (no TRANSFER_DATA ack sent when the read loop never runs). | Send one zero-length success ack for empty objects. |
 | `c17d1f5` | **One drive's registration failure aborts all drives** at host start (unguarded `foreach`). | Per-drive try/catch, mirroring `OnDriveAdded`. |
 | `d93a041` | Cleanup: `NormalizedPathToS3Key` (×4) and `ParentOf` (×3) duplicated across cfapi handlers; `SyncRootId` inline dup; `AggregateStatus` inline status lookup; redundant self-import. | Extracted to `PathValidation`; used `SyncRootId()`/`GetStatus()`; dropped dup. |
+| `<pending>` | **Conflict resolution preserved the WRONG version (data loss, item 13)** — `CopyObject(key→conflictKey)` server-copied the *remote* object; local edits were lost on re-hydrate. | `SyncEngine` now takes the local-root path and **uploads the local file** to the conflict key (preserving the user's edits), with a fallback to the remote copy only when the local file isn't materialized. +1 unit test (`Test5b`). |
 
 ## Deferred — recommended before/with GA (not blocking the first single-session smoke)
 
-1. **Conflict resolution preserves the WRONG version (data loss)** — `SyncEngine.ApplyDeltaAsync`
-   conflict branch does `CopyObject(bucket, key, bucket, conflictKey)`, a server-side copy of the
-   *remote* object; the user's local dirty edits (on disk, never uploaded) are then overwritten when
-   the placeholder resets to cloud-only and re-hydrates. Fix: upload the *local* file to the conflict
-   key (needs local-root plumbed into `SyncEngine` + a unit test). **Affects smoke item 13.**
+1. ~~**Conflict resolution preserves the WRONG version (data loss)**~~ — **FIXED** (see table above):
+   `SyncEngine` now uploads the local file to the conflict key.
 2. **No session restore on cold launch + no re-register on login** — `LoginAsync` never persists the
    refresh token and `OnLaunched` never restores one, so a returning user with persisted drives launches
    unauthenticated; `SyncHostedService` isn't subscribed to `AuthStateChanged`, so a later interactive
