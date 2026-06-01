@@ -53,7 +53,23 @@ public sealed class DriveS3CredentialProvider : IDriveS3CredentialProvider
         var user = new DS3IAMUser(drive.SyncAnchor.IamUserId, drive.SyncAnchor.IamUserId, string.Empty);
         DS3ApiKey key = await _sdk.LoadOrCreateApiKeyAsync(user, drive.SyncAnchor.Bucket, ct).ConfigureAwait(false);
 
+        // The endpoint + account scope both resolve from the cached DS3AccountInfo captured once
+        // at login (AuthenticationService._currentAccount). endpoint_gateway is treated as
+        // IMMUTABLE for the account lifetime (WR-17.1-05): a token refresh re-reads only the
+        // token, never the account snapshot, so a different account here would indicate a
+        // login/logout race rather than a benign refresh.
         string endpoint = _session.EndpointGateway;
+        string accountId = _session.AccountId;
+        if (string.IsNullOrEmpty(accountId))
+        {
+            // No live account scope ⇒ the cached snapshot is gone (logged out between the
+            // API-key reconcile and here). Fail loudly rather than minting a client against a
+            // stale/empty endpoint (the empty-endpoint check below is necessary but not
+            // sufficient on its own — WR-17.1-05).
+            throw new InvalidOperationException(
+                $"Cannot build S3 client for drive {drive.Id}: no live account scope (session logged out).");
+        }
+
         if (string.IsNullOrEmpty(endpoint))
         {
             // Guard the empty-endpoint pitfall (T-17.1-13): an empty endpoint would mint a

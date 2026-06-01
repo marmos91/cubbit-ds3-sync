@@ -18,7 +18,11 @@ public interface IDS3SessionGateway
     /// <summary>The account's S3 <c>endpoint_gateway</c> (from <c>DS3AccountInfo</c>, Plan 02).
     /// Feeds <c>DS3DriveS3Client.Create</c> when the wizard browses buckets/prefixes — the S3
     /// surface no longer routes through the session handle (17.1-03; the bucket/object listing
-    /// methods were removed from <see cref="DS3Drive.Core.DS3Session"/> in 17.1-02).</summary>
+    /// methods were removed from <see cref="DS3Drive.Core.DS3Session"/> in 17.1-02).
+    /// <para>CONTRACT (WR-17.1-05): <c>endpoint_gateway</c> is IMMUTABLE for the account
+    /// lifetime — the cached <c>DS3AccountInfo</c> is captured once at login and a token refresh
+    /// re-reads only the token, never the account snapshot. Consumers may treat the value as
+    /// stable for as long as <see cref="AccountId"/> is unchanged.</para></summary>
     string EndpointGateway { get; }
 
     /// <summary>Lists the projects visible to the account (<c>DS3Session.GetProjects</c>).</summary>
