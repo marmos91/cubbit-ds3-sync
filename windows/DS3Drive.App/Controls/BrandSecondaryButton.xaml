@@ -11,6 +11,12 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+    <!-- Self-merge Brushes (→Tokens) so brush/font lookups resolve: a merged dictionary
+         cannot see sibling dictionaries merged alongside it in App.xaml. -->
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="ms-appx:///Themes/Brushes.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
     <Style x:Key="BrandSecondaryButton" TargetType="Button">
         <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
         <Setter Property="Background" Value="Transparent" />
