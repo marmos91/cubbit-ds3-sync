@@ -19,7 +19,11 @@ name: Windows Build
 on:
   push:
     branches:
-      - gsd/phase-17-windows-shell
+      # Cover the whole phase-17 branch family (WR-17.1-07): the FFI/ABI changes in
+      # phase 17.x can only be compiled + ABI-validated by this CI job (the dev box lacks
+      # the MSVC linker), so every phase-17* work branch must run the gate on push, not
+      # just the original phase-17 shell branch.
+      - "gsd/phase-17*"
       - main
     paths:
       - "windows/**"
