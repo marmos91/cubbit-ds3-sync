@@ -15,14 +15,14 @@ public interface IDS3SessionGateway
     /// <summary>The account id of the live session (Credential Manager scope key).</summary>
     string AccountId { get; }
 
+    /// <summary>The account's S3 <c>endpoint_gateway</c> (from <c>DS3AccountInfo</c>, Plan 02).
+    /// Feeds <c>DS3DriveS3Client.Create</c> when the wizard browses buckets/prefixes — the S3
+    /// surface no longer routes through the session handle (17.1-03; the bucket/object listing
+    /// methods were removed from <see cref="DS3Drive.Core.DS3Session"/> in 17.1-02).</summary>
+    string EndpointGateway { get; }
+
     /// <summary>Lists the projects visible to the account (<c>DS3Session.GetProjects</c>).</summary>
     IReadOnlyList<DS3Project> GetProjects();
-
-    /// <summary>Lists the buckets reachable with the session credentials (<c>DS3Session.ListBuckets</c>).</summary>
-    IReadOnlyList<DS3Bucket> ListBuckets();
-
-    /// <summary>Lists objects under a prefix (<c>DS3Session.ListObjects</c>).</summary>
-    IReadOnlyList<DS3Object> ListObjects(string bucket, string prefix, string delimiter, string? continuationToken);
 
     /// <summary>Forges an IAM token for a user (<c>DS3Session.ForgeIamToken</c>).</summary>
     string ForgeIamToken(string iamUserId);

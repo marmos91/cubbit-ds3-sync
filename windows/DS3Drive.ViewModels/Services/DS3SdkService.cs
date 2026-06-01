@@ -1,8 +1,10 @@
 namespace DS3Drive.ViewModels.Services;
 
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DS3Drive.Core;
+using DS3Drive.Core.Exceptions;
 using DS3Drive.Core.Records;
 using DS3Drive.Sync.Storage;
 using Microsoft.Data.Sqlite;
@@ -19,7 +21,7 @@ using Microsoft.Extensions.Logging;
 /// (D-12/D-14); only the non-secret metadata (name, access_key, iam_user_id) lands in
 /// the <c>api_keys</c> table.
 /// </summary>
-public sealed class DS3SdkService : IDS3SdkService
+public sealed class DS3SdkService : IDS3SdkService, IDisposable
 {
     private readonly IDS3SessionGateway _session;
     private readonly SyncDatabase _db;
@@ -27,6 +29,16 @@ public sealed class DS3SdkService : IDS3SdkService
     private readonly ConfigStore _config;
     private readonly IInstallationIdProvider _installation;
     private readonly ILogger<DS3SdkService> _logger;
+
+    // Per-project wizard-browse S3 client cache (keyed by project name — the project only
+    // selects which reconciled credentials build the client; ds3_list_buckets takes no project
+    // arg, Q3). A plain SemaphoreSlim guarding the dictionary suffices on Windows: the C-ABI S3
+    // client is independent of the session handle, so macOS's connectS3-on-shared-handle
+    // double-check-under-lock does not apply (PATTERNS §"macOS behavioral parity"). The most
+    // recently built client backs ListChildPrefixesAsync, which carries no project context.
+    private readonly Dictionary<string, DS3DriveS3Client> _browseClients = new();
+    private readonly SemaphoreSlim _browseLock = new(1, 1);
+    private DS3DriveS3Client? _currentBrowseClient;
 
     public DS3SdkService(
         IDS3SessionGateway session,
@@ -51,22 +63,93 @@ public sealed class DS3SdkService : IDS3SdkService
         Task.Run(() => _session.GetProjects(), ct);
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<DS3Bucket>> GetBucketsAsync(DS3Project project, CancellationToken ct) =>
-        Task.Run(() => _session.ListBuckets(), ct);
+    public async Task<IReadOnlyList<DS3Bucket>> GetBucketsAsync(DS3Project project, CancellationToken ct)
+    {
+        // Route the browse through a per-drive DS3DriveS3Client built from the reconciled
+        // API key for (root user, project) + the account's endpoint_gateway — NOT the session
+        // handle (17.1-03 fix; the old _session.ListBuckets() dereferenced the session handle
+        // inside the S3 export → AccessViolationException). The FFI call is synchronous +
+        // blocking; run it off the UI thread (UI-SPEC "Loading buckets…" ring).
+        DS3DriveS3Client client = await GetBrowseClientAsync(project, ct).ConfigureAwait(false);
+        return await Task.Run(() => client.ListBuckets(), ct).ConfigureAwait(false);
+    }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<string>> ListChildPrefixesAsync(string bucket, string? prefix, CancellationToken ct) =>
-        Task.Run<IReadOnlyList<string>>(() =>
+    public Task<IReadOnlyList<string>> ListChildPrefixesAsync(string bucket, string? prefix, CancellationToken ct)
+    {
+        // The prefix-tree browse carries no project context, so it reuses the most recently
+        // built browse client (the wizard always lists buckets — selecting a project — before
+        // browsing prefixes, so _currentBrowseClient is live). If absent (defensive), surface
+        // a managed loggedOut rather than a null deref.
+        DS3DriveS3Client client = _currentBrowseClient
+            ?? throw new DS3AuthenticationException(AuthFailureReason.LoggedOut, errorCode: 1005);
+
+        return Task.Run<IReadOnlyList<string>>(() =>
         {
             // Delimiter "/" gives folder-style listing; the FFI returns objects whose keys
             // end in "/" for child prefixes. Keep only those (the tree shows folders).
-            IReadOnlyList<DS3Object> objects = _session.ListObjects(bucket, prefix ?? string.Empty, "/", null);
+            IReadOnlyList<DS3Object> objects = client.ListObjects(bucket, prefix ?? string.Empty, "/", null);
             return objects
                 .Select(o => o.Key)
                 .Where(k => k.EndsWith('/') && k != (prefix ?? string.Empty))
                 .Distinct()
                 .ToList();
         }, ct);
+    }
+
+    /// <summary>
+    /// Builds (or returns the cached) per-project <see cref="DS3DriveS3Client"/> for the wizard
+    /// browse. The reconcile (forge IAM token + load/create API key) runs OUTSIDE the lock so
+    /// the lock is never held across an await; the dictionary mutation + the "current client"
+    /// pointer update happen under the lock with a double-check (another browse may have
+    /// populated the cache while we awaited the API-key fetch). Mirrors macOS
+    /// <c>s3Client(forProject:iamUser:)</c> (caching divergence: Windows keys per project).
+    /// </summary>
+    private async Task<DS3DriveS3Client> GetBrowseClientAsync(DS3Project project, CancellationToken ct)
+    {
+        await _browseLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (_browseClients.TryGetValue(project.Name, out DS3DriveS3Client? cached))
+            {
+                _currentBrowseClient = cached;
+                return cached;
+            }
+        }
+        finally
+        {
+            _browseLock.Release();
+        }
+
+        // The wizard's IAM user is the account root (id == account id) — the same user
+        // DriveSetupWizardPage seeds as CurrentUser and RepairCredentialsAsync reconstructs
+        // from the anchor. LoadOrCreateApiKeyAsync forges the IAM token from this id and
+        // reconciles the deterministic key for (user, project.Name).
+        var rootUser = new DS3IAMUser(_session.AccountId, _session.AccountId, string.Empty);
+        DS3ApiKey key = await LoadOrCreateApiKeyAsync(rootUser, project.Name, ct).ConfigureAwait(false);
+        string endpoint = _session.EndpointGateway;
+
+        await _browseLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (_browseClients.TryGetValue(project.Name, out DS3DriveS3Client? raced))
+            {
+                _currentBrowseClient = raced;
+                return raced;
+            }
+
+            // Region null => Rust defaults to us-east-1 (macOS parity). The secret crosses the
+            // FFI boundary here and is not retained C#-side beyond this call (T-17.1-09).
+            var client = DS3DriveS3Client.Create(endpoint, key.AccessKey, key.SecretKey);
+            _browseClients[project.Name] = client;
+            _currentBrowseClient = client;
+            return client;
+        }
+        finally
+        {
+            _browseLock.Release();
+        }
+    }
 
     /// <inheritdoc />
     public string ApiKeyName(DS3IAMUser user, string projectName)
@@ -207,6 +290,28 @@ public sealed class DS3SdkService : IDS3SdkService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to delete local API key secret from Credential Manager.");
+        }
+    }
+
+    /// <summary>Disposes the cached wizard-browse S3 clients (single-owner; the host-built
+    /// per-drive sync clients are owned separately by <c>SyncHostedService</c>, not here).</summary>
+    public void Dispose()
+    {
+        _browseLock.Wait();
+        try
+        {
+            foreach (DS3DriveS3Client client in _browseClients.Values)
+            {
+                client.Dispose();
+            }
+
+            _browseClients.Clear();
+            _currentBrowseClient = null;
+        }
+        finally
+        {
+            _browseLock.Release();
+            _browseLock.Dispose();
         }
     }
 }

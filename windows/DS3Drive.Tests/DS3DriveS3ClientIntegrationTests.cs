@@ -1,5 +1,6 @@
 namespace DS3Drive.Tests;
 
+using System.IO;
 using System.Reflection;
 using DS3Drive.Core;
 using DS3Drive.Tests.Fixtures;
@@ -133,16 +134,39 @@ public sealed class DS3DriveS3ClientIntegrationTests
     // -----------------------------------------------------------------------
 
     // Criterion #2: build the client from the reconciled API-key flow (AccessKey /
-    // SecretKey / endpoint), NOT the session token, and list buckets through it.
+    // SecretKey / endpoint_gateway), NOT the session token, and list buckets through it.
     [RequiresCredentials, Trait("Category", "Integration")]
     public void Create_FromReconciledApiKey_Lists()
     {
         var creds = CubbitCredentials.FromEnvironment();
-        Assert.True(creds.IsAvailable); // gating contract; live body lands with plan 17.1-02.
+        Assert.True(creds.IsAvailable);
 
-        // TODO(plan 17.1-02): authenticate → reconcile the API key for (user, project)
-        // → DS3DriveS3Client.Create(account.EndpointGateway, key.AccessKey, key.SecretKey)
-        // → assert ListBuckets() returns the expected bucket set.
+        using var session = DS3Session.Authenticate(
+            creds.Email, creds.Password, creds.Tenant, creds.CoordinatorUrl);
+        var account = session.AccountInfo();
+        Assert.False(string.IsNullOrEmpty(account.EndpointGateway)); // endpoint surfaced by 17.1-02
+
+        // Reconcile a throwaway API key the same way the wizard/host do: forge the IAM token
+        // for the root user (id == account id), create a key, then build the S3 client from
+        // (endpoint_gateway, accessKey, secretKey) — the session handle never touches S3.
+        string keyName = $"ds3drive-itest-{Guid.NewGuid():N}";
+        string iamToken = session.ForgeIamToken(account.AccountId);
+        var apiKey = session.CreateApiKey(account.AccountId, iamToken, keyName);
+        try
+        {
+            Assert.False(string.IsNullOrEmpty(apiKey.AccessKey));
+            Assert.False(string.IsNullOrEmpty(apiKey.SecretKey));
+
+            using var s3 = DS3DriveS3Client.Create(
+                account.EndpointGateway, apiKey.AccessKey, apiKey.SecretKey);
+
+            var buckets = s3.ListBuckets();
+            Assert.NotNull(buckets); // lists through the MINTED S3 handle, not the session
+        }
+        finally
+        {
+            session.DeleteApiKey(account.AccountId, apiKey.Id, iamToken);
+        }
     }
 
     // Criterion #4 (WIN-04..06): full list → head → upload → download → delete →
@@ -153,8 +177,68 @@ public sealed class DS3DriveS3ClientIntegrationTests
         var creds = CubbitCredentials.FromEnvironment();
         Assert.True(creds.IsAvailable);
 
-        // TODO(plan 17.1-02): mint a DS3DriveS3Client, then exercise the 6 S3 ops
-        // (ListObjects / HeadObject / UploadObject / DownloadObject / DeleteObject /
-        // CopyObject) against a scratch key and assert a clean round-trip + cleanup.
+        using var session = DS3Session.Authenticate(
+            creds.Email, creds.Password, creds.Tenant, creds.CoordinatorUrl);
+        var account = session.AccountInfo();
+
+        string keyName = $"ds3drive-itest-{Guid.NewGuid():N}";
+        string iamToken = session.ForgeIamToken(account.AccountId);
+        var apiKey = session.CreateApiKey(account.AccountId, iamToken, keyName);
+
+        string? tempDir = null;
+        try
+        {
+            using var s3 = DS3DriveS3Client.Create(
+                account.EndpointGateway, apiKey.AccessKey, apiKey.SecretKey);
+
+            // Pick a bucket to round-trip against (the first reachable one).
+            var buckets = s3.ListBuckets();
+            Assert.NotEmpty(buckets);
+            string bucket = buckets[0].Name;
+
+            // Upload a scratch object, then exercise head/download/copy/delete through the
+            // SAME handle, asserting a clean round-trip.
+            tempDir = Path.Combine(Path.GetTempPath(), $"ds3drive-itest-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(tempDir);
+            string srcKey = $"ds3drive-itest/{Guid.NewGuid():N}.txt";
+            string copyKey = $"ds3drive-itest/{Guid.NewGuid():N}-copy.txt";
+            string uploadPath = Path.Combine(tempDir, "upload.txt");
+            string downloadPath = Path.Combine(tempDir, "download.txt");
+            byte[] payload = System.Text.Encoding.UTF8.GetBytes("ds3 drive round-trip");
+            File.WriteAllBytes(uploadPath, payload);
+
+            // UPLOAD
+            s3.UploadObject(bucket, srcKey, uploadPath, progress: null, cancel: null);
+
+            // LIST — the uploaded key is now visible under its prefix.
+            var listed = s3.ListObjects(bucket, "ds3drive-itest/", string.Empty, null);
+            Assert.Contains(listed, o => o.Key == srcKey);
+
+            // HEAD — metadata matches the uploaded size.
+            var head = s3.HeadObject(bucket, srcKey);
+            Assert.Equal(payload.Length, head.Size);
+
+            // DOWNLOAD — round-trips the exact bytes.
+            s3.DownloadObject(bucket, srcKey, downloadPath, progress: null, cancel: null);
+            Assert.Equal(payload, File.ReadAllBytes(downloadPath));
+
+            // COPY (S3 has no rename) then DELETE both — clean up the scratch keys.
+            s3.CopyObject(bucket, srcKey, bucket, copyKey);
+            var afterCopy = s3.ListObjects(bucket, "ds3drive-itest/", string.Empty, null);
+            Assert.Contains(afterCopy, o => o.Key == copyKey);
+
+            s3.DeleteObject(bucket, srcKey);
+            s3.DeleteObject(bucket, copyKey);
+            var afterDelete = s3.ListObjects(bucket, "ds3drive-itest/", string.Empty, null);
+            Assert.DoesNotContain(afterDelete, o => o.Key == srcKey || o.Key == copyKey);
+        }
+        finally
+        {
+            session.DeleteApiKey(account.AccountId, apiKey.Id, iamToken);
+            if (tempDir is not null && Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+        }
     }
 }

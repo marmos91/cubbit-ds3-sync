@@ -130,15 +130,19 @@ public partial class App : Application
         s.AddSingleton<DriveManagementService>();
         s.AddSingleton<IDriveManagementService>(sp => sp.GetRequiredService<DriveManagementService>());
 
-        // Sync subsystem (Plans 06/10/11) — the cfapi sync host runs for the app's lifetime.
+        // Sync subsystem (Plans 06/10/11; 17.1-03 rewires the S3 surface) — the cfapi sync
+        // host runs for the app's lifetime.
         //   PlaceholderStore: SQLite-backed placeholder index (over the shared SyncDatabase).
-        //   IDS3SessionAccess: the cfapi engine borrows the SAME live session AuthenticationService
-        //     owns (adapter is that singleton; no second handle, mirrors the IDS3SessionGateway wiring).
+        //   IDriveS3CredentialProvider: resolves per-drive S3 creds (reconciled API key +
+        //     endpoint_gateway) so SyncHostedService builds ONE DS3DriveS3Client per drive and
+        //     wraps it in a DriveS3SessionAccess (17.1-03). The cfapi sync IDS3SessionAccess is
+        //     now that host-built per-drive adapter — NOT the shared AuthenticationService
+        //     singleton, which dereferenced the session handle inside the S3 exports (the AVE).
         //   IDriveLifecycleSource: adapts the drive manager's add/remove/pause onto the Sync seam.
         //   SyncHostedService: registers a sync root + spins a SyncEngine per drive. Started in
         //     OnLaunched AFTER the drive list loads (so existing drives re-register at launch).
         s.AddSingleton<PlaceholderStore>();
-        s.AddSingleton<IDS3SessionAccess>(sp => sp.GetRequiredService<AuthenticationService>());
+        s.AddSingleton<IDriveS3CredentialProvider, DriveS3CredentialProvider>();
         s.AddSingleton<IDriveLifecycleSource, DriveLifecycleSource>();
         s.AddHostedService<SyncHostedService>();
 

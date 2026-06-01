@@ -30,10 +30,18 @@
         <StackPanel Spacing="16"
                     Visibility="{x:Bind ViewModel.IsLoadingBuckets, Mode=OneWay, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
 
+            <!-- D-06: on a bucket-load failure the wizard STAYS on this step and surfaces the
+                 mapped error copy inline (DriveSetupViewModel.MapErrorCopy) with a Retry that
+                 re-invokes LoadBucketsCommand. A bad/denied key returns a clean
+                 DS3TransportException (code 3003, A1 finding) — crash-free, never an AVE. -->
             <InfoBar IsOpen="True" Severity="Error"
                      Title="Couldn't load buckets."
-                     Message="Check your connection and try again."
-                     Visibility="{x:Bind ViewModel.CreationError, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                     Message="{x:Bind ViewModel.CreationError, Mode=OneWay}"
+                     Visibility="{x:Bind ViewModel.CreationError, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                <InfoBar.ActionButton>
+                    <Button Content="Retry" Command="{x:Bind ViewModel.LoadBucketsCommand, Mode=OneWay}" />
+                </InfoBar.ActionButton>
+            </InfoBar>
 
             <ListView x:Name="BucketsList"
                       ItemsSource="{x:Bind ViewModel.Buckets, Mode=OneWay}"
