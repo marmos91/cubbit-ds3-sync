@@ -1,4 +1,5 @@
 namespace DS3Drive.Sync.CfApi;
+
 using System;
 using System.Threading;
 using System.Threading.Tasks;

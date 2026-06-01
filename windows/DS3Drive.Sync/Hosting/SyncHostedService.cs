@@ -1,4 +1,5 @@
 namespace DS3Drive.Sync.Hosting;
+
 using System;
 using System.Collections.Generic;
 using System.Threading;

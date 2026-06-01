@@ -10,6 +10,7 @@
 // ---------------------------------------------------------------------------
 
 namespace DS3Drive.Core.Logging;
+
 using System.Diagnostics.Tracing;
 
 /// <summary>

@@ -1,4 +1,5 @@
 namespace DS3Drive.Tests;
+
 using System.Runtime.InteropServices;
 using DS3Drive.Core;
 using Xunit;

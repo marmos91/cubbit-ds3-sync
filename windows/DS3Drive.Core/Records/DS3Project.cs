@@ -1,4 +1,5 @@
 namespace DS3Drive.Core.Records;
+
 using System.Text.Json.Serialization;
 
 /// <summary>

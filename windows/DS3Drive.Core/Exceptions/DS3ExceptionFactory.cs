@@ -1,4 +1,5 @@
 namespace DS3Drive.Core.Exceptions;
+
 using Microsoft.Extensions.Logging;
 
 /// <summary>

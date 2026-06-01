@@ -1,4 +1,5 @@
 namespace DS3Drive.Core;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 

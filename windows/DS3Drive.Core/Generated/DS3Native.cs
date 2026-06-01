@@ -25,6 +25,7 @@
 // ---------------------------------------------------------------------------
 
 namespace DS3Drive.Core.Generated;
+
 using System.Runtime.InteropServices;
 
 /// <summary>

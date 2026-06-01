@@ -1,4 +1,5 @@
 namespace DS3Drive.Sync;
+
 using System;
 using System.Collections.Generic;
 using DS3Drive.Core.Native;

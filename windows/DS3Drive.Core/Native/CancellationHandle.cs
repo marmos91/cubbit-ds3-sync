@@ -1,4 +1,5 @@
 namespace DS3Drive.Core.Native;
+
 using DS3Drive.Core.Generated;
 
 /// <summary>

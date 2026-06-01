@@ -1,4 +1,5 @@
 namespace DS3Drive.Core;
+
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;

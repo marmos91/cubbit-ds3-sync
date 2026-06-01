@@ -1,4 +1,5 @@
 namespace DS3Drive.Core;
+
 using System.Text;
 using System.Text.Json;
 using DS3Drive.Core.Exceptions;
