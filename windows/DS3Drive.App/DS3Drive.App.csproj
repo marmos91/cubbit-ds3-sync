@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    DS3Drive.App — WinUI 3 packaged exe (unpackaged shape + sparse identity).
+    UI, ViewModels, tray flyout, drive setup wizard. References DS3Drive.Sync
+    (and DS3Drive.Core transitively). See 17-CONTEXT.md D-01/D-02/D-03/D-04.
+
+    Sparse-package-ready: WindowsPackageType=None ships an unpackaged exe;
+    EnableMsixTooling=true lets Plan 04 add the sparse identity manifest that
+    cfapi's StorageProviderSyncRootManager.Register requires (RESEARCH §1).
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <!-- WinUI 3 has no Any CPU; expose the platforms the .sln maps (matches RuntimeIdentifiers). -->
+    <Platforms>x64;ARM64</Platforms>
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <!-- Unpackaged exe; sparse identity package is layered on at install time. -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DS3Drive.Sync\DS3Drive.Sync.csproj" />
+    <ProjectReference Include="..\DS3Drive.ViewModels\DS3Drive.ViewModels.csproj" />
+  </ItemGroup>
+
+  <!-- Figtree Regular + SemiBold only (UI-SPEC Revision 2: Medium NOT bundled). -->
+  <ItemGroup>
+    <Content Include="Assets\Fonts\*.ttf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Tray icon state assets (Plan 11 placeholders; Phase 18 ships final art). Resolved via
+       ms-appx:///Assets/TrayIcons/*.ico by the H.NotifyIcon TaskbarIcon. -->
+  <ItemGroup>
+    <Content Include="Assets\TrayIcons\*.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Brand images (Cubbit logo, etc.). Resolved via ms-appx:///Assets/Images/*. -->
+  <ItemGroup>
+    <Content Include="Assets\Images\*.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging.EventSource" />
+    <PackageReference Include="H.NotifyIcon.WinUI" />
+  </ItemGroup>
+
+</Project>

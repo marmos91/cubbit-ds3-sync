@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Brushes.xaml — SolidColorBrush tokens for the DS3 Drive Windows shell.
+    Theme-aware: Dark (primary, matches the macOS shipped default) + Light
+    (OS-light-mode adaptation) per 17-UI-SPEC.md §Color (Dark + Light tables).
+
+    Brand-accent + status brushes are theme-INVARIANT (accent #005CE8 is the same
+    in both themes per UI-SPEC §Color). Surface + text + border brushes flip
+    between the Default (Dark) and Light dictionaries.
+
+    Color tokens consumed here come from Tokens.xaml. Both dictionaries are merged
+    into App.Resources so cross-dictionary ThemeResource lookups resolve.
+-->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Self-merge Tokens so the color lookups below resolve at load. A Source-merged
+         dictionary canNOT see SIBLING dictionaries merged alongside it in App.xaml, so
+         each dependent dictionary must merge its prerequisites into its own scope. -->
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="ms-appx:///Themes/Tokens.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- ===== Theme-invariant brand + status brushes (same value in dark & light) ===== -->
+    <SolidColorBrush x:Key="BrandPrimaryBrush" Color="{ThemeResource BrandPrimary}" />
+    <SolidColorBrush x:Key="BrandPrimaryLightBrush" Color="{ThemeResource BrandPrimaryLight}" />
+    <SolidColorBrush x:Key="BrandPrimaryDarkBrush" Color="{ThemeResource BrandPrimaryDark}" />
+
+    <SolidColorBrush x:Key="StatusSuccessBrush" Color="{ThemeResource StatusSuccess}" />
+    <SolidColorBrush x:Key="StatusSyncingBrush" Color="{ThemeResource StatusSyncing}" />
+    <SolidColorBrush x:Key="StatusWarningBrush" Color="{ThemeResource StatusWarning}" />
+    <SolidColorBrush x:Key="StatusErrorMainBrush" Color="{ThemeResource StatusErrorMain}" />
+    <SolidColorBrush x:Key="StatusErrorDarkBrush" Color="{ThemeResource StatusErrorDark}" />
+    <SolidColorBrush x:Key="StatusInfoBrush" Color="{ThemeResource StatusInfo}" />
+    <SolidColorBrush x:Key="StatusConflictBrush" Color="{ThemeResource StatusConflict}" />
+    <SolidColorBrush x:Key="StatusCloudOnlyBrush" Color="{ThemeResource StatusCloudOnly}" />
+
+    <!-- Drive-row hover tint: brand accent @ 8% (UI-SPEC §Visual States "subtle accent tint @ 8%").
+         The TrayDriveRow overlay carrying this brush MUST set IsHitTestVisible="False" (project
+         memory hover-tint gotcha) — a filled overlay eats clicks even at opacity 0. -->
+    <SolidColorBrush x:Key="BrandPrimaryHover8pctBrush" Color="#14005CE8" />
+
+    <!-- ===== Theme-flipped surface / text / border brushes ===== -->
+    <ResourceDictionary.ThemeDictionaries>
+
+        <!-- Dark theme (primary). -->
+        <ResourceDictionary x:Key="Default">
+            <!-- Surfaces. -->
+            <SolidColorBrush x:Key="BrandBg900Brush" Color="{ThemeResource BrandBg900}" />
+            <SolidColorBrush x:Key="BrandBg800Brush" Color="{ThemeResource BrandBg800}" />
+            <!-- Card surface (macOS brandSurface analog) — drive-row / pill backing. -->
+            <SolidColorBrush x:Key="BrandSurfaceBrush" Color="#14FFFFFF" />
+            <!-- Text. -->
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#99FFFFFF" />
+            <SolidColorBrush x:Key="TextTertiaryBrush" Color="#73FFFFFF" />
+            <SolidColorBrush x:Key="TextDisabledBrush" Color="#4DFFFFFF" />
+            <!-- Borders / dividers. -->
+            <SolidColorBrush x:Key="BorderUltraSubtleBrush" Color="#0AFFFFFF" />
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#1AFFFFFF" />
+            <SolidColorBrush x:Key="BorderStrongBrush" Color="#4DFFFFFF" />
+            <SolidColorBrush x:Key="DividerBrush" Color="#1FFFFFFF" />
+        </ResourceDictionary>
+
+        <!-- Light theme (OS-light-mode adaptation). -->
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="BrandBg900Brush" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="BrandBg800Brush" Color="#FFF5F5F7" />
+            <SolidColorBrush x:Key="BrandSurfaceBrush" Color="#0A000000" />
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FF121212" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#99000000" />
+            <SolidColorBrush x:Key="TextTertiaryBrush" Color="#73000000" />
+            <SolidColorBrush x:Key="TextDisabledBrush" Color="#4D000000" />
+            <SolidColorBrush x:Key="BorderUltraSubtleBrush" Color="#0A000000" />
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#1A000000" />
+            <SolidColorBrush x:Key="BorderStrongBrush" Color="#4D000000" />
+            <SolidColorBrush x:Key="DividerBrush" Color="#1F000000" />
+        </ResourceDictionary>
+
+    </ResourceDictionary.ThemeDictionaries>
+
+</ResourceDictionary>

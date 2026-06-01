@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    TrayFlyoutWindow — the Acrylic 360x540 flyout shown on a single-click of the tray icon
+    (UI-SPEC §Component Inventory TrayHost row + §Interaction Contracts Tray). This is a thin
+    Window: the SystemBackdrop (DesktopAcrylicBackdrop, UI-SPEC §Design System) + chrome removal
+    live here, while all the bound content (header, drives list, recent activity, footer) lives
+    in the FrameworkElement-rooted TrayFlyoutView UserControl set as Content in code-behind.
+
+    Why the split (Rule-3 deviation, see 17-11-SUMMARY): WinUI 3 forbids {x:Bind} on a <Window>
+    root — Window is not a FrameworkElement, so the compiled-bindings code-gen fails (CS1503).
+    Moving the {x:Bind} surface into a UserControl is the standard WinUI 3 pattern.
+    Port of TrayMenuView.swift.
+-->
+<Window
+    x:Class="DS3Drive.App.Tray.TrayFlyoutWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:tray="using:DS3Drive.App.Tray">
+
+    <!-- Flyout size: Width="360" Height="540" (UI-SPEC Open Q #2 default). The Window is sized
+         to these via AppWindow.Resize in code-behind; the host grid carries them as its content
+         footprint so the hosted TrayFlyoutView lays out at the intended 360x540. -->
+    <Grid x:Name="HostGrid" Width="360" Height="540" />
+</Window>

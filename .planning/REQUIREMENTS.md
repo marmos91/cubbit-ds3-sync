@@ -29,15 +29,15 @@
 
 ### Windows Shell
 
-- [ ] **WIN-01**: User can log in via WinUI 3 native form (auth via Rust, credentials via DPAPI)
-- [ ] **WIN-02**: User can set up a drive via wizard (project, bucket, prefix selection)
-- [ ] **WIN-03**: Drive appears in Explorer sidebar via cfapi sync root registration
-- [ ] **WIN-04**: User can open files that hydrate on-demand (FETCH_DATA via Rust download with streaming)
-- [ ] **WIN-05**: User can save/create files that upload to S3 (NOTIFY_FILE_CLOSE_COMPLETION trigger)
-- [ ] **WIN-06**: Remote changes sync to local placeholders via periodic polling and diff
-- [ ] **WIN-07**: System tray icon shows sync status (idle/syncing/error)
-- [ ] **WIN-08**: Hydration progress shown in Explorer (CfReportProviderProgress)
-- [ ] **WIN-09**: WiX MSI installer with silent install support and auto-start
+- [x] **WIN-01**: User can log in via WinUI 3 native form (auth via Rust, credentials via DPAPI)
+- [x] **WIN-02**: User can set up a drive via wizard (project, bucket, prefix selection)
+- [x] **WIN-03**: Drive appears in Explorer sidebar via cfapi sync root registration
+- [x] **WIN-04**: User can open files that hydrate on-demand (FETCH_DATA via Rust download with streaming)
+- [x] **WIN-05**: User can save/create files that upload to S3 (NOTIFY_FILE_CLOSE_COMPLETION trigger)
+- [x] **WIN-06**: Remote changes sync to local placeholders via periodic polling and diff
+- [x] **WIN-07**: System tray icon shows sync status (idle/syncing/error)
+- [x] **WIN-08**: Hydration progress shown in Explorer (CfReportProviderProgress)
+- [x] **WIN-09**: WiX MSI installer with silent install support and auto-start
 
 ### Polish
 
@@ -98,15 +98,15 @@
 | APPLE-04 | Phase 16 | Pending |
 | APPLE-05 | Phase 16 | Pending |
 | APPLE-06 | Phase 16 | Pending |
-| WIN-01 | Phase 17 | Pending |
-| WIN-02 | Phase 17 | Pending |
-| WIN-03 | Phase 17 | Pending |
-| WIN-04 | Phase 17 | Pending |
-| WIN-05 | Phase 17 | Pending |
-| WIN-06 | Phase 17 | Pending |
-| WIN-07 | Phase 17 | Pending |
-| WIN-08 | Phase 17 | Pending |
-| WIN-09 | Phase 17 | Pending |
+| WIN-01 | Phase 17 | Complete |
+| WIN-02 | Phase 17 | Complete |
+| WIN-03 | Phase 17 | Complete |
+| WIN-04 | Phase 17 | Complete |
+| WIN-05 | Phase 17 | Complete |
+| WIN-06 | Phase 17 | Complete |
+| WIN-07 | Phase 17 | Complete |
+| WIN-08 | Phase 17 | Complete |
+| WIN-09 | Phase 17 | Complete |
 | POL-01 | Phase 18 | Pending |
 | POL-02 | Phase 18 | Pending |
 | POL-03 | Phase 18 | Pending |
@@ -117,6 +117,7 @@
 | POL-08 | Phase 18 | Pending |
 
 **Coverage:**
+
 - v2.0.0 requirements: 33 total
 - Mapped to phases: 33
 - Unmapped: 0

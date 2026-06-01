@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    WizardStepIndicator — numbered-circle progress rail for the drive-setup wizard.
+    Per 17-UI-SPEC.md §"Component Inventory" Controls row: horizontal numbered circles
+    connected by 1px lines. Active = BrandPrimaryBrush fill + white digit; completed =
+    BrandPrimaryBrush fill + checkmark glyph (Segoe Fluent Icons U+E73E); pending =
+    BorderSubtleBrush border + TextSecondaryBrush digit. Sublabels use Type.H2 (24px) per
+    UI-SPEC Revision 1. Closest macOS analog: TutorialProgress (PATTERNS §"Tutorial progress
+    dots → WizardStepIndicator analog").
+-->
+<UserControl
+    x:Class="DS3Drive.App.Controls.WizardStepIndicator"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:DS3Drive.App.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ItemsControl x:Name="StepsItems">
+        <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" Spacing="8" />
+            </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="local:WizardStepItem">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <!-- Numbered circle. -->
+                    <Border Width="28" Height="28" CornerRadius="14"
+                            Background="{x:Bind CircleFill}"
+                            BorderBrush="{x:Bind CircleBorder}"
+                            BorderThickness="1">
+                        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{x:Bind DigitForeground}"
+                                   Text="{x:Bind DigitText}" />
+                    </Border>
+                    <!-- Step label (Type.H2 per UI-SPEC Revision 1). -->
+                    <TextBlock Style="{StaticResource Type.H2}"
+                               VerticalAlignment="Center"
+                               Text="{x:Bind Label}" />
+                    <!-- Connector line (hidden on the last step). -->
+                    <Rectangle Width="24" Height="1"
+                               Fill="{ThemeResource BorderSubtleBrush}"
+                               VerticalAlignment="Center"
+                               Visibility="{x:Bind ConnectorVisibility}" />
+                </StackPanel>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+</UserControl>

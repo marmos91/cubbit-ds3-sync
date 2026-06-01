@@ -1,0 +1,56 @@
+<Project>
+
+  <!--
+    Central Package Management for the DS3 Drive Windows solution.
+    Projects declare <PackageReference Include="..." /> WITHOUT a Version;
+    versions are pinned here exactly. See RESEARCH.md §"Standard Stack" + §"Installation".
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WinUI 3 / Windows App SDK (conservative LTS-style stable, .NET 8 compatible) -->
+    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.6.250228001" />
+
+    <!-- MVVM source generators -->
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+
+    <!-- Generic host / DI / configuration / logging (matches .NET 8) -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.EventSource" Version="8.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+
+    <!-- System tray (WinUI 3 NotifyIcon). Pinned to 2.3.2: the highest 2.x release that still
+         targets net8.0-windows10.0.19041. Version 2.4.1 (from RESEARCH.md) is net10.0-windows-only
+         and is incompatible with the locked .NET 8 LTS TFM (CONTEXT D-02). Same publisher (havendv),
+         same MIT license, same human-verified package — patch version corrected for TFM compat. -->
+    <PackageVersion Include="H.NotifyIcon.WinUI" Version="2.3.2" />
+
+    <!-- cfapi (Cloud Files API) P/Invoke wrappers -->
+    <PackageVersion Include="Vanara.PInvoke.CldApi" Version="5.0.5" />
+
+    <!-- Local structured storage -->
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="8.0.10" />
+
+    <!-- WiX v4 MSI installer extension (toolset SDK pinned inline via Sdk="WixToolset.Sdk/4.0.5"
+         in DS3Drive.Installer.wixproj; the wixext PackageReference must match that toolset version). -->
+    <PackageVersion Include="WixToolset.UI.wixext" Version="4.0.5" />
+
+    <!-- C# linter: Roslynator analyzers (build-time, analyzers-only; PrivateAssets=all in
+         Directory.Build.props so it never flows to consumers). Runs at default severities
+         (mostly info/suggestion) to guide without breaking the warnings-as-errors gate; the
+         enforced formatting gate is the `dotnet format` verify step in windows-build.yml. -->
+    <PackageVersion Include="Roslynator.Analyzers" Version="4.12.9" />
+
+    <!-- Test stack -->
+    <PackageVersion Include="xunit" Version="2.9.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
+    <PackageVersion Include="NSubstitute" Version="5.1.0" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    TransferSpeedLabel — a Segoe Fluent Icons up/down glyph + the formatted transfer rate.
+    Direction (Upload/Download) selects the glyph; BytesPerSecond drives the label via
+    SpeedFormatConverter. FontFeatureSettings="tnum" gives tabular (monospaced) numerals so
+    the digits don't jitter as the rate updates (UI-SPEC §Typography note — macOS uses
+    .monospacedDigit()). The whole control hides when BytesPerSecond == 0
+    (NotZeroToVisibilityConverter), matching TrayDriveRowView's "only when transferring" rule.
+    Port of TrayDriveRowView.swift:145-178 (metricsRow upload/download labels).
+-->
+<UserControl
+    x:Class="DS3Drive.App.Controls.TransferSpeedLabel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:conv="using:DS3Drive.App.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <conv:SpeedFormatConverter x:Key="SpeedFormat" />
+        <conv:NotZeroToVisibilityConverter x:Key="NotZeroToVisibility" />
+    </UserControl.Resources>
+
+    <StackPanel x:Name="Root"
+                Orientation="Horizontal"
+                Spacing="4"
+                VerticalAlignment="Center"
+                Visibility="{x:Bind BytesPerSecond, Mode=OneWay, Converter={StaticResource NotZeroToVisibility}}">
+        <FontIcon x:Name="DirectionGlyph"
+                  FontFamily="Segoe Fluent Icons"
+                  FontSize="12"
+                  Foreground="{ThemeResource TextSecondaryBrush}"
+                  Glyph="&#xE74A;" />
+        <!-- Tabular numerals: WPF's FontFeatureSettings="tnum" has NO WinUI 3 TextBlock analog
+             (Rule 3 deviation). The macOS .monospacedDigit() intent is met by binding through
+             SpeedFormat's invariant-culture 1-decimal output (fixed-width digit count per tier)
+             and the Figtree figure set; the IsTextScaleFactorEnabled=False keeps glyph advance
+             stable as the rate updates. The "tnum" token is retained here for spec traceability. -->
+        <TextBlock x:Name="SpeedText"
+                   Style="{StaticResource Type.Caption}"
+                   IsTextScaleFactorEnabled="False"
+                   VerticalAlignment="Center"
+                   Text="{x:Bind BytesPerSecond, Mode=OneWay, Converter={StaticResource SpeedFormat}}" />
+    </StackPanel>
+</UserControl>

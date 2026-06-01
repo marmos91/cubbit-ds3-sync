@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    PrefixSelectionPage — wizard step 3 (Prefix). Per 17-UI-SPEC.md §"Component Inventory":
+    a lazy-loaded TreeView of object prefixes (folders, keys ending in "/"), a breadcrumb of
+    the current selection, a "Use root" option, and a 16px inline ProgressRing while expanding.
+    Selecting "Use root" or a folder node + Continue advances to Confirm via
+    DriveSetupViewModel.SelectPrefix (null = root).
+-->
+<Page
+    x:Class="DS3Drive.App.Pages.PrefixSelectionPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:DS3Drive.ViewModels.ViewModels"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Padding="24" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Breadcrumb of the current selection. -->
+        <TextBlock Grid.Row="0" x:Name="BreadcrumbText"
+                   Style="{StaticResource Type.BodySecondary}"
+                   Text="Root" />
+
+        <!-- "Use root" option. -->
+        <Button Grid.Row="1" x:Name="UseRootButton"
+                Style="{StaticResource BrandSecondaryButton}"
+                Content="Use root"
+                Click="UseRoot_Click"
+                AutomationProperties.Name="Use root" />
+
+        <!-- Lazy-loaded folder tree. -->
+        <TreeView Grid.Row="2" x:Name="PrefixTree"
+                  SelectionMode="Single"
+                  Expanding="PrefixTree_Expanding"
+                  ItemInvoked="PrefixTree_ItemInvoked">
+            <TreeView.ItemTemplate>
+                <DataTemplate x:DataType="TreeViewNode">
+                    <TreeViewItem Content="{x:Bind Content}" />
+                </DataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+
+        <ProgressRing Grid.Row="2" x:Name="TreeLoadingRing"
+                      Width="16" Height="16" IsActive="False"
+                      HorizontalAlignment="Center" VerticalAlignment="Top" />
+    </Grid>
+</Page>

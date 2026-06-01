@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    MainWindow.xaml — the single top-level window of the DS3 Drive shell.
+    Hosts a content Frame that INavigationService drives (Login → 2FA → Tutorial →
+    DrivesList in Plan 09). The window's SystemBackdrop is set to Mica in App.xaml.cs
+    (MicaBackdrop / MicaKind.Base) per 17-UI-SPEC.md §Design System.
+
+    The root Grid is intentionally Transparent so the Mica backdrop shows through;
+    BrandBg900Brush is the fallback tint when Mica is unavailable (older Windows 10).
+-->
+<Window
+    x:Class="DS3Drive.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="DS3 Drive">
+
+    <Grid x:Name="RootGrid" Background="Transparent">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Custom title bar drag region — Cubbit branding sits left, the rest is draggable. -->
+        <Grid x:Name="AppTitleBar"
+              Grid.Row="0"
+              Height="40"
+              Background="Transparent">
+            <TextBlock x:Name="AppTitleText"
+                       Text="DS3 Drive"
+                       Style="{StaticResource Type.Caption}"
+                       VerticalAlignment="Center"
+                       Margin="16,0,0,0" />
+        </Grid>
+
+        <!-- Page host driven by NavigationService.Initialize(ContentFrame). -->
+        <Frame x:Name="ContentFrame"
+               Grid.Row="1" />
+    </Grid>
+</Window>

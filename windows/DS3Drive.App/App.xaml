@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    App.xaml — application resources for the DS3 Drive Windows shell (Plan 08).
+    Merges the brand design system (Tokens.xaml colors/spacing/typography +
+    Brushes.xaml theme-aware brushes) and the reusable brand button styles on top
+    of the Fluent v2 XamlControlsResources base, per 17-UI-SPEC.md §Design System.
+-->
+<Application
+    x:Class="DS3Drive.App.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    RequestedTheme="Dark">
+    <!-- Dark is the shipped default, matching macOS (.preferredColorScheme(.dark)).
+         Brushes.xaml's "Default" ThemeDictionary IS the dark palette. -->
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+                <!-- One-way layering: Tokens (Color/Thickness tokens) -> Brushes (wrap those
+                     colors; theme-flipped) -> Typography (TextBlock styles using theme brushes
+                     via ThemeResource) -> control styles. StaticResource only sees earlier-merged
+                     dictionaries, so this order is load-bearing. -->
+                <ResourceDictionary Source="ms-appx:///Themes/Tokens.xaml" />
+                <ResourceDictionary Source="ms-appx:///Themes/Brushes.xaml" />
+                <ResourceDictionary Source="ms-appx:///Themes/Typography.xaml" />
+                <ResourceDictionary Source="ms-appx:///Controls/BrandPrimaryButton.xaml" />
+                <ResourceDictionary Source="ms-appx:///Controls/BrandSecondaryButton.xaml" />
+                <ResourceDictionary Source="ms-appx:///Controls/BrandDestructiveButton.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

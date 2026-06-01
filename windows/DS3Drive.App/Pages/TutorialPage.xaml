@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    TutorialPage.xaml — first-launch tutorial. Port of
+    apple/DS3Drive/Views/Tutorial/Views/TutorialView.swift lines 36-167 (PATTERNS §2.16).
+    Multi-slide hero + title + description, login-item ToggleSwitch on the consent slide,
+    primary CTA "Next" / "Get started" and secondary "Skip" per 17-UI-SPEC.md §Copywriting.
+    Type.Display title (32 SemiBold), Type.Body description (14 Regular). Spacing on the
+    16/24/48 grid (no 12px).
+-->
+<Page
+    x:Class="DS3Drive.App.Pages.TutorialPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:DS3Drive.ViewModels.ViewModels"
+    xmlns:conv="using:DS3Drive.App.Converters"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+    </Page.Resources>
+
+    <Grid Padding="48">
+        <StackPanel HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="24"
+                    MaxWidth="520">
+
+            <!-- Slide hero placeholder (240x160); artwork ships via Plan 04 / Plan 12. -->
+            <Border Width="240" Height="160"
+                    HorizontalAlignment="Center"
+                    CornerRadius="8"
+                    Background="{ThemeResource BrandBg800Brush}" />
+
+            <TextBlock Style="{StaticResource Type.Display}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       Text="{x:Bind ViewModel.CurrentSlide.Title, Mode=OneWay}" />
+
+            <TextBlock Style="{StaticResource Type.Body}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       Text="{x:Bind ViewModel.CurrentSlide.Description, Mode=OneWay}" />
+
+            <ToggleSwitch x:Name="StartAtLoginToggle"
+                          HorizontalAlignment="Center"
+                          Header="Start DS3 Drive at login"
+                          IsOn="{x:Bind ViewModel.StartAtLoginEnabled, Mode=TwoWay}"
+                          Visibility="{x:Bind ViewModel.IsLoginItemSlide, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
+                          AutomationProperties.Name="Start DS3 Drive at login" />
+
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Spacing="16">
+                <Button Style="{StaticResource BrandSecondaryButton}"
+                        Content="Skip"
+                        Command="{x:Bind ViewModel.SkipCommand}"
+                        AutomationProperties.Name="Skip" />
+                <Button Style="{StaticResource BrandPrimaryButton}"
+                        Content="{x:Bind ViewModel.PrimaryCtaLabel, Mode=OneWay}"
+                        Command="{x:Bind ViewModel.NextCommand}"
+                        AutomationProperties.Name="Continue" />
+            </StackPanel>
+
+            <ProgressBar Maximum="{x:Bind ViewModel.Slides.Count}"
+                         Value="{x:Bind SlideProgress(ViewModel.CurrentSlideIndex), Mode=OneWay}"
+                         Width="200"
+                         HorizontalAlignment="Center" />
+        </StackPanel>
+    </Grid>
+</Page>

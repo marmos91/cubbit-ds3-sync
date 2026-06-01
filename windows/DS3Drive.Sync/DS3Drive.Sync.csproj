@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    DS3Drive.Sync — cfapi (Cloud Files API) provider + C# sync engine.
+    Hosts the cfapi callback table and SQLite-backed placeholder index.
+    References DS3Drive.Core for all S3/auth via the Rust facade.
+    See 17-CONTEXT.md D-15/D-16/D-17 and 17-PATTERNS.md §1.2.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <!-- Match the .sln x64/ARM64 mappings so VS can build/launch the solution. -->
+    <Platforms>x64;ARM64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DS3Drive.Core\DS3Drive.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Vanara.PInvoke.CldApi" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
+  <!-- SQL migrations are embedded so SchemaMigrator can enumerate + apply them
+       at first-open via GetManifestResourceStream (PATTERNS §2.12). -->
+  <ItemGroup>
+    <EmbeddedResource Include="Migrations\001_initial.sql" />
+    <EmbeddedResource Include="Migrations\002_singleton_state.sql" />
+  </ItemGroup>
+
+</Project>

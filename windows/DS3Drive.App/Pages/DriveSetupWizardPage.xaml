@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    DriveSetupWizardPage — the 4-step wizard shell (Project → Bucket → Prefix → Confirm,
+    D-09). Per 17-UI-SPEC.md §"Component Inventory": a WizardStepIndicator rail at the top,
+    a Frame that hosts the active step page (code-behind navigates it on
+    DriveSetupViewModel.CurrentStep changes), and a bottom button bar — Back
+    (BrandSecondaryButton), Cancel (HyperlinkButton), and the primary "Continue" /
+    "Create drive" CTA (BrandPrimaryButton, IsDefault=true). Wizard navigation is driven
+    programmatically by the view-model state machine, not by user rail clicks.
+-->
+<Page
+    x:Class="DS3Drive.App.Pages.DriveSetupWizardPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:DS3Drive.App.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Padding="24" RowSpacing="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Step rail. -->
+        <controls:WizardStepIndicator Grid.Row="0" x:Name="StepIndicator"
+                                      CurrentIndex="{x:Bind CurrentStepIndex, Mode=OneWay}" />
+
+        <!-- Active step host. -->
+        <Frame Grid.Row="1" x:Name="StepFrame" />
+
+        <!-- Bottom button bar. -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0" x:Name="BackButton"
+                    Style="{StaticResource BrandSecondaryButton}"
+                    Content="Back"
+                    Click="Back_Click"
+                    AutomationProperties.Name="Back" />
+
+            <HyperlinkButton Grid.Column="1" x:Name="CancelButton"
+                             Content="Cancel"
+                             HorizontalAlignment="Center"
+                             Click="Cancel_Click"
+                             AutomationProperties.Name="Cancel" />
+
+            <Button Grid.Column="2" x:Name="PrimaryButton"
+                    Style="{StaticResource BrandPrimaryButton}"
+                    Content="Continue"
+                    IsEnabled="True"
+                    Click="Primary_Click"
+                    AutomationProperties.Name="Continue" />
+        </Grid>
+    </Grid>
+</Page>

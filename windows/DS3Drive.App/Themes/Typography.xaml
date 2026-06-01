@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Typography.xaml — TextBlock styles for the DS3 Drive Windows shell.
+    Split out of Tokens.xaml (Plan 08 fix): these styles reference the theme-aware
+    text brushes (TextPrimaryBrush / TextSecondaryBrush) and the FontFamily.Body
+    token, all defined in SIBLING merged dictionaries (Brushes.xaml / Tokens.xaml).
+    A merged dictionary's {StaticResource} cannot see sibling merged dictionaries
+    (nor ThemeDictionaries), so every cross-dictionary reference here uses
+    {ThemeResource}, which resolves against the assembled App.Resources at runtime.
+
+      Revision 1 — 4 sizes only (12 / 14 / 24 / 32).
+      Revision 2 — 2 weights only (Regular 400 / SemiBold 600). Emphasis via color.
+-->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Self-merge Brushes (which self-merges Tokens) so the theme-brush + FontFamily
+         lookups below resolve: a merged dictionary cannot see sibling merged dictionaries. -->
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="ms-appx:///Themes/Brushes.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <Style x:Key="Type.Display" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{ThemeResource FontFamily.Body}" />
+        <Setter Property="FontSize" Value="32" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="LineHeight" Value="38" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+    </Style>
+
+    <Style x:Key="Type.H2" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{ThemeResource FontFamily.Body}" />
+        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="LineHeight" Value="29" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+    </Style>
+
+    <Style x:Key="Type.Body" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{ThemeResource FontFamily.Body}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="LineHeight" Value="21" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+    </Style>
+
+    <!-- Same size/weight as Body; de-emphasized via Text.Secondary color. -->
+    <Style x:Key="Type.BodySecondary" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{ThemeResource FontFamily.Body}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="LineHeight" Value="21" />
+        <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+    </Style>
+
+    <!-- Button label — shares Body size, distinguished by SemiBold weight. -->
+    <Style x:Key="Type.Button" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{ThemeResource FontFamily.Body}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="LineHeight" Value="17" />
+    </Style>
+
+    <Style x:Key="Type.Caption" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{ThemeResource FontFamily.Body}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="LineHeight" Value="17" />
+        <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+    </Style>
+
+    <!-- StatusPill label — emphasis via SemiBold (replaces macOS Caption Medium). -->
+    <Style x:Key="Type.CaptionEmphasis" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{ThemeResource FontFamily.Body}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="LineHeight" Value="17" />
+    </Style>
+
+</ResourceDictionary>

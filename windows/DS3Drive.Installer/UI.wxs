@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  UI.wxs — UI text overrides for the DS3 Drive MSI.
+
+  The WixUI dialog set itself (WixUI_Minimal) is referenced once in Product.wxs
+  (<ui:WixUI Id="WixUI_Minimal" />). WixUI_Minimal is the smallest dialog set that still
+  supports D-28's primary distribution path — silent install via
+  `msiexec /i DS3Drive.msi /qn` — while giving an interactive run a license screen.
+
+  This fragment carries only UI string overrides (no second <ui:WixUI> reference, which
+  would collide). The WelcomeDlg/ExitDlg pick these up so the chrome reads
+  "Cubbit DS3 Drive". Requires the WixToolset.UI.wixext extension (referenced in the wixproj).
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Fragment>
+    <UI>
+      <UIText Id="DS3DriveWelcome" Value="Cubbit DS3 Drive Setup" />
+    </UI>
+  </Fragment>
+
+</Wix>

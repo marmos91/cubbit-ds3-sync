@@ -1,0 +1,247 @@
+---
+status: partial
+phase: 17-windows-shell
+source: [17-08-PLAN.md Task 4, 17-09-PLAN.md Task 3, 17-10-PLAN.md Task 5, 17-11-PLAN.md Task 4, 17-12-PLAN.md Task 3, 17-12-PLAN.md Task 4]
+started: 2026-05-29
+updated: 2026-05-29
+---
+
+## Current Test
+
+[awaiting human testing — requires local x64 ds3_ffi.dll + Windows App SDK runtime + a 2FA-enabled test account; ideally run alongside the 17-11 tray-app smoke]
+
+## Tests
+
+### 1. App launches with Mica backdrop (17-08)
+expected: `dotnet run --project DS3Drive.App` (built WITH the Rust DLL) opens a window with a visible Mica blur texture (not a solid color).
+result: [pending]
+
+### 2. Login typography + brand tokens (17-08)
+expected: Headline "DS3 Drive" Figtree SemiBold 32px; subhead "Sign in to your account" SemiBold 24px; no 18px or Medium-weight text; spacing on the 4/8/16/24/32/48 grid (no 12px gaps).
+result: [pending]
+
+### 3. Primary button accent + hover (17-08)
+expected: accent `#005CE8` background; hover lifts to `#337CEC`.
+result: [pending]
+
+### 4. Invalid-credentials error (17-08)
+expected: Sign in with bad credentials → InfoBar Severity=Error "Sign-in failed. Check your email and password, then try again."
+result: [pending]
+
+### 5. 2FA routing parity (17-08, D-15)
+expected: Valid credentials on a 2FA-enabled account → navigates to TwoFactorPage WITHOUT an inline error on Login.
+result: [pending]
+
+### 6. 2FA → Tutorial (17-08)
+expected: Entering the 2FA code navigates to TutorialPage.
+result: [pending]
+
+### 7. Tutorial + Open-at-login (17-08)
+expected: Tutorial walks slides; "Start DS3 Drive at login" toggle exists; "Get started" finishes.
+result: [pending]
+
+### 8. Single-instance guard (17-08, D-27)
+expected: Relaunching the app does NOT open a second window.
+result: [pending]
+
+### 9. Open-at-login registry write (17-08, D-26)
+expected: `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` has a "Cubbit DS3 Drive" entry iff the toggle was ON.
+result: [pending]
+
+### 10. Drives list empty state (17-09)
+expected: After sign-in + tutorial, DrivesListPage shows the "No drives yet" empty state with the "Add your first drive" CTA.
+result: [pending]
+
+### 11. Wizard opens to Project step (17-09)
+expected: Click "Add your first drive" → wizard opens to ProjectSelectionPage; projects load (ProgressRing "Loading projects…" → list).
+result: [pending]
+
+### 12. Project → Bucket + step indicator (17-09, D-09)
+expected: Click a project → navigates to BucketSelectionPage; WizardStepIndicator shows step 2 of 4 with the BrandPrimary accent on the active circle.
+result: [pending]
+
+### 13. Bucket → Prefix tree + "Use root" (17-09)
+expected: Click a bucket → PrefixSelectionPage; the "Use root" option works and a tree of object prefixes lazy-loads from S3.
+result: [pending]
+
+### 14. Confirm summary card (17-09)
+expected: Continue with root selected → DriveConfirmPage shows summary (Project / Bucket / Folder=Root / Drive name defaulting to bucket name).
+result: [pending]
+
+### 15. Create drive end-to-end (17-09, PATTERNS §3.3)
+expected: Edit the drive name, click "Create drive" → "Setting up your drive…" ProgressRing, then navigation back to DrivesListPage with the new drive visible.
+result: [pending]
+
+### 16. API key in Cubbit console (17-09, D-10)
+expected: The Cubbit web console shows an API key named `ds3drive({username}_{project}_{installation_id})` (deterministic name pattern, matches macOS).
+result: [pending]
+
+### 17. 3-drive cap hides Add (17-09, D-23)
+expected: Add two more drives; on the third success the "Add drive" button is hidden/disabled.
+result: [pending]
+
+### 18. Back preserves picker state (17-09, UI-SPEC Open Q #4)
+expected: From the wizard's Bucket step click Back → lands on the Project step with the previous project still selected/highlighted.
+result: [pending]
+
+### 19. SQLite rows (17-09)
+expected: `%LOCALAPPDATA%\Cubbit\DS3Drive\sync.db` → `SELECT * FROM drives;` returns 3 rows and `SELECT * FROM api_keys;` returns 3 rows.
+result: [pending]
+
+### 20. Sync root in Explorer sidebar (17-10, WIN-03)
+expected: On a Win11 ARM64 VM with the Plan 04 sparse package registered + a dev sideload, sign in and create a drive pointing at a bucket with ≥10 objects (incl. one ≥100MB file). Open Explorer → "Cubbit DS3 Drive — <drive name>" appears under "This PC" / in the sidebar with the Cubbit icon.
+result: [pending]
+
+### 21. Hydration progress on a ≥100MB file (17-10, WIN-08)
+expected: Right-click a ≥100MB cloud-only file → Open. Explorer's status column shows a visible progress percentage during hydration; the file opens after hydration completes.
+result: [pending]
+
+### 22. Hydration streaming never stalls > 30s (17-10, WIN-04, Pitfall 2)
+expected: Repeat for a 1GB file (if available). Hydration never has a >30s "no progress" stretch. Event Viewer (`Cubbit-DS3Drive-Core`) shows chunks logged every few seconds (CfReportProviderProgress resets the watchdog).
+result: [pending]
+
+### 23. Upload on save (17-10, WIN-05)
+expected: Create a new file in the sync folder → save. Exactly ONE upload event in Event Viewer; the file appears in the Cubbit web console under the expected key.
+result: [pending]
+
+### 24. No spurious upload after hydration (17-10, WIN-05, Pitfall 3 CRITICAL)
+expected: Take a cloud-only file → double-click to hydrate → close WITHOUT editing. Tail the log → ZERO upload PUT requests. A PUT here means the IsDirty guard failed → REJECT.
+result: [pending]
+
+### 25. Remote-change detection within one poll cycle (17-10, WIN-06)
+expected: From the Cubbit web console, upload a new object to the bucket. Within ≤60s (D-18 polling cadence) the placeholder appears in Explorer.
+result: [pending]
+
+### 26. Rename round-trips to S3 (17-10)
+expected: Rename a file in Explorer → Cubbit console shows the old key deleted + the new key created (S3 has no rename: CopyObject + DeleteObject).
+result: [pending]
+
+### 27. Delete round-trips to S3 (17-10)
+expected: Delete a file in Explorer → the object disappears from Cubbit.
+result: [pending]
+
+### 28. No shell icon-overlay handler (17-10, Pitfall 4)
+expected: `grep -ri "IShellIconOverlayIdentifier" windows/` returns only doc-comment references (the ban note), never an implemented `IShellIconOverlayIdentifier` COM class. State icons come from cfapi placeholder pin/in-sync states, not an overlay handler.
+result: [pending]
+
+### 29. No ReadDirectoryChangesW upload trigger (17-10, Pitfall 3)
+expected: `grep -ri "ReadDirectoryChangesW" windows/` returns only the doc-comment ban note, never a live call. The only upload trigger is NOTIFY_FILE_CLOSE_COMPLETION.
+result: [pending]
+
+### 30. Parent folder status not stuck (17-10, PATTERNS §2.8, f8917ee regression)
+expected: Open the parent folder of an active sync operation. The parent folder's sync status badge updates correctly and does NOT stay stuck in "syncing" after the child file completes (regression check on the NotificationManager counter/debounce logic).
+result: [pending]
+
+### 31. NTFS guard + sparse-identity guard (17-10, Pitfalls 1 & 8)
+expected: Point a drive at a non-NTFS volume (e.g. a FAT32/exFAT USB) → registration fails with a clear "NTFS required" error, not a crash. Without the sparse package registered, registration surfaces the E_NOT_VALID_STATE / "not supported" guidance rather than silently failing.
+result: [pending]
+
+### 32. Tray icon appears in the notification area (17-11, WIN-07)
+expected: With the app running, the DS3 Drive icon appears in the notification area (Windows 11 may park it in the overflow flyout — drag it onto the taskbar to confirm). Tooltip reads "DS3 Drive — Idle" with no drives.
+result: [pending]
+
+### 33. Single-click opens the Acrylic flyout (17-11, UI-SPEC §Interaction Contracts)
+expected: Single-click the tray icon → the 360×540 flyout appears with a visible Acrylic backdrop (translucent blur, not a solid fill) and a 200ms fade-in. Header shows "DS3 Drive" + an aggregate StatusPill.
+result: [pending]
+
+### 34. Flyout contents with 2 drives (17-11, D-22)
+expected: With 2 drives created, the flyout lists two TrayDriveRows (name + bucket, StatusPill, transfer speed, gear menu), a "Recent activity" list (may be empty initially), and a footer row: Add drive (visible) / Settings / Help / Quit.
+result: [pending]
+
+### 35. Drive StatusPill + TransferSpeedLabel during sync (17-11)
+expected: Drop a file into one drive's sync folder → that drive's StatusPill turns to Syncing (blue) and the TransferSpeedLabel shows the upload rate (e.g. "1.5 MB/s", tabular numerals).
+result: [pending]
+
+### 36. Tray icon reflects aggregate state precedence (17-11, UI-SPEC §Tray-specific)
+expected: While one drive syncs, the tray icon swaps to the syncing state. Multi-state precedence holds: Error > Syncing > Paused > Idle (an errored drive outranks a syncing one).
+result: [pending]
+
+### 37. Hover tint does NOT eat the click (17-11, PROJECT MEMORY — CRITICAL)
+expected: Hover a TrayDriveRow → a subtle accent-tinted background appears. Click the row body → it still routes (navigation/main window). The hover overlay MUST NOT swallow the click (IsHitTestVisible="False" discipline). If the click does nothing, this step is REJECTED.
+result: [pending]
+
+### 38. Gear MenuFlyout on a drive row (17-11)
+expected: Click the gear on a drive row → a MenuFlyout with Pause/Resume + Open in Explorer + Remove drive.
+result: [pending]
+
+### 39. Pause from the row updates state (17-11)
+expected: Click Pause → that drive's StatusPill turns Paused (yellow); the tray icon overlay updates to paused if no other drive is syncing.
+result: [pending]
+
+### 40. Right-click compact menu (17-11, UI-SPEC §Tray-specific)
+expected: Right-click the tray icon → a compact MenuFlyout: Open Cubbit / Pause all / Resume all / Settings / Help / Quit.
+result: [pending]
+
+### 41. Settings page 4 sections + typography (17-11, D-24, UI-SPEC §2.15)
+expected: Flyout "Settings" → SettingsPage with a 4-item left rail (Account / Coordinator URL / Drives / Logging). Each section heading is 24px SemiBold (Type.H2 — NO H3, NO Medium weight).
+result: [pending]
+
+### 42. Sign-out destructive dialog copy (17-11, UI-SPEC §Destructive)
+expected: Account → Sign out → ContentDialog titled "Sign out of Cubbit?" with body "Your drives will stop syncing on this PC. You can sign back in any time — no files will be deleted." Primary button "Sign out"; cancel button "Stay signed in" (NOT "Cancel").
+result: [pending]
+
+### 43. Reduced-motion respect on the flyout (17-11, UI-SPEC §Animation)
+expected: Settings → Accessibility → "Animation effects" OFF → reopen the flyout → it appears immediately with no fade/slide animation.
+result: [pending]
+
+---
+
+> ## MSI install + packaging (17-12, WIN-09)
+>
+> Build the MSI on the Windows 11 ARM64 dev VM first:
+> `pwsh -File windows\DS3Drive.Installer\build-msi.ps1 -Version 2.0.0.0 -Profile Release -SkipSign`
+> (WiX v4 CLI required: `dotnet tool install --global wix --version 4.*`). The MSI lands at
+> `windows\bin\Release\DS3Drive-2.0.0.0-x64.msi`. These items cover only the MSI-install /
+> packaging surface — sign-in, wizard, hydration, upload, tray and conflict behaviour are
+> already covered by items 1–43 above and by `windows/manual-smoke-D-33.md`.
+
+### 44. MSI builds via the WiX CLI (17-12, WIN-09)
+expected: `build-msi.ps1 -Version 2.0.0.0 -SkipSign` exits 0 and emits `windows\bin\Release\DS3Drive-2.0.0.0-x64.msi`; the run prints a SHA256 + byte size. The publish output under `windows\bin\Release\publish\` contains `ds3_ffi.dll` (NOT a "core"-named dll) and `Identity\DS3Drive.Identity.msix`.
+result: [pending]
+
+### 45. Silent install exits 0 (17-12, WIN-09, D-28)
+expected: `msiexec /i windows\bin\Release\DS3Drive-2.0.0.0-x64.msi /qn /L*v install.log` exits 0; `install.log` shows no errors; `Get-ChildItem "$env:ProgramFiles\Cubbit\DS3 Drive"` lists `DS3Drive.App.exe`, `ds3_ffi.dll`, `Identity\DS3Drive.Identity.msix`, and `Assets\SyncRoot.ico`.
+result: [pending]
+
+### 46. Sparse identity package registered (17-12, WIN-09, Pitfall 1)
+expected: After install, `Get-AppxPackage Cubbit.DS3Drive` returns one row with Version `2.0.0.0` (matching the MSI ProductVersion). This is the load-bearing link that lets `StorageProviderSyncRootManager.Register` succeed — without it the sync root never appears in Explorer.
+result: [pending]
+
+### 47. Run key written for auto-start (17-12, D-26)
+expected: `Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'` shows a `Cubbit DS3 Drive` value pointing at the installed `DS3Drive.App.exe`.
+result: [pending]
+
+### 48. Start Menu shortcut present (17-12)
+expected: A "Cubbit DS3 Drive" shortcut exists in the user's Start Menu (folder "Cubbit DS3 Drive") and launches the installed exe.
+result: [pending]
+
+### 49. Auto-start after reboot (17-12, D-26)
+expected: Reboot the VM, log in, and within ~30s the tray icon appears with no manual launch — confirming the Run key drives auto-start end-to-end.
+result: [pending]
+
+### 50. Sync root works through the installed MSI (17-12, WIN-03)
+expected: With the MSI-installed build (not a `dotnet run` build), complete the wizard for a test drive; the sync root appears in the Explorer sidebar. This proves the sparse package + cfapi registration path works through the real installer, not just a dev build.
+result: [pending]
+
+### 51. Silent uninstall cleans up (17-12, WIN-09, Pitfall 7)
+expected: `msiexec /x windows\bin\Release\DS3Drive-2.0.0.0-x64.msi /qn /L*v uninstall.log` exits 0; `%ProgramFiles%\Cubbit\DS3 Drive` is removed; `Get-AppxPackage Cubbit.DS3Drive` returns nothing; the `Cubbit DS3 Drive` Run-key value is gone.
+result: [pending]
+
+### 52. NTFS guard rejects a non-NTFS target (17-12, Pitfall 8)
+expected: Attempt to install with `INSTALLFOLDER` redirected to a FAT32/exFAT volume (e.g. `msiexec /i ...msi INSTALLFOLDER="X:\Cubbit" /qn /L*v ntfs.log`). The install FAILS via the VerifyNtfs guard message rather than silently producing a non-functional cfapi install on a non-NTFS volume.
+result: [pending]
+
+### 53. Phase 17 WIN-XX sign-off (17-12, Task 4, CONTEXT D-33)
+expected: With the MSI-installed build, complete EVERY item in `windows/manual-smoke-D-33.md` (WIN-01 … WIN-09 + multi-drive + conflict + Pitfall 3 zero-PUT + Pitfall 4 no-overlay-handler negative checks). Tick all checkboxes, fill the Sign-off table, and commit the completed checklist. Phase 17 closes only when this checklist is fully green.
+result: [pending]
+
+## Summary
+
+total: 53
+passed: 0
+issues: 0
+pending: 53
+skipped: 0
+blocked: 0
+
+## Gaps

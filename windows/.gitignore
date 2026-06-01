@@ -1,0 +1,23 @@
+# .NET build artifacts
+[Bb]in/
+[Oo]bj/
+
+# Native core libraries staged by DS3Core.Build.targets (built from core/ on every build).
+# The runtimes/<rid>/native/ folders themselves are kept via .gitkeep.
+runtimes/**/native/*.dll
+runtimes/**/native/*.pdb
+
+# Visual Studio / Rider local state
+.vs/
+*.user
+
+# VS project-upgrade log (emitted when opening the solution)
+UpgradeLog*.htm
+UpgradeLog*/
+
+# WinUI / MSIX generated output
+AppPackages/
+BundleArtifacts/
+*.appx
+*.appxbundle
+*.msix

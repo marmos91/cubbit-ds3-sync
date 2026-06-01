@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1" xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
+
+  <!--
+    Win32 side-by-side application manifest for the unpackaged WinUI 3 exe.
+
+    The assemblyIdentity below references the sparse package identity
+    (name="Cubbit.DS3Drive" version="2.0.0.0") so the OS can match the activating
+    exe to the registered sparse package at activation time — granting it package
+    identity for cfapi's StorageProviderSyncRootManager.Register (RESEARCH Pitfall 1).
+    Name/Version MUST stay in lockstep with:
+      - windows/DS3Drive.Installer/SparsePackage/Package.appxmanifest
+      - windows/DS3Drive.App/Package.appxmanifest
+
+    LOAD-BEARING WARNINGS
+    Per RESEARCH Pitfall 7: bump the version on EVERY MSI release. Per RESEARCH
+    Pitfall 1: the Publisher subject in the sparse manifest MUST equal the
+    Authenticode cert subject byte-for-byte (placeholder per CONTEXT D-29).
+  -->
+  <assemblyIdentity version="2.0.0.0" name="Cubbit.DS3Drive" processorArchitecture="amd64" type="win32" />
+
+  <!-- asmv3 trustInfo: run as invoker (no elevation), no UIAccess. -->
+  <asmv3:trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <asmv3:security>
+      <asmv3:requestedPrivileges>
+        <asmv3:requestedExecutionLevel level="asInvoker" uiAccess="false" />
+      </asmv3:requestedPrivileges>
+    </asmv3:security>
+  </asmv3:trustInfo>
+
+  <!-- Per-monitor v2 DPI awareness (WinUI 3 requirement) + long-path support. -->
+  <asmv3:application>
+    <asmv3:windowsSettings>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true</dpiAware>
+      <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
+    </asmv3:windowsSettings>
+  </asmv3:application>
+
+  <!-- Declare supported Windows versions (10 + 11) for correct API behavior. -->
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Windows 10 and Windows 11 -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
+    </application>
+  </compatibility>
+
+</assembly>
