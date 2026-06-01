@@ -405,6 +405,22 @@ Plans:
 
 - [x] 17-12-PLAN.md -- WiX v4 MSI installer: Product.wxs with NTFS guard (Pitfall 8), MajorUpgrade (Pitfall 7), Add-AppxPackage custom action (Pitfall 1), HKCU Run key (D-26), build-msi.ps1, windows-release.yml tag-triggered, final D-33 smoke checklist sign-off
 
+### Phase 17.1: Windows S3-Client FFI Wiring + Sync Enablement
+
+**Goal**: Wire the S3 client across the FFI boundary so the Windows app can list buckets, browse prefixes, and run the cfapi sync engine end-to-end -- completing the sync promise of Phase 17, which delivered the shell, auth, projects, and cfapi plumbing but left S3 operations unreachable.
+**Depends on**: Phase 17
+**Discovered**: 2026-06-01 first-run smoke (native ARM64, PR #179). `ds3_list_buckets` and every S3 export (`list_objects`, `head_object`, upload/download/delete/copy) require a `DS3S3Client` handle, but no FFI export mints one (`DS3S3Client::new` exists in `ds3-s3` but is unexposed). The C# facade passes the `DS3Session` handle instead, so Rust derefs the wrong struct -> `AccessViolationException` at the wizard's Bucket step, and all sync (hydrate/upload/download) is blocked. Everything up to the S3 boundary (login, 2FA, projects, API keys, UI, navigation) is verified working.
+**Success Criteria** (what must be TRUE):
+
+  1. An FFI export mints a `DS3S3Client` from S3 credentials (`ds3_s3_client_new(endpoint, access_key, secret_key, region)` + a matching `ds3_s3_client_destroy`), and the C# facade owns and disposes the resulting handle.
+  2. S3 credentials are derived from the API-key flow per project/drive (matching macOS `driveS3Client` built from `apiKeys`), not the raw IAM session token.
+  3. The drive-setup wizard lists real buckets for the selected project and browses prefixes without crashing.
+  4. The cfapi sync engine's list/head/download/upload/delete/copy operations route through the S3-client handle (not the session handle), so a created drive hydrates cloud-only files and uploads local changes against real Cubbit S3.
+  5. The full first-run smoke (login -> 2FA -> wizard -> create drive -> bidirectional sync round-trip) completes end-to-end on native ARM64.
+
+**Plans**: TBD
+**UI hint**: no
+
 ### Phase 18: Polish + Beta Hardening
 
 **Goal**: Both Apple and Windows platforms are release-quality -- structured cross-platform logging, correct error surfaces, multi-drive support, auto-update, and a production installer that enterprise IT can deploy silently
@@ -429,7 +445,7 @@ Plans:
 - v2.0: 6 -> 7 -> 8 -> 9
 - v3.0: 10
 - v3.1: 11 -> 12 -> 13 -> 14
-- v2.0.0: 15 -> 16 + 17 (parallel) -> 18
+- v2.0.0: 15 -> 16 + 17 (parallel) -> 17.1 -> 18
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -450,6 +466,7 @@ Plans:
 | 15. Rust Core + FFI Foundation | v2.0.0 | 7/7 | Complete   | 2026-05-27 |
 | 16. Apple Incremental Swap | v2.0.0 | 6/7 | In Progress|  |
 | 17. Windows Shell | v2.0.0 | 12/12 | Complete   | 2026-05-29 |
+| 17.1. Windows S3-Client FFI Wiring | v2.0.0 | 0/0 | Not started | - |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
 
 ---
