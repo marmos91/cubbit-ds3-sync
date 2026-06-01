@@ -33,7 +33,7 @@
     </UserControl.Resources>
 
     <!-- Card backing. -->
-    <Grid x:Name="CardRoot" CornerRadius="10" Background="{StaticResource BrandSurfaceBrush}">
+    <Grid x:Name="CardRoot" CornerRadius="10" Background="{ThemeResource BrandSurfaceBrush}">
         <Grid ColumnSpacing="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="3" />
@@ -54,7 +54,7 @@
                 <!-- 28x28 drive icon with a small status dot. -->
                 <Grid Grid.Column="0" Width="28" Height="28" VerticalAlignment="Center">
                     <FontIcon FontFamily="Segoe Fluent Icons" FontSize="22" Glyph=""
-                              Foreground="{StaticResource TextSecondaryBrush}" />
+                              Foreground="{ThemeResource TextSecondaryBrush}" />
                     <Ellipse x:Name="StatusDot" Width="10" Height="10"
                              HorizontalAlignment="Left" VerticalAlignment="Bottom"
                              Fill="{StaticResource StatusSuccessBrush}" />
@@ -79,7 +79,7 @@
                                                      BytesPerSecond="{x:Bind ViewModel.DownloadBytesPerSec, Mode=OneWay}" />
                         <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                             <FontIcon FontFamily="Segoe Fluent Icons" FontSize="12" Glyph=""
-                                      Foreground="{StaticResource TextSecondaryBrush}" />
+                                      Foreground="{ThemeResource TextSecondaryBrush}" />
                             <!-- tnum has no WinUI TextBlock analog (see TransferSpeedLabel); stable advance via IsTextScaleFactorEnabled. -->
                             <TextBlock Style="{StaticResource Type.Caption}" IsTextScaleFactorEnabled="False"
                                        Text="{x:Bind ViewModel.LastUpdated, Mode=OneWay, Converter={StaticResource RelativeTime}}" />
@@ -94,7 +94,7 @@
                         VerticalAlignment="Center"
                         AutomationProperties.Name="Drive actions">
                     <FontIcon FontFamily="Segoe Fluent Icons" FontSize="16" Glyph=""
-                              Foreground="{StaticResource TextSecondaryBrush}" />
+                              Foreground="{ThemeResource TextSecondaryBrush}" />
                     <Button.Flyout>
                         <MenuFlyout>
                             <MenuFlyoutItem x:Name="PauseResumeItem"

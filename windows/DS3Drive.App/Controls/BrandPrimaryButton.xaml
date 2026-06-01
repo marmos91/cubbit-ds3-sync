@@ -60,9 +60,9 @@
                                 <VisualState x:Name="Disabled">
                                     <VisualState.Setters>
                                         <Setter Target="ContentPresenter.Background"
-                                                Value="{StaticResource BorderSubtleBrush}" />
+                                                Value="{ThemeResource BorderSubtleBrush}" />
                                         <Setter Target="ContentPresenter.Foreground"
-                                                Value="{StaticResource TextDisabledBrush}" />
+                                                Value="{ThemeResource TextDisabledBrush}" />
                                     </VisualState.Setters>
                                 </VisualState>
                             </VisualStateGroup>

@@ -48,7 +48,7 @@
                                         <Setter Target="ContentPresenter.Background"
                                                 Value="{StaticResource StatusErrorMainBrush}" />
                                         <Setter Target="ContentPresenter.Foreground"
-                                                Value="{StaticResource TextPrimaryBrush}" />
+                                                Value="{ThemeResource TextPrimaryBrush}" />
                                     </VisualState.Setters>
                                 </VisualState>
                                 <VisualState x:Name="Pressed">
@@ -56,15 +56,15 @@
                                         <Setter Target="ContentPresenter.Background"
                                                 Value="{StaticResource StatusErrorDarkBrush}" />
                                         <Setter Target="ContentPresenter.Foreground"
-                                                Value="{StaticResource TextPrimaryBrush}" />
+                                                Value="{ThemeResource TextPrimaryBrush}" />
                                     </VisualState.Setters>
                                 </VisualState>
                                 <VisualState x:Name="Disabled">
                                     <VisualState.Setters>
                                         <Setter Target="ContentPresenter.Foreground"
-                                                Value="{StaticResource TextDisabledBrush}" />
+                                                Value="{ThemeResource TextDisabledBrush}" />
                                         <Setter Target="ContentPresenter.BorderBrush"
-                                                Value="{StaticResource BorderUltraSubtleBrush}" />
+                                                Value="{ThemeResource BorderUltraSubtleBrush}" />
                                     </VisualState.Setters>
                                 </VisualState>
                             </VisualStateGroup>

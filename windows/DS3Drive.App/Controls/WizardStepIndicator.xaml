@@ -42,7 +42,7 @@
                                Text="{x:Bind Label}" />
                     <!-- Connector line (hidden on the last step). -->
                     <Rectangle Width="24" Height="1"
-                               Fill="{StaticResource BorderSubtleBrush}"
+                               Fill="{ThemeResource BorderSubtleBrush}"
                                VerticalAlignment="Center"
                                Visibility="{x:Bind ConnectorVisibility}" />
                 </StackPanel>

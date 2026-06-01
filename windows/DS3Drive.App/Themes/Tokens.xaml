@@ -9,11 +9,12 @@
       Revision 2 — Typography: 2 weights only (Regular 400 / SemiBold 600). No Medium.
       Revision 3 — Spacing: subset {4, 8, 16, 24, 32, 48}. No 12px.
 
-    Colors live here as <Color> tokens; SolidColorBrush wrappers + dark/light
-    ThemeDictionaries live in Brushes.xaml (merged after this dictionary).
-    Typography Styles reference brushes from Brushes.xaml by StaticResource — the
-    lookup resolves at element-parse time against the merged App.Resources, so the
-    ordering of the two dictionaries inside App.xaml does not matter.
+    Layering (load order in App.xaml): Tokens -> Brushes -> Typography -> control styles.
+    This dictionary holds only dependency-free tokens (Color / Thickness / Double /
+    FontFamily). SolidColorBrush wrappers + dark/light ThemeDictionaries live in
+    Brushes.xaml (merged after this). Typography Styles live in Typography.xaml
+    (merged after Brushes) because they reference theme brushes via {ThemeResource};
+    keeping the one-way layering avoids the merge-order cycle that crashed XAML load.
 -->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -60,65 +61,5 @@
     <!-- ===================== Font family ===================== -->
     <!-- Figtree Regular + SemiBold bundled in Assets/Fonts; Segoe UI Variable fallback. -->
     <FontFamily x:Key="FontFamily.Body">ms-appx:///Assets/Fonts/Figtree-Regular.ttf#Figtree, Segoe UI Variable, Segoe UI</FontFamily>
-
-    <!-- ===================== Typography Styles (Revision 1 + 2) ===================== -->
-    <!-- 4 sizes (12/14/24/32), 2 weights (Regular/SemiBold). Emphasis via color, not weight. -->
-
-    <Style x:Key="Type.Display" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource FontFamily.Body}" />
-        <Setter Property="FontSize" Value="32" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="LineHeight" Value="38" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-    </Style>
-
-    <Style x:Key="Type.H2" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource FontFamily.Body}" />
-        <Setter Property="FontSize" Value="24" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="LineHeight" Value="29" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-    </Style>
-
-    <Style x:Key="Type.Body" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource FontFamily.Body}" />
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="FontWeight" Value="Normal" />
-        <Setter Property="LineHeight" Value="21" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-    </Style>
-
-    <!-- Same size/weight as Body; de-emphasized via Text.Secondary color. -->
-    <Style x:Key="Type.BodySecondary" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource FontFamily.Body}" />
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="FontWeight" Value="Normal" />
-        <Setter Property="LineHeight" Value="21" />
-        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
-    </Style>
-
-    <!-- Button label — shares Body size, distinguished by SemiBold weight. -->
-    <Style x:Key="Type.Button" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource FontFamily.Body}" />
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="LineHeight" Value="17" />
-    </Style>
-
-    <Style x:Key="Type.Caption" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource FontFamily.Body}" />
-        <Setter Property="FontSize" Value="12" />
-        <Setter Property="FontWeight" Value="Normal" />
-        <Setter Property="LineHeight" Value="17" />
-        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
-    </Style>
-
-    <!-- StatusPill label — emphasis via SemiBold (replaces macOS Caption Medium). -->
-    <Style x:Key="Type.CaptionEmphasis" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource FontFamily.Body}" />
-        <Setter Property="FontSize" Value="12" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="LineHeight" Value="17" />
-    </Style>
 
 </ResourceDictionary>

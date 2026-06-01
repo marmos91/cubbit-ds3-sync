@@ -30,7 +30,7 @@
         <FontIcon x:Name="DirectionGlyph"
                   FontFamily="Segoe Fluent Icons"
                   FontSize="12"
-                  Foreground="{StaticResource TextSecondaryBrush}"
+                  Foreground="{ThemeResource TextSecondaryBrush}"
                   Glyph="&#xE74A;" />
         <!-- Tabular numerals: WPF's FontFeatureSettings="tnum" has NO WinUI 3 TextBlock analog
              (Rule 3 deviation). The macOS .monospacedDigit() intent is met by binding through

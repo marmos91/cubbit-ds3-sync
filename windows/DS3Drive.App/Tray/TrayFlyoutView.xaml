@@ -67,7 +67,7 @@
         </StackPanel>
 
         <!-- Recent activity. -->
-        <Border Grid.Row="2" Height="1" Background="{StaticResource DividerBrush}" />
+        <Border Grid.Row="2" Height="1" Background="{ThemeResource DividerBrush}" />
         <StackPanel Grid.Row="3" Spacing="8">
             <TextBlock Style="{StaticResource Type.Caption}" Text="Recent activity" />
             <ListView SelectionMode="None"
@@ -85,7 +85,7 @@
 
         <!-- Footer actions. -->
         <Grid Grid.Row="4" ColumnSpacing="8">
-            <Border Height="1" VerticalAlignment="Top" Background="{StaticResource DividerBrush}" Margin="0,0,0,8" />
+            <Border Height="1" VerticalAlignment="Top" Background="{ThemeResource DividerBrush}" Margin="0,0,0,8" />
             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
                 <Button x:Name="AddDriveButton" Content="Add drive"
                         Command="{x:Bind ViewModel.AddDriveCommand}"
