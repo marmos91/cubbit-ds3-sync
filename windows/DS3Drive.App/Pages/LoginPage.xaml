@@ -28,10 +28,15 @@
                     Spacing="16"
                     MaxWidth="360">
 
-            <!-- Cubbit logo placeholder (96x36); brand SVG ships via Plan 04 assets. -->
-            <Border Width="96" Height="36" HorizontalAlignment="Center" />
+            <!-- Cubbit logo, sits directly on the dark backdrop (no card), like macOS. -->
+            <Image Source="ms-appx:///Assets/Images/CubbitLogo.png"
+                   Width="96" Height="36"
+                   Stretch="Uniform"
+                   HorizontalAlignment="Center" />
 
-            <TextBlock Style="{StaticResource Type.Display}"
+            <!-- Small secondary product label under the logo (macOS uses caption here, not a
+                 32px headline) — the title below is the real heading. -->
+            <TextBlock Style="{StaticResource Type.Caption}"
                        HorizontalAlignment="Center"
                        Text="DS3 Drive" />
 
