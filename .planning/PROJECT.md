@@ -95,10 +95,13 @@ Shipped v2.0 with full macOS and iOS/iPadOS support.
 **Architecture:** Main app (SwiftUI) + File Provider extension + DS3Lib (shared SPM package) + Share Extension (iOS)
 **Tests:** 156 unit tests (DS3Lib)
 
+**Windows (v2.0.0 milestone, in progress):** WinUI 3 app shell, auth/2FA, projects, and cfapi sync plumbing landed in Phase 17. Phase 17.1 (complete 2026-06-01) wired the S3 client across the FFI boundary — new `ds3_s3_client_new`/`ds3_s3_client_destroy` C-ABI exports, a `DS3DriveS3Client` handle-owning facade, per-drive API-key-derived credentials, and cfapi sync ops routed through the S3 handle (fixing the wizard `AccessViolationException`). Native ARM64 end-to-end smoke (criterion 5) is the remaining human-verification item (`17.1-HUMAN-UAT.md`), gated on the CI-built `ds3_ffi.dll`.
+
 **Known issues / tech debt:**
 - FOUN-04 (SwiftData metadata database shared via App Group) still pending — sync state tracked in-memory
 - Phase 5 plans 05-04, 05-05 unexecuted (menu bar tray overhaul, Italian localization)
 - ROADMAP checkboxes were not fully updated during v2.0 execution
+- WR-04 (Windows): per-op cancellation handle dropped on S3 download/upload — needs a future C-ABI change (tracked in `17.1-REVIEW-FIX.md`)
 
 ### Platform Architecture (Cubbit DS3)
 
@@ -160,4 +163,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-26 — v2.0.0 Cross-Platform Rewrite milestone started*
+*Last updated: 2026-06-01 — Phase 17.1 complete (Windows S3-client FFI wiring + sync enablement)*
