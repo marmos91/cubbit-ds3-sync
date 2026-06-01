@@ -106,6 +106,42 @@ namespace DS3Drive.Core
         internal static extern int ds3_delete_api_key(DS3Session* handle, byte* user_id, nuint user_id_len, byte* api_key_id, nuint api_key_id_len, byte* iam_token, nuint iam_token_len, int* out_error);
 
         /// <summary>
+        ///  Mints an opaque `DS3S3Client` handle from S3 credentials.
+        ///
+        ///  `endpoint`, `access_key`, and `secret_key` are required UTF-8 buffers.
+        ///  `region` is optional: pass a null pointer or `region_len == 0` to default
+        ///  to `us-east-1` (`DS3S3Client::new` applies the default), matching macOS
+        ///  which supplies no region.
+        ///
+        ///  The constructor performs NO network I/O (it only builds the AWS SDK client
+        ///  config), so there is no `runtime().block_on`; the only fallible step is the
+        ///  UTF-8 decode of the input buffers.
+        ///
+        ///  Returns 0 on success (handle written to `*out_handle`), -1 on error (code in
+        ///  `*out_error`), -2 on panic.
+        ///
+        ///  # Safety
+        ///  Each `*const u8` + `usize` pair must point to valid UTF-8 of the given
+        ///  length (or be null/0 for `region`). `out_handle` and `out_error` must be
+        ///  writable. The returned handle must be freed exactly once with
+        ///  `ds3_s3_client_destroy`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_s3_client_new", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_s3_client_new(byte* endpoint, nuint endpoint_len, byte* access_key, nuint access_key_len, byte* secret_key, nuint secret_key_len, byte* region, nuint region_len, DS3S3Client** out_handle, int* out_error);
+
+        /// <summary>
+        ///  Destroys an S3 client handle, freeing its resources.
+        ///
+        ///  After this call, the handle pointer is invalid. The caller must not use it.
+        ///
+        ///  # Safety
+        ///  `handle` must be a valid pointer returned by `ds3_s3_client_new`. Must not
+        ///  be called twice for the same handle.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_s3_client_destroy", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern void ds3_s3_client_destroy(DS3S3Client* handle);
+
+        /// <summary>
         ///  Lists S3 objects. Returns the result as JSON.
         /// </summary>
         [DllImport(__DllName, EntryPoint = "ds3_list_objects", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
