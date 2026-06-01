@@ -4,12 +4,16 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using DS3Drive.App.Pages;
 using DS3Drive.App.Services;
 using DS3Drive.Core;
 using DS3Drive.Core.Logging;
 using DS3Drive.Core.Records;
+using DS3Drive.Sync;
+using DS3Drive.Sync.Hosting;
 using DS3Drive.Sync.Storage;
+using DS3Drive.Sync.SyncEngine;
 using DS3Drive.ViewModels.Navigation;
 using DS3Drive.ViewModels.Platform;
 using DS3Drive.ViewModels.Services;
@@ -85,6 +89,18 @@ public partial class App : Application
         s.AddSingleton<DriveManagementService>();
         s.AddSingleton<IDriveManagementService>(sp => sp.GetRequiredService<DriveManagementService>());
 
+        // Sync subsystem (Plans 06/10/11) — the cfapi sync host runs for the app's lifetime.
+        //   PlaceholderStore: SQLite-backed placeholder index (over the shared SyncDatabase).
+        //   IDS3SessionAccess: the cfapi engine borrows the SAME live session AuthenticationService
+        //     owns (adapter is that singleton; no second handle, mirrors the IDS3SessionGateway wiring).
+        //   IDriveLifecycleSource: adapts the drive manager's add/remove/pause onto the Sync seam.
+        //   SyncHostedService: registers a sync root + spins a SyncEngine per drive. Started in
+        //     OnLaunched AFTER the drive list loads (so existing drives re-register at launch).
+        s.AddSingleton<PlaceholderStore>();
+        s.AddSingleton<IDS3SessionAccess>(sp => sp.GetRequiredService<AuthenticationService>());
+        s.AddSingleton<IDriveLifecycleSource, DriveLifecycleSource>();
+        s.AddHostedService<SyncHostedService>();
+
         // Window (resolved once at launch).
         s.AddSingleton<MainWindow>();
 
@@ -145,6 +161,31 @@ public partial class App : Application
         Host.Services.GetRequiredService<SyncDatabase>()
             .OpenAsync(CancellationToken.None)
             .GetAwaiter().GetResult();
+
+        // Load configured drives from SQLite BEFORE the sync host enumerates them, so a returning
+        // user's existing drives re-register their cfapi sync roots at launch. Idempotent (the
+        // drives list VM also calls this) and a fast local read; run on the UI thread so the
+        // bound Drives collection is only mutated here.
+        Host.Services.GetRequiredService<DriveManagementService>()
+            .InitializeAsync(CancellationToken.None)
+            .GetAwaiter().GetResult();
+
+        // Start the cfapi sync host (Plans 10/11): registers a sync root per existing drive and
+        // subscribes to DriveAdded/DriveRemoved so the wizard's new drives register live. Run off
+        // the UI thread and guarded — a cfapi/registration failure degrades to "no sync this
+        // session" rather than crashing launch (the login/UI surface stays usable).
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Host.StartAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Host.Services.GetRequiredService<ILogger<App>>()
+                    .LogError(ex, "Sync host failed to start; sync is disabled for this session.");
+            }
+        });
 
         // Surface a second-launch signal by bringing the existing window forward.
         singleInstance.SecondInstanceLaunched += (_, _) =>

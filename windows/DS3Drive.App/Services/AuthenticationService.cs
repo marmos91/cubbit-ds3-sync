@@ -2,7 +2,9 @@ namespace DS3Drive.App.Services;
 
 using DS3Drive.Core;
 using DS3Drive.Core.Exceptions;
+using DS3Drive.Core.Native;
 using DS3Drive.Core.Records;
+using DS3Drive.Sync;
 using DS3Drive.ViewModels.Services;
 using Microsoft.Extensions.Logging;
 
@@ -26,7 +28,7 @@ using Microsoft.Extensions.Logging;
 /// worker thread and never stored on this service or the view-model; the only retained
 /// secret is the refresh token, which lives in the OS-sealed Credential Manager.
 /// </summary>
-public sealed class AuthenticationService : IAuthenticationService, IDS3SessionGateway, IDisposable
+public sealed class AuthenticationService : IAuthenticationService, IDS3SessionGateway, IDS3SessionAccess, IDisposable
 {
     private const string RefreshTokenKey = "refreshToken";
 
@@ -206,4 +208,31 @@ public sealed class AuthenticationService : IAuthenticationService, IDS3SessionG
     /// <inheritdoc />
     void IDS3SessionGateway.DeleteApiKey(string iamUserId, string apiKeyId, string iamToken) =>
         EnsureSession().DeleteApiKey(iamUserId, apiKeyId, iamToken);
+
+    // === IDS3SessionAccess (Plan 17 sync wiring): the cfapi sync host borrows the SAME live
+    // session for object I/O. Explicit implementation keeps it distinct from the overlapping
+    // IDS3SessionGateway members; both resolve to the single owned handle via EnsureSession(). ===
+
+    /// <inheritdoc />
+    string IDS3SessionAccess.AccountId => CurrentAccount?.AccountId ?? string.Empty;
+
+    /// <inheritdoc />
+    IReadOnlyList<DS3Object> IDS3SessionAccess.ListObjects(string bucket, string prefix, string delimiter, string? continuationToken) =>
+        EnsureSession().ListObjects(bucket, prefix, delimiter, continuationToken);
+
+    /// <inheritdoc />
+    DS3Object IDS3SessionAccess.DownloadObject(string bucket, string key, string filePath, DS3ProgressCallback? progress, CancellationHandle? cancel) =>
+        EnsureSession().DownloadObject(bucket, key, filePath, progress, cancel);
+
+    /// <inheritdoc />
+    string IDS3SessionAccess.UploadObject(string bucket, string key, string filePath, DS3ProgressCallback? progress, CancellationHandle? cancel) =>
+        EnsureSession().UploadObject(bucket, key, filePath, progress, cancel);
+
+    /// <inheritdoc />
+    void IDS3SessionAccess.DeleteObject(string bucket, string key) =>
+        EnsureSession().DeleteObject(bucket, key);
+
+    /// <inheritdoc />
+    void IDS3SessionAccess.CopyObject(string srcBucket, string srcKey, string dstBucket, string dstKey) =>
+        EnsureSession().CopyObject(srcBucket, srcKey, dstBucket, dstKey);
 }
