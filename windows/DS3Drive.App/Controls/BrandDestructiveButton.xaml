@@ -13,11 +13,11 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Style x:Key="BrandDestructiveButton" TargetType="Button">
-        <Setter Property="Foreground" Value="{StaticResource StatusErrorMainBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource StatusErrorMainBrush}" />
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderBrush" Value="{StaticResource StatusErrorMainBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource StatusErrorMainBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="FontFamily" Value="{StaticResource FontFamily.Body}" />
+        <Setter Property="FontFamily" Value="{ThemeResource FontFamily.Body}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Padding" Value="16,8" />
@@ -46,7 +46,7 @@
                                 <VisualState x:Name="PointerOver">
                                     <VisualState.Setters>
                                         <Setter Target="ContentPresenter.Background"
-                                                Value="{StaticResource StatusErrorMainBrush}" />
+                                                Value="{ThemeResource StatusErrorMainBrush}" />
                                         <Setter Target="ContentPresenter.Foreground"
                                                 Value="{ThemeResource TextPrimaryBrush}" />
                                     </VisualState.Setters>
@@ -54,7 +54,7 @@
                                 <VisualState x:Name="Pressed">
                                     <VisualState.Setters>
                                         <Setter Target="ContentPresenter.Background"
-                                                Value="{StaticResource StatusErrorDarkBrush}" />
+                                                Value="{ThemeResource StatusErrorDarkBrush}" />
                                         <Setter Target="ContentPresenter.Foreground"
                                                 Value="{ThemeResource TextPrimaryBrush}" />
                                     </VisualState.Setters>

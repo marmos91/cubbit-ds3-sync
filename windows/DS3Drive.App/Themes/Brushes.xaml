@@ -9,25 +9,25 @@
     between the Default (Dark) and Light dictionaries.
 
     Color tokens consumed here come from Tokens.xaml. Both dictionaries are merged
-    into App.Resources so cross-dictionary StaticResource lookups resolve.
+    into App.Resources so cross-dictionary ThemeResource lookups resolve.
 -->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- ===== Theme-invariant brand + status brushes (same value in dark & light) ===== -->
-    <SolidColorBrush x:Key="BrandPrimaryBrush" Color="{StaticResource BrandPrimary}" />
-    <SolidColorBrush x:Key="BrandPrimaryLightBrush" Color="{StaticResource BrandPrimaryLight}" />
-    <SolidColorBrush x:Key="BrandPrimaryDarkBrush" Color="{StaticResource BrandPrimaryDark}" />
+    <SolidColorBrush x:Key="BrandPrimaryBrush" Color="{ThemeResource BrandPrimary}" />
+    <SolidColorBrush x:Key="BrandPrimaryLightBrush" Color="{ThemeResource BrandPrimaryLight}" />
+    <SolidColorBrush x:Key="BrandPrimaryDarkBrush" Color="{ThemeResource BrandPrimaryDark}" />
 
-    <SolidColorBrush x:Key="StatusSuccessBrush" Color="{StaticResource StatusSuccess}" />
-    <SolidColorBrush x:Key="StatusSyncingBrush" Color="{StaticResource StatusSyncing}" />
-    <SolidColorBrush x:Key="StatusWarningBrush" Color="{StaticResource StatusWarning}" />
-    <SolidColorBrush x:Key="StatusErrorMainBrush" Color="{StaticResource StatusErrorMain}" />
-    <SolidColorBrush x:Key="StatusErrorDarkBrush" Color="{StaticResource StatusErrorDark}" />
-    <SolidColorBrush x:Key="StatusInfoBrush" Color="{StaticResource StatusInfo}" />
-    <SolidColorBrush x:Key="StatusConflictBrush" Color="{StaticResource StatusConflict}" />
-    <SolidColorBrush x:Key="StatusCloudOnlyBrush" Color="{StaticResource StatusCloudOnly}" />
+    <SolidColorBrush x:Key="StatusSuccessBrush" Color="{ThemeResource StatusSuccess}" />
+    <SolidColorBrush x:Key="StatusSyncingBrush" Color="{ThemeResource StatusSyncing}" />
+    <SolidColorBrush x:Key="StatusWarningBrush" Color="{ThemeResource StatusWarning}" />
+    <SolidColorBrush x:Key="StatusErrorMainBrush" Color="{ThemeResource StatusErrorMain}" />
+    <SolidColorBrush x:Key="StatusErrorDarkBrush" Color="{ThemeResource StatusErrorDark}" />
+    <SolidColorBrush x:Key="StatusInfoBrush" Color="{ThemeResource StatusInfo}" />
+    <SolidColorBrush x:Key="StatusConflictBrush" Color="{ThemeResource StatusConflict}" />
+    <SolidColorBrush x:Key="StatusCloudOnlyBrush" Color="{ThemeResource StatusCloudOnly}" />
 
     <!-- Drive-row hover tint: brand accent @ 8% (UI-SPEC §Visual States "subtle accent tint @ 8%").
          The TrayDriveRow overlay carrying this brush MUST set IsHitTestVisible="False" (project
@@ -40,8 +40,8 @@
         <!-- Dark theme (primary). -->
         <ResourceDictionary x:Key="Default">
             <!-- Surfaces. -->
-            <SolidColorBrush x:Key="BrandBg900Brush" Color="{StaticResource BrandBg900}" />
-            <SolidColorBrush x:Key="BrandBg800Brush" Color="{StaticResource BrandBg800}" />
+            <SolidColorBrush x:Key="BrandBg900Brush" Color="{ThemeResource BrandBg900}" />
+            <SolidColorBrush x:Key="BrandBg800Brush" Color="{ThemeResource BrandBg800}" />
             <!-- Card surface (macOS brandSurface analog) — drive-row / pill backing. -->
             <SolidColorBrush x:Key="BrandSurfaceBrush" Color="#14FFFFFF" />
             <!-- Text. -->

@@ -18,8 +18,8 @@
 
     <Style x:Key="BrandPrimaryButton" TargetType="Button">
         <Setter Property="Foreground" Value="#FFFFFFFF" />
-        <Setter Property="Background" Value="{StaticResource BrandPrimaryBrush}" />
-        <Setter Property="FontFamily" Value="{StaticResource FontFamily.Body}" />
+        <Setter Property="Background" Value="{ThemeResource BrandPrimaryBrush}" />
+        <Setter Property="FontFamily" Value="{ThemeResource FontFamily.Body}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Padding" Value="16,8" />
@@ -48,13 +48,13 @@
                                 <VisualState x:Name="PointerOver">
                                     <VisualState.Setters>
                                         <Setter Target="ContentPresenter.Background"
-                                                Value="{StaticResource BrandPrimaryLightBrush}" />
+                                                Value="{ThemeResource BrandPrimaryLightBrush}" />
                                     </VisualState.Setters>
                                 </VisualState>
                                 <VisualState x:Name="Pressed">
                                     <VisualState.Setters>
                                         <Setter Target="ContentPresenter.Background"
-                                                Value="{StaticResource BrandPrimaryDarkBrush}" />
+                                                Value="{ThemeResource BrandPrimaryDarkBrush}" />
                                     </VisualState.Setters>
                                 </VisualState>
                                 <VisualState x:Name="Disabled">
