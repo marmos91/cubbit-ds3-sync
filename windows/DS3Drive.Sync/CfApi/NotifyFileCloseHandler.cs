@@ -50,7 +50,7 @@ internal sealed class NotifyFileCloseHandler
 
     private async Task HandleAsync(string normalizedPath, long fileSize)
     {
-        string s3Key = normalizedPath.TrimStart('\\', '/').Replace('\\', '/');
+        string s3Key = PathValidation.NormalizedPathToS3Key(normalizedPath);
         try
         {
             if (!PathValidation.TryValidateS3Key(s3Key, out string? reason))

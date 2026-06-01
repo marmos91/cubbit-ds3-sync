@@ -134,6 +134,28 @@ public static class PathValidation
         return candidate;
     }
 
+    /// <summary>
+    /// Converts a cfapi NormalizedPath (sync-root-relative, backslash-separated) to its S3
+    /// key (forward-slash). cfapi already strips the sync-root prefix for callback
+    /// NormalizedPaths; this only trims a leading separator and flips separators. Shared by
+    /// every cfapi handler so this security-adjacent separator handling has one definition
+    /// (it feeds straight into <see cref="TryValidateS3Key"/>).
+    /// </summary>
+    public static string NormalizedPathToS3Key(string normalizedPath) =>
+        normalizedPath.TrimStart('\\', '/').Replace('\\', '/');
+
+    /// <summary>
+    /// Returns the parent prefix of an S3 key (including the trailing <c>/</c>), or null for
+    /// a top-level key. Populates <c>PlaceholderRecord.ParentKey</c>; centralized here so the
+    /// convention stays in lockstep with the <c>idx_placeholders_parent</c> index across the
+    /// sync engine, the cfapi provider, and the rename handler.
+    /// </summary>
+    public static string? ParentOf(string key)
+    {
+        int slash = key.TrimEnd('/').LastIndexOf('/');
+        return slash < 0 ? null : key[..(slash + 1)];
+    }
+
     private static bool IsReservedName(string segment)
     {
         if (string.IsNullOrEmpty(segment))

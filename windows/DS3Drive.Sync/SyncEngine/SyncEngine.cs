@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DS3Drive.Core;
 using DS3Drive.Core.Records;
+using DS3Drive.Sync.CfApi;
 using DS3Drive.Sync.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -205,7 +206,7 @@ public sealed class SyncEngine : IAsyncDisposable
 
             await _store.UpsertAsync(
                 new PlaceholderRecord(
-                    _drive.Id, key, ParentKey: ParentOf(key),
+                    _drive.Id, key, ParentKey: PathValidation.ParentOf(key),
                     ETag: obj?.ETag ?? existing?.ETag, Size: obj?.Size ?? existing?.Size ?? 0,
                     LastModified: obj?.LastModified ?? existing?.LastModified,
                     IsFolder: key.EndsWith('/'), IsDirty: false,
@@ -218,12 +219,6 @@ public sealed class SyncEngine : IAsyncDisposable
             ct.ThrowIfCancellationRequested();
             await _store.DeleteAsync(_drive.Id, key, ct).ConfigureAwait(false);
         }
-    }
-
-    private static string? ParentOf(string key)
-    {
-        int slash = key.TrimEnd('/').LastIndexOf('/');
-        return slash < 0 ? null : key[..(slash + 1)];
     }
 
     public async ValueTask DisposeAsync()

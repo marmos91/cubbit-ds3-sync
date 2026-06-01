@@ -56,11 +56,12 @@ public sealed partial class DriveManagementService : IDriveManagementService
         {
             // Drives that have never reported a status are assumed idle so a freshly added
             // drive stays visually healthy until the engine reports something
-            // (DS3DriveManager.swift:50-57 "padded" rationale).
+            // (DS3DriveManager.swift:50-57 "padded" rationale). GetStatus applies the same
+            // idle default and additionally surfaces a paused drive as Paused.
             var statuses = new List<DS3DriveStatus>(_drives.Count);
             foreach (var d in _drives)
             {
-                statuses.Add(_statuses.TryGetValue(d.Id, out var s) ? s : DS3DriveStatus.Idle);
+                statuses.Add(GetStatus(d.Id));
             }
 
             return AggregateStatusReducer.From(statuses);

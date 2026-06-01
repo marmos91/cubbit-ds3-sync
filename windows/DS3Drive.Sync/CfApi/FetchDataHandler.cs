@@ -80,7 +80,7 @@ internal sealed class FetchDataHandler
     {
         await _fetchSemaphore.WaitAsync().ConfigureAwait(false);
         _status.BeginOperation();
-        string s3Key = NormalizedPathToS3Key(normalizedPath);
+        string s3Key = PathValidation.NormalizedPathToS3Key(normalizedPath);
         try
         {
             if (!PathValidation.TryValidateS3Key(s3Key, out string? reason))
@@ -190,17 +190,6 @@ internal sealed class FetchDataHandler
         {
             _logger.LogError(ex, "CfExecute(TRANSFER_DATA) failed offset={Offset} len={Length}", offset, length);
         }
-    }
-
-    /// <summary>
-    /// Converts a cfapi NormalizedPath (sync-root-relative, backslash separated) to the
-    /// S3 key (forward-slash). The leading sync-root portion is stripped by cfapi already
-    /// for callback NormalizedPath; we only normalize separators here.
-    /// </summary>
-    private string NormalizedPathToS3Key(string normalizedPath)
-    {
-        string trimmed = normalizedPath.TrimStart('\\', '/');
-        return trimmed.Replace('\\', '/');
     }
 
     private void TryDelete(string path)

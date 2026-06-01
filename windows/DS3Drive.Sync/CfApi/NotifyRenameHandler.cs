@@ -44,7 +44,7 @@ internal sealed class NotifyRenameHandler
 
     internal async Task HandleAsync(string sourcePath, string? targetPath = null)
     {
-        string oldKey = sourcePath.TrimStart('\\', '/').Replace('\\', '/');
+        string oldKey = PathValidation.NormalizedPathToS3Key(sourcePath);
         try
         {
             if (targetPath is null)
@@ -55,7 +55,7 @@ internal sealed class NotifyRenameHandler
                 return;
             }
 
-            string newKey = targetPath.TrimStart('\\', '/').Replace('\\', '/');
+            string newKey = PathValidation.NormalizedPathToS3Key(targetPath);
             bool oldOk = PathValidation.TryValidateS3Key(oldKey, out string? r1);
             bool newOk = PathValidation.TryValidateS3Key(newKey, out string? r2);
             if (!oldOk || !newOk)
@@ -73,7 +73,7 @@ internal sealed class NotifyRenameHandler
             await _store.DeleteAsync(_drive.Id, oldKey, CancellationToken.None).ConfigureAwait(false);
             await _store.UpsertAsync(
                 new PlaceholderRecord(
-                    _drive.Id, newKey, ParentKey: ParentOf(newKey),
+                    _drive.Id, newKey, ParentKey: PathValidation.ParentOf(newKey),
                     ETag: old?.ETag, Size: old?.Size ?? 0, LastModified: old?.LastModified,
                     IsFolder: old?.IsFolder ?? false, IsDirty: false,
                     SyncStatus: "synced", LastSeenAt: DateTime.UtcNow),
@@ -83,11 +83,5 @@ internal sealed class NotifyRenameHandler
         {
             _logger.LogError(ex, "rename failed key={Key}", oldKey);
         }
-    }
-
-    private static string? ParentOf(string key)
-    {
-        int slash = key.TrimEnd('/').LastIndexOf('/');
-        return slash < 0 ? null : key[..(slash + 1)];
     }
 }

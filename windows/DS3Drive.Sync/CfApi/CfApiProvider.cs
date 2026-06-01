@@ -131,7 +131,7 @@ public sealed class CfApiProvider : IAsyncDisposable
             bool isFolder = obj.Key.EndsWith('/');
             await _store.UpsertAsync(
                 new PlaceholderRecord(
-                    _drive.Id, obj.Key, ParentKey: ParentOf(obj.Key),
+                    _drive.Id, obj.Key, ParentKey: PathValidation.ParentOf(obj.Key),
                     ETag: obj.ETag, Size: obj.Size, LastModified: obj.LastModified,
                     IsFolder: isFolder, IsDirty: false,
                     SyncStatus: "cloud-only", LastSeenAt: DateTime.UtcNow),
@@ -145,12 +145,6 @@ public sealed class CfApiProvider : IAsyncDisposable
     public async Task DisconnectAsync(CancellationToken ct)
     {
         await DisposeAsync().ConfigureAwait(false);
-    }
-
-    private static string? ParentOf(string key)
-    {
-        int slash = key.TrimEnd('/').LastIndexOf('/');
-        return slash < 0 ? null : key[..(slash + 1)];
     }
 
     public async ValueTask DisposeAsync()

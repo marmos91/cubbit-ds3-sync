@@ -64,7 +64,7 @@ public static class SyncRootRegistration
 
         var info = new StorageProviderSyncRootInfo
         {
-            Id = $"DS3Drive!{accountId}!{drive.Id}",
+            Id = SyncRootId(accountId, drive.Id),
             Path = folder,
             DisplayNameResource = $"Cubbit DS3 Drive — {drive.Name}",
             IconResource = Path.Combine(installDir, "Assets", "SyncRoot.ico"),

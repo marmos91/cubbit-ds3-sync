@@ -39,7 +39,7 @@ internal sealed class NotifyDeleteHandler
 
     internal async Task HandleAsync(string normalizedPath)
     {
-        string key = normalizedPath.TrimStart('\\', '/').Replace('\\', '/');
+        string key = PathValidation.NormalizedPathToS3Key(normalizedPath);
         try
         {
             if (!PathValidation.TryValidateS3Key(key, out string? reason))
