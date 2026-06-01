@@ -32,6 +32,10 @@ on:
       - "windows/**"
       - "core/**"
       - ".github/workflows/windows-build.yml"
+  # Manual full-suite trigger: drops the Category!=Integration filter and runs the
+  # credential-gated integration tests with the CUBBIT_TEST_* repo secrets. Kept off
+  # push/PR so untrusted forks never see the secrets (threat T-17-03-01).
+  workflow_dispatch:
 
 # Cancel superseded runs for the same ref so a rapid push series only keeps the
 # newest build alive (threat T-17-03-03: bounds cargo-cache contention).
@@ -142,6 +146,29 @@ jobs:
           --configuration Release
           /p:Platform=x64
           --filter "Category!=Integration"
+          --logger "trx"
+          --results-directory ${{ github.workspace }}/TestResults
+
+      # Full integration suite — manual (workflow_dispatch) ONLY, so the
+      # CUBBIT_TEST_* secrets are never exposed to push/PR runs (threat T-17-03-01).
+      # Drops the Category filter; [RequiresCredentials] self-skips any test whose
+      # creds are missing, so an unconfigured dispatch still passes cleanly. Uses the
+      # CUBBIT_TEST_* secret set (the DS3_TEST_* set in build.yml drives the Rust
+      # csharp_harness and is intentionally NOT reused here).
+      - name: Test (integration, live Cubbit S3)
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: windows
+        env:
+          CUBBIT_TEST_EMAIL: ${{ secrets.CUBBIT_TEST_EMAIL }}
+          CUBBIT_TEST_PASSWORD: ${{ secrets.CUBBIT_TEST_PASSWORD }}
+          CUBBIT_TEST_TENANT: ${{ secrets.CUBBIT_TEST_TENANT }}
+          CUBBIT_TEST_COORDINATOR_URL: ${{ secrets.CUBBIT_TEST_COORDINATOR_URL }}
+        run: >-
+          dotnet test DS3Drive.Tests
+          --no-build
+          --configuration Release
+          /p:Platform=x64
+          --filter "Category=Integration"
           --logger "trx"
           --results-directory ${{ github.workspace }}/TestResults
 

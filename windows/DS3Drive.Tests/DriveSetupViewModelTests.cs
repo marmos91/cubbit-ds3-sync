@@ -208,4 +208,57 @@ public sealed class DriveSetupViewModelTests
         Assert.Null(vm.SelectedBucket);
         Assert.True(cancelled);
     }
+
+    // Test 12 — D-06 faked seam, S3 branch.
+    // The fix in this phase routes bucket listing through a valid DS3DriveS3Client
+    // handle (plan 17.1-01/02) so a bad/forbidden bucket surfaces as a clean,
+    // catchable DS3S3Exception (2001-2099) instead of the uncatchable
+    // AccessViolationException the session-handle deref produced. The wizard must
+    // show the inline error, stay on the Bucket step, and leave Buckets empty —
+    // never crash. (We do NOT catch AccessViolationException here: it is a
+    // corrupted-state exception .NET will not deliver to catch — PATTERNS Pitfall 1.)
+    [Fact]
+    public async Task LoadBucketsAsync_OnS3Exception_SetsCreationError_StaysOnBucket_LeavesBucketsEmpty()
+    {
+        var (vm, sdk, _) = Make();
+        // Advance to the Bucket step with a project selected (SelectProject fires a
+        // fire-and-forget load; we drive a deterministic retry via the command below).
+        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<CancellationToken>())
+            .Throws(new DS3S3Exception(2003, "AccessDenied"));
+        vm.SelectProjectCommand.Execute(Project);
+
+        // Deterministic re-invoke of the bucket load (the Retry path).
+        await vm.LoadBucketsCommand.ExecuteAsync(null);
+
+        Assert.Equal(WizardStep.Bucket, vm.CurrentStep); // inline error, stays on step
+        Assert.Empty(vm.Buckets);
+        Assert.NotNull(vm.CreationError);
+        // Fixed UI copy only — never the raw server text (STRIDE T-17-09-05).
+        Assert.DoesNotContain("AccessDenied", vm.CreationError!);
+    }
+
+    // Test 13 — D-06 faked seam, TRANSPORT branch.
+    // Per A1 verification against core/ds3-models/src/error.rs, a bad access key
+    // surfaces as code 3003 (S3Error in the 3001-3099 transport range) →
+    // DS3TransportException, NOT DS3S3Exception. So the bad-credentials path lands
+    // here, and the wizard must show the "check your connection" transport copy.
+    // Both branches are tested because InvalidAccessKeyId does NOT map into the
+    // 2001-2099 S3 range.
+    [Fact]
+    public async Task LoadBucketsAsync_OnTransportException_SetsCreationError_StaysOnBucket()
+    {
+        var (vm, sdk, _) = Make();
+        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<CancellationToken>())
+            .Throws(new DS3TransportException(3003, "invalid access key"));
+        vm.SelectProjectCommand.Execute(Project);
+
+        await vm.LoadBucketsCommand.ExecuteAsync(null);
+
+        Assert.Equal(WizardStep.Bucket, vm.CurrentStep);
+        Assert.Empty(vm.Buckets);
+        Assert.NotNull(vm.CreationError);
+        // Transport copy is shown (the MapErrorCopy DS3TransportException branch).
+        Assert.Contains("connection", vm.CreationError!, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("invalid access key", vm.CreationError!);
+    }
 }
