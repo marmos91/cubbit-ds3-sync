@@ -1,9 +1,8 @@
+namespace DS3Drive.Tests;
 using System.IO;
 using System.Security;
 using DS3Drive.Sync.CfApi;
 using Xunit;
-
-namespace DS3Drive.Tests;
 
 /// <summary>
 /// Security-gate tests for <see cref="PathValidation"/> covering every attack vector in

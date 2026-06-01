@@ -1,3 +1,4 @@
+namespace DS3Drive.Sync.SyncEngine;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -8,8 +9,6 @@ using DS3Drive.Sync.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using DS3DriveModel = DS3Drive.Core.Records.DS3Drive;
-
-namespace DS3Drive.Sync.SyncEngine;
 
 /// <summary>
 /// Per-drive sync orchestrator: a <see cref="PollingTimer"/> drives periodic remote

@@ -1,3 +1,4 @@
+namespace DS3Drive.Sync.SyncEngine;
 using System;
 using System.Threading;
 using System.Threading.Channels;
@@ -7,8 +8,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Vanara.PInvoke;
 using static Vanara.PInvoke.CldApi;
-
-namespace DS3Drive.Sync.SyncEngine;
 
 /// <summary>A queued upload of a locally-modified placeholder back to S3.</summary>
 public sealed record UploadJob(Guid DriveId, string Bucket, string S3Key, string LocalPath, long Size, DateTime EnqueuedAt);

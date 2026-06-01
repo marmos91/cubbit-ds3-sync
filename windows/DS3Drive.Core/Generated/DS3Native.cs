@@ -24,9 +24,8 @@
 // ds3_free_bytes (ownership documented per-function in c_exports.rs).
 // ---------------------------------------------------------------------------
 
-using System.Runtime.InteropServices;
-
 namespace DS3Drive.Core.Generated;
+using System.Runtime.InteropServices;
 
 /// <summary>
 /// Progress callback ABI: <c>(long transferred, long total, void* ctx)</c>.

@@ -1,6 +1,5 @@
-using System.Text.Json.Serialization;
-
 namespace DS3Drive.Core.Records;
+using System.Text.Json.Serialization;
 
 /// <summary>
 /// Non-secret API-key metadata (name + owning IAM user) used by the key

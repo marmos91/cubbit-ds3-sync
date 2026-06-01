@@ -1,3 +1,4 @@
+namespace DS3Drive.Sync.SyncEngine;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -5,8 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using DS3Drive.Sync.Storage;
 using Microsoft.Data.Sqlite;
-
-namespace DS3Drive.Sync.SyncEngine;
 
 /// <summary>
 /// A single row of the placeholder index — one record per S3 object (or folder)

@@ -1,8 +1,7 @@
+namespace DS3Drive.Tests;
 using System.Runtime.InteropServices;
 using DS3Drive.Core;
 using Xunit;
-
-namespace DS3Drive.Tests;
 
 /// <summary>
 /// Round-trip tests for <see cref="CredentialStore"/> against the live Windows
@@ -31,7 +30,11 @@ public sealed class CredentialStoreTests
     [Fact]
     public void Save_ThenLoad_ReturnsSecret()
     {
-        if (!OnWindows) return;
+        if (!OnWindows)
+        {
+            return;
+        }
+
         var store = new CredentialStore();
         string account = NewAccountId();
         try
@@ -49,7 +52,11 @@ public sealed class CredentialStoreTests
     [Fact]
     public void Save_ThenDelete_LoadReturnsNull()
     {
-        if (!OnWindows) return;
+        if (!OnWindows)
+        {
+            return;
+        }
+
         var store = new CredentialStore();
         string account = NewAccountId();
         try
@@ -68,7 +75,11 @@ public sealed class CredentialStoreTests
     [Fact]
     public void Save_Twice_LoadReturnsLatest()
     {
-        if (!OnWindows) return;
+        if (!OnWindows)
+        {
+            return;
+        }
+
         var store = new CredentialStore();
         string account = NewAccountId();
         try
@@ -87,7 +98,11 @@ public sealed class CredentialStoreTests
     [Fact]
     public void Enumerate_ReturnsPrefixedTargetNames()
     {
-        if (!OnWindows) return;
+        if (!OnWindows)
+        {
+            return;
+        }
+
         var store = new CredentialStore();
         string account = NewAccountId();
         try
@@ -108,7 +123,11 @@ public sealed class CredentialStoreTests
     [Fact]
     public void TargetName_UsesEmDash()
     {
-        if (!OnWindows) return;
+        if (!OnWindows)
+        {
+            return;
+        }
+
         var store = new CredentialStore();
         string account = NewAccountId();
         try
@@ -130,7 +149,11 @@ public sealed class CredentialStoreTests
     [Fact]
     public void Save_EmptySecret_Throws()
     {
-        if (!OnWindows) return;
+        if (!OnWindows)
+        {
+            return;
+        }
+
         var store = new CredentialStore();
         string account = NewAccountId();
         Assert.Throws<ArgumentException>(() => store.Save(account, Key, ""));

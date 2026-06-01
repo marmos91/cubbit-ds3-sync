@@ -1,6 +1,5 @@
-using System.Text.Json.Serialization;
-
 namespace DS3Drive.Core.Records;
+using System.Text.Json.Serialization;
 
 /// <summary>
 /// A Cubbit DS3 project. Port of Apple's <c>Project</c>

@@ -1,10 +1,9 @@
+namespace DS3Drive.Sync.SyncEngine;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-
-namespace DS3Drive.Sync.SyncEngine;
 
 /// <summary>
 /// Wraps <see cref="System.Threading.PeriodicTimer"/> (RESEARCH §"Don't Hand-Roll") to

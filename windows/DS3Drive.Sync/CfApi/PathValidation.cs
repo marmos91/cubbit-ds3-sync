@@ -1,9 +1,8 @@
+namespace DS3Drive.Sync.CfApi;
 using System;
 using System.IO;
 using System.Security;
 using System.Text.RegularExpressions;
-
-namespace DS3Drive.Sync.CfApi;
 
 /// <summary>
 /// Per RESEARCH §Security Domain T-17-10-01: every S3 key is validated before any local

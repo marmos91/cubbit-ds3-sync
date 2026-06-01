@@ -1,6 +1,5 @@
-using System.Text.Json.Serialization;
-
 namespace DS3Drive.Core.Records;
+using System.Text.Json.Serialization;
 
 /// <summary>
 /// An S3 API key (access key + secret). Port of Apple's <c>DS3ApiKey</c>

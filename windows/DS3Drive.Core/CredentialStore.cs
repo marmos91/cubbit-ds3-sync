@@ -1,8 +1,7 @@
+namespace DS3Drive.Core;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
-
-namespace DS3Drive.Core;
 
 /// <summary>
 /// Windows Credential Manager wrapper for the unpackaged DS3 Drive app's secrets

@@ -1,10 +1,9 @@
+namespace DS3Drive.Sync.SyncEngine;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-
-namespace DS3Drive.Sync.SyncEngine;
 
 /// <summary>
 /// Port of <c>apple/DS3DriveProvider/NotificationsManager.swift</c> lines 1-150.

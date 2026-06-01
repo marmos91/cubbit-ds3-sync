@@ -1,6 +1,5 @@
-using System.Text.Json.Serialization;
-
 namespace DS3Drive.Core.Records;
+using System.Text.Json.Serialization;
 
 /// <summary>
 /// An S3 object's metadata, as returned by <c>ds3_head_object</c> and the entries

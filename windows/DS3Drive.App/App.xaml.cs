@@ -1,5 +1,9 @@
 namespace DS3Drive.App;
 
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
 using DS3Drive.App.Pages;
 using DS3Drive.App.Services;
 using DS3Drive.Core;
@@ -17,10 +21,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Threading;
 
 /// <summary>
 /// Application entry point + composition root for the DS3 Drive Windows shell.

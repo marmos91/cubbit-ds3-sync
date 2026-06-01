@@ -1,8 +1,7 @@
+namespace DS3Drive.Sync.CfApi;
 using System;
 using Vanara.PInvoke;
 using static Vanara.PInvoke.CldApi;
-
-namespace DS3Drive.Sync.CfApi;
 
 /// <summary>
 /// Builds the <c>CF_CALLBACK_REGISTRATION[]</c> table passed to

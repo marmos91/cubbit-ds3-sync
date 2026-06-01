@@ -1,6 +1,5 @@
-using System;
-
 namespace DS3Drive.Sync.SyncEngine;
+using System;
 
 /// <summary>
 /// Per-drive runtime sync state emitted by <see cref="DriveStatusBroadcaster"/>.

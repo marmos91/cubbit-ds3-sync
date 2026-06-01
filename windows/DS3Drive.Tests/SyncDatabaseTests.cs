@@ -1,3 +1,4 @@
+namespace DS3Drive.Tests;
 using System;
 using System.IO;
 using System.Threading;
@@ -5,8 +6,6 @@ using System.Threading.Tasks;
 using DS3Drive.Sync.Storage;
 using Microsoft.Data.Sqlite;
 using Xunit;
-
-namespace DS3Drive.Tests;
 
 /// <summary>
 /// Tests for <see cref="SyncDatabase"/> — first-open schema creation, silent

@@ -1,11 +1,10 @@
+namespace DS3Drive.Sync.Storage;
 using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
-
-namespace DS3Drive.Sync.Storage;
 
 /// <summary>
 /// SQLite-backed persistence layer for the Windows sync engine — the Apple

@@ -1,0 +1,152 @@
+# EditorConfig for the DS3 Drive Windows solution (Phase 17 lint/format gate).
+#
+# Scope: applies to every C# project under windows/ (App, Sync, Core, ViewModels,
+# Tests). Enforced two ways:
+#   1. `EnforceCodeStyleInBuild` (Directory.Build.props) surfaces style rules at build.
+#      With `TreatWarningsAsErrors=true`, any rule set to `warning` here becomes a build
+#      error — so style rules below are deliberately tiered (see "Severity policy").
+#   2. CI runs `dotnet format --verify-no-changes` (windows-build.yml) which fails the
+#      build if whitespace/style/analyzer-fixable formatting drifts.
+#
+# Severity policy: formatting (whitespace, usings, braces) is enforced; subjective
+# style preferences (var, expression bodies) are `suggestion` so they guide without
+# breaking the warnings-as-errors gate on the existing tree.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{json,yml,yaml,csproj,props,targets,wxs,wxi,wixproj}]
+indent_size = 2
+
+[*.{xaml}]
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+indent_size = 4
+tab_width = 4
+
+# --- using directives ---
+# Usings are placed INSIDE the (file-scoped) namespace deliberately: this codebase has both a
+# root namespace `DS3Drive` and a model type `DS3Drive`. With usings outside the namespace the
+# bare name `DS3Drive` binds to the namespace and shadows the type (CS0118), so the inside
+# placement is load-bearing, not stylistic. Do not change to outside_namespace.
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+csharp_using_directive_placement = inside_namespace:warning
+
+# --- namespaces ---
+csharp_style_namespace_declarations = file_scoped:warning
+
+# --- this. qualification (prefer none, matches existing code) ---
+dotnet_style_qualification_for_field = false:suggestion
+dotnet_style_qualification_for_property = false:suggestion
+dotnet_style_qualification_for_method = false:suggestion
+dotnet_style_qualification_for_event = false:suggestion
+
+# --- language keywords vs framework type names ---
+dotnet_style_predefined_type_for_locals_parameters_members = true:suggestion
+dotnet_style_predefined_type_for_member_access = true:suggestion
+
+# --- var preferences (subjective → suggestion) ---
+csharp_style_var_for_built_in_types = false:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = false:suggestion
+
+# --- expression-bodied members (subjective → suggestion) ---
+csharp_style_expression_bodied_methods = false:suggestion
+csharp_style_expression_bodied_constructors = false:suggestion
+csharp_style_expression_bodied_properties = true:suggestion
+csharp_style_expression_bodied_accessors = true:suggestion
+
+# --- modern language features (guide, don't break) ---
+csharp_style_pattern_matching_over_is_with_cast_check = true:suggestion
+csharp_style_pattern_matching_over_as_with_null_check = true:suggestion
+csharp_style_inlined_variable_declaration = true:suggestion
+csharp_prefer_simple_using_statement = true:suggestion
+dotnet_style_object_initializer = true:suggestion
+dotnet_style_collection_initializer = true:suggestion
+dotnet_style_prefer_conditional_expression_over_assignment = true:suggestion
+dotnet_style_prefer_conditional_expression_over_return = true:suggestion
+
+# --- null-checking ---
+dotnet_style_coalesce_expression = true:suggestion
+dotnet_style_null_propagation = true:suggestion
+csharp_style_throw_expression = true:suggestion
+
+# --- braces & blocks (formatting → enforced) ---
+csharp_prefer_braces = true:warning
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_new_line_before_members_in_object_initializers = true
+csharp_new_line_before_members_in_anonymous_types = true
+csharp_new_line_between_query_expression_clauses = true
+
+# --- indentation ---
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+csharp_indent_labels = one_less_than_current
+
+# --- spacing ---
+csharp_space_after_cast = false
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_space_between_method_declaration_parameter_list_parentheses = false
+csharp_space_between_method_call_parameter_list_parentheses = false
+csharp_space_before_colon_in_inheritance_clause = true
+csharp_space_after_colon_in_inheritance_clause = true
+csharp_space_around_binary_operators = before_and_after
+
+# --- wrapping ---
+csharp_preserve_single_line_statements = false
+csharp_preserve_single_line_blocks = true
+
+# --- naming: private fields prefix with _ ---
+dotnet_naming_rule.private_fields_underscore.severity = suggestion
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_prefix
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_prefix.required_prefix = _
+dotnet_naming_style.underscore_prefix.capitalization = camel_case
+
+# --- unused usings (IDE0005) ---
+# Kept at suggestion: enforcing it at build (warning) requires GenerateDocumentationFile=true
+# (Roslyn #41640), which would in turn surface CS1591 missing-doc warnings as errors under
+# TreatWarningsAsErrors. `dotnet format` still removes unused usings when run explicitly.
+dotnet_diagnostic.IDE0005.severity = suggestion
+
+# --- Roslynator (linter) rule curation ---
+# The linter runs at its default severities (warnings become build errors under
+# TreatWarningsAsErrors). The three rules below are deliberately re-tiered because they fire
+# on intentional or interop-mandated code, not defects:
+#
+#   RCS1194 (implement exception constructors): the DS3* exception hierarchy intentionally
+#     exposes only structured constructors (reason/code), mirroring the Swift error enums.
+#     The stock (string)/(string,Exception) constructors would defeat that contract.
+dotnet_diagnostic.RCS1194.severity = none
+#   RCS1242 (do not pass non-read-only struct by in-reference): fires only on the cfapi
+#     callback handlers, whose `in CF_CALLBACK_*` signatures are dictated by the Cloud Filter
+#     OS callback ABI (Vanara.PInvoke.CldApi) and cannot be changed.
+dotnet_diagnostic.RCS1242.severity = none
+#   RCS1075 (avoid empty catch of System.Exception): the two call sites are documented
+#     best-effort operations (e.g. opening Explorer before first sync) where swallowing is
+#     the intended behaviour. Kept as a suggestion so new empty catches still get flagged in
+#     the IDE without breaking the build.
+dotnet_diagnostic.RCS1075.severity = suggestion
+
+# --- generated WinUI partials live in obj/ (auto-excluded by dotnet format) and carry
+#     <auto-generated> headers, so the compiler already handles their nullable context.
+#     We intentionally do NOT mark windows/**/Generated/*.cs as generated_code: doing so
+#     forces an implicit `#nullable disable` and breaks the hand-maintained P/Invoke mirror
+#     (DS3Native.cs), which relies on the project-level Nullable=enable context. ---

@@ -1,10 +1,9 @@
+namespace DS3Drive.Tests;
 using System.Reflection;
 using DS3Drive.Core;
 using DS3Drive.Core.Exceptions;
 using DS3Drive.Tests.Fixtures;
 using Xunit;
-
-namespace DS3Drive.Tests;
 
 /// <summary>
 /// Wave-0 lifecycle + error-translation tests for <see cref="DS3Session"/>

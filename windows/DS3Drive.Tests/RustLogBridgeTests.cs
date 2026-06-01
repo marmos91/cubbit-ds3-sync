@@ -1,3 +1,4 @@
+namespace DS3Drive.Tests;
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics.Tracing;
@@ -6,8 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using DS3Drive.Core.Logging;
 using Xunit;
-
-namespace DS3Drive.Tests;
 
 /// <summary>
 /// Tests for <see cref="RustLogBridge"/> (POL-01): registration idempotency,

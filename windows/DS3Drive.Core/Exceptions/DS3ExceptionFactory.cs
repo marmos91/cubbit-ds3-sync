@@ -1,6 +1,5 @@
-using Microsoft.Extensions.Logging;
-
 namespace DS3Drive.Core.Exceptions;
+using Microsoft.Extensions.Logging;
 
 /// <summary>
 /// Maps a numeric DS3Error code (returned by the Rust core via the C ABI's

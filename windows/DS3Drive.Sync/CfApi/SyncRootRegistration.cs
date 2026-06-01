@@ -1,3 +1,4 @@
+namespace DS3Drive.Sync.CfApi;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -10,8 +11,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Windows.Storage;
 using Windows.Storage.Provider;
 using DS3DriveModel = DS3Drive.Core.Records.DS3Drive;
-
-namespace DS3Drive.Sync.CfApi;
 
 /// <summary>
 /// Registers / unregisters a cfapi sync root via

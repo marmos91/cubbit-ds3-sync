@@ -1,6 +1,5 @@
-using System.Text.Json.Serialization;
-
 namespace DS3Drive.Core.Records;
+using System.Text.Json.Serialization;
 
 /// <summary>
 /// Minimal account identity surfaced by the facade. Port of the load-bearing

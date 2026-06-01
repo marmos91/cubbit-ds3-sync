@@ -1,7 +1,6 @@
+namespace DS3Drive.Tests;
 using DS3Drive.Core.Exceptions;
 using Xunit;
-
-namespace DS3Drive.Tests;
 
 /// <summary>
 /// Verifies the DS3Error code → typed exception mapping is byte-identical to

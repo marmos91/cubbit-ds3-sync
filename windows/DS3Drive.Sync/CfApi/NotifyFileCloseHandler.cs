@@ -1,3 +1,4 @@
+namespace DS3Drive.Sync.CfApi;
 using System;
 using System.IO;
 using System.Threading;
@@ -9,8 +10,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Vanara.PInvoke;
 using static Vanara.PInvoke.CldApi;
 using DS3DriveModel = DS3Drive.Core.Records.DS3Drive;
-
-namespace DS3Drive.Sync.CfApi;
 
 /// <summary>
 /// Pitfall 3 — the upload trigger is <c>NOTIFY_FILE_CLOSE_COMPLETION</c> EXCLUSIVELY;

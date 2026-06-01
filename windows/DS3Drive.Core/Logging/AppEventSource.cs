@@ -9,9 +9,8 @@
 // STRIDE T-17-07-02): structured (target, message) pair only.
 // ---------------------------------------------------------------------------
 
-using System.Diagnostics.Tracing;
-
 namespace DS3Drive.Core.Logging;
+using System.Diagnostics.Tracing;
 
 /// <summary>
 /// ETW EventSource provider for C# managed application logs. Mirrors

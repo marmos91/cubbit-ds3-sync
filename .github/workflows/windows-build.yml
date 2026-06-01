@@ -100,6 +100,14 @@ jobs:
       - name: Restore solution
         run: dotnet restore windows/DS3Drive.sln
 
+      # Formatting/lint gate (Phase 17): fails the build if whitespace, code-style, or
+      # analyzer-fixable formatting drifts from the windows/.editorconfig contract. Runs
+      # before the (longer) build so style regressions fail fast. Roslynator analyzer
+      # findings surface during the build below via EnforceCodeStyleInBuild +
+      # TreatWarningsAsErrors; this step covers the `dotnet format` formatter half.
+      - name: Verify formatting (dotnet format)
+        run: dotnet format windows/DS3Drive.sln --no-restore --verify-no-changes
+
       - name: Build solution (Release, x64)
         run: >-
           dotnet build windows/DS3Drive.sln

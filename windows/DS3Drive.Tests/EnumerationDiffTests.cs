@@ -1,8 +1,7 @@
+namespace DS3Drive.Tests;
 using System.Collections.Generic;
 using DS3Drive.Sync.Storage;
 using Xunit;
-
-namespace DS3Drive.Tests;
 
 /// <summary>
 /// Parity tests for <see cref="EnumerationDiff"/>, the C# reference port of

@@ -14,13 +14,12 @@
 // impossible (reentr / Pitfall 5 enforced by Test 7).
 // ---------------------------------------------------------------------------
 
+namespace DS3Drive.Core.Logging;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Channels;
 using DS3Drive.Core.Generated;
-
-namespace DS3Drive.Core.Logging;
 
 /// <summary>
 /// A single decoded Rust <c>tracing</c> event in flight between the FFI callback
@@ -149,7 +148,8 @@ public static class RustLogBridge
     {
         // Outer swallow: a CLR exception MUST NOT propagate into Rust
         // (STRIDE T-17-07-04). Any failure degrades to a dropped log line.
-        try {
+        try
+        {
             Dispatch(level, (IntPtr)target, targetLen, (IntPtr)message, messageLen);
         }
         catch
@@ -213,12 +213,24 @@ public static class RustLogBridge
     {
         switch (ev.Level)
         {
-            case 0: RustCoreEventSource.Log.Trace(ev.Target, ev.Message); break;
-            case 1: RustCoreEventSource.Log.Debug(ev.Target, ev.Message); break;
-            case 2: RustCoreEventSource.Log.Info(ev.Target, ev.Message); break;
-            case 3: RustCoreEventSource.Log.Warn(ev.Target, ev.Message); break;
-            case 4: RustCoreEventSource.Log.Error(ev.Target, ev.Message); break;
-            default: RustCoreEventSource.Log.Info(ev.Target, ev.Message); break;
+            case 0:
+                RustCoreEventSource.Log.Trace(ev.Target, ev.Message);
+                break;
+            case 1:
+                RustCoreEventSource.Log.Debug(ev.Target, ev.Message);
+                break;
+            case 2:
+                RustCoreEventSource.Log.Info(ev.Target, ev.Message);
+                break;
+            case 3:
+                RustCoreEventSource.Log.Warn(ev.Target, ev.Message);
+                break;
+            case 4:
+                RustCoreEventSource.Log.Error(ev.Target, ev.Message);
+                break;
+            default:
+                RustCoreEventSource.Log.Info(ev.Target, ev.Message);
+                break;
         }
     }
 

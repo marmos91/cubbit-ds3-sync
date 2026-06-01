@@ -22,4 +22,15 @@
     <Deterministic>true</Deterministic>
   </PropertyGroup>
 
+  <!-- C# linter applied to every C# project. Analyzers only (PrivateAssets=all): they run
+       at build/IDE time but are never published as a dependency. Version pinned centrally in
+       Directory.Packages.props. Scoped to .csproj so the WiX installer (.wixproj), which also
+       imports this file, does not pull in a C# analyzer it cannot use. -->
+  <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">
+    <PackageReference Include="Roslynator.Analyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
 </Project>

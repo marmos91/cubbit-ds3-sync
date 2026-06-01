@@ -1,3 +1,4 @@
+namespace DS3Drive.Sync.CfApi;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,8 +9,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Vanara.PInvoke;
 using static Vanara.PInvoke.CldApi;
 using DS3DriveModel = DS3Drive.Core.Records.DS3Drive;
-
-namespace DS3Drive.Sync.CfApi;
 
 /// <summary>
 /// Handles <c>CF_CALLBACK_TYPE_NOTIFY_RENAME</c>. S3 has no native rename, so a rename is

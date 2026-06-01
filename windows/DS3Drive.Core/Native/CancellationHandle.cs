@@ -1,6 +1,5 @@
-using DS3Drive.Core.Generated;
-
 namespace DS3Drive.Core.Native;
+using DS3Drive.Core.Generated;
 
 /// <summary>
 /// Managed wrapper over the Rust cancellation handle

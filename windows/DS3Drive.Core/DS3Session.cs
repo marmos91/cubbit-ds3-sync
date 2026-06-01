@@ -1,11 +1,10 @@
+namespace DS3Drive.Core;
 using System.Text;
 using System.Text.Json;
 using DS3Drive.Core.Exceptions;
 using DS3Drive.Core.Generated;
 using DS3Drive.Core.Native;
 using DS3Drive.Core.Records;
-
-namespace DS3Drive.Core;
 
 /// <summary>
 /// Idiomatic C# facade over ds3_ffi.dll. Owns an opaque session handle minted by
@@ -38,25 +37,38 @@ public sealed class DS3Session : IDisposable
     /// via <see cref="Authenticate2fa"/> (D-15 byte-identical to Apple).</summary>
     public static unsafe DS3Session Authenticate(string email, string password, string? tenantId, string coordinatorUrl)
     {
-        IntPtr handle; int rc; int err;
+        IntPtr handle;
+        int rc;
+        int err;
         fixed (byte* e = M.Utf8(email), p = M.Utf8(password), t = M.Utf8(tenantId), c = M.Utf8(coordinatorUrl))
+        {
             rc = DS3Native.ds3_authenticate(e, M.Len(email), p, M.Len(password), t, M.Len(tenantId), c, M.Len(coordinatorUrl), out handle, out err);
+        }
+
         return Complete(rc, err, handle);
     }
 
     /// <summary>Authenticates with email + password + a 2FA code.</summary>
     public static unsafe DS3Session Authenticate2fa(string email, string password, string tfaCode, string? tenantId, string coordinatorUrl)
     {
-        IntPtr handle; int rc; int err;
+        IntPtr handle;
+        int rc;
+        int err;
         fixed (byte* e = M.Utf8(email), p = M.Utf8(password), f = M.Utf8(tfaCode), t = M.Utf8(tenantId), c = M.Utf8(coordinatorUrl))
+        {
             rc = DS3Native.ds3_authenticate_2fa(e, M.Len(email), p, M.Len(password), f, M.Len(tfaCode), t, M.Len(tenantId), c, M.Len(coordinatorUrl), out handle, out err);
+        }
+
         return Complete(rc, err, handle);
     }
 
     private static DS3Session Complete(int rc, int err, IntPtr handle)
     {
         if (rc != 0)
+        {
             throw DS3ExceptionFactory.From(err);
+        }
+
         var session = new DS3Session(handle);
         session.AccountId = session.AccountInfo().AccountId;
         return session;
@@ -77,9 +89,16 @@ public sealed class DS3Session : IDisposable
     /// <summary>Forges an IAM token for the given user (returns the raw token string).</summary>
     public unsafe string ForgeIamToken(string iamUserId)
     {
-        IntPtr h = EnsureHandle(); int rc; IntPtr json; nuint len; int err;
+        IntPtr h = EnsureHandle();
+        int rc;
+        IntPtr json;
+        nuint len;
+        int err;
         fixed (byte* u = M.Utf8(iamUserId))
+        {
             rc = DS3Native.ds3_forge_iam_token(h, u, M.Len(iamUserId), out json, out len, out err);
+        }
+
         Check(rc, err, json, len);
         return M.TakeString(json, len);
     }
@@ -94,27 +113,46 @@ public sealed class DS3Session : IDisposable
     /// <summary>Loads the API keys for an IAM user (requires a forged IAM token).</summary>
     public unsafe IReadOnlyList<DS3ApiKey> LoadApiKeys(string iamUserId, string iamToken)
     {
-        IntPtr h = EnsureHandle(); int rc; IntPtr json; nuint len; int err;
+        IntPtr h = EnsureHandle();
+        int rc;
+        IntPtr json;
+        nuint len;
+        int err;
         fixed (byte* u = M.Utf8(iamUserId), t = M.Utf8(iamToken))
+        {
             rc = DS3Native.ds3_load_api_keys(h, u, M.Len(iamUserId), t, M.Len(iamToken), out json, out len, out err);
+        }
+
         return Parse<List<DS3ApiKey>>(rc, err, json, len);
     }
 
     /// <summary>Creates a new API key for an IAM user (the secret is returned only here).</summary>
     public unsafe DS3ApiKey CreateApiKey(string iamUserId, string iamToken, string apiKeyName)
     {
-        IntPtr h = EnsureHandle(); int rc; IntPtr json; nuint len; int err;
+        IntPtr h = EnsureHandle();
+        int rc;
+        IntPtr json;
+        nuint len;
+        int err;
         fixed (byte* u = M.Utf8(iamUserId), n = M.Utf8(apiKeyName), t = M.Utf8(iamToken))
+        {
             rc = DS3Native.ds3_create_api_key(h, u, M.Len(iamUserId), n, M.Len(apiKeyName), t, M.Len(iamToken), out json, out len, out err);
+        }
+
         return Parse<DS3ApiKey>(rc, err, json, len);
     }
 
     /// <summary>Deletes an API key by id (requires a forged IAM token).</summary>
     public unsafe void DeleteApiKey(string iamUserId, string apiKeyId, string iamToken)
     {
-        IntPtr h = EnsureHandle(); int rc; int err;
+        IntPtr h = EnsureHandle();
+        int rc;
+        int err;
         fixed (byte* u = M.Utf8(iamUserId), k = M.Utf8(apiKeyId), t = M.Utf8(iamToken))
+        {
             rc = DS3Native.ds3_delete_api_key(h, u, M.Len(iamUserId), k, M.Len(apiKeyId), t, M.Len(iamToken), out err);
+        }
+
         Check(rc, err);
     }
 
@@ -131,28 +169,50 @@ public sealed class DS3Session : IDisposable
     /// <summary>Lists objects under a prefix, optionally paginated via a continuation token.</summary>
     public unsafe IReadOnlyList<DS3Object> ListObjects(string bucket, string prefix, string delimiter, string? continuationToken)
     {
-        IntPtr h = EnsureHandle(); int rc; IntPtr json; nuint len; int err;
+        IntPtr h = EnsureHandle();
+        int rc;
+        IntPtr json;
+        nuint len;
+        int err;
         fixed (byte* b = M.Utf8(bucket), p = M.Utf8(prefix), d = M.Utf8(delimiter), ct = M.Utf8(continuationToken))
+        {
             rc = DS3Native.ds3_list_objects(h, b, M.Len(bucket), p, M.Len(prefix), d, M.Len(delimiter), 0, ct, M.Len(continuationToken), out json, out len, out err);
+        }
+
         return Parse<List<DS3Object>>(rc, err, json, len);
     }
 
     /// <summary>Returns metadata for a single object.</summary>
     public unsafe DS3Object HeadObject(string bucket, string key)
     {
-        IntPtr h = EnsureHandle(); int rc; IntPtr json; nuint len; int err;
+        IntPtr h = EnsureHandle();
+        int rc;
+        IntPtr json;
+        nuint len;
+        int err;
         fixed (byte* b = M.Utf8(bucket), k = M.Utf8(key))
+        {
             rc = DS3Native.ds3_head_object(h, b, M.Len(bucket), k, M.Len(key), out json, out len, out err);
+        }
+
         return Parse<DS3Object>(rc, err, json, len);
     }
 
     /// <summary>Downloads an object to a local file path, reporting progress and honoring cancellation.</summary>
     public unsafe DS3Object DownloadObject(string bucket, string key, string filePath, DS3ProgressCallback? progress, CancellationHandle? cancel)
     {
-        IntPtr h = EnsureHandle(); var cb = M.WrapProgress(progress); _ = cancel;
-        int rc; IntPtr json; nuint len; int err;
+        IntPtr h = EnsureHandle();
+        var cb = M.WrapProgress(progress);
+        _ = cancel;
+        int rc;
+        IntPtr json;
+        nuint len;
+        int err;
         fixed (byte* b = M.Utf8(bucket), k = M.Utf8(key), f = M.Utf8(filePath))
+        {
             rc = DS3Native.ds3_download_object(h, b, M.Len(bucket), k, M.Len(key), f, M.Len(filePath), cb, IntPtr.Zero, out json, out len, out err);
+        }
+
         GC.KeepAlive(cb);
         return Parse<DS3Object>(rc, err, json, len);
     }
@@ -160,38 +220,64 @@ public sealed class DS3Session : IDisposable
     /// <summary>Uploads a local file to S3, returning the resulting ETag (may be empty).</summary>
     public unsafe string UploadObject(string bucket, string key, string filePath, DS3ProgressCallback? progress, CancellationHandle? cancel)
     {
-        IntPtr h = EnsureHandle(); var cb = M.WrapProgress(progress); _ = cancel;
-        int rc; IntPtr etag; nuint len; int err;
+        IntPtr h = EnsureHandle();
+        var cb = M.WrapProgress(progress);
+        _ = cancel;
+        int rc;
+        IntPtr etag;
+        nuint len;
+        int err;
         fixed (byte* b = M.Utf8(bucket), k = M.Utf8(key), f = M.Utf8(filePath))
+        {
             rc = DS3Native.ds3_upload_object(h, b, M.Len(bucket), k, M.Len(key), f, M.Len(filePath), cb, IntPtr.Zero, out etag, out len, out err);
-        GC.KeepAlive(cb); Check(rc, err);
+        }
+
+        GC.KeepAlive(cb);
+        Check(rc, err);
         return M.TakeString(etag, len);
     }
 
     /// <summary>Deletes a single object.</summary>
     public unsafe void DeleteObject(string bucket, string key)
     {
-        IntPtr h = EnsureHandle(); int rc; int err;
+        IntPtr h = EnsureHandle();
+        int rc;
+        int err;
         fixed (byte* b = M.Utf8(bucket), k = M.Utf8(key))
+        {
             rc = DS3Native.ds3_delete_object(h, b, M.Len(bucket), k, M.Len(key), out err);
+        }
+
         Check(rc, err);
     }
 
     /// <summary>Copies an object within a bucket (the C ABI is single-bucket; cross-bucket is later).</summary>
     public unsafe void CopyObject(string srcBucket, string srcKey, string dstBucket, string dstKey)
     {
-        IntPtr h = EnsureHandle(); int rc; int err; _ = dstBucket;
+        IntPtr h = EnsureHandle();
+        int rc;
+        int err;
+        _ = dstBucket;
         fixed (byte* b = M.Utf8(srcBucket), s = M.Utf8(srcKey), d = M.Utf8(dstKey))
+        {
             rc = DS3Native.ds3_copy_object(h, b, M.Len(srcBucket), s, M.Len(srcKey), d, M.Len(dstKey), out err);
+        }
+
         Check(rc, err);
     }
 
     /// <summary>Checks whether a <c>.ds3keep</c> folder marker exists.</summary>
     public unsafe bool ProbeFolderExists(string bucket, string folderKey)
     {
-        IntPtr h = EnsureHandle(); int rc; int result; int err;
+        IntPtr h = EnsureHandle();
+        int rc;
+        int result;
+        int err;
         fixed (byte* b = M.Utf8(bucket), f = M.Utf8(folderKey))
+        {
             rc = DS3Native.ds3_probe_folder_exists(h, b, M.Len(bucket), f, M.Len(folderKey), out result, out err);
+        }
+
         Check(rc, err);
         return result != 0;
     }
@@ -199,9 +285,14 @@ public sealed class DS3Session : IDisposable
     /// <summary>Creates a <c>.ds3keep</c> folder marker.</summary>
     public unsafe void CreateFolderMarker(string bucket, string folderKey)
     {
-        IntPtr h = EnsureHandle(); int rc; int err;
+        IntPtr h = EnsureHandle();
+        int rc;
+        int err;
         fixed (byte* b = M.Utf8(bucket), f = M.Utf8(folderKey))
+        {
             rc = DS3Native.ds3_create_folder_marker(h, b, M.Len(bucket), f, M.Len(folderKey), out err);
+        }
+
         Check(rc, err);
     }
 
@@ -210,18 +301,30 @@ public sealed class DS3Session : IDisposable
     /// <summary>Computes the upload/download/delete actions between two tree snapshots.</summary>
     public static unsafe DS3DiffActions ComputeDiff(string localTreeJson, string remoteTreeJson)
     {
-        int rc; IntPtr json; nuint len; int err;
+        int rc;
+        IntPtr json;
+        nuint len;
+        int err;
         fixed (byte* l = M.Utf8(localTreeJson), r = M.Utf8(remoteTreeJson))
+        {
             rc = DS3Native.ds3_compute_diff(l, M.Len(localTreeJson), r, M.Len(remoteTreeJson), out json, out len, out err);
+        }
+
         return Parse<DS3DiffActions>(rc, err, json, len);
     }
 
     /// <summary>Generates a conflict-copy key for an object (device name disambiguates).</summary>
     public static unsafe string ConflictKey(string originalKey, string deviceName)
     {
-        int rc; IntPtr key; nuint len; int err;
+        int rc;
+        IntPtr key;
+        nuint len;
+        int err;
         fixed (byte* o = M.Utf8(originalKey), d = M.Utf8(deviceName))
+        {
             rc = DS3Native.ds3_conflict_key(o, M.Len(originalKey), d, M.Len(deviceName), null, 0, out key, out len, out err);
+        }
+
         Check(rc, err, key, len);
         return M.TakeString(key, len);
     }
@@ -237,7 +340,9 @@ public sealed class DS3Session : IDisposable
     {
         IntPtr prev = Interlocked.Exchange(ref _handle, IntPtr.Zero);
         if (prev != IntPtr.Zero)
+        {
             DS3Native.ds3_session_destroy(prev);
+        }
     }
 
     /// <summary>Returns the live handle or throws loggedOut — port of the Swift
@@ -246,7 +351,10 @@ public sealed class DS3Session : IDisposable
     {
         IntPtr h = _handle;
         if (h == IntPtr.Zero)
+        {
             throw new DS3AuthenticationException(AuthFailureReason.LoggedOut, errorCode: 1005);
+        }
+
         return h;
     }
 
@@ -255,7 +363,9 @@ public sealed class DS3Session : IDisposable
     private static void Check(int rc, int err)
     {
         if (rc != 0)
+        {
             throw DS3ExceptionFactory.From(err);
+        }
     }
 
     private static void Check(int rc, int err, IntPtr buf, nuint len)
@@ -288,7 +398,10 @@ public sealed class DS3Session : IDisposable
         public static unsafe string TakeString(IntPtr ptr, nuint len)
         {
             if (ptr == IntPtr.Zero || len == 0)
+            {
                 return string.Empty;
+            }
+
             string s = Encoding.UTF8.GetString((byte*)ptr, (int)len);
             FreeString(ptr, len);
             return s;
@@ -297,7 +410,9 @@ public sealed class DS3Session : IDisposable
         public static unsafe void FreeString(IntPtr ptr, nuint len)
         {
             if (ptr != IntPtr.Zero && len != 0)
+            {
                 DS3Native.ds3_free_string((byte*)ptr, len);
+            }
         }
 
         public static DS3ProgressCallbackFn? WrapProgress(DS3ProgressCallback? progress) =>

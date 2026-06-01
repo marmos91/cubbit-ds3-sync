@@ -1,6 +1,5 @@
-using Xunit;
-
 namespace DS3Drive.Tests.Fixtures;
+using Xunit;
 
 /// <summary>
 /// Env-var-backed credentials for the integration test suite.

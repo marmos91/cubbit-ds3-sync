@@ -1,7 +1,6 @@
+namespace DS3Drive.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-
-namespace DS3Drive.Core;
 
 /// <summary>
 /// Reads build-time / install-time defaults from <c>appsettings.json</c>

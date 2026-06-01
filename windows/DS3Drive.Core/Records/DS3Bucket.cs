@@ -1,6 +1,5 @@
-using System.Text.Json.Serialization;
-
 namespace DS3Drive.Core.Records;
+using System.Text.Json.Serialization;
 
 /// <summary>
 /// An S3 bucket. Mirrors the JSON shape emitted by <c>ds3_list_buckets</c>

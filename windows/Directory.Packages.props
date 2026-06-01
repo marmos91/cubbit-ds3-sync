@@ -40,6 +40,12 @@
          in DS3Drive.Installer.wixproj; the wixext PackageReference must match that toolset version). -->
     <PackageVersion Include="WixToolset.UI.wixext" Version="4.0.5" />
 
+    <!-- C# linter: Roslynator analyzers (build-time, analyzers-only; PrivateAssets=all in
+         Directory.Build.props so it never flows to consumers). Runs at default severities
+         (mostly info/suggestion) to guide without breaking the warnings-as-errors gate; the
+         enforced formatting gate is the `dotnet format` verify step in windows-build.yml. -->
+    <PackageVersion Include="Roslynator.Analyzers" Version="4.12.9" />
+
     <!-- Test stack -->
     <PackageVersion Include="xunit" Version="2.9.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />

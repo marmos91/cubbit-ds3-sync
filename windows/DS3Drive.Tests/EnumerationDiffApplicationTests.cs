@@ -1,3 +1,4 @@
+namespace DS3Drive.Tests;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,8 +13,6 @@ using Microsoft.Data.Sqlite;
 using NSubstitute;
 using Xunit;
 using DS3DriveModel = DS3Drive.Core.Records.DS3Drive;
-
-namespace DS3Drive.Tests;
 
 /// <summary>
 /// Verifies <see cref="SyncEngine.ApplyDeltaAsync"/> applies an

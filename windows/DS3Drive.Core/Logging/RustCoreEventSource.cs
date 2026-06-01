@@ -13,9 +13,8 @@
 // raw token/email/secret argument here.
 // ---------------------------------------------------------------------------
 
-using System.Diagnostics.Tracing;
-
 namespace DS3Drive.Core.Logging;
+using System.Diagnostics.Tracing;
 
 /// <summary>
 /// ETW EventSource provider for Rust core <c>tracing</c> events. Written to only

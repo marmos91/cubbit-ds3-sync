@@ -1,8 +1,7 @@
+namespace DS3Drive.Sync.Storage;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-
-namespace DS3Drive.Sync.Storage;
 
 /// <summary>
 /// Result of comparing a local container snapshot against a fresh remote

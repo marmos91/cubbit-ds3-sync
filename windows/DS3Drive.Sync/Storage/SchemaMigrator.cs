@@ -1,3 +1,4 @@
+namespace DS3Drive.Sync.Storage;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,8 +9,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
-
-namespace DS3Drive.Sync.Storage;
 
 /// <summary>
 /// Applies versioned SQL migrations embedded as <c>Migrations/00N_*.sql</c>

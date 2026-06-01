@@ -1,3 +1,4 @@
+namespace DS3Drive.Sync.Hosting;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -10,8 +11,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using DS3DriveModel = DS3Drive.Core.Records.DS3Drive;
 using SyncEngineType = DS3Drive.Sync.SyncEngine.SyncEngine;
-
-namespace DS3Drive.Sync.Hosting;
 
 /// <summary>
 /// Glue between <see cref="IDriveLifecycleSource"/> (adapted from the App's

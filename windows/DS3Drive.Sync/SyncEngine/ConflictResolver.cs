@@ -1,6 +1,5 @@
-using DS3Drive.Core;
-
 namespace DS3Drive.Sync.SyncEngine;
+using DS3Drive.Core;
 
 /// <summary>
 /// Conflict key generation lives in Rust (<c>ds3_conflict_key</c>); this is the thin C#

@@ -1,9 +1,8 @@
+namespace DS3Drive.Sync.CfApi;
 using System;
 using DS3Drive.Sync.SyncEngine;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-
-namespace DS3Drive.Sync.CfApi;
 
 /// <summary>
 /// Surfaces per-drive sync state to the Windows shell through the cfapi state-UI contract

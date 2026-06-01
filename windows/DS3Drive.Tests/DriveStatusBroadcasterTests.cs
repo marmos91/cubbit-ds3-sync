@@ -1,11 +1,10 @@
+namespace DS3Drive.Tests;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DS3Drive.Sync.SyncEngine;
 using Xunit;
-
-namespace DS3Drive.Tests;
 
 /// <summary>
 /// Verifies the verbatim port of <c>NotificationsManager.swift</c> counter + debounce +

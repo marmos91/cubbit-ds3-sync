@@ -1,3 +1,4 @@
+namespace DS3Drive.Sync.CfApi;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -10,8 +11,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Vanara.PInvoke;
 using static Vanara.PInvoke.CldApi;
 using DS3DriveModel = DS3Drive.Core.Records.DS3Drive;
-
-namespace DS3Drive.Sync.CfApi;
 
 /// <summary>
 /// Per-drive cfapi lifecycle owner: registers the sync root (sparse-package identity from

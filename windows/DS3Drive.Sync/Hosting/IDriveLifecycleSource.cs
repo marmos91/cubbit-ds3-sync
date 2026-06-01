@@ -1,8 +1,7 @@
+namespace DS3Drive.Sync.Hosting;
 using System;
 using System.Collections.Generic;
 using DS3DriveModel = DS3Drive.Core.Records.DS3Drive;
-
-namespace DS3Drive.Sync.Hosting;
 
 /// <summary>
 /// Lifecycle seam the <see cref="SyncHostedService"/> subscribes to. The App layer adapts

@@ -1,9 +1,8 @@
+namespace DS3Drive.Sync;
 using System;
 using System.Collections.Generic;
 using DS3Drive.Core.Native;
 using DS3Drive.Core.Records;
-
-namespace DS3Drive.Sync;
 
 /// <summary>
 /// Mockable seam over the handful of <see cref="DS3Drive.Core.DS3Session"/> calls the

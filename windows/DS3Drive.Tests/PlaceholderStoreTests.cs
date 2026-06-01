@@ -1,15 +1,14 @@
+namespace DS3Drive.Tests;
 using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using DS3Drive.Sync.SyncEngine;
 using DS3Drive.Sync.Storage;
+using DS3Drive.Sync.SyncEngine;
 using Microsoft.Data.Sqlite;
 using Xunit;
-
-namespace DS3Drive.Tests;
 
 /// <summary>
 /// CRUD + dirty/status mutation + foreign-key cascade + SQL-injection tests for
