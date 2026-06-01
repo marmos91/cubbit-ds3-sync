@@ -176,7 +176,17 @@ public sealed class DS3DriveS3Client : IDisposable
         IntPtr h = EnsureHandle();
         int rc;
         int err;
-        _ = dstBucket;
+
+        // The ds3_copy_object ABI is single-bucket: it copies within `srcBucket` only and has
+        // no destination-bucket parameter. Fail loudly on a cross-bucket request rather than
+        // silently writing to the SOURCE bucket — a data-misplacement trap (WR-17.1-03). Remove
+        // this guard only once the ABI grows a real destination-bucket argument.
+        if (!string.Equals(srcBucket, dstBucket, StringComparison.Ordinal))
+        {
+            throw new NotSupportedException(
+                "Cross-bucket copy is not supported by the current ds3_copy_object ABI.");
+        }
+
         fixed (byte* b = M.Utf8(srcBucket), s = M.Utf8(srcKey), d = M.Utf8(dstKey))
         {
             rc = DS3Native.ds3_copy_object(h, b, M.Len(srcBucket), s, M.Len(srcKey), d, M.Len(dstKey), out err);
