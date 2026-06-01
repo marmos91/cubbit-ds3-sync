@@ -146,6 +146,14 @@ internal sealed class FetchDataHandler
                 // Reset the watchdog after each chunk.
                 CfReportProviderProgress(connectionKey, transferKey, total <= 0 ? offset : total, offset);
             }
+
+            // Empty object (S3 allows 0-byte objects): the read loop never ran, so the platform
+            // got no TRANSFER_DATA ack and hydration would hang until the 30s cfapi watchdog. Send
+            // a single zero-length success ack to complete the transfer.
+            if (offset == 0)
+            {
+                AckTransfer(connectionKey, transferKey, StatusSuccess, bufferPtr, 0, 0);
+            }
         }
         finally
         {

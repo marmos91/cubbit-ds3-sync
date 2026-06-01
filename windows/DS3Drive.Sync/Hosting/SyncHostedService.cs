@@ -55,7 +55,17 @@ public sealed class SyncHostedService : IHostedService
 
         foreach (DS3DriveModel drive in _lifecycle.Drives)
         {
-            await StartDriveAsync(drive, cancellationToken).ConfigureAwait(false);
+            // Isolate per-drive failures: one drive that fails to register (non-NTFS volume,
+            // transient cfapi error, not-yet-authenticated session) must not abort the start
+            // loop and leave the remaining drives unsynced. Mirrors OnDriveAdded's guard.
+            try
+            {
+                await StartDriveAsync(drive, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "failed to start drive {DriveId} at host start", drive.Id);
+            }
         }
     }
 

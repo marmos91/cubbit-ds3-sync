@@ -99,10 +99,26 @@ public sealed class PlaceholderStore
     {
         await using var conn = await _db.AcquireConnectionAsync(ct).ConfigureAwait(false);
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText =
-            $"SELECT {Columns} FROM placeholders WHERE drive_id = @driveId AND parent_key = @parentKey;";
-        cmd.Parameters.AddWithValue("@driveId", driveId.ToString());
-        cmd.Parameters.AddWithValue("@parentKey", parentKey);
+
+        // Top-level keys (S3 keys with no '/') are stored with parent_key = NULL, not '' (see
+        // ParentOf). A root-prefix drive queries with parentKey = "", and `parent_key = ''`
+        // never matches NULL in SQLite — which would make the local snapshot come back empty,
+        // so remote deletions go undetected and every object is re-processed every poll. Match
+        // NULL explicitly for the empty/root prefix.
+        if (string.IsNullOrEmpty(parentKey))
+        {
+            cmd.CommandText =
+                $"SELECT {Columns} FROM placeholders WHERE drive_id = @driveId AND parent_key IS NULL;";
+            cmd.Parameters.AddWithValue("@driveId", driveId.ToString());
+        }
+        else
+        {
+            cmd.CommandText =
+                $"SELECT {Columns} FROM placeholders WHERE drive_id = @driveId AND parent_key = @parentKey;";
+            cmd.Parameters.AddWithValue("@driveId", driveId.ToString());
+            cmd.Parameters.AddWithValue("@parentKey", parentKey);
+        }
+
         return await ReadAllAsync(cmd, ct).ConfigureAwait(false);
     }
 
