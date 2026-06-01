@@ -394,6 +394,65 @@ pub unsafe extern "C" fn ds3_delete_api_key(
 // S3 exports
 // ---------------------------------------------------------------------------
 
+/// Mints an opaque `DS3S3Client` handle from S3 credentials.
+///
+/// `endpoint`, `access_key`, and `secret_key` are required UTF-8 buffers.
+/// `region` is optional: pass a null pointer or `region_len == 0` to default
+/// to `us-east-1` (`DS3S3Client::new` applies the default), matching macOS
+/// which supplies no region.
+///
+/// The constructor performs NO network I/O (it only builds the AWS SDK client
+/// config), so there is no `runtime().block_on`; the only fallible step is the
+/// UTF-8 decode of the input buffers.
+///
+/// Returns 0 on success (handle written to `*out_handle`), -1 on error (code in
+/// `*out_error`), -2 on panic.
+///
+/// # Safety
+/// Each `*const u8` + `usize` pair must point to valid UTF-8 of the given
+/// length (or be null/0 for `region`). `out_handle` and `out_error` must be
+/// writable. The returned handle must be freed exactly once with
+/// `ds3_s3_client_destroy`.
+#[no_mangle]
+pub unsafe extern "C" fn ds3_s3_client_new(
+    endpoint: *const u8,
+    endpoint_len: usize,
+    access_key: *const u8,
+    access_key_len: usize,
+    secret_key: *const u8,
+    secret_key_len: usize,
+    region: *const u8,
+    region_len: usize,
+    out_handle: *mut *mut DS3S3Client,
+    out_error: *mut i32,
+) -> i32 {
+    ffi_guard!(out_error, {
+        let endpoint = unsafe { ffi_str(endpoint, endpoint_len)? };
+        let access_key = unsafe { ffi_str(access_key, access_key_len)? };
+        let secret_key = unsafe { ffi_str(secret_key, secret_key_len)? };
+        let region = unsafe { ffi_opt_str(region, region_len)? };
+
+        let client = DS3S3Client::new(endpoint, access_key, secret_key, region);
+
+        unsafe { *out_handle = Box::into_raw(Box::new(client)) };
+        Ok::<i32, DS3Error>(0)
+    })
+}
+
+/// Destroys an S3 client handle, freeing its resources.
+///
+/// After this call, the handle pointer is invalid. The caller must not use it.
+///
+/// # Safety
+/// `handle` must be a valid pointer returned by `ds3_s3_client_new`. Must not
+/// be called twice for the same handle.
+#[no_mangle]
+pub unsafe extern "C" fn ds3_s3_client_destroy(handle: *mut DS3S3Client) {
+    if !handle.is_null() {
+        unsafe { drop(Box::from_raw(handle)) };
+    }
+}
+
 /// Lists S3 objects. Returns the result as JSON.
 #[no_mangle]
 pub unsafe extern "C" fn ds3_list_objects(
