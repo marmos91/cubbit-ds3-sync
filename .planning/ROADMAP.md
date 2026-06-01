@@ -418,7 +418,7 @@ Plans:
   4. The cfapi sync engine's list/head/download/upload/delete/copy operations route through the S3-client handle (not the session handle), so a created drive hydrates cloud-only files and uploads local changes against real Cubbit S3.
   5. The full first-run smoke (login -> 2FA -> wizard -> create drive -> bidirectional sync round-trip) completes end-to-end on native ARM64.
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 **Wave 1**
@@ -431,7 +431,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 17.1-03-PLAN.md -- Per-drive credential derivation + DriveS3SessionAccess adapter + SyncHostedService build/rebuild/dispose-last + wizard browse re-point + D-06 inline error/Retry + DI re-point + live integration test
+- [x] 17.1-03-PLAN.md -- Per-drive credential derivation + DriveS3SessionAccess adapter + SyncHostedService build/rebuild/dispose-last + wizard browse re-point + D-06 inline error/Retry + DI re-point + live integration test
 
 **UI hint**: no
 
@@ -480,7 +480,7 @@ Plans:
 | 15. Rust Core + FFI Foundation | v2.0.0 | 7/7 | Complete   | 2026-05-27 |
 | 16. Apple Incremental Swap | v2.0.0 | 6/7 | In Progress|  |
 | 17. Windows Shell | v2.0.0 | 12/12 | Complete   | 2026-05-29 |
-| 17.1. Windows S3-Client FFI Wiring | v2.0.0 | 2/3 | In Progress|  |
+| 17.1. Windows S3-Client FFI Wiring | v2.0.0 | 3/3 | Complete   | 2026-06-01 |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
 
 ---

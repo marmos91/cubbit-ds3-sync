@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: macOS App
-status: executing
+status: verifying
 stopped_at: Completed 17.1-02-PLAN.md
-last_updated: "2026-06-01T20:41:15.238Z"
+last_updated: "2026-06-01T20:57:35.656Z"
 last_activity: 2026-06-01
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 29
-  completed_plans: 27
-  percent: 40
+  completed_plans: 28
+  percent: 60
 ---
 
 # Project State
@@ -34,7 +34,7 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 
 Phase: 17.1 (windows-s3-client-ffi-wiring-sync-enablement) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-06-01
 
 ```
@@ -69,6 +69,7 @@ Milestone v2.0.0: [████░░░░░░] Phase 17: 12/12 plans impleme
 | Phase 17 P12 | 8min | 2 tasks | 12 files |
 | Phase 17.1 P01 | 22min | 2 tasks | 5 files |
 | Phase 17.1 P02 | 5min | 2 tasks | 4 files |
+| Phase 17.1 P03 | 18min | 2 tasks | 10 files |
 
 ### Decisions
 
@@ -106,6 +107,8 @@ Milestone v2.0.0: [████░░░░░░] Phase 17: 12/12 plans impleme
 - [Phase 17.1]: [17.1-01] Wave 0 integration test resolves the plan-02 DS3DriveS3Client facade by reflection (Assembly.GetType) and no-ops until it lands, so the harness compiles before the consumer (Nyquist). D-06 tests BOTH error branches: bad access key => code 3003 => DS3TransportException, not DS3S3Exception
 - [Phase ?]: [17.1-02] DS3DriveS3Client : IDisposable owns one DS3S3Client handle (Create=>ds3_s3_client_new, Dispose=>Interlocked+ds3_s3_client_destroy); the 7 S3 ops re-homed off DS3Session onto this facade — structural fix for the S3 AccessViolationException (D-02). DS3Session is now auth/session-only.
 - [Phase ?]: [17.1-02] DS3AccountInfo.EndpointGateway un-ignored (maps endpoint_gateway wire key); inserted as 3rd positional record param — safe since no positional new DS3AccountInfo(...) call sites exist (deser is name-based). Unblocks Plan 03 S3-client construction.
+- [Phase ?]: [17.1-03] cfapi sync S3 routes through a host-built per-drive DriveS3SessionAccess wrapping one DS3DriveS3Client (creds from API-key flow + endpoint_gateway, not the session token); built at StartDriveAsync, rebuilt on credential/endpoint change, disposed LAST in StopActiveAsync (Pitfall 4)
+- [Phase ?]: [17.1-03] Per-drive S3 creds via new IDriveS3CredentialProvider seam (Sync-defined, App-implemented), not by widening the 6-op IDS3SessionAccess; IDS3SessionGateway dropped ListBuckets/ListObjects + gained EndpointGateway; wizard browse re-pointed onto a per-project cached DS3DriveS3Client
 
 ### Blockers
 
@@ -115,6 +118,6 @@ yet.
 
 ## Session Continuity
 
-Last session: 2026-06-01T20:40:48.501Z
+Last session: 2026-06-01T20:57:17.687Z
 Stopped at: Completed 17.1-02-PLAN.md
 Resume file: None
