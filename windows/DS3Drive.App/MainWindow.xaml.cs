@@ -1,7 +1,10 @@
 namespace DS3Drive.App;
 
+using System;
+using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Windows.Graphics;
 
 /// <summary>
 /// The single top-level window. Exposes its content <see cref="Frame"/> so
@@ -35,4 +38,21 @@ public sealed partial class MainWindow : Window
         // Activate raises the window; on a minimised window this restores it.
         this.Activate();
     }
+
+    /// <summary>
+    /// Resizes the window to a logical (DPI-independent) size, mirroring the macOS
+    /// per-scene window frames (login 540x680, main 760x600). WinUI windows otherwise
+    /// open at a large default; AppWindow.Resize takes physical pixels, so we scale by
+    /// the window's DPI.
+    /// </summary>
+    public void ResizeToLogical(int logicalWidth, int logicalHeight)
+    {
+        IntPtr hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        uint dpi = GetDpiForWindow(hwnd);
+        double scale = dpi == 0 ? 1.0 : dpi / 96.0;
+        AppWindow.Resize(new SizeInt32((int)(logicalWidth * scale), (int)(logicalHeight * scale)));
+    }
+
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(IntPtr hwnd);
 }

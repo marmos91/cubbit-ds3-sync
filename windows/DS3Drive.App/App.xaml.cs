@@ -240,6 +240,17 @@ public partial class App : Application
         // Wire navigation to the window's content Frame and route the initial page.
         var navigation = Host.Services.GetRequiredService<INavigationService>();
         navigation.Initialize(_window.NavigationFrame);
+
+        // Size the window per page to mirror the macOS per-scene frames: a compact
+        // login/2FA window (540x680) vs the larger drives/wizard surface (760x640).
+        // Subscribed before the initial navigation so the first page sizes correctly.
+        _window.NavigationFrame.Navigated += (_, e) =>
+        {
+            bool compact = e.SourcePageType == typeof(LoginPage)
+                        || e.SourcePageType == typeof(TwoFactorPage);
+            _window.ResizeToLogical(compact ? 540 : 760, compact ? 680 : 640);
+        };
+
         RouteInitialPage(navigation);
 
         _window.Activate();
