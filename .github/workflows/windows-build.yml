@@ -100,14 +100,6 @@ jobs:
       - name: Restore solution
         run: dotnet restore windows/DS3Drive.sln
 
-      # Formatting/lint gate (Phase 17): fails the build if whitespace, code-style, or
-      # analyzer-fixable formatting drifts from the windows/.editorconfig contract. Runs
-      # before the (longer) build so style regressions fail fast. Roslynator analyzer
-      # findings surface during the build below via EnforceCodeStyleInBuild +
-      # TreatWarningsAsErrors; this step covers the `dotnet format` formatter half.
-      - name: Verify formatting (dotnet format)
-        run: dotnet format windows/DS3Drive.sln --no-restore --verify-no-changes
-
       - name: Build solution (Release, x64)
         run: >-
           dotnet build windows/DS3Drive.sln
@@ -115,6 +107,18 @@ jobs:
           --no-restore
           /p:RuntimeIdentifier=win-x64
           /p:DS3SkipRustCore=true
+
+      # Formatting/lint gate (Phase 17): fails the build if whitespace, code-style, or
+      # analyzer-fixable formatting drifts from the windows/.editorconfig contract.
+      # Runs AFTER the build: `dotnet format` loads a full Roslyn workspace, and the
+      # WinUI/Windows-projection references (Windows.UI.*, Windows.Storage.*, etc.) are
+      # only resolvable once a build has generated them into obj/ — a restore-only
+      # workspace on a clean runner fails with CS0246 on every `Windows.*` type.
+      # Roslynator analyzer findings surface during the build above via
+      # EnforceCodeStyleInBuild + TreatWarningsAsErrors; this step covers the
+      # `dotnet format` formatter half.
+      - name: Verify formatting (dotnet format)
+        run: dotnet format windows/DS3Drive.sln --no-restore --verify-no-changes
 
       - name: Test (non-integration)
         run: >-
