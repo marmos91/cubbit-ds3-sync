@@ -49,8 +49,49 @@ public partial class App : Application
 
     public App()
     {
-        Host = BuildHost();
-        InitializeComponent();
+        // Startup diagnostics: opaque WinUI startup failures FailFast as a stowed
+        // exception (0xc000027b) with no managed stack in the event log. Capture the
+        // real exception to %LOCALAPPDATA%\DS3Drive\startup-error.log so launch
+        // failures are diagnosable instead of silent. Handlers are wired before any
+        // other work so even ctor-time faults are recorded.
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            LogStartupError("AppDomain.UnhandledException", e.ExceptionObject as Exception);
+        UnhandledException += (_, e) =>
+            LogStartupError("Application.UnhandledException", e.Exception);
+
+        try
+        {
+            Host = BuildHost();
+            InitializeComponent();
+        }
+        catch (Exception ex)
+        {
+            LogStartupError("App..ctor", ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Appends a startup-phase exception to <c>%LOCALAPPDATA%\DS3Drive\startup-error.log</c>
+    /// (and the debugger output). Best-effort — diagnostics must never throw.
+    /// </summary>
+    private static void LogStartupError(string phase, Exception? ex)
+    {
+        try
+        {
+            string dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "DS3Drive");
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(
+                Path.Combine(dir, "startup-error.log"),
+                $"[{DateTime.Now:O}] {phase}:{Environment.NewLine}{ex}{Environment.NewLine}{Environment.NewLine}");
+            Debug.WriteLine($"DS3Drive STARTUP ERROR ({phase}): {ex}");
+        }
+        catch
+        {
+            // Diagnostics must never throw.
+        }
     }
 
     private static IHost BuildHost()
