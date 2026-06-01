@@ -480,7 +480,7 @@ Plans:
 | 15. Rust Core + FFI Foundation | v2.0.0 | 7/7 | Complete   | 2026-05-27 |
 | 16. Apple Incremental Swap | v2.0.0 | 6/7 | In Progress|  |
 | 17. Windows Shell | v2.0.0 | 12/12 | Complete   | 2026-05-29 |
-| 17.1. Windows S3-Client FFI Wiring | v2.0.0 | 3/3 | Complete   | 2026-06-01 |
+| 17.1. Windows S3-Client FFI Wiring | v2.0.0 | 3/3 | Complete    | 2026-06-01 |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
 
 ---
