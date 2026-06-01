@@ -55,10 +55,14 @@ jobs:
         with:
           lfs: true
 
+      # Pin to the exact SDK declared in windows/global.json. The windows-latest image
+      # ships newer SDKs (e.g. 10.0.x) and, because the dotnet steps below run from the
+      # `windows/` directory, that global.json governs SDK selection — so the requested
+      # version must actually be installed here or selection fails.
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 8.0.421
 
       - name: Setup Rust toolchain (x64 MSVC target)
         uses: dtolnay/rust-toolchain@stable
@@ -97,15 +101,24 @@ jobs:
             -Destination "$dest/ds3_ffi.dll"
           Get-ChildItem $dest
 
+      # All dotnet steps run from windows/ so windows/global.json pins the SDK to .NET 8
+      # (the image's newer default SDK is not used). The projects declare Platforms
+      # x64;ARM64 (no Any CPU), so Platform must be set explicitly and identically across
+      # build and test, or `dotnet test --no-build` looks in the wrong bin/ folder.
+      # A solution-level RuntimeIdentifier is NOT passed: that errors with NETSDK1134
+      # ("Building a solution with a specific RuntimeIdentifier is not supported"); per-RID
+      # publish is handled at the project level.
       - name: Restore solution
-        run: dotnet restore windows/DS3Drive.sln
+        working-directory: windows
+        run: dotnet restore DS3Drive.sln
 
       - name: Build solution (Release, x64)
+        working-directory: windows
         run: >-
-          dotnet build windows/DS3Drive.sln
+          dotnet build DS3Drive.sln
           --configuration Release
           --no-restore
-          /p:RuntimeIdentifier=win-x64
+          /p:Platform=x64
           /p:DS3SkipRustCore=true
 
       # Formatting/lint gate (Phase 17): fails the build if whitespace, code-style, or
@@ -118,16 +131,19 @@ jobs:
       # EnforceCodeStyleInBuild + TreatWarningsAsErrors; this step covers the
       # `dotnet format` formatter half.
       - name: Verify formatting (dotnet format)
-        run: dotnet format windows/DS3Drive.sln --no-restore --verify-no-changes
+        working-directory: windows
+        run: dotnet format DS3Drive.sln --no-restore --verify-no-changes
 
       - name: Test (non-integration)
+        working-directory: windows
         run: >-
-          dotnet test windows/DS3Drive.Tests
+          dotnet test DS3Drive.Tests
           --no-build
           --configuration Release
+          /p:Platform=x64
           --filter "Category!=Integration"
           --logger "trx"
-          --results-directory TestResults
+          --results-directory ${{ github.workspace }}/TestResults
 
       - name: Upload test results
         if: failure()
