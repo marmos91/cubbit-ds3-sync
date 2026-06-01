@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: macOS App
-status: completed
+status: executing
 stopped_at: Phase 17.1 context gathered
-last_updated: "2026-06-01T18:39:41.264Z"
-last_activity: 2026-05-29
+last_updated: "2026-06-01T20:32:19.287Z"
+last_activity: 2026-06-01
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 26
-  completed_plans: 25
+  total_plans: 29
+  completed_plans: 26
   percent: 40
 ---
 
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-26)
 
 **Core value:** Files sync reliably and transparently between Mac, iPhone, iPad, Windows PC and Cubbit DS3, with zero friction on every platform.
-**Current focus:** Phase 17 — windows-shell
+**Current focus:** Phase 17.1 — windows-s3-client-ffi-wiring-sync-enablement
 
 **v2.0.0 phase shape:**
 
@@ -32,10 +32,10 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 
 ## Current Position
 
-Phase: 17 (windows-shell) — IMPLEMENTATION COMPLETE (pending D-33 HUMAN-UAT sign-off)
-Plan: 12 of 12 (all plans have SUMMARYs)
-Status: Phase 17 implementation done; gated on HUMAN-UAT #1–#53 before phase close
-Last activity: 2026-05-29
+Phase: 17.1 (windows-s3-client-ffi-wiring-sync-enablement) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-06-01
 
 ```
 Milestone v2.0.0: [████░░░░░░] Phase 17: 12/12 plans implemented (HUMAN-UAT pending)
@@ -67,6 +67,7 @@ Milestone v2.0.0: [████░░░░░░] Phase 17: 12/12 plans impleme
 | Phase 17 P10 | 19min | 4 tasks | 22 files |
 | Phase 17 P11 | continuation | 3 tasks | 28 files |
 | Phase 17 P12 | 8min | 2 tasks | 12 files |
+| Phase 17.1 P01 | 22min | 2 tasks | 5 files |
 
 ### Decisions
 
@@ -100,6 +101,8 @@ Milestone v2.0.0: [████░░░░░░] Phase 17: 12/12 plans impleme
 - [17-11]: TrayViewModel/SettingsViewModel/RecentFilesService live in DS3Drive.ViewModels (WinUI-free) for headless xUnit testability (Plan 09/10 split); aggregate precedence Error>Syncing>Paused>Idle is the WinUI-free reducer. Recent files = global top-5 (not per-drive) for flyout compactness. Tray + Settings manual smoke deferred to phase HUMAN-UAT (#32-43)
 - [Phase ?]: [17-12] MSI ProductVersion (Variables.wxi) and sparse manifest <Identity Version> synced byte-for-byte by build-msi.ps1 at build time so Add-AppxPackage never hits a same-version collision 0x80073CF9 (RESEARCH Pitfall 7)
 - [Phase ?]: [17-12] WiX toolset absent on dev machine (same MSVC/SDK blocker as 17-02/17-04); WiX sources + build-msi.ps1 + windows-release.yml authored and validated (well-formed XML, parseable PS, structured YAML). Actual MSI build/sign deferred to windows-release.yml on tag; D-33 live smoke deferred to HUMAN-UAT #44-#53
+- [Phase 17.1]: [17.1-01] ds3_s3_client_new omits runtime().block_on — DS3S3Client::new is synchronous (builds aws-sdk-s3 config, no I/O); only fallible step is UTF-8 decode. region via ffi_opt_str (null/0 => us-east-1, macOS parity)
+- [Phase 17.1]: [17.1-01] Wave 0 integration test resolves the plan-02 DS3DriveS3Client facade by reflection (Assembly.GetType) and no-ops until it lands, so the harness compiles before the consumer (Nyquist). D-06 tests BOTH error branches: bad access key => code 3003 => DS3TransportException, not DS3S3Exception
 
 ### Blockers
 
@@ -109,6 +112,6 @@ yet.
 
 ## Session Continuity
 
-Last session: 2026-06-01T18:39:41.255Z
+Last session: 2026-06-01T20:31:41.676Z
 Stopped at: Phase 17.1 context gathered
-Resume file: .planning/phases/17.1-windows-s3-client-ffi-wiring-sync-enablement/17.1-CONTEXT.md
+Resume file: None

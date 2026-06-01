@@ -418,12 +418,12 @@ Plans:
   4. The cfapi sync engine's list/head/download/upload/delete/copy operations route through the S3-client handle (not the session handle), so a created drive hydrates cloud-only files and uploads local changes against real Cubbit S3.
   5. The full first-run smoke (login -> 2FA -> wizard -> create drive -> bidirectional sync round-trip) completes end-to-end on native ARM64.
 
-**Plans:** 3 plans (3 waves)
+**Plans:** 1/3 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 17.1-01-PLAN.md -- Rust C-ABI exports (ds3_s3_client_new / ds3_s3_client_destroy) + DLL rebuild + Wave 0 verification scaffolds (integration test, faked-seam tests, manual-smoke-D-07.md, CI workflow_dispatch)
+- [x] 17.1-01-PLAN.md -- Rust C-ABI exports (ds3_s3_client_new / ds3_s3_client_destroy) + DLL rebuild + Wave 0 verification scaffolds (integration test, faked-seam tests, manual-smoke-D-07.md, CI workflow_dispatch)
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -480,7 +480,7 @@ Plans:
 | 15. Rust Core + FFI Foundation | v2.0.0 | 7/7 | Complete   | 2026-05-27 |
 | 16. Apple Incremental Swap | v2.0.0 | 6/7 | In Progress|  |
 | 17. Windows Shell | v2.0.0 | 12/12 | Complete   | 2026-05-29 |
-| 17.1. Windows S3-Client FFI Wiring | v2.0.0 | 0/3 | Planned | - |
+| 17.1. Windows S3-Client FFI Wiring | v2.0.0 | 1/3 | In Progress|  |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
 
 ---
