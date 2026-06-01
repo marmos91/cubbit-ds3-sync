@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: macOS App
 status: executing
-stopped_at: Phase 17.1 context gathered
-last_updated: "2026-06-01T20:32:19.287Z"
+stopped_at: Completed 17.1-02-PLAN.md
+last_updated: "2026-06-01T20:41:15.238Z"
 last_activity: 2026-06-01
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 29
-  completed_plans: 26
+  completed_plans: 27
   percent: 40
 ---
 
@@ -33,7 +33,7 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 ## Current Position
 
 Phase: 17.1 (windows-s3-client-ffi-wiring-sync-enablement) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-06-01
 
@@ -68,6 +68,7 @@ Milestone v2.0.0: [████░░░░░░] Phase 17: 12/12 plans impleme
 | Phase 17 P11 | continuation | 3 tasks | 28 files |
 | Phase 17 P12 | 8min | 2 tasks | 12 files |
 | Phase 17.1 P01 | 22min | 2 tasks | 5 files |
+| Phase 17.1 P02 | 5min | 2 tasks | 4 files |
 
 ### Decisions
 
@@ -103,6 +104,8 @@ Milestone v2.0.0: [████░░░░░░] Phase 17: 12/12 plans impleme
 - [Phase ?]: [17-12] WiX toolset absent on dev machine (same MSVC/SDK blocker as 17-02/17-04); WiX sources + build-msi.ps1 + windows-release.yml authored and validated (well-formed XML, parseable PS, structured YAML). Actual MSI build/sign deferred to windows-release.yml on tag; D-33 live smoke deferred to HUMAN-UAT #44-#53
 - [Phase 17.1]: [17.1-01] ds3_s3_client_new omits runtime().block_on — DS3S3Client::new is synchronous (builds aws-sdk-s3 config, no I/O); only fallible step is UTF-8 decode. region via ffi_opt_str (null/0 => us-east-1, macOS parity)
 - [Phase 17.1]: [17.1-01] Wave 0 integration test resolves the plan-02 DS3DriveS3Client facade by reflection (Assembly.GetType) and no-ops until it lands, so the harness compiles before the consumer (Nyquist). D-06 tests BOTH error branches: bad access key => code 3003 => DS3TransportException, not DS3S3Exception
+- [Phase ?]: [17.1-02] DS3DriveS3Client : IDisposable owns one DS3S3Client handle (Create=>ds3_s3_client_new, Dispose=>Interlocked+ds3_s3_client_destroy); the 7 S3 ops re-homed off DS3Session onto this facade — structural fix for the S3 AccessViolationException (D-02). DS3Session is now auth/session-only.
+- [Phase ?]: [17.1-02] DS3AccountInfo.EndpointGateway un-ignored (maps endpoint_gateway wire key); inserted as 3rd positional record param — safe since no positional new DS3AccountInfo(...) call sites exist (deser is name-based). Unblocks Plan 03 S3-client construction.
 
 ### Blockers
 
@@ -112,6 +115,6 @@ yet.
 
 ## Session Continuity
 
-Last session: 2026-06-01T20:31:41.676Z
-Stopped at: Phase 17.1 context gathered
+Last session: 2026-06-01T20:40:48.501Z
+Stopped at: Completed 17.1-02-PLAN.md
 Resume file: None
