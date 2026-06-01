@@ -14,6 +14,8 @@
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <!-- WinUI 3 has no Any CPU; expose the platforms the .sln maps (matches RuntimeIdentifiers). -->
+    <Platforms>x64;ARM64</Platforms>
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
     <!-- Unpackaged exe; sparse identity package is layered on at install time. -->
