@@ -2,6 +2,8 @@ namespace DS3Drive.Sync.Hosting;
 
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DS3Drive.Core;
@@ -32,16 +34,26 @@ public sealed class SyncHostedService : IHostedService
     private readonly Dictionary<Guid, ActiveDrive> _active = new();
     private readonly SemaphoreSlim _lock = new(1, 1);
 
-    // The per-drive S3 client + the creds it was built from. The adapter (DriveS3SessionAccess)
-    // routes the 6 cfapi ops through S3; Creds let a later StartDriveAsync detect a
-    // credential/endpoint change and rebuild (Pitfall 5, macOS reloadDriveCredentials parity).
+    // The per-drive S3 client + a NON-REVERSIBLE fingerprint of the creds it was built from.
+    // The adapter (DriveS3SessionAccess) routes the 6 cfapi ops through S3; the fingerprint lets
+    // a later StartDriveAsync detect a credential/endpoint change and rebuild (Pitfall 5, macOS
+    // reloadDriveCredentials parity) WITHOUT retaining the plaintext SecretKey for the drive's
+    // lifetime (CR-17.1-01 / T-17.1-09: the secret crosses the FFI in DS3DriveS3Client.Create and
+    // is not held in a long-lived, GC-movable, dumpable managed object afterwards).
     private sealed record ActiveDrive(
         CfApiProvider Provider,
         SyncEngineType Engine,
         DriveStatusBroadcaster Status,
         CancellationTokenSource Cts,
         DS3DriveS3Client S3,
-        DriveS3Credentials Creds);
+        string CredsFingerprint);
+
+    // SHA-256 over endpoint|access|secret: collision-resistant change-detection that never
+    // stores the secret in plaintext. Re-computed from transiently-resolved creds on each
+    // StartDriveAsync and compared against the active drive's stored fingerprint.
+    private static string CredsFingerprintOf(DriveS3Credentials c) =>
+        Convert.ToHexString(SHA256.HashData(
+            Encoding.UTF8.GetBytes($"{c.Endpoint}\n{c.AccessKey}\n{c.SecretKey}")));
 
     public SyncHostedService(
         IDriveLifecycleSource lifecycle,
@@ -151,7 +163,7 @@ public sealed class SyncHostedService : IHostedService
             // tear the old one down and rebuild from the fresh creds. Unchanged creds => no-op.
             if (_active.TryGetValue(drive.Id, out ActiveDrive? existing))
             {
-                if (existing.Creds == creds)
+                if (existing.CredsFingerprint == CredsFingerprintOf(creds))
                 {
                     return;
                 }
@@ -167,6 +179,11 @@ public sealed class SyncHostedService : IHostedService
             // Region null => Rust defaults to us-east-1 (macOS parity). The host owns this
             // handle and disposes it LAST in StopActiveAsync (Pitfall 4).
             var s3 = DS3DriveS3Client.Create(creds.Endpoint, creds.AccessKey, creds.SecretKey);
+
+            // Capture the change-detection fingerprint NOW (the only point we hold the live
+            // secret), then never retain `creds` itself. DS3DriveS3Client.Create is the sole
+            // consumer of the plaintext SecretKey (CR-17.1-01 / T-17.1-09).
+            string credsFingerprint = CredsFingerprintOf(creds);
             var access = new DriveS3SessionAccess(s3, drive.SyncAnchor.IamUserId);
 
             var debounce = TimeSpan.FromMilliseconds(400);
@@ -197,7 +214,7 @@ public sealed class SyncHostedService : IHostedService
                 throw;
             }
 
-            _active[drive.Id] = new ActiveDrive(provider, engine, status, cts, s3, creds);
+            _active[drive.Id] = new ActiveDrive(provider, engine, status, cts, s3, credsFingerprint);
             _logger.LogInformation("sync started for drive {DriveId}", drive.Id);
         }
         finally
@@ -215,17 +232,21 @@ public sealed class SyncHostedService : IHostedService
             await active.Provider.DisconnectAsync(CancellationToken.None).ConfigureAwait(false);
             await active.Engine.DisposeAsync().ConfigureAwait(false);
             await active.Status.ShutdownAsync().ConfigureAwait(false);
-            active.Cts.Dispose();
-
-            // Dispose the S3 client LAST (Pitfall 4 / T-17.1-11): only after the engine +
-            // provider have fully stopped, so no in-flight FETCH/upload can race the free.
-            // Interlocked.Exchange in the facade makes this single-shot; ordering is what
-            // prevents the use-after-free.
-            active.S3.Dispose();
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "error stopping active drive");
+        }
+        finally
+        {
+            // Dispose unconditionally (WR-17.1-02): if any await above threw, the native
+            // DS3S3Client handle (and the CTS) would otherwise leak for the life of the
+            // process on every failed teardown during drive churn. Dispose the S3 client
+            // LAST (Pitfall 4 / T-17.1-11) — only after the engine + provider stop attempts
+            // complete, so no in-flight FETCH/upload can race the free. Interlocked.Exchange
+            // in the facade makes the free single-shot; ordering prevents the use-after-free.
+            active.Cts.Dispose();
+            active.S3.Dispose();
         }
     }
 }
