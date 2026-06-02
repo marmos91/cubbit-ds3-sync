@@ -6,7 +6,7 @@
 - ✅ **v2.0 iOS & iPadOS Universal App** - Phases 6-9 (shipped 2026-03-20)
 - ✅ **v3.0 Sharing & Collaboration** - Phase 10 (shipped 2026-04-10)
 - 📋 **v3.1 Thumbnails** - Phases 11-14 (planned)
-- 📋 **v2.0.0 Cross-Platform Rewrite** - Phases 15-18 (planned)
+- 🚧 **v2.0.0 Cross-Platform Rewrite** - Phases 15-18 + Windows productionization (17.1-17.6) (in progress)
 
 ## Phases
 
@@ -278,6 +278,12 @@ Plans:
 - [x] **Phase 15: Rust Core + FFI Foundation** - Cargo workspace with 6 crates, UniFFI Swift XCFramework, csbindgen C# bindings, integration tests against real Cubbit S3 (completed 2026-05-27)
 - [ ] **Phase 16: Apple Incremental Swap** - Replace DS3S3Client, DS3Authentication, DS3SDK internals with Rust via UniFFI; remove Soto and CryptoKit from DS3Lib
 - [x] **Phase 17: Windows Shell** - WinUI 3 tray app with cfapi Cloud Filter integration, Explorer sidebar, on-demand hydration, upload, remote sync, MSI installer (completed 2026-05-29)
+- [x] **Phase 17.1: Windows S3-Client FFI Wiring + Sync Enablement** - Mint a DS3S3Client across the FFI, route the cfapi engine through it; bidirectional sync working end-to-end on native ARM64 (completed 2026-06-01)
+- [ ] **Phase 17.2: Windows Thumbnails** - Real Explorer thumbnails from the shared `.thumbnails/` prefix, no full-file hydration
+- [ ] **Phase 17.3: Windows Enumeration Performance & UX** - Incremental paged enumeration at scale, idempotent placeholders, visible progress
+- [ ] **Phase 17.4: Windows UI Polish (all windows)** - Design-token consistency, theme/DPI correctness, empty/loading/error states across every window
+- [ ] **Phase 17.5: Windows Feature Completeness** - Drive stats, full settings, pause/resume, recent files, transfer speed, notifications (macOS parity)
+- [ ] **Phase 17.6: Windows Installer, Releases & CI** - Signed x64 + ARM64 installer, tag-triggered release pipeline, upgrade-preserving, auto-update
 - [ ] **Phase 18: Polish + Beta Hardening** - Cross-FFI logging, error mapping, DPAPI credentials, multi-drive, auto-update, ARM64 Windows, tray flyout, conflict resolution
 
 ### Phase 15: Rust Core + FFI Foundation
@@ -435,6 +441,76 @@ Plans:
 
 **UI hint**: no
 
+### Phase 17.2: Windows Thumbnails
+
+**Goal**: Image files show real thumbnail previews in Explorer on Windows, backed by the same shared `.thumbnails/` S3 prefix the Apple platforms use -- a drive populated from macOS/iOS shows thumbnails on Windows, and Windows can contribute thumbnails back -- without ever forcing a full-file hydration or surfacing the `.thumbnails/` prefix to the user.
+**Depends on**: Phase 17.1
+**Discovered**: 2026-06-02 UAT -- cloud-only images render the generic placeholder icon in Explorer; no thumbnail path exists on Windows.
+**Success Criteria** (what must be TRUE):
+
+  1. Cloud-only and hydrated image files show correct thumbnails in Explorer tile/large-icon views, generated from the `.thumbnails/` prefix without triggering a full-file download on the consumption path
+  2. The `.thumbnails/` prefix never appears in any Windows enumeration surface, and Windows reuses the canonical thumbnail key mapping + size/quality contract shared with Apple
+  3. Thumbnails appear progressively as content is consumed/backfilled, with sync-status overlays still rendering correctly on top
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 17.3: Windows Enumeration Performance & UX
+
+**Goal**: Browsing prefixes in Explorer is fast and responsive at scale -- placeholders populate incrementally with visible progress, thousands of objects paginate without stalling Explorer or the app, and repeated enumerations never produce duplicate, missing, or ghost entries.
+**Depends on**: Phase 17.1
+**Discovered**: 2026-06-02 UAT -- enumeration performance/UX on large prefixes is unverified and a likely bottleneck.
+**Success Criteria** (what must be TRUE):
+
+  1. A prefix containing thousands of objects enumerates incrementally (paged) with low time-to-first-visible-items and no UI freeze in Explorer or the tray app
+  2. Placeholder creation/refresh is idempotent across repeated enumerations and remote changes -- no duplicates, no missing entries, no ghost files
+  3. Enumeration and hydration progress are observable to the user (status column / tray), and bounded concurrency prevents S3 throttling (SlowDown)
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 17.4: Windows UI Polish (all windows)
+
+**Goal**: Every window -- login, 2FA, drive-setup wizard, drives list, tray flyout, settings -- matches the brand design system and is visually consistent, responsive, and free of layout, contrast, theme, and DPI-scaling defects.
+**Depends on**: Phase 17.1
+**Discovered**: 2026-06-02 UAT -- UI needs a consistency/polish pass across all windows.
+**Success Criteria** (what must be TRUE):
+
+  1. All windows consume the UI-SPEC design tokens (type scale, spacing, colors, weights) consistently -- no ad-hoc styling or off-token literals
+  2. Light/dark theme and high-DPI (125/150/200%) render correctly with no clipped, overlapping, or low-contrast elements
+  3. Every surface has designed empty / loading / error states, correct keyboard navigation and focus order, and consistent window chrome (Mica/title/min-size)
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 17.5: Windows Feature Completeness
+
+**Goal**: Windows reaches day-to-day feature parity with macOS -- per-drive statistics, a complete settings surface, pause/resume, recent files, transfer speed, notifications, open-in-Explorer, and sign-out are all present and functional.
+**Depends on**: Phase 17.1
+**Discovered**: 2026-06-02 UAT -- drive stats, settings, and several parity features are missing.
+**Success Criteria** (what must be TRUE):
+
+  1. A drive detail surface and the tray flyout show per-drive statistics (object count, bytes used, last-sync time, current status) that update as sync progresses
+  2. Settings exposes account info, per-drive management, startup-on-login, pause/resume, and sign-out -- all functional and persisted
+  3. Parity surfaces from the macOS tray (recent files, live transfer speed, sync notifications) are present and correct on Windows
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 17.6: Windows Installer, Releases & CI
+
+**Goal**: A signed, production-grade Windows installer for x64 and native ARM64 is produced by tag-triggered CI, supports silent install and auto-start, preserves drives/credentials on upgrade, and the release pipeline publishes versioned artifacts with auto-update wiring -- advancing the Phase 17-12 MSI to the FFI-wired, ARM64 app.
+**Depends on**: Phase 17.2, Phase 17.3, Phase 17.4, Phase 17.5 (a ship-ready app)
+**Discovered**: 2026-06-02 UAT -- the installer/release/CI pipeline must be finished and hardened for the now-working native app.
+**Success Criteria** (what must be TRUE):
+
+  1. The installer (WiX MSI / MSIX sparse identity) builds for x64 and ARM64 via tag-triggered GitHub Actions, is code-signed, and supports silent install (`/qn`) plus HKCU run-key auto-start
+  2. CI runs the Windows build + test suite on PRs and publishes versioned release artifacts on tags, with automated version stamping
+  3. A fresh install launches, registers the sync root, and an in-place upgrade preserves existing drives and DPAPI-stored credentials with no re-login or data loss
+
+**Plans**: TBD
+**UI hint**: no
+
 ### Phase 18: Polish + Beta Hardening
 
 **Goal**: Both Apple and Windows platforms are release-quality -- structured cross-platform logging, correct error surfaces, multi-drive support, auto-update, and a production installer that enterprise IT can deploy silently
@@ -459,7 +535,7 @@ Plans:
 - v2.0: 6 -> 7 -> 8 -> 9
 - v3.0: 10
 - v3.1: 11 -> 12 -> 13 -> 14
-- v2.0.0: 15 -> 16 + 17 (parallel) -> 17.1 -> 18
+- v2.0.0: 15 -> 16 + 17 (parallel) -> 17.1 -> 17.2 + 17.3 + 17.4 + 17.5 (parallel) -> 17.6 -> 18
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -481,6 +557,11 @@ Plans:
 | 16. Apple Incremental Swap | v2.0.0 | 6/7 | In Progress|  |
 | 17. Windows Shell | v2.0.0 | 12/12 | Complete   | 2026-05-29 |
 | 17.1. Windows S3-Client FFI Wiring | v2.0.0 | 3/3 | Complete    | 2026-06-01 |
+| 17.2. Windows Thumbnails | v2.0.0 | 0/0 | Not started | - |
+| 17.3. Windows Enumeration Performance & UX | v2.0.0 | 0/0 | Not started | - |
+| 17.4. Windows UI Polish (all windows) | v2.0.0 | 0/0 | Not started | - |
+| 17.5. Windows Feature Completeness | v2.0.0 | 0/0 | Not started | - |
+| 17.6. Windows Installer, Releases & CI | v2.0.0 | 0/0 | Not started | - |
 | 18. Polish + Beta Hardening | v2.0.0 | 0/0 | Not started | - |
 
 ---
