@@ -10,8 +10,9 @@
 // 17-02 blocker) OR update this file by hand and verify with
 //   grep -c "DllImport(\"ds3_ffi\"" DS3Native.cs   (must match the export count).
 //
-// Export count: 39 [DllImport("ds3_ffi"…)] bindings — bumped +2 in plan 17.1-02
-// for the S3-client lifecycle pair (ds3_s3_client_new / ds3_s3_client_destroy).
+// Export count: 40 [DllImport("ds3_ffi"…)] bindings — bumped +2 in plan 17.1-02
+// for the S3-client lifecycle pair (ds3_s3_client_new / ds3_s3_client_destroy),
+// then +1 for ds3_last_error_message (server-error detail channel, 17.1 UAT).
 //
 // Differences from the raw csbindgen output (intentional, idiomatic):
 //   - Opaque handles (DS3Session*, DS3S3Client*, CancellationHandle*) are
@@ -172,6 +173,12 @@ internal static unsafe partial class DS3Native
 
     [DllImport("ds3_ffi", EntryPoint = "ds3_error_code", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ds3_error_code(byte* message_ptr, nuint message_len);
+
+    /// <summary>Reads + clears the most recent error detail (HTTP status + body for
+    /// server errors) recorded on THIS thread by ffi_guard!. Out buffer freed via
+    /// ds3_free_string. Always returns 0; no guard needed (non-throwing).</summary>
+    [DllImport("ds3_ffi", EntryPoint = "ds3_last_error_message", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ds3_last_error_message(out IntPtr out_json, out nuint out_json_len);
 
     // -----------------------------------------------------------------------
     // Cancellation handle (heap-allocated; destroy exactly once)

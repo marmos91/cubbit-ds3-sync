@@ -61,6 +61,29 @@ unsafe fn write_ffi_string(s: &str, out_ptr: *mut *mut u8, out_len: *mut usize) 
     unsafe { write_ffi_bytes(s.as_bytes().to_vec(), out_ptr, out_len) };
 }
 
+/// Diagnostic: writes the *detail* string of the most recent error that occurred
+/// on THIS thread (set by `ffi_guard!`) into `out_json` as UTF-8, then clears it.
+/// For a server error this includes the HTTP status + response body
+/// (`DS3Error::detail`), which the bare `out_error` code cannot carry. Writes an
+/// empty string when no error has been recorded; a second call returns empty.
+///
+/// The host attaches this to the typed exception it raises from the numeric code
+/// so the local debug log can show *why* a coordinator/keyvault call failed; it is
+/// never surfaced as user-facing copy. Always returns 0.
+///
+/// # Safety
+/// `out_json` and `out_json_len` must be valid writable pointers. The returned
+/// buffer is owned by the caller and MUST be freed once via `ds3_free_string`.
+#[no_mangle]
+pub unsafe extern "C" fn ds3_last_error_message(
+    out_json: *mut *mut u8,
+    out_json_len: *mut usize,
+) -> i32 {
+    let msg = crate::panic_guard::take_last_error().unwrap_or_default();
+    unsafe { write_ffi_string(&msg, out_json, out_json_len) };
+    0
+}
+
 /// Writes an owned byte buffer into FFI out-pointers. The caller must later
 /// free the allocation with `ds3_free_bytes` (or `ds3_free_string`).
 ///

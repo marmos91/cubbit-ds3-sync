@@ -87,7 +87,8 @@ public sealed class DS3Session : IDisposable
     /// <summary>Refreshes the access token if expired.</summary>
     public void RefreshToken() => Check(DS3Native.ds3_refresh_token(EnsureHandle(), out int err), err);
 
-    /// <summary>Forges an IAM token for the given user (returns the raw token string).</summary>
+    /// <summary>Forges an IAM token for the given user and returns the bare JWT access-token
+    /// string (suitable as a Bearer credential for keyvault calls).</summary>
     public unsafe string ForgeIamToken(string iamUserId)
     {
         IntPtr h = EnsureHandle();
@@ -101,7 +102,15 @@ public sealed class DS3Session : IDisposable
         }
 
         Check(rc, err, json, len);
-        return M.TakeString(json, len);
+
+        // The native call returns the full Token object as JSON ({ "token", "exp", "exp_date" }),
+        // not the bare JWT. Callers pass this value as the Bearer credential for keyvault requests,
+        // so return the access-token string itself — sending the JSON wrapper as the Bearer makes
+        // the server reject the request (HTTP 403).
+        string tokenJson = M.TakeString(json, len);
+        using JsonDocument doc = JsonDocument.Parse(tokenJson);
+        return doc.RootElement.GetProperty("token").GetString()
+            ?? throw DS3ExceptionFactory.From(1003); // JsonConversion: token field missing/null.
     }
 
     /// <summary>Lists the projects visible to the account.</summary>
@@ -230,7 +239,7 @@ public sealed class DS3Session : IDisposable
     {
         if (rc != 0)
         {
-            throw DS3ExceptionFactory.From(err);
+            throw DS3ExceptionFactory.From(err, LastErrorDetail());
         }
     }
 
@@ -239,8 +248,26 @@ public sealed class DS3Session : IDisposable
         if (rc != 0)
         {
             M.FreeString(buf, len);
-            throw DS3ExceptionFactory.From(err);
+            throw DS3ExceptionFactory.From(err, LastErrorDetail());
         }
+    }
+
+    /// <summary>Fetches (and clears) the Rust core's detail for the error that just
+    /// occurred on THIS thread — for a server error, the HTTP status + response body
+    /// the bare numeric code can't carry. Attached to the thrown exception so the
+    /// debug log can show *why* a coordinator/keyvault call failed; the UI still maps
+    /// to fixed copy (MapErrorCopy), so no server text reaches the user. Returns null
+    /// when the core recorded no detail. Must run on the same thread as the failing
+    /// FFI call (it is — Check runs synchronously right after the P/Invoke returns).</summary>
+    private static string? LastErrorDetail()
+    {
+        if (DS3Native.ds3_last_error_message(out IntPtr json, out nuint len) != 0)
+        {
+            return null;
+        }
+
+        string detail = M.TakeString(json, len);
+        return string.IsNullOrEmpty(detail) ? null : detail;
     }
 
     private static T Parse<T>(int rc, int err, IntPtr json, nuint len)

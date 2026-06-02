@@ -2,6 +2,32 @@
 //!
 //! Every `extern "C"` function wraps its body in `catch_unwind` to prevent
 //! panics from unwinding across the FFI boundary (undefined behavior).
+//!
+//! The guard also records the *detail* string of any returned error in a
+//! thread-local slot (see [`set_last_error`]) so the host can retrieve
+//! server-side context (e.g. an HTTP status + body for a non-2xx coordinator
+//! response) via `ds3_last_error_message` and attach it to the typed exception
+//! it raises from the bare numeric error code.
+
+use std::cell::RefCell;
+
+thread_local! {
+    /// Detail string of the most recent error returned through [`ffi_guard`] on
+    /// this thread. Consumed (cleared) by `ds3_last_error_message`.
+    static LAST_ERROR: RefCell<Option<String>> = const { RefCell::new(None) };
+}
+
+/// Records the most recent error detail for the current thread (set by
+/// [`ffi_guard`] on its error arm).
+pub(crate) fn set_last_error(detail: String) {
+    LAST_ERROR.with(|cell| *cell.borrow_mut() = Some(detail));
+}
+
+/// Takes (and clears) the most recent error detail for the current thread.
+/// Returns `None` when no error has been recorded since the last take.
+pub(crate) fn take_last_error() -> Option<String> {
+    LAST_ERROR.with(|cell| cell.borrow_mut().take())
+}
 
 /// Wraps an FFI function body in `catch_unwind` for panic safety.
 ///
@@ -25,6 +51,7 @@ macro_rules! ffi_guard {
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $body)) {
             Ok(Ok(val)) => val,
             Ok(Err(e)) => {
+                $crate::panic_guard::set_last_error(e.detail());
                 if !$out_error.is_null() {
                     unsafe { *$out_error = e.code() };
                 }

@@ -115,6 +115,23 @@ impl DS3Error {
             DS3Error::AuthError(_) => 3004,
         }
     }
+
+    /// Verbose diagnostic detail for the FFI last-error channel.
+    ///
+    /// Unlike the terse [`std::fmt::Display`] impl (kept stable for
+    /// `ds3_error_code` round-tripping and deliberately free of server text),
+    /// this includes the captured HTTP status **and** response body for
+    /// [`DS3Error::ServerError`], so the host can diagnose non-2xx
+    /// coordinator/keyvault responses. It is routed only to the local debug log
+    /// (via `ds3_last_error_message`), never to user-facing copy.
+    pub fn detail(&self) -> String {
+        match self {
+            DS3Error::ServerError { status, body } => {
+                format!("Server error: HTTP {status}: {body}")
+            }
+            other => other.to_string(),
+        }
+    }
 }
 
 impl From<std::io::Error> for DS3Error {

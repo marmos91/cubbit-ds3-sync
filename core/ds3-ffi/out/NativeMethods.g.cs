@@ -19,6 +19,24 @@ namespace DS3Drive.Core
 
 
         /// <summary>
+        ///  Diagnostic: writes the *detail* string of the most recent error that occurred
+        ///  on THIS thread (set by `ffi_guard!`) into `out_json` as UTF-8, then clears it.
+        ///  For a server error this includes the HTTP status + response body
+        ///  (`DS3Error::detail`), which the bare `out_error` code cannot carry. Writes an
+        ///  empty string when no error has been recorded; a second call returns empty.
+        ///
+        ///  The host attaches this to the typed exception it raises from the numeric code
+        ///  so the local debug log can show *why* a coordinator/keyvault call failed; it is
+        ///  never surfaced as user-facing copy. Always returns 0.
+        ///
+        ///  # Safety
+        ///  `out_json` and `out_json_len` must be valid writable pointers. The returned
+        ///  buffer is owned by the caller and MUST be freed once via `ds3_free_string`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_last_error_message", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_last_error_message(byte** out_json, nuint* out_json_len);
+
+        /// <summary>
         ///  Frees a string previously allocated by the Rust FFI layer.
         ///
         ///  # Safety
