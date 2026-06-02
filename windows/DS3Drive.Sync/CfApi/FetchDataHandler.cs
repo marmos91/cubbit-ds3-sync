@@ -56,8 +56,11 @@ internal sealed class FetchDataHandler
 
     // One shared download per S3 key. Concurrent FETCH_DATA callbacks for the same object
     // await the same temp file rather than each pulling the whole object again.
+    // S3 keys are case-sensitive, so coalesce on an Ordinal (not OrdinalIgnoreCase) key —
+    // otherwise two objects differing only in case would share one download and serve each
+    // other's bytes.
     private readonly ConcurrentDictionary<string, SharedDownload> _downloads =
-        new(StringComparer.OrdinalIgnoreCase);
+        new(StringComparer.Ordinal);
 
     public FetchDataHandler(
         DS3DriveModel drive,
@@ -236,7 +239,12 @@ internal sealed class FetchDataHandler
         CF_CONNECTION_KEY connectionKey, CF_TRANSFER_KEY transferKey, string tempPath,
         long startOffset, long length)
     {
-        await using var fs = new FileStream(tempPath, FileMode.Open, FileAccess.Read, FileShare.Read, ChunkSize, useAsync: true);
+        // FileShare.Delete so the last releaser's TryDelete can unlink the temp even while
+        // this concurrent callback still has it open for reading (the deletion is deferred by
+        // the OS until the last handle closes) — without it, the release races a sharing
+        // violation and leaks the temp file.
+        await using var fs = new FileStream(
+            tempPath, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, ChunkSize, useAsync: true);
         long fileLen = fs.Length;
 
         var buffer = new byte[ChunkSize];

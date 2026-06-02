@@ -42,6 +42,8 @@ public sealed class CfApiProvider : IAsyncDisposable
     private FetchDataHandler? _fetchHandler;
     private CallbackTable? _callbackTable;
     private CF_CONNECTION_KEY _connectionKey;
+    private CancellationTokenSource? _lifetimeCts;
+    private Task? _populateTask;
     private bool _connected;
     private bool _disposed;
 
@@ -104,7 +106,10 @@ public sealed class CfApiProvider : IAsyncDisposable
             // FETCH_PLACEHOLDERS callback (on-demand population) stays registered as a fallback, but
             // it was observed NOT to fire for the sync-root directory, so eager population is the
             // reliable path. Runs in the background so a large bucket does not block drive startup.
-            _ = Task.Run(() => PopulatePlaceholdersAsync(ct), ct);
+            // Tracked + cancelled on dispose so it can't call CfCreatePlaceholders after disconnect.
+            _lifetimeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            CancellationToken populateToken = _lifetimeCts.Token;
+            _populateTask = Task.Run(() => PopulatePlaceholdersAsync(populateToken), populateToken);
         }
         catch (Exception ex)
         {
@@ -154,6 +159,10 @@ public sealed class CfApiProvider : IAsyncDisposable
 
         _disposed = true;
 
+        // Signal the background populate to stop before we disconnect, so it can't issue
+        // CfCreatePlaceholders against a connection key we're about to invalidate.
+        _lifetimeCts?.Cancel();
+
         if (_connected)
         {
             try
@@ -168,9 +177,28 @@ public sealed class CfApiProvider : IAsyncDisposable
             _connected = false;
         }
 
+        // Drain the background populate (cancellation makes this prompt) so no placeholder
+        // work outlives the disconnect.
+        if (_populateTask is not null)
+        {
+            try
+            {
+                await _populateTask.ConfigureAwait(false);
+            }
+            catch
+            {
+                // Best-effort drain — populate already logs its own failures.
+            }
+        }
+
         await _uploads.DisposeAsync().ConfigureAwait(false);
-        _fetchSemaphore.Dispose();
+        _lifetimeCts?.Dispose();
         _callbackTable = null;
         _fetchHandler = null;
+
+        // Deliberately NOT disposing _fetchSemaphore: fire-and-forget FETCH_DATA handlers may
+        // still be awaiting it as they unwind after disconnect, and disposing it would throw
+        // ObjectDisposedException on those threads. We only ever WaitAsync/Release it (never
+        // touch AvailableWaitHandle), so leaving it for the GC is safe.
     }
 }

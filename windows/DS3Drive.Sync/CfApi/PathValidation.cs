@@ -161,7 +161,13 @@ public static class PathValidation
 
         string normalized = normalizedPath.Replace('\\', '/').Trim('/');
 
-        if (rootRelative.Length > 0 && normalized.StartsWith(rootRelative, StringComparison.OrdinalIgnoreCase))
+        // Strip the sync root only on a path-component boundary: the item must be the root
+        // itself or sit under "<root>/". A bare StartsWith would also match a sibling whose
+        // name merely begins with the root (e.g. "<root>-backup/..."), deriving the wrong key
+        // and mis-routing deletes/renames to the wrong remote object.
+        if (rootRelative.Length > 0 &&
+            (normalized.Equals(rootRelative, StringComparison.OrdinalIgnoreCase) ||
+             normalized.StartsWith(rootRelative + "/", StringComparison.OrdinalIgnoreCase)))
         {
             normalized = normalized[rootRelative.Length..].TrimStart('/');
         }
