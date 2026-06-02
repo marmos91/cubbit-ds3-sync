@@ -2,6 +2,7 @@
 
 use std::path::Path;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use aws_sdk_s3::primitives::ByteStream;
 use tokio::io::AsyncWriteExt;
@@ -9,6 +10,16 @@ use tokio::io::AsyncWriteExt;
 use crate::cancel::CancelToken;
 use crate::client::{normalize_etag, DS3S3Client, MULTIPART_THRESHOLD};
 use ds3_models::{DS3Error, S3DownloadResult};
+
+/// Minimum wall-clock gap between two `on_progress` invocations during a download.
+///
+/// The S3 `ByteStream` yields small (~4 KB) frames, so a naive "call the callback on
+/// every chunk" loop fires the callback ~1000× for a few-MB file. When the callback is a
+/// synchronous cross-FFI hop (Windows `CfReportProviderProgress`), that latency is paid on
+/// the runtime worker thread for every frame and serializes the whole transfer. Throttling
+/// to one report per interval decouples download throughput from callback cost while still
+/// resetting the platform's 60 s hydration watchdog frequently enough.
+const PROGRESS_THROTTLE: Duration = Duration::from_millis(100);
 
 impl DS3S3Client {
     /// Downloads an object to a local file, optionally reporting progress.
@@ -41,6 +52,9 @@ impl DS3S3Client {
             .map_err(|_| DS3Error::UnableToOpenFile)?;
 
         let mut bytes_written: i64 = 0;
+        // Throttle progress to one report per PROGRESS_THROTTLE; the very first chunk reports
+        // immediately so the watchdog sees motion right away.
+        let mut last_report: Option<Instant> = None;
 
         while let Some(chunk) = body
             .try_next()
@@ -51,11 +65,22 @@ impl DS3S3Client {
             bytes_written += chunk.len() as i64;
 
             if let Some(cb) = on_progress {
-                cb(bytes_written, content_length);
+                let due = last_report
+                    .map(|t| t.elapsed() >= PROGRESS_THROTTLE)
+                    .unwrap_or(true);
+                if due {
+                    cb(bytes_written, content_length);
+                    last_report = Some(Instant::now());
+                }
             }
         }
 
         file.flush().await?;
+
+        // Always deliver a final 100% report so the UI/watchdog isn't left mid-throttle.
+        if let Some(cb) = on_progress {
+            cb(bytes_written, content_length);
+        }
 
         Ok(S3DownloadResult {
             etag,
