@@ -237,6 +237,29 @@ public sealed class DriveSetupViewModelTests
         Assert.DoesNotContain("AccessDenied", vm.CreationError!);
     }
 
+    // Test 14 — WIN-03 happy-path: successful GetBucketsAsync populates Buckets,
+    // stays on WizardStep.Bucket, and sets no error.
+    // This test targets the gap where only the trigger (Test 4) and the error
+    // branches (Tests 12/13) were covered, but not the success-population behavior.
+    [Fact]
+    public async Task LoadBucketsAsync_OnSuccess_PopulatesBuckets_StaysOnBucket_NoError()
+    {
+        var (vm, sdk, _) = Make();
+        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<DS3Bucket>>(new[] { Bucket }));
+
+        // Advance to Bucket step (sets SelectedProject, required by LoadBucketsCommand guard).
+        vm.SelectProjectCommand.Execute(Project);
+
+        // Deterministic re-invoke of the bucket load to await the async result.
+        await vm.LoadBucketsCommand.ExecuteAsync(null);
+
+        Assert.Equal(WizardStep.Bucket, vm.CurrentStep);
+        Assert.Single(vm.Buckets);
+        Assert.Equal("my-bucket", vm.Buckets[0].Name);
+        Assert.Null(vm.CreationError);
+    }
+
     // Test 13 — D-06 faked seam, TRANSPORT branch.
     // Per A1 verification against core/ds3-models/src/error.rs, a bad access key
     // surfaces as code 3003 (S3Error in the 3001-3099 transport range) →
