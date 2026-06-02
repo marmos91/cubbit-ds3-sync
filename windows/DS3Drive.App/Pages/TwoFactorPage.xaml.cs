@@ -4,7 +4,9 @@ using DS3Drive.ViewModels.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.System;
 
 /// <summary>
 /// Code-behind for the 2FA challenge page. Resolves <see cref="TwoFactorViewModel"/> from
@@ -28,6 +30,17 @@ public sealed partial class TwoFactorPage : Page
         if (e.Parameter is TwoFactorContext context)
         {
             ViewModel.Initialize(context);
+        }
+    }
+
+    /// <summary>Submits the 2FA code when Enter is pressed in the code field, unless a
+    /// verification is already in flight.</summary>
+    private void OnCodeKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter && ViewModel.VerifyCommand.CanExecute(null))
+        {
+            e.Handled = true;
+            ViewModel.VerifyCommand.Execute(null);
         }
     }
 

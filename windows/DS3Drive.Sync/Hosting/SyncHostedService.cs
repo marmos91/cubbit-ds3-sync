@@ -70,25 +70,17 @@ public sealed class SyncHostedService : IHostedService
         _logger = _loggerFactory.CreateLogger<SyncHostedService>();
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public Task StartAsync(CancellationToken cancellationToken)
     {
         _lifecycle.DriveAdded += OnDriveAdded;
         _lifecycle.DriveRemoved += OnDriveRemoved;
 
-        foreach (DS3DriveModel drive in _lifecycle.Drives)
-        {
-            // Isolate per-drive failures: one drive that fails to register (non-NTFS volume,
-            // transient cfapi error, not-yet-authenticated session) must not abort the start
-            // loop and leave the remaining drives unsynced. Mirrors OnDriveAdded's guard.
-            try
-            {
-                await StartDriveAsync(drive, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "failed to start drive {DriveId} at host start", drive.Id);
-            }
-        }
+        // Deliberately NOT starting the existing drives here. Each per-drive start does an S3
+        // credential reconcile (forge IAM token + load/create API key) that needs a LIVE session,
+        // and at host start the user has not signed in yet (there is no session-restore-on-launch
+        // path). Starting here would throw 1005 for every drive. Instead the App (re)starts drives
+        // via DriveAdded once a session exists — on login, and after session restore is added.
+        return Task.CompletedTask;
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)

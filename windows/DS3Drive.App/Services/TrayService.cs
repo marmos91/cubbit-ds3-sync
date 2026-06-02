@@ -78,6 +78,9 @@ public sealed class TrayService : ITrayService, IDisposable
         _flyoutVisible = true;
         _flyout.Closed += OnFlyoutClosed;
         _flyout.Activate();
+        // Take foreground so the window can later raise Deactivated → close on click-outside
+        // (Activate alone doesn't grab foreground for a tray-launched window).
+        _flyout.FocusForeground();
         _flyout.PlayEntrance();
     }
 

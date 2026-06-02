@@ -48,11 +48,13 @@
             <TextBox x:Name="EmailBox"
                      Header="Email"
                      InputScope="EmailSmtpAddress"
+                     KeyDown="OnCredentialKeyDown"
                      Text="{x:Bind ViewModel.Email, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      AutomationProperties.Name="Email" />
 
             <PasswordBox x:Name="PasswordBox"
                          Header="Password"
+                         KeyDown="OnCredentialKeyDown"
                          Password="{x:Bind ViewModel.Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          AutomationProperties.Name="Password" />
 

@@ -47,6 +47,10 @@ public sealed class DriveS3SessionAccess : IDS3SessionAccess
         _s3.ListObjects(bucket, prefix, delimiter, continuationToken);
 
     /// <inheritdoc />
+    public DS3ObjectListing ListObjectsListing(string bucket, string prefix, string delimiter, string? continuationToken) =>
+        _s3.ListObjectsListing(bucket, prefix, delimiter, continuationToken);
+
+    /// <inheritdoc />
     public DS3Object DownloadObject(string bucket, string key, string filePath, DS3ProgressCallback? progress, CancellationHandle? cancel) =>
         _s3.DownloadObject(bucket, key, filePath, progress, cancel);
 

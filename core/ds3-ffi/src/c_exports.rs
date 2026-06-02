@@ -213,6 +213,33 @@ pub unsafe extern "C" fn ds3_authenticate_2fa(
     })
 }
 
+/// Restores a session from a persisted refresh token and returns an opaque session handle.
+///
+/// Exchanges the saved refresh token for a live access token (no email/password). This is the
+/// cross-platform "stay logged in" path; the platform persists the refresh token in OS-native
+/// secure storage and passes it back here at startup. Returns 0 on success, -1 on error (a
+/// revoked/expired token surfaces here so the caller can fall back to login), -2 on panic.
+#[no_mangle]
+pub unsafe extern "C" fn ds3_session_restore(
+    refresh_token: *const u8,
+    refresh_token_len: usize,
+    coordinator_url: *const u8,
+    coordinator_url_len: usize,
+    out_handle: *mut *mut DS3Session,
+    out_error: *mut i32,
+) -> i32 {
+    ffi_guard!(out_error, {
+        let refresh = unsafe { ffi_str(refresh_token, refresh_token_len)? };
+        let coordinator = unsafe { ffi_opt_str(coordinator_url, coordinator_url_len)? };
+
+        let session =
+            runtime().block_on(DS3Session::restore_from_refresh_token(refresh, coordinator))?;
+
+        unsafe { *out_handle = Box::into_raw(Box::new(session)) };
+        Ok::<i32, DS3Error>(0)
+    })
+}
+
 /// Destroys a session handle, freeing its resources.
 ///
 /// After this call, the handle pointer is invalid. The caller must not use it.

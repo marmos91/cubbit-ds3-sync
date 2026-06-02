@@ -63,16 +63,50 @@ public sealed class DS3Session : IDisposable
         return Complete(rc, err, handle);
     }
 
+    /// <summary>
+    /// Restores a session from a persisted refresh token — the cross-platform "stay logged in"
+    /// path (no email/password). The Rust core exchanges the saved refresh token for a fresh
+    /// access token. Throws <see cref="DS3AuthenticationException"/> if the token is revoked or
+    /// expired, so the caller falls back to a full login.
+    /// </summary>
+    public static unsafe DS3Session RestoreFromRefreshToken(string refreshToken, string? coordinatorUrl)
+    {
+        IntPtr handle;
+        int rc;
+        int err;
+        fixed (byte* r = M.Utf8(refreshToken), c = M.Utf8(coordinatorUrl))
+        {
+            rc = DS3Native.ds3_session_restore(r, M.Len(refreshToken), c, M.Len(coordinatorUrl), out handle, out err);
+        }
+
+        return Complete(rc, err, handle);
+    }
+
     private static DS3Session Complete(int rc, int err, IntPtr handle)
     {
         if (rc != 0)
         {
-            throw DS3ExceptionFactory.From(err);
+            throw DS3ExceptionFactory.From(err, LastErrorDetail());
         }
 
         var session = new DS3Session(handle);
         session.AccountId = session.AccountInfo().AccountId;
         return session;
+    }
+
+    /// <summary>
+    /// Returns the current (rotating) refresh token. The token rotates on every refresh and forge,
+    /// so the platform must re-persist this after each of those operations or a saved token goes
+    /// stale. Reads the <c>AccountSession</c> snapshot via <c>ds3_current_session</c>.
+    /// </summary>
+    public string CurrentRefreshToken()
+    {
+        int rc = DS3Native.ds3_current_session(EnsureHandle(), out IntPtr json, out nuint len, out int err);
+        Check(rc, err, json, len);
+        string sessionJson = M.TakeString(json, len);
+        using JsonDocument doc = JsonDocument.Parse(sessionJson);
+        return doc.RootElement.GetProperty("refreshToken").GetString()
+            ?? throw DS3ExceptionFactory.From(1003); // JsonConversion: refreshToken missing/null.
     }
 
     // --- Auth + SDK ---

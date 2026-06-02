@@ -46,6 +46,15 @@ public partial class DriveSetupViewModel : ObservableObject
     [ObservableProperty] private bool isLoadingProjects;
     [ObservableProperty] private bool isLoadingBuckets;
 
+    /// <summary>The selected project's IAM users, shown in the wizard's user picker (macOS lists
+    /// project.users with a "(root)" tag). Empty until a project is selected.</summary>
+    [ObservableProperty] private IReadOnlyList<DS3IAMUser> availableUsers = Array.Empty<DS3IAMUser>();
+
+    /// <summary>The IAM user the wizard browses + creates the drive as. Defaults to the project's
+    /// root user; changing it (via the picker) re-lists buckets for that user. The drive's anchor
+    /// persists this user's id so the running drive forges the same identity.</summary>
+    [ObservableProperty] private DS3IAMUser? selectedIamUser;
+
     public DriveSetupViewModel(
         IDS3SdkService sdk,
         IDriveManagementService driveManager,
@@ -98,7 +107,7 @@ public partial class DriveSetupViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadBucketsAsync(CancellationToken ct)
     {
-        if (SelectedProject is null || IsLoadingBuckets)
+        if (SelectedProject is null || SelectedIamUser is null || IsLoadingBuckets)
         {
             return;
         }
@@ -107,7 +116,7 @@ public partial class DriveSetupViewModel : ObservableObject
         CreationError = null;
         try
         {
-            Buckets = await _sdk.GetBucketsAsync(SelectedProject, ct).ConfigureAwait(true);
+            Buckets = await _sdk.GetBucketsAsync(SelectedProject, SelectedIamUser, ct).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
@@ -132,7 +141,49 @@ public partial class DriveSetupViewModel : ObservableObject
         }
 
         SelectedProject = project;
+        IReadOnlyList<DS3IAMUser> users = project.Users ?? Array.Empty<DS3IAMUser>();
+        AvailableUsers = users;
         CurrentStep = WizardStep.Bucket;
+        CreationError = null;
+
+        _logger.LogInformation(
+            "Wizard: selected project '{Project}' with {Count} IAM user(s): [{Users}].",
+            project.Name, users.Count, string.Join(", ", users.Select(u => $"{u.Username}(root={u.IsRoot})")));
+
+        if (users.Count == 0)
+        {
+            CreationError = "This project has no IAM users available. Contact your project administrator.";
+            return;
+        }
+
+        // Default to the project's root user (the account owner can always forge an access JWT for
+        // it); the picker lets the user switch (macOS lists project.users with a "(root)" tag).
+        // Setting SelectedIamUser triggers the bucket reload via OnSelectedIamUserChanged.
+        DS3IAMUser defaultUser = users.FirstOrDefault(u => u.IsRoot) ?? users[0];
+        if (SelectedIamUser == defaultUser)
+        {
+            // Re-selecting the same project (value-equal user) won't raise the change event — load
+            // explicitly so buckets still refresh.
+            _ = LoadBucketsAsync(CancellationToken.None);
+        }
+        else
+        {
+            SelectedIamUser = defaultUser;
+        }
+    }
+
+    /// <summary>Reloads buckets when the IAM-user picker changes (or when <see cref="SelectProject"/>
+    /// sets the default user). No-op on the Project step / when cleared by <see cref="Reset"/>.</summary>
+    partial void OnSelectedIamUserChanged(DS3IAMUser? value)
+    {
+        if (value is null || CurrentStep == WizardStep.Project)
+        {
+            return;
+        }
+
+        _logger.LogInformation(
+            "Wizard: IAM user → {UserId} (name={UserName}, root={IsRoot}); reloading buckets.",
+            value.Id, value.Username, value.IsRoot);
         _ = LoadBucketsAsync(CancellationToken.None);
     }
 
@@ -194,9 +245,21 @@ public partial class DriveSetupViewModel : ObservableObject
             return;
         }
 
-        if (SelectedProject is null || SelectedBucket is null || CurrentUser is null)
+        if (SelectedProject is null || SelectedBucket is null)
         {
             CreationError = "Setup couldn't finish. Reinstall Cubbit DS3 Drive and try again.";
+            return;
+        }
+
+        // The drive is created as the IAM user chosen in the wizard's picker (SelectedIamUser,
+        // defaulted to the project root). Both the API-key reconcile here AND the running drive's
+        // sync credentials (DriveS3CredentialProvider reconstructs the user from anchor.IamUserId)
+        // forge the access JWT for this id, so the anchor must persist the real IAM user id —
+        // forging for the account id is rejected by the coordinator.
+        DS3IAMUser? iamUser = SelectedIamUser;
+        if (iamUser is null)
+        {
+            CreationError = "Select an IAM user before creating the drive.";
             return;
         }
 
@@ -205,13 +268,13 @@ public partial class DriveSetupViewModel : ObservableObject
         try
         {
             // 1. Reconcile the API key (same name pattern Apple uses → same console key).
-            _ = await _sdk.LoadOrCreateApiKeyAsync(CurrentUser, SelectedProject.Name, ct).ConfigureAwait(true);
+            _ = await _sdk.LoadOrCreateApiKeyAsync(iamUser, SelectedProject.Name, ct).ConfigureAwait(true);
 
             // 2. Build the drive and persist through the triple (PATTERNS §3.3).
             var drive = new DS3Drive(
                 Id: Guid.NewGuid(),
                 Name: string.IsNullOrWhiteSpace(DriveName) ? SelectedBucket.Name : DriveName.Trim(),
-                SyncAnchor: new DS3SyncAnchor(SelectedBucket.Name, SelectedPrefix, SelectedProject.Id, CurrentUser.Id),
+                SyncAnchor: new DS3SyncAnchor(SelectedBucket.Name, SelectedPrefix, SelectedProject.Id, iamUser.Id),
                 CreatedAt: DateTime.UtcNow);
 
             await _driveManager.AddAsync(drive, ct).ConfigureAwait(true);
@@ -243,6 +306,8 @@ public partial class DriveSetupViewModel : ObservableObject
         Buckets = Array.Empty<DS3Bucket>();
         IsLoadingProjects = false;
         IsLoadingBuckets = false;
+        AvailableUsers = Array.Empty<DS3IAMUser>();
+        SelectedIamUser = null;
     }
 
     /// <summary>Maps an exception to UI-SPEC §"Error states" copy (no raw server text leaks —

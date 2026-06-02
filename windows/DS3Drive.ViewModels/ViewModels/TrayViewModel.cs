@@ -119,12 +119,19 @@ public partial class TrayViewModel : ObservableObject, IDisposable
             return;
         }
 
+        // Surface the main window first: the close button hides it to the tray, so navigating the
+        // frame alone would update an invisible window.
+        _showMainWindow?.Invoke();
         _navigation.Navigate(PageKey.DriveSetupWizard);
     }
 
     /// <summary>Navigates to Settings (flyout footer + right-click "Settings").</summary>
     [RelayCommand]
-    private void OpenSettings() => _navigation.Navigate(PageKey.Settings);
+    private void OpenSettings()
+    {
+        _showMainWindow?.Invoke();
+        _navigation.Navigate(PageKey.Settings);
+    }
 
     /// <summary>Quits the app (right-click "Quit" / flyout footer — non-destructive, no confirm).</summary>
     [RelayCommand]

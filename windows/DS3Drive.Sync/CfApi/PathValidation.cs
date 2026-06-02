@@ -146,6 +146,40 @@ public static class PathValidation
         normalizedPath.TrimStart('\\', '/').Replace('\\', '/');
 
     /// <summary>
+    /// Resolves a cfapi NormalizedPath to the S3 key RELATIVE to the sync root. Under
+    /// <c>CF_CONNECT_FLAG_REQUIRE_FULL_FILE_PATH</c> (which we set) the NormalizedPath is the FULL
+    /// volume-relative path of the item (e.g. <c>\Users\me\Cubbit\drive\dir\file.txt</c>), so the
+    /// sync root's own volume-relative path must be stripped to get the in-drive key
+    /// (<c>dir/file.txt</c>). Falls back to the trimmed path if it does not start with the sync root
+    /// (i.e. the flag was not honored and the path is already relative).
+    /// </summary>
+    public static string RelativeKeyFromFullPath(string syncRootPath, string normalizedPath)
+    {
+        string root = Path.GetFullPath(syncRootPath).Replace('\\', '/');
+        int colon = root.IndexOf(':');
+        string rootRelative = (colon >= 0 ? root[(colon + 1)..] : root).Trim('/');
+
+        string normalized = normalizedPath.Replace('\\', '/').Trim('/');
+
+        if (rootRelative.Length > 0 && normalized.StartsWith(rootRelative, StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = normalized[rootRelative.Length..].TrimStart('/');
+        }
+
+        return normalized;
+    }
+
+    /// <summary>
+    /// Resolves a cfapi NormalizedPath to its FULL S3 object key: strips the sync root
+    /// (<see cref="RelativeKeyFromFullPath"/>) and re-applies the drive's S3 prefix. The sync root
+    /// maps to the drive's prefix, so the in-drive relative key is prefixed back for the S3 layer.
+    /// <paramref name="drivePrefix"/> is null/empty for a root drive, otherwise ends in <c>/</c>.
+    /// Centralized so every cfapi handler (fetch / close / rename / delete) keys S3 the same way.
+    /// </summary>
+    public static string S3KeyFromFullPath(string? drivePrefix, string syncRootPath, string normalizedPath) =>
+        (drivePrefix ?? string.Empty) + RelativeKeyFromFullPath(syncRootPath, normalizedPath);
+
+    /// <summary>
     /// Returns the parent prefix of an S3 key (including the trailing <c>/</c>), or null for
     /// a top-level key. Populates <c>PlaceholderRecord.ParentKey</c>; centralized here so the
     /// convention stays in lockstep with the <c>idx_placeholders_parent</c> index across the

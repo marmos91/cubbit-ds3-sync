@@ -26,10 +26,13 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
+    <!-- Converters used by {x:Bind} must live in the control-level resources: the generated
+         binding code resolves them against this UserControl's Resources, not a child element's. -->
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+    </UserControl.Resources>
+
     <Grid x:Name="RootGrid" Padding="16" RowSpacing="16">
-        <Grid.Resources>
-            <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
-        </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />

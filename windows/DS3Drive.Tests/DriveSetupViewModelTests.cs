@@ -21,7 +21,10 @@ using Xunit;
 public sealed class DriveSetupViewModelTests
 {
     private static readonly DS3IAMUser User = new("user-1", "alice", "alice@example.com");
-    private static readonly DS3Project Project = new("proj-1", "My Project", "org-1");
+
+    // Project carries its IAM users (the wizard forges for project.Users[0], matching macOS
+    // project.users.first) — so this fixture's first user IS the expected forge target, User.
+    private static readonly DS3Project Project = new("proj-1", "My Project", "org-1", new[] { User });
     private static readonly DS3Bucket Bucket = new("my-bucket", DateTime.UtcNow);
 
     private static (DriveSetupViewModel vm, IDS3SdkService sdk, IDriveManagementService mgr) Make()
@@ -83,14 +86,14 @@ public sealed class DriveSetupViewModelTests
     public void SelectProject_SetsProject_AdvancesToBucket_TriggersBucketLoad()
     {
         var (vm, sdk, _) = Make();
-        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<CancellationToken>())
+        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<DS3IAMUser>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<DS3Bucket>>(new[] { Bucket }));
 
         vm.SelectProjectCommand.Execute(Project);
 
         Assert.Equal(Project, vm.SelectedProject);
         Assert.Equal(WizardStep.Bucket, vm.CurrentStep);
-        sdk.Received().GetBucketsAsync(Project, Arg.Any<CancellationToken>());
+        sdk.Received().GetBucketsAsync(Project, Arg.Any<DS3IAMUser>(), Arg.Any<CancellationToken>());
     }
 
     // Test 5
@@ -124,7 +127,7 @@ public sealed class DriveSetupViewModelTests
     public void GoBack_FromBucket_ReturnsToProject_PreservesProjectSelection()
     {
         var (vm, sdk, _) = Make();
-        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<CancellationToken>())
+        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<DS3IAMUser>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<DS3Bucket>>(Array.Empty<DS3Bucket>()));
         vm.SelectProjectCommand.Execute(Project);
 
@@ -223,7 +226,7 @@ public sealed class DriveSetupViewModelTests
         var (vm, sdk, _) = Make();
         // Advance to the Bucket step with a project selected (SelectProject fires a
         // fire-and-forget load; we drive a deterministic retry via the command below).
-        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<CancellationToken>())
+        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<DS3IAMUser>(), Arg.Any<CancellationToken>())
             .Throws(new DS3S3Exception(2003, "AccessDenied"));
         vm.SelectProjectCommand.Execute(Project);
 
@@ -245,7 +248,7 @@ public sealed class DriveSetupViewModelTests
     public async Task LoadBucketsAsync_OnSuccess_PopulatesBuckets_StaysOnBucket_NoError()
     {
         var (vm, sdk, _) = Make();
-        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<CancellationToken>())
+        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<DS3IAMUser>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<DS3Bucket>>(new[] { Bucket }));
 
         // Advance to Bucket step (sets SelectedProject, required by LoadBucketsCommand guard).
@@ -271,7 +274,7 @@ public sealed class DriveSetupViewModelTests
     public async Task LoadBucketsAsync_OnTransportException_SetsCreationError_StaysOnBucket()
     {
         var (vm, sdk, _) = Make();
-        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<CancellationToken>())
+        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<DS3IAMUser>(), Arg.Any<CancellationToken>())
             .Throws(new DS3TransportException(3003, "invalid access key"));
         vm.SelectProjectCommand.Execute(Project);
 

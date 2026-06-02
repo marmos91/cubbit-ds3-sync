@@ -85,8 +85,17 @@ public sealed class DS3DriveS3Client : IDisposable
         return Parse<List<DS3Bucket>>(rc, err, json, len);
     }
 
-    /// <summary>Lists objects under a prefix, optionally paginated via a continuation token.</summary>
-    public unsafe IReadOnlyList<DS3Object> ListObjects(string bucket, string prefix, string delimiter, string? continuationToken)
+    /// <summary>Lists the objects under a prefix (the objects in this page), optionally paginated
+    /// via a continuation token. Common prefixes (delimiter "folders") are dropped — use
+    /// <see cref="ListObjectsListing"/> when those are needed.</summary>
+    public IReadOnlyList<DS3Object> ListObjects(string bucket, string prefix, string delimiter, string? continuationToken) =>
+        ListObjectsListing(bucket, prefix, delimiter, continuationToken).Objects;
+
+    /// <summary>Lists under a prefix and returns the full listing — objects, common prefixes (the
+    /// virtual "folders" surfaced by a delimiter), and pagination state. The native call returns
+    /// this whole object; deserializing only an array of objects drops the common prefixes and
+    /// fails outright.</summary>
+    public unsafe DS3ObjectListing ListObjectsListing(string bucket, string prefix, string delimiter, string? continuationToken)
     {
         IntPtr h = EnsureHandle();
         int rc;
@@ -98,7 +107,7 @@ public sealed class DS3DriveS3Client : IDisposable
             rc = DS3Native.ds3_list_objects(h, b, M.Len(bucket), p, M.Len(prefix), d, M.Len(delimiter), 0, ct, M.Len(continuationToken), out json, out len, out err);
         }
 
-        return Parse<List<DS3Object>>(rc, err, json, len);
+        return Parse<DS3ObjectListing>(rc, err, json, len);
     }
 
     /// <summary>Returns metadata for a single object.</summary>

@@ -75,14 +75,14 @@ public sealed class DS3SdkService : IDS3SdkService, IDisposable
         Task.Run(() => _session.GetProjects(), ct);
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<DS3Bucket>> GetBucketsAsync(DS3Project project, CancellationToken ct)
+    public async Task<IReadOnlyList<DS3Bucket>> GetBucketsAsync(DS3Project project, DS3IAMUser user, CancellationToken ct)
     {
-        // Route the browse through a per-drive DS3DriveS3Client built from the reconciled
-        // API key for (root user, project) + the account's endpoint_gateway — NOT the session
-        // handle (17.1-03 fix; the old _session.ListBuckets() dereferenced the session handle
-        // inside the S3 export → AccessViolationException). The FFI call is synchronous +
-        // blocking; run it off the UI thread (UI-SPEC "Loading buckets…" ring).
-        DS3DriveS3Client client = await GetBrowseClientAsync(project, ct).ConfigureAwait(false);
+        // Route the browse through a per-(project, IAM user) DS3DriveS3Client built from the
+        // reconciled API key for that user + the account's endpoint_gateway — NOT the session
+        // handle. The old session-handle path dereferenced the wrong handle type inside the S3
+        // export, which crashed with an AccessViolationException. The FFI call is synchronous +
+        // blocking; run it off the UI thread so the "Loading buckets…" ring stays responsive.
+        DS3DriveS3Client client = await GetBrowseClientAsync(project, user, ct).ConfigureAwait(false);
         EnterBrowseOperation();
         try
         {
@@ -120,12 +120,12 @@ public sealed class DS3SdkService : IDS3SdkService, IDisposable
         {
             return await Task.Run<IReadOnlyList<string>>(() =>
             {
-                // Delimiter "/" gives folder-style listing; the FFI returns objects whose keys
-                // end in "/" for child prefixes. Keep only those (the tree shows folders).
-                IReadOnlyList<DS3Object> objects = client.ListObjects(bucket, prefix ?? string.Empty, "/", null);
-                return objects
-                    .Select(o => o.Key)
-                    .Where(k => k.EndsWith('/') && k != (prefix ?? string.Empty))
+                // With delimiter "/", S3 returns the immediate child "folders" as the listing's
+                // common prefixes (full keys ending in "/"), separate from the file objects. The
+                // tree shows those child prefixes.
+                DS3ObjectListing listing = client.ListObjectsListing(bucket, prefix ?? string.Empty, "/", null);
+                return listing.CommonPrefixes
+                    .Where(k => k != (prefix ?? string.Empty))
                     .Distinct()
                     .ToList();
             }, ct).ConfigureAwait(false);
@@ -144,12 +144,17 @@ public sealed class DS3SdkService : IDS3SdkService, IDisposable
     /// populated the cache while we awaited the API-key fetch). Mirrors macOS
     /// <c>s3Client(forProject:iamUser:)</c> (caching divergence: Windows keys per project).
     /// </summary>
-    private async Task<DS3DriveS3Client> GetBrowseClientAsync(DS3Project project, CancellationToken ct)
+    private async Task<DS3DriveS3Client> GetBrowseClientAsync(DS3Project project, DS3IAMUser user, CancellationToken ct)
     {
+        // The browse client is keyed per (project, IAM user): switching the wizard's user picker
+        // forges a different access JWT and reconciles a different API key, so each user gets its
+        // own cached S3 client (mirrors macOS invalidating the cached client on selectIAMUser).
+        string cacheKey = $"{project.Name}|{user.Id}";
+
         await _browseLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (_browseClients.TryGetValue(project.Name, out DS3DriveS3Client? cached))
+            if (_browseClients.TryGetValue(cacheKey, out DS3DriveS3Client? cached))
             {
                 _currentBrowseClient = cached;
                 return cached;
@@ -160,27 +165,30 @@ public sealed class DS3SdkService : IDS3SdkService, IDisposable
             _browseLock.Release();
         }
 
-        // The wizard's IAM user is the account root (id == account id) — the same user
-        // DriveSetupWizardPage seeds as CurrentUser and RepairCredentialsAsync reconstructs
-        // from the anchor. LoadOrCreateApiKeyAsync forges the IAM token from this id and
-        // reconciles the deterministic key for (user, project.Name).
-        var rootUser = new DS3IAMUser(_session.AccountId, _session.AccountId, string.Empty);
-        DS3ApiKey key = await LoadOrCreateApiKeyAsync(rootUser, project.Name, ct).ConfigureAwait(false);
+        // Forge for the passed-in IAM user (the wizard's picker selection). It must be a real IAM
+        // user id the account can forge an access JWT for: forging for the account id is rejected
+        // with HTTP 401, and forging for a user the account can't act for is rejected with 403.
+        _logger.LogInformation(
+            "Browse: building S3 client for project '{Project}' as IAM user {UserId} (name={UserName}, root={IsRoot}); project has {UserCount} user(s): [{AllUsers}].",
+            project.Name, user.Id, user.Username, user.IsRoot, project.Users?.Count ?? 0,
+            project.Users is null ? string.Empty : string.Join(", ", project.Users.Select(u => $"{u.Username}#{u.Id}(root={u.IsRoot})")));
+
+        DS3ApiKey key = await LoadOrCreateApiKeyAsync(user, project.Name, ct).ConfigureAwait(false);
         string endpoint = _session.EndpointGateway;
 
         await _browseLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (_browseClients.TryGetValue(project.Name, out DS3DriveS3Client? raced))
+            if (_browseClients.TryGetValue(cacheKey, out DS3DriveS3Client? raced))
             {
                 _currentBrowseClient = raced;
                 return raced;
             }
 
-            // Region null => Rust defaults to us-east-1 (macOS parity). The secret crosses the
-            // FFI boundary here and is not retained C#-side beyond this call (T-17.1-09).
+            // Region null => the core defaults to us-east-1. The secret crosses the FFI boundary
+            // here and is not retained C#-side beyond this call.
             var client = DS3DriveS3Client.Create(endpoint, key.AccessKey, key.SecretKey);
-            _browseClients[project.Name] = client;
+            _browseClients[cacheKey] = client;
             _currentBrowseClient = client;
             return client;
         }
@@ -212,9 +220,16 @@ public sealed class DS3SdkService : IDS3SdkService, IDisposable
         DS3ApiKey? localApiKey = localApiKeys.FirstOrDefault(k => k.Name == apiKeyName);
 
         // 2. Forge IAM token (DS3SDK.swift:172) + load remote keys (DS3SDK.swift:174).
+        // These two coordinator calls are the usual failure point — log around each so the LAST
+        // line before an exception identifies which one failed (forge vs keyvault list).
+        _logger.LogInformation("Reconcile: forging IAM token for user {UserId} (name={UserName}, root={IsRoot})…",
+            user.Id, user.Username, user.IsRoot);
         string iamToken = await Task.Run(() => _session.ForgeIamToken(user.Id), ct).ConfigureAwait(false);
+
+        _logger.LogInformation("Reconcile: forge OK; listing keyvault API keys for user {UserId}…", user.Id);
         IReadOnlyList<DS3ApiKey> remoteApiKeys =
             await Task.Run(() => _session.LoadApiKeys(user.Id, iamToken), ct).ConfigureAwait(false);
+        _logger.LogInformation("Reconcile: keyvault returned {Count} key(s) for user {UserId}.", remoteApiKeys.Count, user.Id);
         DS3ApiKey? remoteApiKey = remoteApiKeys.FirstOrDefault(k => k.Name == apiKeyName);
 
         // 3a. Matching pair → reuse local (DS3SDK.swift:178-181). Equality is by name +

@@ -45,6 +45,14 @@ public partial class App : Application
     /// <summary>The DI host, available to pages/view-models that resolve services lazily.</summary>
     public static IHost Host { get; private set; } = null!;
 
+    /// <summary>
+    /// True once the tray "Quit" path has begun a real shutdown. The main window's close button
+    /// otherwise only HIDES the window (macOS menu-bar parity — the app keeps running in the tray);
+    /// this flag tells <see cref="MainWindow"/> to allow the genuine close that
+    /// <see cref="ShutdownHost"/> → <c>Application.Exit()</c> drives.
+    /// </summary>
+    public static bool IsShuttingDown { get; private set; }
+
     private MainWindow? _window;
 
     public App()
@@ -224,6 +232,27 @@ public partial class App : Application
             try
             {
                 await Host.StartAsync().ConfigureAwait(false);
+
+                // The sync host is now subscribed to DriveAdded. Persisted drives can't start
+                // before login (the per-drive S3 reconcile needs a live session), so (re)start
+                // them whenever a session becomes available. THIS is what connects the cfapi sync
+                // root and fires on-demand placeholder population for a returning user's drives.
+                var driveManager = Host.Services.GetRequiredService<DriveManagementService>();
+                var auth = Host.Services.GetRequiredService<AuthenticationService>();
+                auth.AuthStateChanged += (_, isAuthenticated) =>
+                {
+                    if (isAuthenticated)
+                    {
+                        driveManager.ReconnectExistingDrives();
+                    }
+                };
+
+                // Cover the race where session restore (kicked off in OnLaunched) authenticated
+                // before this subscription was wired: start the drives now if already signed in.
+                if (auth.IsAuthenticated)
+                {
+                    driveManager.ReconnectExistingDrives();
+                }
             }
             catch (Exception ex)
             {
@@ -255,9 +284,24 @@ public partial class App : Application
             _window.ResizeToLogical(compact ? 540 : 760, compact ? 680 : 640);
         };
 
+        // Route Login by default, then attempt to restore a persisted session in the background.
+        bool hasSession = Host.Services.GetRequiredService<AuthenticationService>().HasPersistedSession;
         RouteInitialPage(navigation);
+        RestoreSessionThenRoute(navigation);
 
-        _window.Activate();
+        if (hasSession)
+        {
+            // Returning user: start SILENTLY in the tray (like a real sync client / the macOS
+            // menu-bar app). Realize the window so the process stays alive and the tray can reopen
+            // it, then hide it. If restore later fails, RestoreSessionThenRoute surfaces it.
+            _window.Activate();
+            _window.AppWindow.Hide();
+        }
+        else
+        {
+            // Fresh user: show the Login window.
+            _window.Activate();
+        }
 
         // Initialise the tray AFTER MainWindow activation — the H.NotifyIcon TaskbarIcon needs
         // a live UI dispatcher (Plan 11, UI-SPEC §Component Inventory TrayHost row).
@@ -274,6 +318,10 @@ public partial class App : Application
     /// </summary>
     internal static void ShutdownHost()
     {
+        // Signal the genuine-quit path so MainWindow stops intercepting the close and the app
+        // actually exits (rather than hiding to the tray as it does for the X button).
+        IsShuttingDown = true;
+
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
@@ -315,6 +363,44 @@ public partial class App : Application
         {
             // Opening Explorer is non-critical (folder may not exist before first sync).
         }
+    }
+
+    /// <summary>
+    /// Restores a persisted session off the UI thread (it does network I/O), then navigates to the
+    /// drives list on success. On failure the user stays on the already-shown Login page. The
+    /// AuthStateChanged handler wired at host start (re)starts the drives once restore authenticates.
+    /// </summary>
+    private void RestoreSessionThenRoute(INavigationService navigation)
+    {
+        var auth = Host.Services.GetRequiredService<AuthenticationService>();
+        bool hadSession = auth.HasPersistedSession;
+        _ = Task.Run(() =>
+        {
+            bool restored = false;
+            try
+            {
+                restored = auth.TryRestoreSession();
+            }
+            catch (Exception ex)
+            {
+                Host.Services.GetRequiredService<ILogger<App>>().LogError(ex, "Session restore failed.");
+            }
+
+            _window?.DispatcherQueue.TryEnqueue(() =>
+            {
+                if (restored)
+                {
+                    // Stay hidden in the tray (started minimized); ready for when the user opens it.
+                    navigation.Navigate(typeof(DrivesListPage));
+                }
+                else if (hadSession)
+                {
+                    // We expected to restore but couldn't (expired token / offline): surface Login.
+                    navigation.Navigate(typeof(LoginPage));
+                    _window?.BringToForeground();
+                }
+            });
+        });
     }
 
     /// <summary>

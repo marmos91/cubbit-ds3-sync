@@ -70,6 +70,17 @@ namespace DS3Drive.Core
         internal static extern int ds3_authenticate_2fa(byte* email, nuint email_len, byte* password, nuint password_len, byte* tfa_code, nuint tfa_code_len, byte* tenant_id, nuint tenant_id_len, byte* coordinator_url, nuint coordinator_url_len, DS3Session** out_handle, int* out_error);
 
         /// <summary>
+        ///  Restores a session from a persisted refresh token and returns an opaque session handle.
+        ///
+        ///  Exchanges the saved refresh token for a live access token (no email/password). This is the
+        ///  cross-platform "stay logged in" path; the platform persists the refresh token in OS-native
+        ///  secure storage and passes it back here at startup. Returns 0 on success, -1 on error (a
+        ///  revoked/expired token surfaces here so the caller can fall back to login), -2 on panic.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_session_restore", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_session_restore(byte* refresh_token, nuint refresh_token_len, byte* coordinator_url, nuint coordinator_url_len, DS3Session** out_handle, int* out_error);
+
+        /// <summary>
         ///  Destroys a session handle, freeing its resources.
         ///
         ///  After this call, the handle pointer is invalid. The caller must not use it.

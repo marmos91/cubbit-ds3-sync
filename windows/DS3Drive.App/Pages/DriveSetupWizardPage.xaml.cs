@@ -60,10 +60,21 @@ public sealed partial class DriveSetupWizardPage : Page
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(DriveSetupViewModel.CurrentStep))
+        switch (e.PropertyName)
         {
-            NavigateToStep(ViewModel.CurrentStep);
-            UpdateButtons();
+            case nameof(DriveSetupViewModel.CurrentStep):
+                NavigateToStep(ViewModel.CurrentStep);
+                UpdateButtons();
+                break;
+
+            // The bucket list loads asynchronously after we navigate onto the Bucket step,
+            // so the Continue button's enabled state has to be re-evaluated when the list
+            // (or its loading/error state) changes — not only on step transitions.
+            case nameof(DriveSetupViewModel.Buckets):
+            case nameof(DriveSetupViewModel.IsLoadingBuckets):
+            case nameof(DriveSetupViewModel.CreationError):
+                UpdateButtons();
+                break;
         }
     }
 
@@ -90,6 +101,14 @@ public sealed partial class DriveSetupWizardPage : Page
         BackButton.Visibility = ViewModel.CurrentStep == WizardStep.Project
             ? Visibility.Collapsed
             : Visibility.Visible;
+
+        // On the Bucket step there's nothing to continue to until at least one bucket is
+        // listed (an empty/failed load must not let the user advance with no selection).
+        PrimaryButton.IsEnabled = ViewModel.CurrentStep switch
+        {
+            WizardStep.Bucket => ViewModel.Buckets.Count > 0 && !ViewModel.IsLoadingBuckets,
+            _ => true,
+        };
     }
 
     private void Back_Click(object sender, RoutedEventArgs e) => ViewModel.GoBackCommand.Execute(null);

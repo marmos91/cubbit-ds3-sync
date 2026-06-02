@@ -20,14 +20,16 @@ using DS3DriveModel = DS3Drive.Core.Records.DS3Drive;
 internal sealed class NotifyRenameHandler
 {
     private readonly DS3DriveModel _drive;
+    private readonly string _syncRootPath;
     private readonly IDS3SessionAccess _session;
     private readonly PlaceholderStore _store;
     private readonly ILogger _logger;
 
     public NotifyRenameHandler(
-        DS3DriveModel drive, IDS3SessionAccess session, PlaceholderStore store, ILogger? logger = null)
+        DS3DriveModel drive, string syncRootPath, IDS3SessionAccess session, PlaceholderStore store, ILogger? logger = null)
     {
         _drive = drive ?? throw new ArgumentNullException(nameof(drive));
+        _syncRootPath = syncRootPath ?? throw new ArgumentNullException(nameof(syncRootPath));
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _logger = logger ?? NullLogger.Instance;
@@ -45,7 +47,7 @@ internal sealed class NotifyRenameHandler
 
     internal async Task HandleAsync(string sourcePath, string? targetPath = null)
     {
-        string oldKey = PathValidation.NormalizedPathToS3Key(sourcePath);
+        string oldKey = PathValidation.S3KeyFromFullPath(_drive.SyncAnchor.Prefix, _syncRootPath, sourcePath);
         try
         {
             if (targetPath is null)
@@ -56,7 +58,7 @@ internal sealed class NotifyRenameHandler
                 return;
             }
 
-            string newKey = PathValidation.NormalizedPathToS3Key(targetPath);
+            string newKey = PathValidation.S3KeyFromFullPath(_drive.SyncAnchor.Prefix, _syncRootPath, targetPath);
             bool oldOk = PathValidation.TryValidateS3Key(oldKey, out string? r1);
             bool newOk = PathValidation.TryValidateS3Key(newKey, out string? r2);
             if (!oldOk || !newOk)

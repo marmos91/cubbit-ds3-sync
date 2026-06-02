@@ -69,6 +69,9 @@ internal static unsafe partial class DS3Native
     [DllImport("ds3_ffi", EntryPoint = "ds3_authenticate_2fa", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ds3_authenticate_2fa(byte* email, nuint email_len, byte* password, nuint password_len, byte* tfa_code, nuint tfa_code_len, byte* tenant_id, nuint tenant_id_len, byte* coordinator_url, nuint coordinator_url_len, out IntPtr out_handle, out int out_error);
 
+    [DllImport("ds3_ffi", EntryPoint = "ds3_session_restore", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ds3_session_restore(byte* refresh_token, nuint refresh_token_len, byte* coordinator_url, nuint coordinator_url_len, out IntPtr out_handle, out int out_error);
+
     [DllImport("ds3_ffi", EntryPoint = "ds3_session_destroy", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern void ds3_session_destroy(IntPtr handle);
 

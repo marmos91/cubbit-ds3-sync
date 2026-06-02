@@ -51,12 +51,15 @@ internal sealed class NotifyFileCloseHandler
 
     private async Task HandleAsync(string normalizedPath, long fileSize)
     {
-        string s3Key = PathValidation.NormalizedPathToS3Key(normalizedPath);
+        // The on-disk path is relative to the sync root (drive prefix stripped); the S3 object key
+        // and the placeholder index both use the full key (prefix re-applied).
+        string relativeKey = PathValidation.RelativeKeyFromFullPath(_syncRootPath, normalizedPath);
+        string s3Key = (_drive.SyncAnchor.Prefix ?? string.Empty) + relativeKey;
         try
         {
-            if (!PathValidation.TryValidateS3Key(s3Key, out string? reason))
+            if (!PathValidation.TryValidateS3Key(relativeKey, out string? reason))
             {
-                _logger.LogWarning("file-close rejected: invalid key {Key}: {Reason}", s3Key, reason);
+                _logger.LogWarning("file-close rejected: invalid key {Key}: {Reason}", relativeKey, reason);
                 return;
             }
 
@@ -70,7 +73,7 @@ internal sealed class NotifyFileCloseHandler
                 return;
             }
 
-            string localPath = PathValidation.ResolveLocalPath(_syncRootPath, s3Key);
+            string localPath = PathValidation.ResolveLocalPath(_syncRootPath, relativeKey);
             await _uploads.EnqueueAsync(
                 new UploadJob(_drive.Id, _drive.SyncAnchor.Bucket, s3Key, localPath, fileSize, DateTime.UtcNow),
                 CancellationToken.None).ConfigureAwait(false);

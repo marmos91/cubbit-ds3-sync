@@ -19,14 +19,16 @@ using DS3DriveModel = DS3Drive.Core.Records.DS3Drive;
 internal sealed class NotifyDeleteHandler
 {
     private readonly DS3DriveModel _drive;
+    private readonly string _syncRootPath;
     private readonly IDS3SessionAccess _session;
     private readonly PlaceholderStore _store;
     private readonly ILogger _logger;
 
     public NotifyDeleteHandler(
-        DS3DriveModel drive, IDS3SessionAccess session, PlaceholderStore store, ILogger? logger = null)
+        DS3DriveModel drive, string syncRootPath, IDS3SessionAccess session, PlaceholderStore store, ILogger? logger = null)
     {
         _drive = drive ?? throw new ArgumentNullException(nameof(drive));
+        _syncRootPath = syncRootPath ?? throw new ArgumentNullException(nameof(syncRootPath));
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _logger = logger ?? NullLogger.Instance;
@@ -40,7 +42,7 @@ internal sealed class NotifyDeleteHandler
 
     internal async Task HandleAsync(string normalizedPath)
     {
-        string key = PathValidation.NormalizedPathToS3Key(normalizedPath);
+        string key = PathValidation.S3KeyFromFullPath(_drive.SyncAnchor.Prefix, _syncRootPath, normalizedPath);
         try
         {
             if (!PathValidation.TryValidateS3Key(key, out string? reason))

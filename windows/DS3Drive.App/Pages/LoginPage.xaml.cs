@@ -5,6 +5,8 @@ using DS3Drive.ViewModels.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Windows.System;
 
 /// <summary>
 /// Code-behind for the sign-in form. Resolves <see cref="LoginViewModel"/> from DI,
@@ -30,6 +32,17 @@ public sealed partial class LoginPage : Page
     public string SignInLabel(bool isLoading) => isLoading ? "Signing in…" : "Sign in";
 
     private void OnLoaded(object sender, RoutedEventArgs e) => EmailBox.Focus(FocusState.Programmatic);
+
+    /// <summary>Submits the sign-in form when Enter is pressed in the email or password field,
+    /// unless a request is already in flight.</summary>
+    private void OnCredentialKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter && ViewModel.LoginCommand.CanExecute(null))
+        {
+            e.Handled = true;
+            ViewModel.LoginCommand.Execute(null);
+        }
+    }
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
