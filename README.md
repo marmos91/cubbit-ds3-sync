@@ -22,7 +22,7 @@
 
 ---
 
-DS3 Drive connects your [Cubbit DS3](https://www.cubbit.io) buckets to the native file system on every desktop and mobile platform. On macOS it runs as a menu bar app and mounts your buckets as drives in Finder; on iOS it mirrors them into the Files app alongside iCloud Drive; on Windows it surfaces them in File Explorer. Each platform integrates with the OS's own sync framework — Apple's File Provider, Windows' Cloud Files API — so every read and write goes through the system with no custom mount daemon, no FUSE, no kexts.
+DS3 Drive connects your [Cubbit DS3](https://www.cubbit.io) buckets to the native file system on macOS, iOS, and Windows. On macOS it runs as a menu bar app and mounts your buckets as drives in Finder; on iOS it mirrors them into the Files app alongside iCloud Drive; on Windows it surfaces them in File Explorer. Each platform integrates with the OS's own sync framework — Apple's File Provider, Windows' Cloud Files API — so every read and write goes through the system with no custom mount daemon, no FUSE, no kexts.
 
 A shared [Rust](https://www.rust-lang.org) core (`core/`) implements authentication, the Cubbit API client, and all S3 operations once, then feeds every platform: Swift consumes it via UniFFI, C#/.NET via the C ABI.
 
@@ -144,7 +144,7 @@ A monorepo with a shared Rust core and thin native shells per platform:
 ```
 core/      Shared Rust core — auth, Cubbit API, S3, sync (UniFFI for Swift, C ABI for C#)
 apple/     macOS + iOS apps, File Provider extension, DS3Lib
-windows/   Windows WinUI 3 app (in development)
+windows/   Windows WinUI 3 app — in development (a placeholder on main; impl on the gsd/phase-17-windows-shell-impl branch)
 ```
 
 ### Shared core (`core/`)
