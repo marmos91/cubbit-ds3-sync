@@ -88,7 +88,7 @@ internal sealed class FetchPlaceholdersHandler
             var pins = new List<GCHandle>(infos.Capacity);
             var rows = new List<PlaceholderRecord>(infos.Capacity);
 
-            PlaceholderMaterializer.BuildLevel(_drive.Id, level, _logger, infos, pins, rows);
+            PlaceholderMaterializer.BuildLevel(_drive.Id, _drivePrefix, level, _logger, infos, pins, rows);
 
             try
             {

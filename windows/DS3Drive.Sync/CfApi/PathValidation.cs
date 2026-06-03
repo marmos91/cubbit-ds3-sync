@@ -186,6 +186,19 @@ public static class PathValidation
         (drivePrefix ?? string.Empty) + RelativeKeyFromFullPath(syncRootPath, normalizedPath);
 
     /// <summary>
+    /// Strips <paramref name="drivePrefix"/> from a full S3 <paramref name="key"/> to yield the
+    /// in-drive relative key — the portion that actually composes the local path under the sync
+    /// root. The drive prefix is fixed at drive creation and never reaches the file system, so the
+    /// cfapi path-length limit must be checked against this relative key, not the full key (a long
+    /// prefix would otherwise over-reject otherwise-safe in-drive keys). Returns the key unchanged
+    /// when it does not start with the prefix.
+    /// </summary>
+    public static string InDriveKey(string? drivePrefix, string key) =>
+        !string.IsNullOrEmpty(drivePrefix) && key.StartsWith(drivePrefix, StringComparison.Ordinal)
+            ? key[drivePrefix.Length..]
+            : key;
+
+    /// <summary>
     /// Returns the parent prefix of an S3 key (including the trailing <c>/</c>), or null for
     /// a top-level key. Populates <c>PlaceholderRecord.ParentKey</c>; centralized here so the
     /// convention stays in lockstep with the <c>idx_placeholders_parent</c> index across the

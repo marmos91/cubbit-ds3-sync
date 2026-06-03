@@ -159,16 +159,19 @@ internal static class PlaceholderMaterializer
 
     /// <summary>
     /// Turns a listed <paramref name="level"/> into parallel placeholder descriptors and DB rows,
-    /// skipping unsafe keys and empty leaves. Pinned FileIdentity buffers are appended to
-    /// <paramref name="pins"/>; the caller must free them once the native transfer/create completes.
+    /// skipping unsafe keys and empty leaves. Keys are validated by their in-drive relative form
+    /// (full key minus <paramref name="drivePrefix"/>), since only that portion composes the local
+    /// path — a long drive prefix must not push otherwise-safe keys past the cfapi length limit.
+    /// Pinned FileIdentity buffers are appended to <paramref name="pins"/>; the caller must free
+    /// them once the native transfer/create completes.
     /// </summary>
     public static void BuildLevel(
-        Guid driveId, Level level, ILogger logger,
+        Guid driveId, string? drivePrefix, Level level, ILogger logger,
         List<CF_PLACEHOLDER_CREATE_INFO> infos, List<GCHandle> pins, List<PlaceholderRecord> rows)
     {
         foreach (string folderKey in level.Folders)
         {
-            if (!PathValidation.TryValidateS3Key(folderKey, out string? reason))
+            if (!PathValidation.TryValidateS3Key(PathValidation.InDriveKey(drivePrefix, folderKey), out string? reason))
             {
                 logger.LogWarning("skipping unsafe folder key {Key}: {Reason}", folderKey, reason);
                 continue;
@@ -186,7 +189,7 @@ internal static class PlaceholderMaterializer
 
         foreach (DS3Object obj in level.Files)
         {
-            if (!PathValidation.TryValidateS3Key(obj.Key, out string? reason))
+            if (!PathValidation.TryValidateS3Key(PathValidation.InDriveKey(drivePrefix, obj.Key), out string? reason))
             {
                 logger.LogWarning("skipping unsafe object key {Key}: {Reason}", obj.Key, reason);
                 continue;
@@ -224,7 +227,7 @@ internal static class PlaceholderMaterializer
 
         try
         {
-            BuildLevel(driveId, level, logger, infos, pins, rows);
+            BuildLevel(driveId, rootPrefix, level, logger, infos, pins, rows);
 
             if (infos.Count > 0)
             {

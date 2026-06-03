@@ -200,13 +200,6 @@ public sealed class AuthenticationService : IAuthenticationService, IDS3SessionG
         AuthStateChanged?.Invoke(this, isAuthenticated);
 
     /// <summary>
-    /// Attempts to restore a session from the persisted refresh token (stay logged in across
-    /// launches). On success the session is live, <see cref="AuthStateChanged"/>(true) fires, and
-    /// the rotated token is re-saved; returns true. A missing/revoked/expired token (or an offline
-    /// coordinator) returns false and clears the stale blob so the caller routes to Login. Network
-    /// I/O runs inline, so call this off the UI thread.
-    /// </summary>
-    /// <summary>
     /// True if a persisted session blob exists (a fast local Credential Manager read — no network).
     /// The App uses this to decide whether to start hidden in the tray (returning user) or show the
     /// Login window (fresh user) before the actual <see cref="TryRestoreSession"/> network call runs.
@@ -226,6 +219,13 @@ public sealed class AuthenticationService : IAuthenticationService, IDS3SessionG
         }
     }
 
+    /// <summary>
+    /// Attempts to restore a session from the persisted refresh token (stay logged in across
+    /// launches). On success the session is live, <see cref="AuthStateChanged"/>(true) fires, and
+    /// the rotated token is re-saved; returns true. A missing/revoked/expired token (or an offline
+    /// coordinator) returns false and clears the stale blob so the caller routes to Login. Network
+    /// I/O runs inline, so call this off the UI thread.
+    /// </summary>
     public bool TryRestoreSession()
     {
         string? json;
@@ -256,6 +256,9 @@ public sealed class AuthenticationService : IAuthenticationService, IDS3SessionG
 
         if (persisted is null || string.IsNullOrEmpty(persisted.RefreshToken))
         {
+            // Corrupt/unparseable blob — clear it so we don't re-attempt restore on every launch.
+            _logger.LogWarning("Persisted session blob is invalid; clearing it.");
+            ClearPersistedSession();
             return false;
         }
 
@@ -282,16 +285,24 @@ public sealed class AuthenticationService : IAuthenticationService, IDS3SessionG
         catch (Exception ex)
         {
             _logger.LogInformation(ex, "Persisted session could not be restored; clearing it.");
-            try
-            {
-                _credentialStore.Delete(SessionStoreAccount, SessionStoreKey);
-            }
-            catch (Exception delEx)
-            {
-                _logger.LogWarning(delEx, "Failed to clear unrestorable session blob.");
-            }
-
+            ClearPersistedSession();
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Best-effort removal of the persisted session blob. Failures are logged and swallowed so
+    /// they never break the restore-or-route-to-login flow.
+    /// </summary>
+    private void ClearPersistedSession()
+    {
+        try
+        {
+            _credentialStore.Delete(SessionStoreAccount, SessionStoreKey);
+        }
+        catch (Exception delEx)
+        {
+            _logger.LogWarning(delEx, "Failed to clear unrestorable session blob.");
         }
     }
 

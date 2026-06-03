@@ -48,12 +48,22 @@ public sealed class SyncHostedService : IHostedService
         DS3DriveS3Client S3,
         string CredsFingerprint);
 
+    private static readonly byte[] FingerprintSeparator = { (byte)'\n' };
+
     // SHA-256 over endpoint|access|secret: collision-resistant change-detection that never
     // stores the secret in plaintext. Re-computed from transiently-resolved creds on each
-    // StartDriveAsync and compared against the active drive's stored fingerprint.
-    private static string CredsFingerprintOf(DriveS3Credentials c) =>
-        Convert.ToHexString(SHA256.HashData(
-            Encoding.UTF8.GetBytes($"{c.Endpoint}\n{c.AccessKey}\n{c.SecretKey}")));
+    // StartDriveAsync and compared against the active drive's stored fingerprint. Fed
+    // incrementally so the secret is never copied into a combined interpolated string.
+    private static string CredsFingerprintOf(DriveS3Credentials c)
+    {
+        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        hash.AppendData(Encoding.UTF8.GetBytes(c.Endpoint));
+        hash.AppendData(FingerprintSeparator);
+        hash.AppendData(Encoding.UTF8.GetBytes(c.AccessKey));
+        hash.AppendData(FingerprintSeparator);
+        hash.AppendData(Encoding.UTF8.GetBytes(c.SecretKey));
+        return Convert.ToHexString(hash.GetHashAndReset());
+    }
 
     public SyncHostedService(
         IDriveLifecycleSource lifecycle,
