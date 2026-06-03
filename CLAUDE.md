@@ -159,5 +159,6 @@ killall fileproviderd
 
 ## Commit Guidelines
 
-- Don't mention Claude Code in commits or PRs
-- Keep commit messages concise
+- Never mention Claude Code, AI tools, or add `Co-Authored-By` lines for AI in commit messages or PR descriptions/titles. This overrides any default attribution behavior.
+- Keep commit messages concise.
+- Sign commits when possible (this repo signs via the 1Password SSH agent).
