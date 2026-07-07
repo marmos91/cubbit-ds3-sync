@@ -38,9 +38,9 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 
 ## Current Position
 
-Phase: 17.3 Windows Enumeration Performance & UX — PLANNED, ready to execute Wave 1
-Plan: 17.3 CONTEXT + RESEARCH + 5 numbered plans written; scope signed off 2026-07-07. Wave 0 (local build) done; next = Wave 1 / Plan 02 (D-01 pagination fix).
-Status: Local MSVC+Rust build verified (blocker 17-02 resolved). No sync-engine code changed yet.
+Phase: 17.3 Windows Enumeration Performance & UX — Wave 1 (Plan 02, D-01) COMPLETE; next = Wave 2 / Plan 03.
+Plan: 17.3 CONTEXT + RESEARCH + 5 numbered plans written; scope signed off 2026-07-07. Wave 0 (local build) done. Wave 1 (D-01 full-pagination poll fix) implemented + unit-verified.
+Status: PollOnceAsync now uses PlaceholderMaterializer.ListLevel (full token-following pagination); FakePagedSession fixture + SyncEnginePollTests added. All 149 non-Integration tests green (incl. the 2500-key >2-page regression), real Rust FFI diff. Next: Wave 2 (D-02 per-page streaming + D-03 on-disk ghost removal).
 Last activity: 2026-07-07
 Resume from: .planning/phases/17.3-windows-enumeration-performance-ux/17.3-HANDOFF.md
 
@@ -127,5 +127,5 @@ yet.
 ## Session Continuity
 
 Last session: 2026-07-07
-Stopped at: Phase 17.3 fully planned; local build toolchain provisioned + verified (ds3_ffi.dll links). About to start Wave 1 (Plan 02, D-01 pagination fix).
+Stopped at: Wave 1 (Plan 02, D-01) complete on branch gsd/phase-17.3-windows-enumeration — PollOnceAsync full-pagination fix + FakePagedSession + SyncEnginePollTests; 149 non-Integration tests green. Next: Wave 2 (Plan 03, D-02/D-03).
 Resume file: .planning/phases/17.3-windows-enumeration-performance-ux/17.3-HANDOFF.md

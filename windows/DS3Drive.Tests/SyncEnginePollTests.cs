@@ -1,0 +1,207 @@
+namespace DS3Drive.Tests;
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using DS3Drive.Core.Records;
+using DS3Drive.Sync;
+using DS3Drive.Sync.Storage;
+using DS3Drive.Sync.SyncEngine;
+using DS3Drive.Tests.Fixtures;
+using Microsoft.Data.Sqlite;
+using Xunit;
+using DS3DriveModel = DS3Drive.Core.Records.DS3Drive;
+
+/// <summary>
+/// Verifies <see cref="SyncEngine.PollOnceAsync"/> enumerates the ENTIRE remote level before
+/// diffing (D-01). The scripted <see cref="FakePagedSession"/> pages the remote set, and a real
+/// <see cref="PlaceholderStore"/> holds the local snapshot, so these assert the end-to-end poll
+/// behaviour: objects past the first page are never misclassified as deletions, true deletions
+/// still prune, and folder common prefixes round-trip untouched. Category!=Integration — the diff
+/// runs through <c>DS3Session.ComputeDiff</c> with the C# <c>EnumerationDiff</c> fallback, so no
+/// live session is required.
+/// </summary>
+public sealed class SyncEnginePollTests : IAsyncLifetime
+{
+    private const int PageSize = 2000; // Mirrors the production LIST_BATCH_SIZE page boundary.
+
+    private readonly string _dbPath =
+        Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "sync.db");
+    private readonly string _localRoot =
+        Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "DS3Root");
+    private readonly Guid _driveId = Guid.NewGuid();
+
+    private SyncDatabase _db = null!;
+    private PlaceholderStore _store = null!;
+
+    public async Task InitializeAsync()
+    {
+        _db = new SyncDatabase(_dbPath);
+        await _db.OpenAsync(CancellationToken.None);
+        _store = new PlaceholderStore(_db);
+        await InsertDriveAsync(_driveId, "bucket-a");
+        Directory.CreateDirectory(_localRoot);
+    }
+
+    public async Task DisposeAsync()
+    {
+        await _db.DisposeAsync();
+        SqliteConnection.ClearAllPools();
+        foreach (string? dir in new[] { Path.GetDirectoryName(_dbPath), Path.GetDirectoryName(_localRoot) })
+        {
+            try
+            {
+                if (dir is not null && Directory.Exists(dir))
+                {
+                    Directory.Delete(dir, recursive: true);
+                }
+            }
+            catch
+            {
+                // best effort
+            }
+        }
+    }
+
+    [Fact]
+    public async Task PollOnce_MoreThanOnePage_DoesNotPruneObjectsPastFirstPage()
+    {
+        // 2500 objects => 2 pages at PageSize 2000. The pre-D-01 single-page poll would see only
+        // the first 2000 and compute the remaining ~500 as remote deletions, pruning them.
+        const int total = 2500;
+        List<DS3Object> remote = BuildObjects(total);
+        foreach (DS3Object o in remote)
+        {
+            await SeedFileAsync(o.Key, o.ETag);
+        }
+
+        var session = new FakePagedSession(remote, PageSize);
+        await using SyncEngine engine = NewEngine(session);
+
+        await engine.ForcePollAsync(CancellationToken.None);
+
+        // The token was followed to completion: two pages served, nothing dropped.
+        Assert.Equal(2, session.ListCallCount);
+        IReadOnlyList<PlaceholderRecord> after = await _store.ListByPrefixAsync(_driveId, "", CancellationToken.None);
+        Assert.Equal(total, after.Count);
+
+        // Spot-check a key that lives only on page 2 — the exact object the bug deleted.
+        Assert.NotNull(await _store.FindAsync(_driveId, Key(2400), CancellationToken.None));
+        Assert.NotNull(await _store.FindAsync(_driveId, Key(total - 1), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task PollOnce_RemoteDeletions_PruneExactlyThoseKeys()
+    {
+        // Five objects seeded locally; the remote now lists only the first two.
+        List<DS3Object> all = BuildObjects(5);
+        foreach (DS3Object o in all)
+        {
+            await SeedFileAsync(o.Key, o.ETag);
+        }
+
+        List<DS3Object> remote = all.GetRange(0, 2); // k0, k1 survive; k2..k4 removed remotely.
+        var session = new FakePagedSession(remote, PageSize);
+        await using SyncEngine engine = NewEngine(session);
+
+        await engine.ForcePollAsync(CancellationToken.None);
+
+        Assert.NotNull(await _store.FindAsync(_driveId, Key(0), CancellationToken.None));
+        Assert.NotNull(await _store.FindAsync(_driveId, Key(1), CancellationToken.None));
+        Assert.Null(await _store.FindAsync(_driveId, Key(2), CancellationToken.None));
+        Assert.Null(await _store.FindAsync(_driveId, Key(3), CancellationToken.None));
+        Assert.Null(await _store.FindAsync(_driveId, Key(4), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task PollOnce_FolderCommonPrefixes_NeitherReAppliedNorPruned()
+    {
+        // Two files plus two folder rows present both locally and remotely (folders arrive as
+        // common prefixes with no ETag). An unchanged folder must be left exactly as-is.
+        List<DS3Object> remote = BuildObjects(2);
+        foreach (DS3Object o in remote)
+        {
+            await SeedFileAsync(o.Key, o.ETag);
+        }
+
+        string[] folders = { "folderA/", "folderB/" };
+        foreach (string folder in folders)
+        {
+            await SeedFolderAsync(folder);
+        }
+
+        var session = new FakePagedSession(remote, PageSize, folders);
+        await using SyncEngine engine = NewEngine(session);
+
+        await engine.ForcePollAsync(CancellationToken.None);
+
+        foreach (string folder in folders)
+        {
+            PlaceholderRecord? row = await _store.FindAsync(_driveId, folder, CancellationToken.None);
+            Assert.NotNull(row);            // not pruned
+            Assert.True(row!.IsFolder);
+            Assert.Null(row.ETag);
+            // "synced" would flip to "cloud-only" if the poll had re-applied the folder as a change.
+            Assert.Equal("synced", row.SyncStatus);
+        }
+    }
+
+    private SyncEngine NewEngine(IDS3SessionAccess session)
+    {
+        var drive = new DS3DriveModel(
+            _driveId, "Drive A",
+            new DS3SyncAnchor("bucket-a", Prefix: null, ProjectId: "p1", IamUserId: "u1"),
+            DateTime.UtcNow);
+        var status = new DriveStatusBroadcaster(_driveId, TimeSpan.FromMilliseconds(20));
+        var uploads = new UploadQueue(session, _store, status);
+        return new SyncEngine(
+            drive, session, _store, uploads, status,
+            config: null, isPaused: null, logger: null,
+            conflictKeyFactory: (key, device) => key + ".conflict-" + device,
+            localRootPath: _localRoot);
+    }
+
+    private static string Key(int i) => $"file{i:D5}";
+
+    private static List<DS3Object> BuildObjects(int count)
+    {
+        var list = new List<DS3Object>(count);
+        for (int i = 0; i < count; i++)
+        {
+            list.Add(new DS3Object(Key(i), $"etag{i:D5}", DateTime.UtcNow, 100, "application/octet-stream"));
+        }
+
+        return list;
+    }
+
+    private Task SeedFileAsync(string key, string etag) =>
+        _store.UpsertAsync(
+            new PlaceholderRecord(_driveId, key, ParentKey: null, ETag: etag, Size: 100,
+                LastModified: DateTime.UtcNow, IsFolder: false, IsDirty: false,
+                SyncStatus: "synced", LastSeenAt: DateTime.UtcNow),
+            CancellationToken.None);
+
+    private Task SeedFolderAsync(string folderKey) =>
+        _store.UpsertAsync(
+            new PlaceholderRecord(_driveId, folderKey, ParentKey: null, ETag: null, Size: 0,
+                LastModified: null, IsFolder: true, IsDirty: false,
+                SyncStatus: "synced", LastSeenAt: DateTime.UtcNow),
+            CancellationToken.None);
+
+    private async Task InsertDriveAsync(Guid driveId, string bucket)
+    {
+        await using var conn = await _db.AcquireConnectionAsync(CancellationToken.None);
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "INSERT INTO drives (id, name, bucket, prefix, project_id, iam_user_id, local_root_path, created_at) " +
+            "VALUES (@id, @name, @bucket, NULL, 'p1', 'u1', @root, @createdAt);";
+        cmd.Parameters.AddWithValue("@id", driveId.ToString());
+        cmd.Parameters.AddWithValue("@name", "Drive A");
+        cmd.Parameters.AddWithValue("@bucket", bucket);
+        cmd.Parameters.AddWithValue("@root", @"C:\Users\test\DS3");
+        cmd.Parameters.AddWithValue("@createdAt", DateTime.UtcNow.ToString("O"));
+        await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+    }
+}
