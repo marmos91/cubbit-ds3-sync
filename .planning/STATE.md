@@ -38,10 +38,11 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 
 ## Current Position
 
-Phase: 17.1 complete → 17.2-17.6 planned (not started)
-Plan: Not started
-Status: Phase 17.1 UAT-verified; roadmap extended with Windows productionization phases
-Last activity: 2026-06-02
+Phase: 17.3 Windows Enumeration Performance & UX — PLANNED, ready to execute Wave 1
+Plan: 17.3 CONTEXT + RESEARCH + 5 numbered plans written; scope signed off 2026-07-07. Wave 0 (local build) done; next = Wave 1 / Plan 02 (D-01 pagination fix).
+Status: Local MSVC+Rust build verified (blocker 17-02 resolved). No sync-engine code changed yet.
+Last activity: 2026-07-07
+Resume from: .planning/phases/17.3-windows-enumeration-performance-ux/17.3-HANDOFF.md
 
 ```
 Milestone v2.0.0: Phase 17.1 complete (sync + hydration working) — Windows productionization 17.2-17.6 queued
@@ -121,10 +122,10 @@ Milestone v2.0.0: Phase 17.1 complete (sync + hydration working) — Windows pro
 
 yet.
 
-- [17-02] Dev machine lacks MSVC C++ build tools workload — cargo cannot link *-windows-msvc targets (Git's GNU link.exe shadows MSVC linker). Native ds3_ffi.dll build blocked locally; managed scaffold builds clean. Install 'Desktop development with C++' workload to unblock; CI (windows-latest) unaffected.
+- [17-02] ~~Dev machine lacks MSVC C++ build tools workload — cargo cannot link *-windows-msvc targets.~~ **RESOLVED 2026-07-07** (Phase 17.3 Wave 0): installed VS 2026 `Microsoft.VisualStudio.Workload.NativeDesktop` (MSVC `link.exe`) + Rust `stable-x86_64-pc-windows-msvc`. Verified `cargo build -p ds3-ffi` links `ds3_ffi.dll` locally (5m34s, exit 0). This is an x64 (AMD64) box; the ARM64 dev VM remains for cfapi runtime smoke.
 
 ## Session Continuity
 
-Last session: 2026-06-01T20:57:17.687Z
-Stopped at: Completed 17.1-02-PLAN.md
-Resume file: None
+Last session: 2026-07-07
+Stopped at: Phase 17.3 fully planned; local build toolchain provisioned + verified (ds3_ffi.dll links). About to start Wave 1 (Plan 02, D-01 pagination fix).
+Resume file: .planning/phases/17.3-windows-enumeration-performance-ux/17.3-HANDOFF.md
