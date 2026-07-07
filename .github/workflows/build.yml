@@ -245,8 +245,12 @@ jobs:
           path: ~/Library/Developer/Xcode/DerivedData/DS3Drive-*/SourcePackages
           key: spm-ios-${{ runner.os }}-${{ hashFiles('apple/DS3Drive.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
           restore-keys: spm-ios-${{ runner.os }}-
-      - name: Install iOS Simulator runtime
-        run: xcodebuild -downloadPlatform iOS
+      # No "Install iOS Simulator runtime" step: this job only builds for a
+      # generic iOS Simulator destination (no concrete runtime, no booted
+      # device), so it compiles against the iOS SDK bundled with Xcode. The
+      # old `xcodebuild -downloadPlatform iOS` step was redundant and had begun
+      # failing consistently ("Unable to connect to simulator", exit 70) on the
+      # drifted macos-15 runner image.
       - name: Resolve Swift packages
         run: |
           xcodebuild -resolvePackageDependencies -project apple/DS3Drive.xcodeproj -scheme DS3DriveApp
