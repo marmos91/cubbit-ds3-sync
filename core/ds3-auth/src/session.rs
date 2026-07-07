@@ -89,6 +89,53 @@ impl DS3Session {
         })
     }
 
+    /// Restores a session from a persisted refresh token, without email/password.
+    ///
+    /// Exchanges the saved refresh token at the refresh endpoint for a live access
+    /// token (and a freshly rotated refresh token), then re-fetches account info. This
+    /// is the cross-platform "stay logged in across launches" path: the platform layer
+    /// persists the refresh token in OS-native secure storage (Keychain / Credential
+    /// Manager / Keystore) and hands it back here at startup. A revoked or expired
+    /// refresh token surfaces as the same error the refresh endpoint returns, so the
+    /// caller can fall back to a full login.
+    #[tracing::instrument(skip(refresh_token))]
+    pub async fn restore_from_refresh_token(
+        refresh_token: &str,
+        coordinator_url: Option<&str>,
+    ) -> Result<Self, DS3Error> {
+        let urls = match coordinator_url {
+            Some(url) => CubbitAPIURLs::new(url),
+            None => CubbitAPIURLs::default_coordinator(),
+        };
+
+        let http = SharedHttpClient::new()?;
+
+        // Seed an AccountSession carrying only the saved refresh token; the access-token
+        // fields are unused by the refresh call (it authenticates via the `_refresh`
+        // cookie), and the exchange returns a fresh token plus a rotated refresh token.
+        let seed = AccountSession {
+            token: Token {
+                token: String::new(),
+                exp: 0,
+                exp_date: String::new(),
+            },
+            refresh_token: refresh_token.to_string(),
+        };
+
+        let (new_token, new_refresh) = refresh::refresh_token(&http, &urls, &seed).await?;
+        let account = get_account_info(&http, &urls, &new_token.token).await?;
+
+        Ok(Self {
+            http,
+            urls,
+            session: Mutex::new(AccountSession {
+                token: new_token,
+                refresh_token: new_refresh,
+            }),
+            account,
+        })
+    }
+
     /// Refreshes the access token if it has expired.
     ///
     /// Checks `token.exp` against the current UTC time. If expired, calls

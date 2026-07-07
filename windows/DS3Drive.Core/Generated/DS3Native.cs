@@ -10,6 +10,10 @@
 // 17-02 blocker) OR update this file by hand and verify with
 //   grep -c "DllImport(\"ds3_ffi\"" DS3Native.cs   (must match the export count).
 //
+// Export count: 40 [DllImport("ds3_ffi"…)] bindings — bumped +2 in plan 17.1-02
+// for the S3-client lifecycle pair (ds3_s3_client_new / ds3_s3_client_destroy),
+// then +1 for ds3_last_error_message (server-error detail channel, 17.1 UAT).
+//
 // Differences from the raw csbindgen output (intentional, idiomatic):
 //   - Opaque handles (DS3Session*, DS3S3Client*, CancellationHandle*) are
 //     surfaced as plain `IntPtr` so the managed facade owns lifetime via
@@ -65,6 +69,9 @@ internal static unsafe partial class DS3Native
     [DllImport("ds3_ffi", EntryPoint = "ds3_authenticate_2fa", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ds3_authenticate_2fa(byte* email, nuint email_len, byte* password, nuint password_len, byte* tfa_code, nuint tfa_code_len, byte* tenant_id, nuint tenant_id_len, byte* coordinator_url, nuint coordinator_url_len, out IntPtr out_handle, out int out_error);
 
+    [DllImport("ds3_ffi", EntryPoint = "ds3_session_restore", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ds3_session_restore(byte* refresh_token, nuint refresh_token_len, byte* coordinator_url, nuint coordinator_url_len, out IntPtr out_handle, out int out_error);
+
     [DllImport("ds3_ffi", EntryPoint = "ds3_session_destroy", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern void ds3_session_destroy(IntPtr handle);
 
@@ -101,7 +108,15 @@ internal static unsafe partial class DS3Native
 
     // -----------------------------------------------------------------------
     // S3 — s3_handle is an IntPtr to a DS3S3Client minted by the Rust core.
+    // Handle ownership: out_handle from ds3_s3_client_new is owned by the caller;
+    // free via ds3_s3_client_destroy exactly once (region: null/0 ⇒ "us-east-1").
     // -----------------------------------------------------------------------
+
+    [DllImport("ds3_ffi", EntryPoint = "ds3_s3_client_new", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ds3_s3_client_new(byte* endpoint, nuint endpoint_len, byte* access_key, nuint access_key_len, byte* secret_key, nuint secret_key_len, byte* region, nuint region_len, out IntPtr out_handle, out int out_error);
+
+    [DllImport("ds3_ffi", EntryPoint = "ds3_s3_client_destroy", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void ds3_s3_client_destroy(IntPtr handle);
 
     [DllImport("ds3_ffi", EntryPoint = "ds3_list_objects", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ds3_list_objects(IntPtr s3_handle, byte* bucket, nuint bucket_len, byte* prefix, nuint prefix_len, byte* delimiter, nuint delimiter_len, int max_keys, byte* continuation_token, nuint continuation_token_len, out IntPtr out_json, out nuint out_json_len, out int out_error);
@@ -161,6 +176,12 @@ internal static unsafe partial class DS3Native
 
     [DllImport("ds3_ffi", EntryPoint = "ds3_error_code", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ds3_error_code(byte* message_ptr, nuint message_len);
+
+    /// <summary>Reads + clears the most recent error detail (HTTP status + body for
+    /// server errors) recorded on THIS thread by ffi_guard!. Out buffer freed via
+    /// ds3_free_string. Always returns 0; no guard needed (non-throwing).</summary>
+    [DllImport("ds3_ffi", EntryPoint = "ds3_last_error_message", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ds3_last_error_message(out IntPtr out_json, out nuint out_json_len);
 
     // -----------------------------------------------------------------------
     // Cancellation handle (heap-allocated; destroy exactly once)

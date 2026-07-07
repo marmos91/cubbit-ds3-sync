@@ -1,16 +1,19 @@
 namespace DS3Drive.App.Services;
 
+using System.Text.Json;
 using DS3Drive.Core;
 using DS3Drive.Core.Exceptions;
-using DS3Drive.Core.Native;
 using DS3Drive.Core.Records;
-using DS3Drive.Sync;
 using DS3Drive.ViewModels.Services;
 using Microsoft.Extensions.Logging;
 
 // Plan 09: AuthenticationService also adapts the live session onto IDS3SessionGateway
 // (it is the single owner of the DS3Session handle, so it is the natural adapter). The SDK
-// service borrows the session through this seam — no second handle, no widened interface.
+// service borrows the session (projects + IAM/API-key calls) through this seam — no second
+// handle, no widened interface. The S3 surface (bucket/object listing) no longer routes
+// through the session: 17.1-02 moved it onto DS3DriveS3Client, and 17.1-03 builds that
+// per-drive client from the reconciled API key (the cfapi sync IDS3SessionAccess is now the
+// host-built DriveS3SessionAccess, not this singleton).
 
 /// <summary>
 /// Default <see cref="IAuthenticationService"/>. Owns the <see cref="DS3Session"/> handle
@@ -28,9 +31,17 @@ using Microsoft.Extensions.Logging;
 /// worker thread and never stored on this service or the view-model; the only retained
 /// secret is the refresh token, which lives in the OS-sealed Credential Manager.
 /// </summary>
-public sealed class AuthenticationService : IAuthenticationService, IDS3SessionGateway, IDS3SessionAccess, IDisposable
+public sealed class AuthenticationService : IAuthenticationService, IDS3SessionGateway, IDisposable
 {
     private const string RefreshTokenKey = "refreshToken";
+
+    // Stay-logged-in store: a single JSON blob (refresh token + coordinator URL + account id) under
+    // a fixed, account-agnostic key, so startup can find and restore it without knowing the account
+    // id up front. This is the Windows half of the cross-platform persistence model (the logic lives
+    // in the shared Rust core; only the secure-storage backend is platform-specific — Credential
+    // Manager here, Keychain/App Group on Apple, Keystore on Android).
+    private const string SessionStoreAccount = "__session__";
+    private const string SessionStoreKey = "session-v1";
 
     private readonly CredentialStore _credentialStore;
     private readonly ILogger<AuthenticationService> _logger;
@@ -38,6 +49,11 @@ public sealed class AuthenticationService : IAuthenticationService, IDS3SessionG
 
     private DS3Session? _session;
     private DS3AccountInfo? _currentAccount;
+    private string? _coordinatorUrl;
+
+    /// <summary>The persisted session blob. The refresh token rotates on every refresh/forge, so it
+    /// is re-saved after each of those operations; a stale token simply fails restore → login.</summary>
+    private sealed record PersistedSession(string RefreshToken, string CoordinatorUrl, string AccountId);
 
     public AuthenticationService(CredentialStore credentialStore, ILogger<AuthenticationService> logger)
     {
@@ -90,9 +106,13 @@ public sealed class AuthenticationService : IAuthenticationService, IDS3SessionG
             _session?.Dispose();
             _session = session;
             _currentAccount = account;
+            _coordinatorUrl = coordinatorUrl;
         }
 
         _logger.LogInformation("Login successful for account {AccountId}.", account.AccountId);
+
+        // Persist the refresh token so the next launch restores the session (stay logged in).
+        PersistSession();
         RaiseAuthStateChanged(true);
     }
 
@@ -116,6 +136,8 @@ public sealed class AuthenticationService : IAuthenticationService, IDS3SessionG
         try
         {
             await Task.Run(session.RefreshToken, ct).ConfigureAwait(false);
+            // The refresh token rotated — re-persist so the saved copy never goes stale.
+            PersistSession();
         }
         catch (DS3AuthenticationException ex) when (ex.Reason == AuthFailureReason.LoggedOut)
         {
@@ -135,6 +157,17 @@ public sealed class AuthenticationService : IAuthenticationService, IDS3SessionG
             session = _session;
             _session = null;
             _currentAccount = null;
+            _coordinatorUrl = null;
+        }
+
+        // Clear the stay-logged-in blob so the next launch lands on Login (T-17-11-04 EoP).
+        try
+        {
+            _credentialStore.Delete(SessionStoreAccount, SessionStoreKey);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to clear persisted session on logout.");
         }
 
         if (account is not null)
@@ -166,6 +199,147 @@ public sealed class AuthenticationService : IAuthenticationService, IDS3SessionG
     private void RaiseAuthStateChanged(bool isAuthenticated) =>
         AuthStateChanged?.Invoke(this, isAuthenticated);
 
+    /// <summary>
+    /// True if a persisted session blob exists (a fast local Credential Manager read — no network).
+    /// The App uses this to decide whether to start hidden in the tray (returning user) or show the
+    /// Login window (fresh user) before the actual <see cref="TryRestoreSession"/> network call runs.
+    /// </summary>
+    public bool HasPersistedSession
+    {
+        get
+        {
+            try
+            {
+                return !string.IsNullOrEmpty(_credentialStore.Load(SessionStoreAccount, SessionStoreKey));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Attempts to restore a session from the persisted refresh token (stay logged in across
+    /// launches). On success the session is live, <see cref="AuthStateChanged"/>(true) fires, and
+    /// the rotated token is re-saved; returns true. A missing/revoked/expired token (or an offline
+    /// coordinator) returns false and clears the stale blob so the caller routes to Login. Network
+    /// I/O runs inline, so call this off the UI thread.
+    /// </summary>
+    public bool TryRestoreSession()
+    {
+        string? json;
+        try
+        {
+            json = _credentialStore.Load(SessionStoreAccount, SessionStoreKey);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to read persisted session.");
+            return false;
+        }
+
+        if (string.IsNullOrEmpty(json))
+        {
+            return false;
+        }
+
+        PersistedSession? persisted;
+        try
+        {
+            persisted = JsonSerializer.Deserialize<PersistedSession>(json);
+        }
+        catch (JsonException)
+        {
+            persisted = null;
+        }
+
+        if (persisted is null || string.IsNullOrEmpty(persisted.RefreshToken))
+        {
+            // Corrupt/unparseable blob — clear it so we don't re-attempt restore on every launch.
+            _logger.LogWarning("Persisted session blob is invalid; clearing it.");
+            ClearPersistedSession();
+            return false;
+        }
+
+        try
+        {
+            DS3Session session = DS3Session.RestoreFromRefreshToken(persisted.RefreshToken, persisted.CoordinatorUrl);
+            DS3AccountInfo account = session.AccountInfo();
+
+            lock (_gate)
+            {
+                _session?.Dispose();
+                _session = session;
+                _currentAccount = account;
+                _coordinatorUrl = persisted.CoordinatorUrl;
+            }
+
+            _logger.LogInformation("Session restored for account {AccountId}.", account.AccountId);
+
+            // The refresh token rotated during restore — save the fresh one.
+            PersistSession();
+            RaiseAuthStateChanged(true);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogInformation(ex, "Persisted session could not be restored; clearing it.");
+            ClearPersistedSession();
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Best-effort removal of the persisted session blob. Failures are logged and swallowed so
+    /// they never break the restore-or-route-to-login flow.
+    /// </summary>
+    private void ClearPersistedSession()
+    {
+        try
+        {
+            _credentialStore.Delete(SessionStoreAccount, SessionStoreKey);
+        }
+        catch (Exception delEx)
+        {
+            _logger.LogWarning(delEx, "Failed to clear unrestorable session blob.");
+        }
+    }
+
+    /// <summary>
+    /// Saves the current session's (rotating) refresh token, coordinator URL, and account id to the
+    /// secure store. Best-effort: a persistence failure logs and is swallowed so it never breaks
+    /// login/refresh/forge. Called after every token-rotating operation.
+    /// </summary>
+    private void PersistSession()
+    {
+        DS3Session? session;
+        DS3AccountInfo? account;
+        string? coordinator;
+        lock (_gate)
+        {
+            session = _session;
+            account = _currentAccount;
+            coordinator = _coordinatorUrl;
+        }
+
+        if (session is null || account is null || string.IsNullOrEmpty(coordinator))
+        {
+            return;
+        }
+
+        try
+        {
+            string refresh = session.CurrentRefreshToken();
+            string json = JsonSerializer.Serialize(new PersistedSession(refresh, coordinator, account.AccountId));
+            _credentialStore.Save(SessionStoreAccount, SessionStoreKey, json);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to persist session for stay-logged-in.");
+        }
+    }
+
     // === IDS3SessionGateway (Plan 09): adapts the live session for the SDK service ===
 
     private DS3Session EnsureSession()
@@ -185,17 +359,19 @@ public sealed class AuthenticationService : IAuthenticationService, IDS3SessionG
     string IDS3SessionGateway.AccountId => CurrentAccount?.AccountId ?? string.Empty;
 
     /// <inheritdoc />
+    string IDS3SessionGateway.EndpointGateway => CurrentAccount?.EndpointGateway ?? string.Empty;
+
+    /// <inheritdoc />
     IReadOnlyList<DS3Project> IDS3SessionGateway.GetProjects() => EnsureSession().GetProjects();
 
     /// <inheritdoc />
-    IReadOnlyList<DS3Bucket> IDS3SessionGateway.ListBuckets() => EnsureSession().ListBuckets();
-
-    /// <inheritdoc />
-    IReadOnlyList<DS3Object> IDS3SessionGateway.ListObjects(string bucket, string prefix, string delimiter, string? continuationToken) =>
-        EnsureSession().ListObjects(bucket, prefix, delimiter, continuationToken);
-
-    /// <inheritdoc />
-    string IDS3SessionGateway.ForgeIamToken(string iamUserId) => EnsureSession().ForgeIamToken(iamUserId);
+    string IDS3SessionGateway.ForgeIamToken(string iamUserId)
+    {
+        string token = EnsureSession().ForgeIamToken(iamUserId);
+        // The refresh token rotates on forge — re-persist so a saved token never goes stale.
+        PersistSession();
+        return token;
+    }
 
     /// <inheritdoc />
     IReadOnlyList<DS3ApiKey> IDS3SessionGateway.LoadApiKeys(string iamUserId, string iamToken) =>
@@ -208,31 +384,4 @@ public sealed class AuthenticationService : IAuthenticationService, IDS3SessionG
     /// <inheritdoc />
     void IDS3SessionGateway.DeleteApiKey(string iamUserId, string apiKeyId, string iamToken) =>
         EnsureSession().DeleteApiKey(iamUserId, apiKeyId, iamToken);
-
-    // === IDS3SessionAccess (Plan 17 sync wiring): the cfapi sync host borrows the SAME live
-    // session for object I/O. Explicit implementation keeps it distinct from the overlapping
-    // IDS3SessionGateway members; both resolve to the single owned handle via EnsureSession(). ===
-
-    /// <inheritdoc />
-    string IDS3SessionAccess.AccountId => CurrentAccount?.AccountId ?? string.Empty;
-
-    /// <inheritdoc />
-    IReadOnlyList<DS3Object> IDS3SessionAccess.ListObjects(string bucket, string prefix, string delimiter, string? continuationToken) =>
-        EnsureSession().ListObjects(bucket, prefix, delimiter, continuationToken);
-
-    /// <inheritdoc />
-    DS3Object IDS3SessionAccess.DownloadObject(string bucket, string key, string filePath, DS3ProgressCallback? progress, CancellationHandle? cancel) =>
-        EnsureSession().DownloadObject(bucket, key, filePath, progress, cancel);
-
-    /// <inheritdoc />
-    string IDS3SessionAccess.UploadObject(string bucket, string key, string filePath, DS3ProgressCallback? progress, CancellationHandle? cancel) =>
-        EnsureSession().UploadObject(bucket, key, filePath, progress, cancel);
-
-    /// <inheritdoc />
-    void IDS3SessionAccess.DeleteObject(string bucket, string key) =>
-        EnsureSession().DeleteObject(bucket, key);
-
-    /// <inheritdoc />
-    void IDS3SessionAccess.CopyObject(string srcBucket, string srcKey, string dstBucket, string dstKey) =>
-        EnsureSession().CopyObject(srcBucket, srcKey, dstBucket, dstKey);
 }

@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: macOS App
-status: executing
-stopped_at: Completed 17-12-PLAN.md
-last_updated: "2026-05-29T18:15:06.819Z"
-last_activity: 2026-05-29
+milestone: v2.0.0
+milestone_name: Cross-Platform Rewrite
+status: in-progress
+stopped_at: Phase 17.1 UAT-verified (end-to-end sync + hydration working on native ARM64); roadmap extended with Windows productionization 17.2-17.6
+last_updated: "2026-06-02T00:00:00.000Z"
+last_activity: 2026-06-02
 progress:
-  total_phases: 4
-  completed_phases: 2
-  total_plans: 26
-  completed_plans: 25
-  percent: 50
+  total_phases: 5
+  completed_phases: 3
+  total_plans: 29
+  completed_plans: 28
+  percent: 60
 ---
 
 # Project State
@@ -21,31 +21,37 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-26)
 
 **Core value:** Files sync reliably and transparently between Mac, iPhone, iPad, Windows PC and Cubbit DS3, with zero friction on every platform.
-**Current focus:** Phase 17 — windows-shell
+**Current focus:** Phase 17.1 complete — Windows end-to-end sync + on-demand hydration UAT-verified on native ARM64. Next: Windows productionization (17.2-17.6).
 
 **v2.0.0 phase shape:**
 
 - Phase 15 -- Rust Core + FFI Foundation (Cargo workspace, 6 crates, UniFFI XCFramework, csbindgen C# bindings, integration tests). No app changes.
 - Phase 16 -- Apple Incremental Swap (DS3S3Client + auth + SDK internals replaced with Rust via UniFFI; Soto/CryptoKit removed from DS3Lib). FileProvider untouched.
 - Phase 17 -- Windows Shell (WinUI 3 tray app, cfapi Cloud Filter, Explorer sidebar, on-demand hydration, upload, remote sync, MSI installer).
+- Phase 17.1 -- Windows S3-Client FFI Wiring + Sync Enablement (mint DS3S3Client across FFI, route cfapi engine through it; bidirectional sync working). **UAT-verified.**
+- Phase 17.2 -- Windows Thumbnails (real Explorer thumbnails from the shared `.thumbnails/` prefix, no full-file hydration).
+- Phase 17.3 -- Windows Enumeration Performance & UX (incremental paged enumeration at scale, idempotent placeholders, visible progress).
+- Phase 17.4 -- Windows UI Polish across all windows (design-token consistency, theme/DPI correctness, empty/loading/error states).
+- Phase 17.5 -- Windows Feature Completeness (drive stats, full settings, pause/resume, recent files, transfer speed, notifications — macOS parity).
+- Phase 17.6 -- Windows Installer, Releases & CI (signed x64 + ARM64 installer, tag-triggered release pipeline, upgrade-preserving, auto-update).
 - Phase 18 -- Polish + Beta Hardening (cross-FFI logging, error mapping, DPAPI, multi-drive, auto-update, ARM64 Windows, tray flyout, conflict resolution).
 
 ## Current Position
 
-Phase: 17 (windows-shell) — IMPLEMENTATION COMPLETE (pending D-33 HUMAN-UAT sign-off)
-Plan: 12 of 12 (all plans have SUMMARYs)
-Status: Phase 17 implementation done; gated on HUMAN-UAT #1–#53 before phase close
-Last activity: 2026-05-29
+Phase: 17.1 complete → 17.2-17.6 planned (not started)
+Plan: Not started
+Status: Phase 17.1 UAT-verified; roadmap extended with Windows productionization phases
+Last activity: 2026-06-02
 
 ```
-Milestone v2.0.0: [████░░░░░░] Phase 17: 12/12 plans implemented (HUMAN-UAT pending)
+Milestone v2.0.0: Phase 17.1 complete (sync + hydration working) — Windows productionization 17.2-17.6 queued
 ```
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
+- Total plans completed: 6
 - Average duration: --
 - Total execution time: --
 
@@ -53,7 +59,7 @@ Milestone v2.0.0: [████░░░░░░] Phase 17: 12/12 plans impleme
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 17.1 | 3 | - | - |
 
 ## Accumulated Context
 
@@ -67,6 +73,9 @@ Milestone v2.0.0: [████░░░░░░] Phase 17: 12/12 plans impleme
 | Phase 17 P10 | 19min | 4 tasks | 22 files |
 | Phase 17 P11 | continuation | 3 tasks | 28 files |
 | Phase 17 P12 | 8min | 2 tasks | 12 files |
+| Phase 17.1 P01 | 22min | 2 tasks | 5 files |
+| Phase 17.1 P02 | 5min | 2 tasks | 4 files |
+| Phase 17.1 P03 | 18min | 2 tasks | 10 files |
 
 ### Decisions
 
@@ -100,6 +109,13 @@ Milestone v2.0.0: [████░░░░░░] Phase 17: 12/12 plans impleme
 - [17-11]: TrayViewModel/SettingsViewModel/RecentFilesService live in DS3Drive.ViewModels (WinUI-free) for headless xUnit testability (Plan 09/10 split); aggregate precedence Error>Syncing>Paused>Idle is the WinUI-free reducer. Recent files = global top-5 (not per-drive) for flyout compactness. Tray + Settings manual smoke deferred to phase HUMAN-UAT (#32-43)
 - [Phase ?]: [17-12] MSI ProductVersion (Variables.wxi) and sparse manifest <Identity Version> synced byte-for-byte by build-msi.ps1 at build time so Add-AppxPackage never hits a same-version collision 0x80073CF9 (RESEARCH Pitfall 7)
 - [Phase ?]: [17-12] WiX toolset absent on dev machine (same MSVC/SDK blocker as 17-02/17-04); WiX sources + build-msi.ps1 + windows-release.yml authored and validated (well-formed XML, parseable PS, structured YAML). Actual MSI build/sign deferred to windows-release.yml on tag; D-33 live smoke deferred to HUMAN-UAT #44-#53
+- [Phase 17.1]: [17.1-01] ds3_s3_client_new omits runtime().block_on — DS3S3Client::new is synchronous (builds aws-sdk-s3 config, no I/O); only fallible step is UTF-8 decode. region via ffi_opt_str (null/0 => us-east-1, macOS parity)
+- [Phase 17.1]: [17.1-01] Wave 0 integration test resolves the plan-02 DS3DriveS3Client facade by reflection (Assembly.GetType) and no-ops until it lands, so the harness compiles before the consumer (Nyquist). D-06 tests BOTH error branches: bad access key => code 3003 => DS3TransportException, not DS3S3Exception
+- [Phase ?]: [17.1-02] DS3DriveS3Client : IDisposable owns one DS3S3Client handle (Create=>ds3_s3_client_new, Dispose=>Interlocked+ds3_s3_client_destroy); the 7 S3 ops re-homed off DS3Session onto this facade — structural fix for the S3 AccessViolationException (D-02). DS3Session is now auth/session-only.
+- [Phase ?]: [17.1-02] DS3AccountInfo.EndpointGateway un-ignored (maps endpoint_gateway wire key); inserted as 3rd positional record param — safe since no positional new DS3AccountInfo(...) call sites exist (deser is name-based). Unblocks Plan 03 S3-client construction.
+- [Phase ?]: [17.1-03] cfapi sync S3 routes through a host-built per-drive DriveS3SessionAccess wrapping one DS3DriveS3Client (creds from API-key flow + endpoint_gateway, not the session token); built at StartDriveAsync, rebuilt on credential/endpoint change, disposed LAST in StopActiveAsync (Pitfall 4)
+- [Phase ?]: [17.1-03] Per-drive S3 creds via new IDriveS3CredentialProvider seam (Sync-defined, App-implemented), not by widening the 6-op IDS3SessionAccess; IDS3SessionGateway dropped ListBuckets/ListObjects + gained EndpointGateway; wizard browse re-pointed onto a per-project cached DS3DriveS3Client
+- [Phase 17.1 UAT]: Hydration "corrupted/unsupported" had TWO root causes, both fixed (not network/SDK — proven: native curl 0.7s, isolated repro cold/warm/idle all <2s). (1) download throughput was coupled to the cross-FFI progress callback — `download_object` called it per ~4KB S3 frame (~1000×), so each `CfReportProviderProgress` cost serialized the transfer → ~120s + watchdog cancels. Fix: throttle progress to ≤1/100ms in `ds3-s3/transfer.rs`. (2) `FetchDataHandler` served the WHOLE file `[0,fileLen)` on every FETCH_DATA callback → concurrent overlapping transfers superseded each other (Win32 398) → partial/corrupt file. Fix: serve only the requested `RequiredFileOffset/Length` range from the shared (deduped) temp file (CloudMirror/Nextcloud model); 4KB-aligned except EOF. Once a range is acked it is marked on-disk and never re-requested, which stops the FETCH_DATA storm.
 
 ### Blockers
 
@@ -109,6 +125,6 @@ yet.
 
 ## Session Continuity
 
-Last session: 2026-05-29T18:15:06.813Z
-Stopped at: Completed 17-12-PLAN.md
+Last session: 2026-06-01T20:57:17.687Z
+Stopped at: Completed 17.1-02-PLAN.md
 Resume file: None

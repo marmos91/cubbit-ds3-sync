@@ -42,6 +42,8 @@ public sealed class CfApiProvider : IAsyncDisposable
     private FetchDataHandler? _fetchHandler;
     private CallbackTable? _callbackTable;
     private CF_CONNECTION_KEY _connectionKey;
+    private CancellationTokenSource? _lifetimeCts;
+    private Task? _populateTask;
     private bool _connected;
     private bool _disposed;
 
@@ -79,13 +81,14 @@ public sealed class CfApiProvider : IAsyncDisposable
             await SyncRootRegistration.RegisterAsync(
                 _drive, _session.AccountId, _localRootPath, _installDir, _logger, ct).ConfigureAwait(false);
 
+            var fetchPlaceholders = new FetchPlaceholdersHandler(_drive, _localRootPath, _session, _store, _status, _logger);
             _fetchHandler = new FetchDataHandler(
                 _drive, _localRootPath, _session, _store, _status, _fetchSemaphore, _logger);
             var fileClose = new NotifyFileCloseHandler(_drive, _localRootPath, _store, _uploads, _logger);
-            var rename = new NotifyRenameHandler(_drive, _session, _store, _logger);
-            var delete = new NotifyDeleteHandler(_drive, _session, _store, _logger);
+            var rename = new NotifyRenameHandler(_drive, _localRootPath, _session, _store, _logger);
+            var delete = new NotifyDeleteHandler(_drive, _localRootPath, _session, _store, _logger);
 
-            _callbackTable = new CallbackTable(_fetchHandler, fileClose, rename, delete);
+            _callbackTable = new CallbackTable(fetchPlaceholders, _fetchHandler, fileClose, rename, delete);
             CF_CALLBACK_REGISTRATION[] table = _callbackTable.Build();
 
             CfConnectSyncRoot(
@@ -99,7 +102,14 @@ public sealed class CfApiProvider : IAsyncDisposable
             _fetchHandler.SetConnectionKey(_connectionKey);
             _connected = true;
 
-            await PopulatePlaceholdersAsync(ct).ConfigureAwait(false);
+            // Eagerly create the on-disk placeholders so the drive shows content immediately. The
+            // FETCH_PLACEHOLDERS callback (on-demand population) stays registered as a fallback, but
+            // it was observed NOT to fire for the sync-root directory, so eager population is the
+            // reliable path. Runs in the background so a large bucket does not block drive startup.
+            // Tracked + cancelled on dispose so it can't call CfCreatePlaceholders after disconnect.
+            _lifetimeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            CancellationToken populateToken = _lifetimeCts.Token;
+            _populateTask = Task.Run(() => PopulatePlaceholdersAsync(populateToken), populateToken);
         }
         catch (Exception ex)
         {
@@ -110,36 +120,28 @@ public sealed class CfApiProvider : IAsyncDisposable
     }
 
     /// <summary>
-    /// First-time placeholder enumeration: list the bucket/prefix and write a placeholder
-    /// row per object so Explorer shows cloud-only files. The actual on-disk placeholder
-    /// reparse points are materialized via <c>CfCreatePlaceholders</c> at integration time
-    /// (requires the registered sync root + folder handles).
+    /// Eagerly materializes the drive's placeholder tree (files + folders) so Explorer shows content.
+    /// Best-effort and self-contained: failures are logged, never propagated, so a population error
+    /// does not tear down an otherwise-working drive.
     /// </summary>
     private async Task PopulatePlaceholdersAsync(CancellationToken ct)
     {
-        string bucket = _drive.SyncAnchor.Bucket;
-        string prefix = _drive.SyncAnchor.Prefix ?? string.Empty;
-
-        IReadOnlyList<DS3Object> objects = _session.ListObjects(bucket, prefix, "/", null);
-        foreach (DS3Object obj in objects)
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            if (!PathValidation.TryValidateS3Key(obj.Key, out _))
-            {
-                continue;
-            }
-
-            bool isFolder = obj.Key.EndsWith('/');
-            await _store.UpsertAsync(
-                new PlaceholderRecord(
-                    _drive.Id, obj.Key, ParentKey: PathValidation.ParentOf(obj.Key),
-                    ETag: obj.ETag, Size: obj.Size, LastModified: obj.LastModified,
-                    IsFolder: isFolder, IsDirty: false,
-                    SyncStatus: "cloud-only", LastSeenAt: DateTime.UtcNow),
-                ct).ConfigureAwait(false);
+            string bucket = _drive.SyncAnchor.Bucket;
+            string prefix = _drive.SyncAnchor.Prefix ?? string.Empty;
+            int count = await PlaceholderMaterializer.MaterializeAsync(
+                _session, bucket, prefix, _localRootPath, _store, _drive.Id, _logger, ct).ConfigureAwait(false);
+            _logger.LogInformation("populated {Count} placeholders for drive={DriveId}", count, _drive.Id);
         }
-
-        _logger.LogInformation("populated {Count} placeholders for drive={DriveId}", objects.Count, _drive.Id);
+        catch (OperationCanceledException)
+        {
+            // Drive stopped mid-population — expected.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "placeholder population failed drive={DriveId}", _drive.Id);
+        }
     }
 
     /// <summary>Disconnects the sync root and releases the fetch limiter.</summary>
@@ -157,6 +159,10 @@ public sealed class CfApiProvider : IAsyncDisposable
 
         _disposed = true;
 
+        // Signal the background populate to stop before we disconnect, so it can't issue
+        // CfCreatePlaceholders against a connection key we're about to invalidate.
+        _lifetimeCts?.Cancel();
+
         if (_connected)
         {
             try
@@ -171,9 +177,28 @@ public sealed class CfApiProvider : IAsyncDisposable
             _connected = false;
         }
 
+        // Drain the background populate (cancellation makes this prompt) so no placeholder
+        // work outlives the disconnect.
+        if (_populateTask is not null)
+        {
+            try
+            {
+                await _populateTask.ConfigureAwait(false);
+            }
+            catch
+            {
+                // Best-effort drain — populate already logs its own failures.
+            }
+        }
+
         await _uploads.DisposeAsync().ConfigureAwait(false);
-        _fetchSemaphore.Dispose();
+        _lifetimeCts?.Dispose();
         _callbackTable = null;
         _fetchHandler = null;
+
+        // Deliberately NOT disposing _fetchSemaphore: fire-and-forget FETCH_DATA handlers may
+        // still be awaiting it as they unwind after disconnect, and disposing it would throw
+        // ObjectDisposedException on those threads. We only ever WaitAsync/Release it (never
+        // touch AvailableWaitHandle), so leaving it for the GC is safe.
     }
 }

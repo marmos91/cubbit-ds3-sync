@@ -71,7 +71,10 @@ public static class SyncRootRegistration
             IconResource = Path.Combine(installDir, "Assets", "SyncRoot.ico"),
             HydrationPolicy = StorageProviderHydrationPolicy.Partial,
             HydrationPolicyModifier = StorageProviderHydrationPolicyModifier.StreamingAllowed,
-            PopulationPolicy = StorageProviderPopulationPolicy.AlwaysFull,
+            // Full (on-demand) population: the platform asks for a directory's children via the
+            // FETCH_PLACEHOLDERS callback when it is first opened, rather than requiring the whole
+            // tree be pre-populated (AlwaysFull). Matches the macOS enumerate-on-demand model.
+            PopulationPolicy = StorageProviderPopulationPolicy.Full,
             InSyncPolicy = StorageProviderInSyncPolicy.FileLastWriteTime | StorageProviderInSyncPolicy.DirectoryLastWriteTime,
             HardlinkPolicy = StorageProviderHardlinkPolicy.None,
             Version = "2.0.0",

@@ -18,6 +18,7 @@
 
     <Page.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+        <conv:NotNullToBoolConverter x:Key="NotNullToBool" />
     </Page.Resources>
 
     <Grid Padding="24">
@@ -30,10 +31,29 @@
         <StackPanel Spacing="16"
                     Visibility="{x:Bind ViewModel.IsLoadingBuckets, Mode=OneWay, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
 
-            <InfoBar IsOpen="True" Severity="Error"
+            <!-- IAM-user picker: lists the project's IAM users with a "(root)" tag, defaults to the
+                 root user, and re-lists buckets when the selection changes (SelectedIamUser →
+                 OnSelectedIamUserChanged). Shown when the project exposes at least one IAM user. -->
+            <ComboBox x:Name="UserPicker"
+                      Header="IAM user"
+                      HorizontalAlignment="Stretch"
+                      ItemsSource="{x:Bind ViewModel.AvailableUsers, Mode=OneWay}"
+                      SelectedItem="{x:Bind ViewModel.SelectedIamUser, Mode=TwoWay}"
+                      DisplayMemberPath="DisplayLabel"
+                      Visibility="{x:Bind UserPickerVisibility(ViewModel.AvailableUsers.Count), Mode=OneWay}"
+                      AutomationProperties.Name="IAM user" />
+
+            <!-- On a bucket-load failure the wizard stays on this step and surfaces the mapped error
+                 copy inline (DriveSetupViewModel.MapErrorCopy) with a Retry that re-invokes
+                 LoadBucketsCommand. -->
+            <InfoBar Severity="Error"
                      Title="Couldn't load buckets."
-                     Message="Check your connection and try again."
-                     Visibility="{x:Bind ViewModel.CreationError, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                     IsOpen="{x:Bind ViewModel.CreationError, Mode=OneWay, Converter={StaticResource NotNullToBool}}"
+                     Message="{x:Bind ViewModel.CreationError, Mode=OneWay}">
+                <InfoBar.ActionButton>
+                    <Button Content="Retry" Command="{x:Bind ViewModel.LoadBucketsCommand, Mode=OneWay}" />
+                </InfoBar.ActionButton>
+            </InfoBar>
 
             <ListView x:Name="BucketsList"
                       ItemsSource="{x:Bind ViewModel.Buckets, Mode=OneWay}"
@@ -50,7 +70,7 @@
             </ListView>
 
             <StackPanel Spacing="8" HorizontalAlignment="Center" Padding="0,32"
-                        Visibility="{x:Bind HasNoBuckets(ViewModel.Buckets.Count, ViewModel.IsLoadingBuckets), Mode=OneWay}">
+                        Visibility="{x:Bind HasNoBuckets(ViewModel.Buckets.Count, ViewModel.IsLoadingBuckets, ViewModel.CreationError), Mode=OneWay}">
                 <TextBlock Style="{StaticResource Type.H2}" HorizontalAlignment="Center" Text="No buckets in this project" />
                 <TextBlock Style="{StaticResource Type.BodySecondary}" HorizontalAlignment="Center" TextAlignment="Center"
                            TextWrapping="Wrap" MaxWidth="420"

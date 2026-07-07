@@ -63,16 +63,50 @@ public sealed class DS3Session : IDisposable
         return Complete(rc, err, handle);
     }
 
+    /// <summary>
+    /// Restores a session from a persisted refresh token — the cross-platform "stay logged in"
+    /// path (no email/password). The Rust core exchanges the saved refresh token for a fresh
+    /// access token. Throws <see cref="DS3AuthenticationException"/> if the token is revoked or
+    /// expired, so the caller falls back to a full login.
+    /// </summary>
+    public static unsafe DS3Session RestoreFromRefreshToken(string refreshToken, string? coordinatorUrl)
+    {
+        IntPtr handle;
+        int rc;
+        int err;
+        fixed (byte* r = M.Utf8(refreshToken), c = M.Utf8(coordinatorUrl))
+        {
+            rc = DS3Native.ds3_session_restore(r, M.Len(refreshToken), c, M.Len(coordinatorUrl), out handle, out err);
+        }
+
+        return Complete(rc, err, handle);
+    }
+
     private static DS3Session Complete(int rc, int err, IntPtr handle)
     {
         if (rc != 0)
         {
-            throw DS3ExceptionFactory.From(err);
+            throw DS3ExceptionFactory.From(err, LastErrorDetail());
         }
 
         var session = new DS3Session(handle);
         session.AccountId = session.AccountInfo().AccountId;
         return session;
+    }
+
+    /// <summary>
+    /// Returns the current (rotating) refresh token. The token rotates on every refresh and forge,
+    /// so the platform must re-persist this after each of those operations or a saved token goes
+    /// stale. Reads the <c>AccountSession</c> snapshot via <c>ds3_current_session</c>.
+    /// </summary>
+    public string CurrentRefreshToken()
+    {
+        int rc = DS3Native.ds3_current_session(EnsureHandle(), out IntPtr json, out nuint len, out int err);
+        Check(rc, err, json, len);
+        string sessionJson = M.TakeString(json, len);
+        using JsonDocument doc = JsonDocument.Parse(sessionJson);
+        return doc.RootElement.GetProperty("refreshToken").GetString()
+            ?? throw DS3ExceptionFactory.From(1003); // JsonConversion: refreshToken missing/null.
     }
 
     // --- Auth + SDK ---
@@ -87,7 +121,8 @@ public sealed class DS3Session : IDisposable
     /// <summary>Refreshes the access token if expired.</summary>
     public void RefreshToken() => Check(DS3Native.ds3_refresh_token(EnsureHandle(), out int err), err);
 
-    /// <summary>Forges an IAM token for the given user (returns the raw token string).</summary>
+    /// <summary>Forges an IAM token for the given user and returns the bare JWT access-token
+    /// string (suitable as a Bearer credential for keyvault calls).</summary>
     public unsafe string ForgeIamToken(string iamUserId)
     {
         IntPtr h = EnsureHandle();
@@ -101,7 +136,15 @@ public sealed class DS3Session : IDisposable
         }
 
         Check(rc, err, json, len);
-        return M.TakeString(json, len);
+
+        // The native call returns the full Token object as JSON ({ "token", "exp", "exp_date" }),
+        // not the bare JWT. Callers pass this value as the Bearer credential for keyvault requests,
+        // so return the access-token string itself — sending the JSON wrapper as the Bearer makes
+        // the server reject the request (HTTP 403).
+        string tokenJson = M.TakeString(json, len);
+        using JsonDocument doc = JsonDocument.Parse(tokenJson);
+        return doc.RootElement.GetProperty("token").GetString()
+            ?? throw DS3ExceptionFactory.From(1003); // JsonConversion: token field missing/null.
     }
 
     /// <summary>Lists the projects visible to the account.</summary>
@@ -157,145 +200,10 @@ public sealed class DS3Session : IDisposable
         Check(rc, err);
     }
 
-    // --- S3 (the session handle is the S3 entry point in Wave 1; the Rust core
-    // resolves the client from it. Dedicated S3-client minting is wired later.) ---
-
-    /// <summary>Lists all buckets reachable with the session's S3 credentials.</summary>
-    public IReadOnlyList<DS3Bucket> ListBuckets()
-    {
-        int rc = DS3Native.ds3_list_buckets(EnsureHandle(), out IntPtr json, out nuint len, out int err);
-        return Parse<List<DS3Bucket>>(rc, err, json, len);
-    }
-
-    /// <summary>Lists objects under a prefix, optionally paginated via a continuation token.</summary>
-    public unsafe IReadOnlyList<DS3Object> ListObjects(string bucket, string prefix, string delimiter, string? continuationToken)
-    {
-        IntPtr h = EnsureHandle();
-        int rc;
-        IntPtr json;
-        nuint len;
-        int err;
-        fixed (byte* b = M.Utf8(bucket), p = M.Utf8(prefix), d = M.Utf8(delimiter), ct = M.Utf8(continuationToken))
-        {
-            rc = DS3Native.ds3_list_objects(h, b, M.Len(bucket), p, M.Len(prefix), d, M.Len(delimiter), 0, ct, M.Len(continuationToken), out json, out len, out err);
-        }
-
-        return Parse<List<DS3Object>>(rc, err, json, len);
-    }
-
-    /// <summary>Returns metadata for a single object.</summary>
-    public unsafe DS3Object HeadObject(string bucket, string key)
-    {
-        IntPtr h = EnsureHandle();
-        int rc;
-        IntPtr json;
-        nuint len;
-        int err;
-        fixed (byte* b = M.Utf8(bucket), k = M.Utf8(key))
-        {
-            rc = DS3Native.ds3_head_object(h, b, M.Len(bucket), k, M.Len(key), out json, out len, out err);
-        }
-
-        return Parse<DS3Object>(rc, err, json, len);
-    }
-
-    /// <summary>Downloads an object to a local file path, reporting progress and honoring cancellation.</summary>
-    public unsafe DS3Object DownloadObject(string bucket, string key, string filePath, DS3ProgressCallback? progress, CancellationHandle? cancel)
-    {
-        IntPtr h = EnsureHandle();
-        var cb = M.WrapProgress(progress);
-        _ = cancel;
-        int rc;
-        IntPtr json;
-        nuint len;
-        int err;
-        fixed (byte* b = M.Utf8(bucket), k = M.Utf8(key), f = M.Utf8(filePath))
-        {
-            rc = DS3Native.ds3_download_object(h, b, M.Len(bucket), k, M.Len(key), f, M.Len(filePath), cb, IntPtr.Zero, out json, out len, out err);
-        }
-
-        GC.KeepAlive(cb);
-        return Parse<DS3Object>(rc, err, json, len);
-    }
-
-    /// <summary>Uploads a local file to S3, returning the resulting ETag (may be empty).</summary>
-    public unsafe string UploadObject(string bucket, string key, string filePath, DS3ProgressCallback? progress, CancellationHandle? cancel)
-    {
-        IntPtr h = EnsureHandle();
-        var cb = M.WrapProgress(progress);
-        _ = cancel;
-        int rc;
-        IntPtr etag;
-        nuint len;
-        int err;
-        fixed (byte* b = M.Utf8(bucket), k = M.Utf8(key), f = M.Utf8(filePath))
-        {
-            rc = DS3Native.ds3_upload_object(h, b, M.Len(bucket), k, M.Len(key), f, M.Len(filePath), cb, IntPtr.Zero, out etag, out len, out err);
-        }
-
-        GC.KeepAlive(cb);
-        Check(rc, err);
-        return M.TakeString(etag, len);
-    }
-
-    /// <summary>Deletes a single object.</summary>
-    public unsafe void DeleteObject(string bucket, string key)
-    {
-        IntPtr h = EnsureHandle();
-        int rc;
-        int err;
-        fixed (byte* b = M.Utf8(bucket), k = M.Utf8(key))
-        {
-            rc = DS3Native.ds3_delete_object(h, b, M.Len(bucket), k, M.Len(key), out err);
-        }
-
-        Check(rc, err);
-    }
-
-    /// <summary>Copies an object within a bucket (the C ABI is single-bucket; cross-bucket is later).</summary>
-    public unsafe void CopyObject(string srcBucket, string srcKey, string dstBucket, string dstKey)
-    {
-        IntPtr h = EnsureHandle();
-        int rc;
-        int err;
-        _ = dstBucket;
-        fixed (byte* b = M.Utf8(srcBucket), s = M.Utf8(srcKey), d = M.Utf8(dstKey))
-        {
-            rc = DS3Native.ds3_copy_object(h, b, M.Len(srcBucket), s, M.Len(srcKey), d, M.Len(dstKey), out err);
-        }
-
-        Check(rc, err);
-    }
-
-    /// <summary>Checks whether a <c>.ds3keep</c> folder marker exists.</summary>
-    public unsafe bool ProbeFolderExists(string bucket, string folderKey)
-    {
-        IntPtr h = EnsureHandle();
-        int rc;
-        int result;
-        int err;
-        fixed (byte* b = M.Utf8(bucket), f = M.Utf8(folderKey))
-        {
-            rc = DS3Native.ds3_probe_folder_exists(h, b, M.Len(bucket), f, M.Len(folderKey), out result, out err);
-        }
-
-        Check(rc, err);
-        return result != 0;
-    }
-
-    /// <summary>Creates a <c>.ds3keep</c> folder marker.</summary>
-    public unsafe void CreateFolderMarker(string bucket, string folderKey)
-    {
-        IntPtr h = EnsureHandle();
-        int rc;
-        int err;
-        fixed (byte* b = M.Utf8(bucket), f = M.Utf8(folderKey))
-        {
-            rc = DS3Native.ds3_create_folder_marker(h, b, M.Len(bucket), f, M.Len(folderKey), out err);
-        }
-
-        Check(rc, err);
-    }
+    // --- S3 methods removed in plan 17.1-02 (D-02): they now live on
+    // DS3DriveS3Client, which owns a real DS3S3Client handle minted by
+    // ds3_s3_client_new. DS3Session passed its SESSION handle into the S3 exports
+    // (a wrong-type deref → AccessViolationException); that path is gone. ---
 
     // --- Sync (standalone — no handle required) ---
 
@@ -365,7 +273,7 @@ public sealed class DS3Session : IDisposable
     {
         if (rc != 0)
         {
-            throw DS3ExceptionFactory.From(err);
+            throw DS3ExceptionFactory.From(err, LastErrorDetail());
         }
     }
 
@@ -374,8 +282,26 @@ public sealed class DS3Session : IDisposable
         if (rc != 0)
         {
             M.FreeString(buf, len);
-            throw DS3ExceptionFactory.From(err);
+            throw DS3ExceptionFactory.From(err, LastErrorDetail());
         }
+    }
+
+    /// <summary>Fetches (and clears) the Rust core's detail for the error that just
+    /// occurred on THIS thread — for a server error, the HTTP status + response body
+    /// the bare numeric code can't carry. Attached to the thrown exception so the
+    /// debug log can show *why* a coordinator/keyvault call failed; the UI still maps
+    /// to fixed copy (MapErrorCopy), so no server text reaches the user. Returns null
+    /// when the core recorded no detail. Must run on the same thread as the failing
+    /// FFI call (it is — Check runs synchronously right after the P/Invoke returns).</summary>
+    private static string? LastErrorDetail()
+    {
+        if (DS3Native.ds3_last_error_message(out IntPtr json, out nuint len) != 0)
+        {
+            return null;
+        }
+
+        string detail = M.TakeString(json, len);
+        return string.IsNullOrEmpty(detail) ? null : detail;
     }
 
     private static T Parse<T>(int rc, int err, IntPtr json, nuint len)

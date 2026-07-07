@@ -2,6 +2,7 @@ namespace DS3Drive.App;
 
 using System;
 using System.Runtime.InteropServices;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Graphics;
@@ -23,6 +24,19 @@ public sealed partial class MainWindow : Window
         // Mica backdrop runs edge-to-edge behind the caption buttons.
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
+
+        // Tray app (macOS menu-bar parity): the X button hides the window and the app keeps
+        // running in the tray. Only the tray "Quit" (App.IsShuttingDown) performs a real close.
+        AppWindow.Closing += OnAppWindowClosing;
+    }
+
+    private static void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
+    {
+        if (!App.IsShuttingDown)
+        {
+            args.Cancel = true;
+            sender.Hide();
+        }
     }
 
     /// <summary>
@@ -32,10 +46,12 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public Frame NavigationFrame => ContentFrame;
 
-    /// <summary>Brings this window to the foreground (second-instance activation, D-27).</summary>
+    /// <summary>Brings this window to the foreground (second-instance activation, D-27; tray
+    /// "Open Cubbit"). Re-shows the window first in case the close button hid it to the tray.</summary>
     public void BringToForeground()
     {
-        // Activate raises the window; on a minimised window this restores it.
+        // Un-hide if the X button hid us to the tray, then raise/restore to the foreground.
+        AppWindow.Show();
         this.Activate();
     }
 

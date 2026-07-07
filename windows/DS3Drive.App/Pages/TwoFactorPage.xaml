@@ -40,6 +40,7 @@
                      InputScope="NumericPin"
                      MaxLength="6"
                      HorizontalAlignment="Stretch"
+                     KeyDown="OnCodeKeyDown"
                      Text="{x:Bind ViewModel.TfaCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      AutomationProperties.Name="Two-factor code" />
 

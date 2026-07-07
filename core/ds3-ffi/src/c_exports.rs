@@ -61,6 +61,29 @@ unsafe fn write_ffi_string(s: &str, out_ptr: *mut *mut u8, out_len: *mut usize) 
     unsafe { write_ffi_bytes(s.as_bytes().to_vec(), out_ptr, out_len) };
 }
 
+/// Diagnostic: writes the *detail* string of the most recent error that occurred
+/// on THIS thread (set by `ffi_guard!`) into `out_json` as UTF-8, then clears it.
+/// For a server error this includes the HTTP status + response body
+/// (`DS3Error::detail`), which the bare `out_error` code cannot carry. Writes an
+/// empty string when no error has been recorded; a second call returns empty.
+///
+/// The host attaches this to the typed exception it raises from the numeric code
+/// so the local debug log can show *why* a coordinator/keyvault call failed; it is
+/// never surfaced as user-facing copy. Always returns 0.
+///
+/// # Safety
+/// `out_json` and `out_json_len` must be valid writable pointers. The returned
+/// buffer is owned by the caller and MUST be freed once via `ds3_free_string`.
+#[no_mangle]
+pub unsafe extern "C" fn ds3_last_error_message(
+    out_json: *mut *mut u8,
+    out_json_len: *mut usize,
+) -> i32 {
+    let msg = crate::panic_guard::take_last_error().unwrap_or_default();
+    unsafe { write_ffi_string(&msg, out_json, out_json_len) };
+    0
+}
+
 /// Writes an owned byte buffer into FFI out-pointers. The caller must later
 /// free the allocation with `ds3_free_bytes` (or `ds3_free_string`).
 ///
@@ -184,6 +207,33 @@ pub unsafe extern "C" fn ds3_authenticate_2fa(
             tenant,
             coordinator,
         ))?;
+
+        unsafe { *out_handle = Box::into_raw(Box::new(session)) };
+        Ok::<i32, DS3Error>(0)
+    })
+}
+
+/// Restores a session from a persisted refresh token and returns an opaque session handle.
+///
+/// Exchanges the saved refresh token for a live access token (no email/password). This is the
+/// cross-platform "stay logged in" path; the platform persists the refresh token in OS-native
+/// secure storage and passes it back here at startup. Returns 0 on success, -1 on error (a
+/// revoked/expired token surfaces here so the caller can fall back to login), -2 on panic.
+#[no_mangle]
+pub unsafe extern "C" fn ds3_session_restore(
+    refresh_token: *const u8,
+    refresh_token_len: usize,
+    coordinator_url: *const u8,
+    coordinator_url_len: usize,
+    out_handle: *mut *mut DS3Session,
+    out_error: *mut i32,
+) -> i32 {
+    ffi_guard!(out_error, {
+        let refresh = unsafe { ffi_str(refresh_token, refresh_token_len)? };
+        let coordinator = unsafe { ffi_opt_str(coordinator_url, coordinator_url_len)? };
+
+        let session =
+            runtime().block_on(DS3Session::restore_from_refresh_token(refresh, coordinator))?;
 
         unsafe { *out_handle = Box::into_raw(Box::new(session)) };
         Ok::<i32, DS3Error>(0)
@@ -393,6 +443,65 @@ pub unsafe extern "C" fn ds3_delete_api_key(
 // ---------------------------------------------------------------------------
 // S3 exports
 // ---------------------------------------------------------------------------
+
+/// Mints an opaque `DS3S3Client` handle from S3 credentials.
+///
+/// `endpoint`, `access_key`, and `secret_key` are required UTF-8 buffers.
+/// `region` is optional: pass a null pointer or `region_len == 0` to default
+/// to `us-east-1` (`DS3S3Client::new` applies the default), matching macOS
+/// which supplies no region.
+///
+/// The constructor performs NO network I/O (it only builds the AWS SDK client
+/// config), so there is no `runtime().block_on`; the only fallible step is the
+/// UTF-8 decode of the input buffers.
+///
+/// Returns 0 on success (handle written to `*out_handle`), -1 on error (code in
+/// `*out_error`), -2 on panic.
+///
+/// # Safety
+/// Each `*const u8` + `usize` pair must point to valid UTF-8 of the given
+/// length (or be null/0 for `region`). `out_handle` and `out_error` must be
+/// writable. The returned handle must be freed exactly once with
+/// `ds3_s3_client_destroy`.
+#[no_mangle]
+pub unsafe extern "C" fn ds3_s3_client_new(
+    endpoint: *const u8,
+    endpoint_len: usize,
+    access_key: *const u8,
+    access_key_len: usize,
+    secret_key: *const u8,
+    secret_key_len: usize,
+    region: *const u8,
+    region_len: usize,
+    out_handle: *mut *mut DS3S3Client,
+    out_error: *mut i32,
+) -> i32 {
+    ffi_guard!(out_error, {
+        let endpoint = unsafe { ffi_str(endpoint, endpoint_len)? };
+        let access_key = unsafe { ffi_str(access_key, access_key_len)? };
+        let secret_key = unsafe { ffi_str(secret_key, secret_key_len)? };
+        let region = unsafe { ffi_opt_str(region, region_len)? };
+
+        let client = DS3S3Client::new(endpoint, access_key, secret_key, region);
+
+        unsafe { *out_handle = Box::into_raw(Box::new(client)) };
+        Ok::<i32, DS3Error>(0)
+    })
+}
+
+/// Destroys an S3 client handle, freeing its resources.
+///
+/// After this call, the handle pointer is invalid. The caller must not use it.
+///
+/// # Safety
+/// `handle` must be a valid pointer returned by `ds3_s3_client_new`. Must not
+/// be called twice for the same handle.
+#[no_mangle]
+pub unsafe extern "C" fn ds3_s3_client_destroy(handle: *mut DS3S3Client) {
+    if !handle.is_null() {
+        unsafe { drop(Box::from_raw(handle)) };
+    }
+}
 
 /// Lists S3 objects. Returns the result as JSON.
 #[no_mangle]

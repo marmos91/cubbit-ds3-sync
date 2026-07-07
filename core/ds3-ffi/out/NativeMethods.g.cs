@@ -19,6 +19,24 @@ namespace DS3Drive.Core
 
 
         /// <summary>
+        ///  Diagnostic: writes the *detail* string of the most recent error that occurred
+        ///  on THIS thread (set by `ffi_guard!`) into `out_json` as UTF-8, then clears it.
+        ///  For a server error this includes the HTTP status + response body
+        ///  (`DS3Error::detail`), which the bare `out_error` code cannot carry. Writes an
+        ///  empty string when no error has been recorded; a second call returns empty.
+        ///
+        ///  The host attaches this to the typed exception it raises from the numeric code
+        ///  so the local debug log can show *why* a coordinator/keyvault call failed; it is
+        ///  never surfaced as user-facing copy. Always returns 0.
+        ///
+        ///  # Safety
+        ///  `out_json` and `out_json_len` must be valid writable pointers. The returned
+        ///  buffer is owned by the caller and MUST be freed once via `ds3_free_string`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_last_error_message", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_last_error_message(byte** out_json, nuint* out_json_len);
+
+        /// <summary>
         ///  Frees a string previously allocated by the Rust FFI layer.
         ///
         ///  # Safety
@@ -50,6 +68,17 @@ namespace DS3Drive.Core
         /// </summary>
         [DllImport(__DllName, EntryPoint = "ds3_authenticate_2fa", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern int ds3_authenticate_2fa(byte* email, nuint email_len, byte* password, nuint password_len, byte* tfa_code, nuint tfa_code_len, byte* tenant_id, nuint tenant_id_len, byte* coordinator_url, nuint coordinator_url_len, DS3Session** out_handle, int* out_error);
+
+        /// <summary>
+        ///  Restores a session from a persisted refresh token and returns an opaque session handle.
+        ///
+        ///  Exchanges the saved refresh token for a live access token (no email/password). This is the
+        ///  cross-platform "stay logged in" path; the platform persists the refresh token in OS-native
+        ///  secure storage and passes it back here at startup. Returns 0 on success, -1 on error (a
+        ///  revoked/expired token surfaces here so the caller can fall back to login), -2 on panic.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_session_restore", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_session_restore(byte* refresh_token, nuint refresh_token_len, byte* coordinator_url, nuint coordinator_url_len, DS3Session** out_handle, int* out_error);
 
         /// <summary>
         ///  Destroys a session handle, freeing its resources.
@@ -104,6 +133,42 @@ namespace DS3Drive.Core
         /// </summary>
         [DllImport(__DllName, EntryPoint = "ds3_delete_api_key", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern int ds3_delete_api_key(DS3Session* handle, byte* user_id, nuint user_id_len, byte* api_key_id, nuint api_key_id_len, byte* iam_token, nuint iam_token_len, int* out_error);
+
+        /// <summary>
+        ///  Mints an opaque `DS3S3Client` handle from S3 credentials.
+        ///
+        ///  `endpoint`, `access_key`, and `secret_key` are required UTF-8 buffers.
+        ///  `region` is optional: pass a null pointer or `region_len == 0` to default
+        ///  to `us-east-1` (`DS3S3Client::new` applies the default), matching macOS
+        ///  which supplies no region.
+        ///
+        ///  The constructor performs NO network I/O (it only builds the AWS SDK client
+        ///  config), so there is no `runtime().block_on`; the only fallible step is the
+        ///  UTF-8 decode of the input buffers.
+        ///
+        ///  Returns 0 on success (handle written to `*out_handle`), -1 on error (code in
+        ///  `*out_error`), -2 on panic.
+        ///
+        ///  # Safety
+        ///  Each `*const u8` + `usize` pair must point to valid UTF-8 of the given
+        ///  length (or be null/0 for `region`). `out_handle` and `out_error` must be
+        ///  writable. The returned handle must be freed exactly once with
+        ///  `ds3_s3_client_destroy`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_s3_client_new", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern int ds3_s3_client_new(byte* endpoint, nuint endpoint_len, byte* access_key, nuint access_key_len, byte* secret_key, nuint secret_key_len, byte* region, nuint region_len, DS3S3Client** out_handle, int* out_error);
+
+        /// <summary>
+        ///  Destroys an S3 client handle, freeing its resources.
+        ///
+        ///  After this call, the handle pointer is invalid. The caller must not use it.
+        ///
+        ///  # Safety
+        ///  `handle` must be a valid pointer returned by `ds3_s3_client_new`. Must not
+        ///  be called twice for the same handle.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ds3_s3_client_destroy", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern void ds3_s3_client_destroy(DS3S3Client* handle);
 
         /// <summary>
         ///  Lists S3 objects. Returns the result as JSON.

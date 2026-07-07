@@ -106,6 +106,21 @@ public sealed partial class DriveManagementService : IDriveManagementService
         RaiseChanged();
     }
 
+    /// <summary>
+    /// Re-emits <see cref="DriveAdded"/> for every loaded drive so the sync host (re)starts them.
+    /// Persisted drives loaded at launch cannot start before login — the per-drive S3 reconcile
+    /// needs a live session — and <see cref="DriveAdded"/> otherwise only fires for brand-new
+    /// drives. The App calls this when a session becomes available (login). The sync host's
+    /// per-drive start is idempotent (an already-active drive is a no-op), so re-emitting is safe.
+    /// </summary>
+    public void ReconnectExistingDrives()
+    {
+        foreach (DS3Drive drive in new List<DS3Drive>(_drives))
+        {
+            DriveAdded?.Invoke(this, drive);
+        }
+    }
+
     /// <inheritdoc />
     public async Task AddAsync(DS3Drive drive, CancellationToken ct)
     {

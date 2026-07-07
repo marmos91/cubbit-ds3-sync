@@ -44,6 +44,12 @@
     <Content Include="Assets\Images\*.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Explorer sidebar / sync-root icon (the Cubbit-branded .ico). cfapi's IconResource needs a
+       real file path next to the exe (Assets\SyncRoot.ico), not an ms-appx URI. -->
+  <ItemGroup>
+    <Content Include="Assets\SyncRoot.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <PackageReference Include="CommunityToolkit.Mvvm" />

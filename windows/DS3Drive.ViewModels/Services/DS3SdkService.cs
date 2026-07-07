@@ -1,8 +1,10 @@
 namespace DS3Drive.ViewModels.Services;
 
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DS3Drive.Core;
+using DS3Drive.Core.Exceptions;
 using DS3Drive.Core.Records;
 using DS3Drive.Sync.Storage;
 using Microsoft.Data.Sqlite;
@@ -19,7 +21,7 @@ using Microsoft.Extensions.Logging;
 /// (D-12/D-14); only the non-secret metadata (name, access_key, iam_user_id) lands in
 /// the <c>api_keys</c> table.
 /// </summary>
-public sealed class DS3SdkService : IDS3SdkService
+public sealed class DS3SdkService : IDS3SdkService, IDisposable
 {
     private readonly IDS3SessionGateway _session;
     private readonly SyncDatabase _db;
@@ -27,6 +29,28 @@ public sealed class DS3SdkService : IDS3SdkService
     private readonly ConfigStore _config;
     private readonly IInstallationIdProvider _installation;
     private readonly ILogger<DS3SdkService> _logger;
+
+    // Per-project wizard-browse S3 client cache (keyed by project name — the project only
+    // selects which reconciled credentials build the client; ds3_list_buckets takes no project
+    // arg, Q3). A plain SemaphoreSlim guarding the dictionary suffices on Windows: the C-ABI S3
+    // client is independent of the session handle, so macOS's connectS3-on-shared-handle
+    // double-check-under-lock does not apply (PATTERNS §"macOS behavioral parity"). The most
+    // recently built client backs ListChildPrefixesAsync, which carries no project context.
+    private readonly Dictionary<string, DS3DriveS3Client> _browseClients = new();
+    private readonly SemaphoreSlim _browseLock = new(1, 1);
+    private DS3DriveS3Client? _currentBrowseClient;
+
+    // In-flight browse-operation gate (WR-17.1-01). GetBucketsAsync/ListChildPrefixesAsync run the
+    // blocking S3 call on a worker thread; Dispose() (a DI-singleton dispose at Host shutdown) must
+    // NOT free a native browse handle while a worker is mid-ListBuckets/ListObjects inside Rust —
+    // that is a use-after-free / AccessViolationException. _disposed flips first so no NEW operation
+    // can start touching a handle that is about to be freed; _inFlight tracks running operations and
+    // _drained is set when the last one completes after disposal began. All three are guarded by
+    // _browseLock (the same lock that guards the client dictionary + _currentBrowseClient pointer),
+    // mirroring the sync host's dispose-last discipline.
+    private int _inFlight;
+    private bool _disposed;
+    private readonly ManualResetEventSlim _drained = new(true);
 
     public DS3SdkService(
         IDS3SessionGateway session,
@@ -51,22 +75,128 @@ public sealed class DS3SdkService : IDS3SdkService
         Task.Run(() => _session.GetProjects(), ct);
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<DS3Bucket>> GetBucketsAsync(DS3Project project, CancellationToken ct) =>
-        Task.Run(() => _session.ListBuckets(), ct);
+    public async Task<IReadOnlyList<DS3Bucket>> GetBucketsAsync(DS3Project project, DS3IAMUser user, CancellationToken ct)
+    {
+        // Route the browse through a per-(project, IAM user) DS3DriveS3Client built from the
+        // reconciled API key for that user + the account's endpoint_gateway — NOT the session
+        // handle. The old session-handle path dereferenced the wrong handle type inside the S3
+        // export, which crashed with an AccessViolationException. The FFI call is synchronous +
+        // blocking; run it off the UI thread so the "Loading buckets…" ring stays responsive.
+        DS3DriveS3Client client = await GetBrowseClientAsync(project, user, ct).ConfigureAwait(false);
+        EnterBrowseOperation();
+        try
+        {
+            return await Task.Run(() => client.ListBuckets(), ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            ExitBrowseOperation();
+        }
+    }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<string>> ListChildPrefixesAsync(string bucket, string? prefix, CancellationToken ct) =>
-        Task.Run<IReadOnlyList<string>>(() =>
+    public async Task<IReadOnlyList<string>> ListChildPrefixesAsync(string bucket, string? prefix, CancellationToken ct)
+    {
+        // The prefix-tree browse carries no project context, so it reuses the most recently
+        // built browse client (the wizard always lists buckets — selecting a project — before
+        // browsing prefixes, so _currentBrowseClient is live). Snapshot it UNDER _browseLock
+        // (WR-17.1-01): the pointer is mutated under the lock by GetBrowseClientAsync, so an
+        // unlocked read here could observe a torn/disposed reference. If absent (defensive),
+        // surface a managed loggedOut rather than a null deref.
+        DS3DriveS3Client client;
+        await _browseLock.WaitAsync(ct).ConfigureAwait(false);
+        try
         {
-            // Delimiter "/" gives folder-style listing; the FFI returns objects whose keys
-            // end in "/" for child prefixes. Keep only those (the tree shows folders).
-            IReadOnlyList<DS3Object> objects = _session.ListObjects(bucket, prefix ?? string.Empty, "/", null);
-            return objects
-                .Select(o => o.Key)
-                .Where(k => k.EndsWith('/') && k != (prefix ?? string.Empty))
-                .Distinct()
-                .ToList();
-        }, ct);
+            client = _currentBrowseClient
+                ?? throw new DS3AuthenticationException(AuthFailureReason.LoggedOut, errorCode: 1005);
+        }
+        finally
+        {
+            _browseLock.Release();
+        }
+
+        EnterBrowseOperation();
+        try
+        {
+            return await Task.Run<IReadOnlyList<string>>(() =>
+            {
+                // With delimiter "/", S3 returns the immediate child "folders" as the listing's
+                // common prefixes (full keys ending in "/"), separate from the file objects. The
+                // tree shows those child prefixes.
+                DS3ObjectListing listing = client.ListObjectsListing(bucket, prefix ?? string.Empty, "/", null);
+                return listing.CommonPrefixes
+                    .Where(k => k != (prefix ?? string.Empty))
+                    .Distinct()
+                    .ToList();
+            }, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            ExitBrowseOperation();
+        }
+    }
+
+    /// <summary>
+    /// Builds (or returns the cached) per-project <see cref="DS3DriveS3Client"/> for the wizard
+    /// browse. The reconcile (forge IAM token + load/create API key) runs OUTSIDE the lock so
+    /// the lock is never held across an await; the dictionary mutation + the "current client"
+    /// pointer update happen under the lock with a double-check (another browse may have
+    /// populated the cache while we awaited the API-key fetch). Mirrors macOS
+    /// <c>s3Client(forProject:iamUser:)</c> (caching divergence: Windows keys per project).
+    /// </summary>
+    private async Task<DS3DriveS3Client> GetBrowseClientAsync(DS3Project project, DS3IAMUser user, CancellationToken ct)
+    {
+        // The browse client is keyed per (project, IAM user): switching the wizard's user picker
+        // forges a different access JWT and reconciles a different API key, so each user gets its
+        // own cached S3 client (mirrors macOS invalidating the cached client on selectIAMUser).
+        string cacheKey = $"{project.Name}|{user.Id}";
+
+        await _browseLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (_browseClients.TryGetValue(cacheKey, out DS3DriveS3Client? cached))
+            {
+                _currentBrowseClient = cached;
+                return cached;
+            }
+        }
+        finally
+        {
+            _browseLock.Release();
+        }
+
+        // Forge for the passed-in IAM user (the wizard's picker selection). It must be a real IAM
+        // user id the account can forge an access JWT for: forging for the account id is rejected
+        // with HTTP 401, and forging for a user the account can't act for is rejected with 403.
+        _logger.LogInformation(
+            "Browse: building S3 client for project '{Project}' as IAM user {UserId} (name={UserName}, root={IsRoot}); project has {UserCount} user(s): [{AllUsers}].",
+            project.Name, user.Id, user.Username, user.IsRoot, project.Users?.Count ?? 0,
+            project.Users is null ? string.Empty : string.Join(", ", project.Users.Select(u => $"{u.Username}#{u.Id}(root={u.IsRoot})")));
+
+        DS3ApiKey key = await LoadOrCreateApiKeyAsync(user, project.Name, ct).ConfigureAwait(false);
+        string endpoint = _session.EndpointGateway;
+
+        await _browseLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (_browseClients.TryGetValue(cacheKey, out DS3DriveS3Client? raced))
+            {
+                _currentBrowseClient = raced;
+                return raced;
+            }
+
+            // Region null => the core defaults to us-east-1. The secret crosses the FFI boundary
+            // here and is not retained C#-side beyond this call.
+            var client = DS3DriveS3Client.Create(endpoint, key.AccessKey, key.SecretKey);
+            _browseClients[cacheKey] = client;
+            _currentBrowseClient = client;
+            return client;
+        }
+        finally
+        {
+            _browseLock.Release();
+        }
+    }
 
     /// <inheritdoc />
     public string ApiKeyName(DS3IAMUser user, string projectName)
@@ -90,9 +220,16 @@ public sealed class DS3SdkService : IDS3SdkService
         DS3ApiKey? localApiKey = localApiKeys.FirstOrDefault(k => k.Name == apiKeyName);
 
         // 2. Forge IAM token (DS3SDK.swift:172) + load remote keys (DS3SDK.swift:174).
+        // These two coordinator calls are the usual failure point — log around each so the LAST
+        // line before an exception identifies which one failed (forge vs keyvault list).
+        _logger.LogInformation("Reconcile: forging IAM token for user {UserId} (name={UserName}, root={IsRoot})…",
+            user.Id, user.Username, user.IsRoot);
         string iamToken = await Task.Run(() => _session.ForgeIamToken(user.Id), ct).ConfigureAwait(false);
+
+        _logger.LogInformation("Reconcile: forge OK; listing keyvault API keys for user {UserId}…", user.Id);
         IReadOnlyList<DS3ApiKey> remoteApiKeys =
             await Task.Run(() => _session.LoadApiKeys(user.Id, iamToken), ct).ConfigureAwait(false);
+        _logger.LogInformation("Reconcile: keyvault returned {Count} key(s) for user {UserId}.", remoteApiKeys.Count, user.Id);
         DS3ApiKey? remoteApiKey = remoteApiKeys.FirstOrDefault(k => k.Name == apiKeyName);
 
         // 3a. Matching pair → reuse local (DS3SDK.swift:178-181). Equality is by name +
@@ -117,10 +254,18 @@ public sealed class DS3SdkService : IDS3SdkService
             await DeleteLocalApiKeyAsync(apiKeyName, ct).ConfigureAwait(false);
         }
 
-        // 3d. Both present but differ → both branches above fired; the next reconcile run
-        //     (or this create) regenerates. Threat T-17-09-06: if a delete-then-create
-        //     partial failure leaves an orphan remote key, the next run sees local-null +
-        //     remote-null and recreates cleanly.
+        // 3d. Both present but differ (same name, different access key). Branches 3b/3c do NOT
+        //     fire here (3b needs local-null, 3c needs remote-null), so without this branch the
+        //     stale remote key would be left undeleted — an orphan with live S3 credentials
+        //     (WR-17.1-06). Delete BOTH sides before recreating so we never leak the old key.
+        //     Threat T-17-09-06: if a delete-then-create partial failure leaves an orphan remote
+        //     key, the next run sees local-null + remote-null and recreates cleanly.
+        if (localApiKey is not null && remoteApiKey is not null)
+        {
+            _logger.LogDebug("Deleting mismatched local + remote API keys before regenerating.");
+            await Task.Run(() => _session.DeleteApiKey(user.Id, remoteApiKey.Id, iamToken), ct).ConfigureAwait(false);
+            await DeleteLocalApiKeyAsync(apiKeyName, ct).ConfigureAwait(false);
+        }
 
         // 4. Create + persist (DS3SDK.swift:194 → generateDS3APIKey:203-235).
         return await CreateAndPersistAsync(user.Id, iamToken, apiKeyName, ct).ConfigureAwait(false);
@@ -207,6 +352,92 @@ public sealed class DS3SdkService : IDS3SdkService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to delete local API key secret from Credential Manager.");
+        }
+    }
+
+    /// <summary>Registers a browse operation that is about to touch a native handle on a worker
+    /// thread. Throws if disposal has begun (no new work against a handle being freed) and resets
+    /// the drained gate while at least one operation is in flight (WR-17.1-01).</summary>
+    private void EnterBrowseOperation()
+    {
+        _browseLock.Wait();
+        try
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(DS3SdkService));
+            }
+
+            if (_inFlight++ == 0)
+            {
+                _drained.Reset();
+            }
+        }
+        finally
+        {
+            _browseLock.Release();
+        }
+    }
+
+    /// <summary>Marks a browse operation complete; signals the drained gate when the last one
+    /// finishes so a disposal in progress can free the handles safely.</summary>
+    private void ExitBrowseOperation()
+    {
+        _browseLock.Wait();
+        try
+        {
+            if (--_inFlight == 0)
+            {
+                _drained.Set();
+            }
+        }
+        finally
+        {
+            _browseLock.Release();
+        }
+    }
+
+    /// <summary>Disposes the cached wizard-browse S3 clients (single-owner; the host-built
+    /// per-drive sync clients are owned separately by <c>SyncHostedService</c>, not here).
+    /// Mirrors the sync host's dispose-last discipline (WR-17.1-01): flips <c>_disposed</c> so
+    /// no NEW browse operation can start, then DRAINS the in-flight ones before freeing any
+    /// native handle — otherwise a worker mid-<c>ListBuckets</c>/<c>ListObjects</c> inside Rust
+    /// would hit a use-after-free.</summary>
+    public void Dispose()
+    {
+        // Phase 1: block new operations and snapshot the in-flight state under the lock.
+        _browseLock.Wait();
+        try
+        {
+            _disposed = true;
+        }
+        finally
+        {
+            _browseLock.Release();
+        }
+
+        // Phase 2: wait for outstanding worker-thread S3 calls to finish OUTSIDE the lock
+        // (ExitBrowseOperation needs the lock to signal). _drained starts signaled, so this
+        // returns immediately when nothing is in flight.
+        _drained.Wait();
+
+        // Phase 3: now that no worker can be inside a native call, free the handles.
+        _browseLock.Wait();
+        try
+        {
+            foreach (DS3DriveS3Client client in _browseClients.Values)
+            {
+                client.Dispose();
+            }
+
+            _browseClients.Clear();
+            _currentBrowseClient = null;
+        }
+        finally
+        {
+            _browseLock.Release();
+            _browseLock.Dispose();
+            _drained.Dispose();
         }
     }
 }

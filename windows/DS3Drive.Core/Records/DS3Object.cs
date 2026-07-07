@@ -11,6 +11,6 @@ using System.Text.Json.Serialization;
 public sealed record DS3Object(
     [property: JsonPropertyName("key")] string Key,
     [property: JsonPropertyName("etag")] string ETag,
-    [property: JsonPropertyName("last_modified")] DateTime LastModified,
+    [property: JsonPropertyName("last_modified")] DateTime? LastModified,
     [property: JsonPropertyName("size")] long Size,
     [property: JsonPropertyName("content_type")] string ContentType);

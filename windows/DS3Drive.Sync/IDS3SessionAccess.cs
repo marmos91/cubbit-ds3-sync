@@ -20,6 +20,12 @@ public interface IDS3SessionAccess
     /// <summary>Lists objects under a prefix (<c>DS3Session.ListObjects</c>).</summary>
     IReadOnlyList<DS3Object> ListObjects(string bucket, string prefix, string delimiter, string? continuationToken);
 
+    /// <summary>Lists under a prefix and returns the full listing — the objects plus the common
+    /// prefixes (the "folders" a delimiter surfaces) and pagination state
+    /// (<c>DS3DriveS3Client.ListObjectsListing</c>). <see cref="ListObjects"/> drops the common
+    /// prefixes; the placeholder materializer and the poll need them to see folders.</summary>
+    DS3ObjectListing ListObjectsListing(string bucket, string prefix, string delimiter, string? continuationToken);
+
     /// <summary>Downloads an object to a local file, reporting progress (<c>DS3Session.DownloadObject</c>).</summary>
     DS3Object DownloadObject(string bucket, string key, string filePath, DS3ProgressCallback? progress, CancellationHandle? cancel);
 

@@ -21,22 +21,26 @@ using static Vanara.PInvoke.CldApi;
 internal sealed class CallbackTable
 {
     // GC-stable delegate fields (kept alive for the provider's lifetime).
+    private readonly CF_CALLBACK _onFetchPlaceholders;
     private readonly CF_CALLBACK _onFetchData;
     private readonly CF_CALLBACK _onFileCloseCompletion;
     private readonly CF_CALLBACK _onRename;
     private readonly CF_CALLBACK _onDelete;
 
     public CallbackTable(
+        FetchPlaceholdersHandler fetchPlaceholders,
         FetchDataHandler fetchData,
         NotifyFileCloseHandler fileClose,
         NotifyRenameHandler rename,
         NotifyDeleteHandler delete)
     {
+        ArgumentNullException.ThrowIfNull(fetchPlaceholders);
         ArgumentNullException.ThrowIfNull(fetchData);
         ArgumentNullException.ThrowIfNull(fileClose);
         ArgumentNullException.ThrowIfNull(rename);
         ArgumentNullException.ThrowIfNull(delete);
 
+        _onFetchPlaceholders = fetchPlaceholders.OnFetchPlaceholders;
         _onFetchData = fetchData.OnFetchData;
         _onFileCloseCompletion = fileClose.OnFileCloseCompletion;
         _onRename = rename.OnRename;
@@ -44,12 +48,17 @@ internal sealed class CallbackTable
     }
 
     /// <summary>
-    /// Returns the registration array. CF_CALLBACK_TYPE_FETCH_DATA,
-    /// CF_CALLBACK_TYPE_NOTIFY_FILE_CLOSE_COMPLETION, CF_CALLBACK_TYPE_NOTIFY_RENAME,
-    /// CF_CALLBACK_TYPE_NOTIFY_DELETE, then the END terminator.
+    /// Returns the registration array. CF_CALLBACK_TYPE_FETCH_PLACEHOLDERS (on-demand directory
+    /// population), CF_CALLBACK_TYPE_FETCH_DATA, CF_CALLBACK_TYPE_NOTIFY_FILE_CLOSE_COMPLETION,
+    /// CF_CALLBACK_TYPE_NOTIFY_RENAME, CF_CALLBACK_TYPE_NOTIFY_DELETE, then the END terminator.
     /// </summary>
     public CF_CALLBACK_REGISTRATION[] Build() => new[]
     {
+        new CF_CALLBACK_REGISTRATION
+        {
+            Type = CF_CALLBACK_TYPE.CF_CALLBACK_TYPE_FETCH_PLACEHOLDERS,
+            Callback = _onFetchPlaceholders,
+        },
         new CF_CALLBACK_REGISTRATION
         {
             Type = CF_CALLBACK_TYPE.CF_CALLBACK_TYPE_FETCH_DATA,

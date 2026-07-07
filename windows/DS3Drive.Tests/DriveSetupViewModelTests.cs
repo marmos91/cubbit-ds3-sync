@@ -21,7 +21,10 @@ using Xunit;
 public sealed class DriveSetupViewModelTests
 {
     private static readonly DS3IAMUser User = new("user-1", "alice", "alice@example.com");
-    private static readonly DS3Project Project = new("proj-1", "My Project", "org-1");
+
+    // Project carries its IAM users (the wizard forges for project.Users[0], matching macOS
+    // project.users.first) — so this fixture's first user IS the expected forge target, User.
+    private static readonly DS3Project Project = new("proj-1", "My Project", "org-1", new[] { User });
     private static readonly DS3Bucket Bucket = new("my-bucket", DateTime.UtcNow);
 
     private static (DriveSetupViewModel vm, IDS3SdkService sdk, IDriveManagementService mgr) Make()
@@ -83,14 +86,14 @@ public sealed class DriveSetupViewModelTests
     public void SelectProject_SetsProject_AdvancesToBucket_TriggersBucketLoad()
     {
         var (vm, sdk, _) = Make();
-        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<CancellationToken>())
+        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<DS3IAMUser>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<DS3Bucket>>(new[] { Bucket }));
 
         vm.SelectProjectCommand.Execute(Project);
 
         Assert.Equal(Project, vm.SelectedProject);
         Assert.Equal(WizardStep.Bucket, vm.CurrentStep);
-        sdk.Received().GetBucketsAsync(Project, Arg.Any<CancellationToken>());
+        sdk.Received().GetBucketsAsync(Project, Arg.Any<DS3IAMUser>(), Arg.Any<CancellationToken>());
     }
 
     // Test 5
@@ -124,7 +127,7 @@ public sealed class DriveSetupViewModelTests
     public void GoBack_FromBucket_ReturnsToProject_PreservesProjectSelection()
     {
         var (vm, sdk, _) = Make();
-        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<CancellationToken>())
+        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<DS3IAMUser>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<DS3Bucket>>(Array.Empty<DS3Bucket>()));
         vm.SelectProjectCommand.Execute(Project);
 
@@ -207,5 +210,81 @@ public sealed class DriveSetupViewModelTests
         Assert.Equal(WizardStep.Project, vm.CurrentStep);
         Assert.Null(vm.SelectedBucket);
         Assert.True(cancelled);
+    }
+
+    // Test 12 — D-06 faked seam, S3 branch.
+    // The fix in this phase routes bucket listing through a valid DS3DriveS3Client
+    // handle (plan 17.1-01/02) so a bad/forbidden bucket surfaces as a clean,
+    // catchable DS3S3Exception (2001-2099) instead of the uncatchable
+    // AccessViolationException the session-handle deref produced. The wizard must
+    // show the inline error, stay on the Bucket step, and leave Buckets empty —
+    // never crash. (We do NOT catch AccessViolationException here: it is a
+    // corrupted-state exception .NET will not deliver to catch — PATTERNS Pitfall 1.)
+    [Fact]
+    public async Task LoadBucketsAsync_OnS3Exception_SetsCreationError_StaysOnBucket_LeavesBucketsEmpty()
+    {
+        var (vm, sdk, _) = Make();
+        // Advance to the Bucket step with a project selected (SelectProject fires a
+        // fire-and-forget load; we drive a deterministic retry via the command below).
+        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<DS3IAMUser>(), Arg.Any<CancellationToken>())
+            .Throws(new DS3S3Exception(2003, "AccessDenied"));
+        vm.SelectProjectCommand.Execute(Project);
+
+        // Deterministic re-invoke of the bucket load (the Retry path).
+        await vm.LoadBucketsCommand.ExecuteAsync(null);
+
+        Assert.Equal(WizardStep.Bucket, vm.CurrentStep); // inline error, stays on step
+        Assert.Empty(vm.Buckets);
+        Assert.NotNull(vm.CreationError);
+        // Fixed UI copy only — never the raw server text (STRIDE T-17-09-05).
+        Assert.DoesNotContain("AccessDenied", vm.CreationError!);
+    }
+
+    // Test 14 — WIN-03 happy-path: successful GetBucketsAsync populates Buckets,
+    // stays on WizardStep.Bucket, and sets no error.
+    // This test targets the gap where only the trigger (Test 4) and the error
+    // branches (Tests 12/13) were covered, but not the success-population behavior.
+    [Fact]
+    public async Task LoadBucketsAsync_OnSuccess_PopulatesBuckets_StaysOnBucket_NoError()
+    {
+        var (vm, sdk, _) = Make();
+        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<DS3IAMUser>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<DS3Bucket>>(new[] { Bucket }));
+
+        // Advance to Bucket step (sets SelectedProject, required by LoadBucketsCommand guard).
+        vm.SelectProjectCommand.Execute(Project);
+
+        // Deterministic re-invoke of the bucket load to await the async result.
+        await vm.LoadBucketsCommand.ExecuteAsync(null);
+
+        Assert.Equal(WizardStep.Bucket, vm.CurrentStep);
+        Assert.Single(vm.Buckets);
+        Assert.Equal("my-bucket", vm.Buckets[0].Name);
+        Assert.Null(vm.CreationError);
+    }
+
+    // Test 13 — D-06 faked seam, TRANSPORT branch.
+    // Per A1 verification against core/ds3-models/src/error.rs, a bad access key
+    // surfaces as code 3003 (S3Error in the 3001-3099 transport range) →
+    // DS3TransportException, NOT DS3S3Exception. So the bad-credentials path lands
+    // here, and the wizard must show the "check your connection" transport copy.
+    // Both branches are tested because InvalidAccessKeyId does NOT map into the
+    // 2001-2099 S3 range.
+    [Fact]
+    public async Task LoadBucketsAsync_OnTransportException_SetsCreationError_StaysOnBucket()
+    {
+        var (vm, sdk, _) = Make();
+        sdk.GetBucketsAsync(Arg.Any<DS3Project>(), Arg.Any<DS3IAMUser>(), Arg.Any<CancellationToken>())
+            .Throws(new DS3TransportException(3003, "invalid access key"));
+        vm.SelectProjectCommand.Execute(Project);
+
+        await vm.LoadBucketsCommand.ExecuteAsync(null);
+
+        Assert.Equal(WizardStep.Bucket, vm.CurrentStep);
+        Assert.Empty(vm.Buckets);
+        Assert.NotNull(vm.CreationError);
+        // Transport copy is shown (the MapErrorCopy DS3TransportException branch).
+        Assert.Contains("connection", vm.CreationError!, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("invalid access key", vm.CreationError!);
     }
 }

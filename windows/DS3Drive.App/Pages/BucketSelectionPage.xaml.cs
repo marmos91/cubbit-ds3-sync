@@ -26,9 +26,16 @@ public sealed partial class BucketSelectionPage : Page
         }
     }
 
-    /// <summary>Empty-state predicate: no buckets AND not currently loading.</summary>
-    public Visibility HasNoBuckets(int count, bool isLoading) =>
-        count == 0 && !isLoading ? Visibility.Visible : Visibility.Collapsed;
+    /// <summary>Shows the IAM-user picker when the project exposes at least one IAM user
+    /// (macOS lists them so the user can switch the browse identity).</summary>
+    public Visibility UserPickerVisibility(int userCount) =>
+        userCount > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>Empty-state predicate: no buckets, not currently loading, AND no load error
+    /// (a failed load surfaces the error InfoBar instead — never the "create a bucket" empty
+    /// state, which would mask the failure as an empty project).</summary>
+    public Visibility HasNoBuckets(int count, bool isLoading, string? error) =>
+        count == 0 && !isLoading && string.IsNullOrEmpty(error) ? Visibility.Visible : Visibility.Collapsed;
 
     private void BucketsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {

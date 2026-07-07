@@ -15,9 +15,15 @@ using System.Text.Json.Serialization;
 /// (name is split into first/last; email is a list with a default flag), so they
 /// are not deserialized here and are composed by the App layer; <c>AccountId</c>
 /// (<c>id</c>) and <c>TenantId</c> (<c>tenant_id</c>) map directly.
+///
+/// <c>EndpointGateway</c> (<c>endpoint_gateway</c>, core/ds3-models/src/account.rs)
+/// is the S3 endpoint used to mint a <see cref="DS3DriveS3Client"/> (Plan 03 reads
+/// it to build the per-drive client). Phase 17 only <c>[JsonIgnore]</c>'d it because
+/// S3 never worked (Pitfall 2); plan 17.1-02 un-ignores it now that the handle is real.
 /// </summary>
 public sealed record DS3AccountInfo(
     [property: JsonPropertyName("id")] string AccountId,
     [property: JsonPropertyName("tenant_id")] string TenantId,
+    [property: JsonPropertyName("endpoint_gateway")] string EndpointGateway = "",
     [property: JsonIgnore] string Email = "",
     [property: JsonIgnore] string DisplayName = "");

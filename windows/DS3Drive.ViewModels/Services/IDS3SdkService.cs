@@ -16,9 +16,10 @@ public interface IDS3SdkService
     /// <summary>Lists the projects visible to the account (DS3SDK.swift:88-102 port).</summary>
     Task<IReadOnlyList<DS3Project>> GetProjectsAsync(CancellationToken ct);
 
-    /// <summary>Lists the buckets in a project (DS3Session.ListBuckets — the session
-    /// is already scoped to the account's S3 credentials).</summary>
-    Task<IReadOnlyList<DS3Bucket>> GetBucketsAsync(DS3Project project, CancellationToken ct);
+    /// <summary>Lists the buckets in a project, browsed as the given IAM <paramref name="user"/>
+    /// (mirrors macOS <c>s3Client(forProject:iamUser:)</c> — buckets are scoped to the user's
+    /// reconciled API key, so switching the wizard's IAM-user picker re-lists for that user).</summary>
+    Task<IReadOnlyList<DS3Bucket>> GetBucketsAsync(DS3Project project, DS3IAMUser user, CancellationToken ct);
 
     /// <summary>
     /// Lists the immediate child prefixes (folder-style keys ending in <c>/</c>) under

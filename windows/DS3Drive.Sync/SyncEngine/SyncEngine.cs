@@ -113,7 +113,24 @@ public sealed class SyncEngine : IAsyncDisposable
             string bucket = _drive.SyncAnchor.Bucket;
             string prefix = _drive.SyncAnchor.Prefix ?? string.Empty;
 
-            IReadOnlyList<DS3Object> remote = _session.ListObjects(bucket, prefix, "/", null);
+            // List the level under this prefix as objects AND common-prefix "folders". The folders
+            // matter: the placeholder store holds a folder row per common prefix (created at
+            // registration), so omitting them from the remote set would make every folder look like
+            // a remote deletion and prune it on the first poll. Drop the prefix-self marker, any
+            // trailing-slash folder placeholders, and internal .ds3keep markers.
+            DS3ObjectListing listing = _session.ListObjectsListing(bucket, prefix, "/", null);
+            var remote = new List<DS3Object>(listing.Objects.Count);
+            foreach (DS3Object o in listing.Objects)
+            {
+                if (o.Key.Equals(prefix, StringComparison.Ordinal) || o.Key.EndsWith('/') ||
+                    PlaceholderMaterializer.IsInternalMarker(o.Key))
+                {
+                    continue;
+                }
+
+                remote.Add(o);
+            }
+
             IReadOnlyList<PlaceholderRecord> local = await _store.ListByPrefixAsync(_drive.Id, prefix, ct)
                 .ConfigureAwait(false);
 
@@ -121,6 +138,13 @@ public sealed class SyncEngine : IAsyncDisposable
             foreach (DS3Object o in remote)
             {
                 remoteMap[o.Key] = o.ETag;
+            }
+
+            // Folder common prefixes have no ETag; key them with null so they match the folder rows
+            // (also null ETag) in the local snapshot and are neither re-applied nor pruned.
+            foreach (string folder in listing.CommonPrefixes)
+            {
+                remoteMap[folder] = null;
             }
 
             var localMap = new Dictionary<string, string?>(StringComparer.Ordinal);
