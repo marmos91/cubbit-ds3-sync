@@ -24,13 +24,15 @@ internal sealed class FakePagedSession : IDS3SessionAccess
     private readonly IReadOnlyList<DS3Object> _objects;
     private readonly IReadOnlyList<string> _commonPrefixes;
     private readonly int _pageSize;
+    private readonly bool _throwOnList;
 
     /// <summary>Number of <see cref="ListObjectsListing"/> calls served — one per page. A value
     /// greater than 1 proves the caller followed the continuation token across pages.</summary>
     public int ListCallCount { get; private set; }
 
     public FakePagedSession(
-        IReadOnlyList<DS3Object> objects, int pageSize, IReadOnlyList<string>? commonPrefixes = null)
+        IReadOnlyList<DS3Object> objects, int pageSize, IReadOnlyList<string>? commonPrefixes = null,
+        bool throwOnList = false)
     {
         if (pageSize <= 0)
         {
@@ -40,6 +42,7 @@ internal sealed class FakePagedSession : IDS3SessionAccess
         _objects = objects ?? throw new ArgumentNullException(nameof(objects));
         _commonPrefixes = commonPrefixes ?? Array.Empty<string>();
         _pageSize = pageSize;
+        _throwOnList = throwOnList;
     }
 
     public string AccountId => "fake-account";
@@ -48,6 +51,11 @@ internal sealed class FakePagedSession : IDS3SessionAccess
         string bucket, string prefix, string delimiter, string? continuationToken)
     {
         ListCallCount++;
+
+        if (_throwOnList)
+        {
+            throw new InvalidOperationException("scripted listing failure");
+        }
 
         // The continuation token is just the next page index, round-tripped as a string.
         int page = continuationToken is null

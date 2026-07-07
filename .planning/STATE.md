@@ -38,9 +38,9 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 
 ## Current Position
 
-Phase: 17.3 Windows Enumeration Performance & UX — Wave 1 (Plan 02, D-01) COMPLETE; next = Wave 2 / Plan 03.
-Plan: 17.3 CONTEXT + RESEARCH + 5 numbered plans written; scope signed off 2026-07-07. Wave 0 (local build) done. Wave 1 (D-01 full-pagination poll fix) implemented + unit-verified.
-Status: PollOnceAsync now uses PlaceholderMaterializer.ListLevel (full token-following pagination); FakePagedSession fixture + SyncEnginePollTests added. All 149 non-Integration tests green (incl. the 2500-key >2-page regression), real Rust FFI diff. Next: Wave 2 (D-02 per-page streaming + D-03 on-disk ghost removal).
+Phase: 17.3 Windows Enumeration Performance & UX — Waves 1 (D-01) + 2 (D-02/D-03) COMPLETE; next = Wave 3 / Plan 04.
+Plan: 17.3 CONTEXT + RESEARCH + 5 numbered plans written; scope signed off 2026-07-07. Wave 0 (local build) done. Waves 1–2 implemented + unit-verified.
+Status: Wave 1 = full-pagination poll (ListLevel). Wave 2 = per-page streaming (EnumerateLevelPages primitive; MaterializeAsync creates per page; FetchPlaceholdersHandler multi-batch TRANSFER_PLACEHOLDERS, DISABLE_ON_DEMAND_POPULATION only on final batch) + D-03 on-disk ghost removal (PlaceholderMaterializer.DeletePlaceholder, dirty-guarded delete branch). 159 non-Integration tests green, real Rust FFI diff. NOTE: native cfapi multi-batch behavior verified only via injected seams — needs manual/app smoke. Next: Wave 3 (D-04 progress + D-05 listing limiter + D-06 sync anchor).
 Last activity: 2026-07-07
 Resume from: .planning/phases/17.3-windows-enumeration-performance-ux/17.3-HANDOFF.md
 
@@ -127,5 +127,5 @@ yet.
 ## Session Continuity
 
 Last session: 2026-07-07
-Stopped at: Wave 1 (Plan 02, D-01) complete on branch gsd/phase-17.3-windows-enumeration — PollOnceAsync full-pagination fix + FakePagedSession + SyncEnginePollTests; 149 non-Integration tests green. Next: Wave 2 (Plan 03, D-02/D-03).
+Stopped at: Waves 1–2 complete on branch gsd/phase-17.3-windows-enumeration. Wave 2 (Plan 03, D-02/D-03): EnumerateLevelPages + streaming MaterializeAsync/FetchPlaceholdersHandler + DeletePlaceholder ghost removal; InternalsVisibleTo added to DS3Drive.Sync; PlaceholderStreamingTests + engine ghost tests. 159 non-Integration tests green. Native cfapi streaming still needs app smoke. Next: Wave 3 (Plan 04, D-04/D-05/D-06).
 Resume file: .planning/phases/17.3-windows-enumeration-performance-ux/17.3-HANDOFF.md

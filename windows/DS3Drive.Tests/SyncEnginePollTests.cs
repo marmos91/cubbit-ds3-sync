@@ -11,6 +11,7 @@ using DS3Drive.Sync.Storage;
 using DS3Drive.Sync.SyncEngine;
 using DS3Drive.Tests.Fixtures;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
 using Xunit;
 using DS3DriveModel = DS3Drive.Core.Records.DS3Drive;
 
@@ -148,7 +149,8 @@ public sealed class SyncEnginePollTests : IAsyncLifetime
         }
     }
 
-    private SyncEngine NewEngine(IDS3SessionAccess session)
+    private SyncEngine NewEngine(
+        IDS3SessionAccess session, Action<string, string, ILogger>? deletePlaceholder = null)
     {
         var drive = new DS3DriveModel(
             _driveId, "Drive A",
@@ -160,7 +162,44 @@ public sealed class SyncEnginePollTests : IAsyncLifetime
             drive, session, _store, uploads, status,
             config: null, isPaused: null, logger: null,
             conflictKeyFactory: (key, device) => key + ".conflict-" + device,
-            localRootPath: _localRoot);
+            localRootPath: _localRoot,
+            deletePlaceholder: deletePlaceholder);
+    }
+
+    [Fact]
+    public async Task ApplyDelta_RemoteDeletion_RemovesRowAndOnDiskPlaceholder()
+    {
+        // A synced (non-dirty) placeholder deleted remotely: DB row dropped AND the on-disk
+        // placeholder removed via the injected D-03 hook (no ghost left in Explorer).
+        await SeedFileAsync("a", "e1");
+        var removed = new List<string>();
+        await using SyncEngine engine = NewEngine(
+            new FakePagedSession(new List<DS3Object>(), PageSize),
+            deletePlaceholder: (root, key, log) => removed.Add(key));
+
+        var delta = new EnumerationDelta(new HashSet<string>(), new HashSet<string> { "a" });
+        await engine.ApplyDeltaAsync(delta, Array.Empty<DS3Object>(), CancellationToken.None);
+
+        Assert.Null(await _store.FindAsync(_driveId, "a", CancellationToken.None));
+        Assert.Equal(new[] { "a" }, removed);
+    }
+
+    [Fact]
+    public async Task ApplyDelta_RemoteDeletion_PreservesDirtyLocalEdit()
+    {
+        // The remote object is gone but the local placeholder is dirty (un-uploaded edit): it must
+        // be preserved — DB row kept and the on-disk file left untouched.
+        await SeedFileAsync("b", "e1", isDirty: true);
+        var removed = new List<string>();
+        await using SyncEngine engine = NewEngine(
+            new FakePagedSession(new List<DS3Object>(), PageSize),
+            deletePlaceholder: (root, key, log) => removed.Add(key));
+
+        var delta = new EnumerationDelta(new HashSet<string>(), new HashSet<string> { "b" });
+        await engine.ApplyDeltaAsync(delta, Array.Empty<DS3Object>(), CancellationToken.None);
+
+        Assert.NotNull(await _store.FindAsync(_driveId, "b", CancellationToken.None)); // row kept
+        Assert.Empty(removed);                                                          // on-disk file untouched
     }
 
     private static string Key(int i) => $"file{i:D5}";
@@ -176,10 +215,10 @@ public sealed class SyncEnginePollTests : IAsyncLifetime
         return list;
     }
 
-    private Task SeedFileAsync(string key, string etag) =>
+    private Task SeedFileAsync(string key, string etag, bool isDirty = false) =>
         _store.UpsertAsync(
             new PlaceholderRecord(_driveId, key, ParentKey: null, ETag: etag, Size: 100,
-                LastModified: DateTime.UtcNow, IsFolder: false, IsDirty: false,
+                LastModified: DateTime.UtcNow, IsFolder: false, IsDirty: isDirty,
                 SyncStatus: "synced", LastSeenAt: DateTime.UtcNow),
             CancellationToken.None);
 

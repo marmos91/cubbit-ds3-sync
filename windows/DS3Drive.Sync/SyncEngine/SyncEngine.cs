@@ -36,6 +36,10 @@ public sealed class SyncEngine : IAsyncDisposable
     // Sync-root path for this drive; used to locate the local file when materializing a
     // conflict copy. Null only in tests that never exercise the conflict branch.
     private readonly string? _localRootPath;
+    // Removes the on-disk placeholder for a remote-deleted key (D-03). Defaults to the native
+    // PlaceholderMaterializer.DeletePlaceholder; injectable so the delete branch is unit-testable
+    // without a registered cfapi sync root.
+    private readonly Action<string, string, ILogger> _deletePlaceholder;
 
     private CancellationTokenSource? _cts;
     private Task? _loop;
@@ -52,7 +56,8 @@ public sealed class SyncEngine : IAsyncDisposable
         Func<bool>? isPaused = null,
         ILogger<SyncEngine>? logger = null,
         Func<string, string, string>? conflictKeyFactory = null,
-        string? localRootPath = null)
+        string? localRootPath = null,
+        Action<string, string, ILogger>? deletePlaceholder = null)
     {
         _drive = drive ?? throw new ArgumentNullException(nameof(drive));
         _session = session ?? throw new ArgumentNullException(nameof(session));
@@ -68,6 +73,7 @@ public sealed class SyncEngine : IAsyncDisposable
         // Category!=Integration (no ds3_ffi.dll dependency).
         _conflictKeyFactory = conflictKeyFactory ?? ConflictResolver.CreateConflictKey;
         _localRootPath = localRootPath;
+        _deletePlaceholder = deletePlaceholder ?? PlaceholderMaterializer.DeletePlaceholder;
     }
 
     /// <summary>Starts the polling loop. Each tick runs <see cref="PollOnceAsync"/>.</summary>
@@ -259,7 +265,25 @@ public sealed class SyncEngine : IAsyncDisposable
         foreach (string key in delta.Deleted)
         {
             ct.ThrowIfCancellationRequested();
+
+            // A dirty local edit whose remote object was deleted must be preserved, not pruned —
+            // dropping it would discard the user's un-uploaded work (D-03). Leave both the DB row and
+            // the on-disk file; a steady-state re-poll simply re-skips it.
+            PlaceholderRecord? existing = await _store.FindAsync(_drive.Id, key, ct).ConfigureAwait(false);
+            if (existing is { IsDirty: true })
+            {
+                _logger.LogWarning("remote delete of {Key} skipped: local edit is dirty, preserving", key);
+                continue;
+            }
+
             await _store.DeleteAsync(_drive.Id, key, ct).ConfigureAwait(false);
+
+            // D-03: also remove the on-disk placeholder so Explorer stops showing a ghost entry.
+            // Skipped when the sync-root path is unknown (unit tests that never materialize files).
+            if (_localRootPath is not null)
+            {
+                _deletePlaceholder(_localRootPath, key, _logger);
+            }
         }
     }
 
