@@ -219,9 +219,16 @@ jobs:
     needs: lint
 
     steps:
+      # Xcode 16.4 (the macos-15 image default) is used here instead of 16.2:
+      # the build below targets a generic iOS Simulator destination, which needs
+      # an installed iOS runtime. The image ships iOS 18.5/18.6 runtimes, which
+      # only 16.4+ can drive — 16.2 wants iOS 18.2, which is not on the image and
+      # can't be fetched reliably (`xcodebuild -downloadPlatform iOS` exits 70,
+      # "Unable to connect to simulator"). 16.4 finds the pre-installed runtime
+      # with no download step at all.
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.2'
+          xcode-version: '16.4'
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -250,12 +257,10 @@ jobs:
           path: ~/Library/Developer/Xcode/DerivedData/DS3Drive-*/SourcePackages
           key: spm-ios-${{ runner.os }}-${{ hashFiles('apple/DS3Drive.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
           restore-keys: spm-ios-${{ runner.os }}-
-      # No "Install iOS Simulator runtime" step: this job only builds for a
-      # generic iOS Simulator destination (no concrete runtime, no booted
-      # device), so it compiles against the iOS SDK bundled with Xcode. The
-      # old `xcodebuild -downloadPlatform iOS` step was redundant and had begun
-      # failing consistently ("Unable to connect to simulator", exit 70) on the
-      # drifted macos-15 runner image.
+      # No "Install iOS Simulator runtime" step: with Xcode 16.4 the runner's
+      # pre-installed iOS 18.5 runtime already satisfies the generic iOS
+      # Simulator destination, so `xcodebuild -downloadPlatform iOS` (which was
+      # failing with exit 70) is unnecessary.
       - name: Resolve Swift packages
         run: |
           xcodebuild -resolvePackageDependencies -project apple/DS3Drive.xcodeproj -scheme DS3DriveApp
