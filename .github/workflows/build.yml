@@ -165,8 +165,13 @@ jobs:
     name: Integration Tests (DS3)
     runs-on: macos-15
     needs: test-unit
-    # Only run on same-repo events (protects secrets from fork PRs)
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    # Only run on same-repo events (protects secrets from fork PRs), and never
+    # on Dependabot PRs: GitHub withholds Actions secrets from dependabot runs,
+    # so the DS3_TEST_* creds resolve empty and every live test throws
+    # "serverError". Skip the job there rather than hard-fail unrelated bumps.
+    if: >-
+      (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+      && github.actor != 'dependabot[bot]'
 
     env:
       DS3_TEST_EMAIL: ${{ secrets.DS3_TEST_EMAIL }}
