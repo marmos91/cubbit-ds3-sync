@@ -558,7 +558,7 @@ Plans:
 | 17. Windows Shell | v2.0.0 | 12/12 | Complete   | 2026-05-29 |
 | 17.1. Windows S3-Client FFI Wiring | v2.0.0 | 3/3 | Complete    | 2026-06-01 |
 | 17.2. Windows Thumbnails | v2.0.0 | 0/0 | Not started | - |
-| 17.3. Windows Enumeration Performance & UX | v2.0.0 | 0/0 | Not started | - |
+| 17.3. Windows Enumeration Performance & UX | v2.0.0 | 5/5 | In Progress (code + headless tests complete; live integration + manual smoke pending sign-off) | - |
 | 17.4. Windows UI Polish (all windows) | v2.0.0 | 0/0 | Not started | - |
 | 17.5. Windows Feature Completeness | v2.0.0 | 0/0 | Not started | - |
 | 17.6. Windows Installer, Releases & CI | v2.0.0 | 0/0 | Not started | - |
