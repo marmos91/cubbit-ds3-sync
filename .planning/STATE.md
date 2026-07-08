@@ -38,10 +38,10 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 
 ## Current Position
 
-Phase: 17.3 Windows Enumeration Performance & UX — Waves 1 (D-01) + 2 (D-02/D-03) COMPLETE; next = Wave 3 / Plan 04.
-Plan: 17.3 CONTEXT + RESEARCH + 5 numbered plans written; scope signed off 2026-07-07. Wave 0 (local build) done. Waves 1–2 implemented + unit-verified.
-Status: Wave 1 = full-pagination poll (ListLevel). Wave 2 = per-page streaming (EnumerateLevelPages primitive; MaterializeAsync creates per page; FetchPlaceholdersHandler multi-batch TRANSFER_PLACEHOLDERS, DISABLE_ON_DEMAND_POPULATION only on final batch) + D-03 on-disk ghost removal (PlaceholderMaterializer.DeletePlaceholder, dirty-guarded delete branch). 159 non-Integration tests green, real Rust FFI diff. NOTE: native cfapi multi-batch behavior verified only via injected seams — needs manual/app smoke. Next: Wave 3 (D-04 progress + D-05 listing limiter + D-06 sync anchor).
-Last activity: 2026-07-07
+Phase: 17.3 Windows Enumeration Performance & UX — Waves 1 (D-01) + 2 (D-02/D-03) + 3 (D-04/D-05/D-06) COMPLETE; next = Wave 4 / Plan 05.
+Plan: 17.3 CONTEXT + RESEARCH + 5 numbered plans written; scope signed off 2026-07-07. Wave 0 (local build) done. Waves 1–3 implemented + unit-verified.
+Status: Wave 1 = full-pagination poll (ListLevel). Wave 2 = per-page streaming (EnumerateLevelPages primitive; MaterializeAsync creates per page; FetchPlaceholdersHandler multi-batch TRANSFER_PLACEHOLDERS, DISABLE_ON_DEMAND_POPULATION only on final batch) + D-03 on-disk ghost removal. Wave 3 = D-04 aggregate progress (DriveEnumerationProgress record + EnumerationPhase, no key/file-name per T-17-10-05; additive DriveStatusBroadcaster.ProgressChanged + ReportEnumerationProgress, gate-free; emitted per page from FetchPlaceholdersHandler/MaterializeAsync + one-shot from poll + throttled BytesHydrated from FetchDataHandler; TrayDriveRowViewModel.UpdateEnumerationProgress/EnumerationSummary — App forwarder+XAML deferred to 17.5), D-05 BucketListingLimiter (per-bucket SemaphoreSlim, maxConcurrent=4, macOS parity; gates the list call inside EnumerateLevelPages, permit not held across yield), D-06 sync anchor (SyncAnchorHash v1 SHA-256 port + migration 003 prefix_anchors + PrefixAnchorStore; PollOnceAsync short-circuits diff/apply when anchor unchanged, stores anchor only after reconcile; wired via SyncHostedService + DI). 173 non-Integration tests green, real Rust FFI diff. NOTE: native cfapi multi-batch + hydration progress verified only via injected seams — needs manual/app smoke. Next: Wave 4 (Plan 05, integration/idempotency tests + manual smoke + verification/docs).
+Last activity: 2026-07-08
 Resume from: .planning/phases/17.3-windows-enumeration-performance-ux/17.3-HANDOFF.md
 
 ```
@@ -126,6 +126,6 @@ yet.
 
 ## Session Continuity
 
-Last session: 2026-07-07
-Stopped at: Waves 1–2 complete on branch gsd/phase-17.3-windows-enumeration. Wave 2 (Plan 03, D-02/D-03): EnumerateLevelPages + streaming MaterializeAsync/FetchPlaceholdersHandler + DeletePlaceholder ghost removal; InternalsVisibleTo added to DS3Drive.Sync; PlaceholderStreamingTests + engine ghost tests. 159 non-Integration tests green. Native cfapi streaming still needs app smoke. Next: Wave 3 (Plan 04, D-04/D-05/D-06).
+Last session: 2026-07-08
+Stopped at: Waves 1–3 complete on branch gsd/phase-17.3-windows-enumeration. Wave 3 (Plan 04, D-04/D-05/D-06): DriveEnumerationProgress + ProgressChanged event + per-page/hydration emissions + TrayDriveRowViewModel progress readout; BucketListingLimiter gating EnumerateLevelPages; SyncAnchorHash + migration 003 prefix_anchors + PrefixAnchorStore + poll short-circuit wired through SyncHostedService/DI. New tests: SyncAnchorHashTests, BucketListingLimiterTests, EnumerationProgressTests, + poll anchor short-circuit tests in SyncEnginePollTests; SyncDatabaseTests MigrationCount bumped to 3. 173 non-Integration tests green. Native cfapi streaming + hydration progress still need app smoke; App→tray progress forwarder + XAML deferred to 17.5. Next: Wave 4 (Plan 05, integration/idempotency tests + manual smoke + verification/docs).
 Resume file: .planning/phases/17.3-windows-enumeration-performance-ux/17.3-HANDOFF.md

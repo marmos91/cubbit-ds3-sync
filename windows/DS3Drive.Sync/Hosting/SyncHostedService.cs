@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DS3Drive.Core;
 using DS3Drive.Sync.CfApi;
+using DS3Drive.Sync.Storage;
 using DS3Drive.Sync.SyncEngine;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -27,6 +28,7 @@ public sealed class SyncHostedService : IHostedService
     private readonly IDriveLifecycleSource _lifecycle;
     private readonly IDriveS3CredentialProvider _credentials;
     private readonly PlaceholderStore _store;
+    private readonly PrefixAnchorStore _anchors;
     private readonly ConfigStore? _config;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<SyncHostedService> _logger;
@@ -69,12 +71,14 @@ public sealed class SyncHostedService : IHostedService
         IDriveLifecycleSource lifecycle,
         IDriveS3CredentialProvider credentials,
         PlaceholderStore store,
+        PrefixAnchorStore anchors,
         ConfigStore? config = null,
         ILoggerFactory? loggerFactory = null)
     {
         _lifecycle = lifecycle ?? throw new ArgumentNullException(nameof(lifecycle));
         _credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
         _store = store ?? throw new ArgumentNullException(nameof(store));
+        _anchors = anchors ?? throw new ArgumentNullException(nameof(anchors));
         _config = config;
         _loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
         _logger = _loggerFactory.CreateLogger<SyncHostedService>();
@@ -198,7 +202,8 @@ public sealed class SyncHostedService : IHostedService
                 drive, access, _store, uploads, status, _config,
                 isPaused: () => _lifecycle.IsPaused(drive.Id),
                 logger: _loggerFactory.CreateLogger<SyncEngineType>(),
-                localRootPath: localRoot);
+                localRootPath: localRoot,
+                anchorStore: _anchors);
 
             var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             try

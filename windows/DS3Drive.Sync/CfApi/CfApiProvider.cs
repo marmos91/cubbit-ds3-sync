@@ -131,7 +131,9 @@ public sealed class CfApiProvider : IAsyncDisposable
             string bucket = _drive.SyncAnchor.Bucket;
             string prefix = _drive.SyncAnchor.Prefix ?? string.Empty;
             int count = await PlaceholderMaterializer.MaterializeAsync(
-                _session, bucket, prefix, _localRootPath, _store, _drive.Id, _logger, ct).ConfigureAwait(false);
+                _session, bucket, prefix, _localRootPath, _store, _drive.Id, _logger, ct,
+                reportItemsSeen: seen => _status.ReportEnumerationProgress(
+                    seen, itemsTotal: null, bytesHydrated: 0, EnumerationPhase.Enumerating)).ConfigureAwait(false);
             _logger.LogInformation("populated {Count} placeholders for drive={DriveId}", count, _drive.Id);
         }
         catch (OperationCanceledException)

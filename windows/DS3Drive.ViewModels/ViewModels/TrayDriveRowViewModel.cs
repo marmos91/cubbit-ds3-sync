@@ -51,6 +51,21 @@ public partial class TrayDriveRowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private DateTime? lastUpdated;
 
+    // D-04 aggregate enumeration/hydration progress — opaque counters only, never a file name
+    // (STRIDE T-17-10-05). Fed by the App forwarder from DriveStatusBroadcaster.ProgressChanged
+    // via UpdateEnumerationProgress, mirroring how UpdateSpeed feeds the transfer speeds.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EnumerationSummary))]
+    private long itemsSeen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EnumerationSummary))]
+    private long? itemsTotal;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EnumerationSummary))]
+    private long bytesHydrated;
+
     /// <summary>
     /// Constructs a row. <paramref name="openInExplorer"/> is the platform hook the App
     /// injects (<c>Process.Start("explorer.exe", path)</c>) — kept as a delegate so the VM
@@ -91,6 +106,43 @@ public partial class TrayDriveRowViewModel : ObservableObject, IDisposable
         UploadBytesPerSec = uploadBytesPerSec;
         DownloadBytesPerSec = downloadBytesPerSec;
         LastUpdated = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Updates the aggregate enumeration/hydration progress (D-04), forwarded from
+    /// <c>DriveStatusBroadcaster.ProgressChanged</c>. Takes opaque counters only — never a file
+    /// name or key (STRIDE T-17-10-05) — mirroring how <see cref="UpdateSpeed"/> feeds speeds.
+    /// </summary>
+    public void UpdateEnumerationProgress(long itemsSeen, long? itemsTotal, long bytesHydrated)
+    {
+        ItemsSeen = itemsSeen;
+        ItemsTotal = itemsTotal;
+        BytesHydrated = bytesHydrated;
+        LastUpdated = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// The tray's aggregate progress line ("Enumerating N items" / "Hydrating X.X MB"), built from
+    /// the opaque counters alone — no file name ever crosses this channel. Empty when idle.
+    /// </summary>
+    public string EnumerationSummary
+    {
+        get
+        {
+            if (BytesHydrated > 0)
+            {
+                return $"Hydrating {BytesHydrated / (1024.0 * 1024.0):0.0} MB";
+            }
+
+            if (ItemsSeen > 0)
+            {
+                return ItemsTotal is { } total
+                    ? $"Enumerating {ItemsSeen} of {total} items"
+                    : $"Enumerating {ItemsSeen} items";
+            }
+
+            return string.Empty;
+        }
     }
 
     /// <summary>Toggles the drive's pause flag through the manager (polling timer respects it).</summary>

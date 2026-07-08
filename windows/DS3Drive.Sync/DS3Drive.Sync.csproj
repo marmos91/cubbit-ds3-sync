@@ -30,6 +30,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Migrations\001_initial.sql" />
     <EmbeddedResource Include="Migrations\002_singleton_state.sql" />
+    <EmbeddedResource Include="Migrations\003_prefix_anchor.sql" />
   </ItemGroup>
 
 </Project>

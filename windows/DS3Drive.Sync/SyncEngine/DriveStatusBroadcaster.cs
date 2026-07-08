@@ -74,6 +74,14 @@ public sealed class DriveStatusBroadcaster : IAsyncDisposable
     /// <summary>Raised (off the gate) whenever the effective drive status changes.</summary>
     public event EventHandler<DriveStatus>? StatusChanged;
 
+    /// <summary>
+    /// Raised with an aggregate, file-name-free progress sample during enumeration/hydration
+    /// (D-04). Intentionally SEPARATE from <see cref="StatusChanged"/> and the counter/debounce
+    /// algorithm above — a progress tick must never perturb the delicate sync↔idle state machine,
+    /// so it is fired directly (never queued on the actor gate) and carries no status semantics.
+    /// </summary>
+    public event EventHandler<DriveEnumerationProgress>? ProgressChanged;
+
     /// <summary>Current in-flight operation count (test observability).</summary>
     public int ActiveOperations => Volatile.Read(ref _activeOperations);
 
@@ -108,6 +116,24 @@ public sealed class DriveStatusBroadcaster : IAsyncDisposable
     /// </summary>
     public void EndOperation(DriveStatus terminalStatus) =>
         QueueMutation(() => EndOperationCore(terminalStatus));
+
+    /// <summary>
+    /// Emits an aggregate progress sample on <see cref="ProgressChanged"/> (D-04). Additive and
+    /// gate-free: it neither touches the operation counter nor debounces, so callers may fire it as
+    /// often as they like (they should self-throttle hydration ticks to ≤1/100ms). No file name or
+    /// key is accepted or forwarded (T-17-10-05).
+    /// </summary>
+    public void ReportEnumerationProgress(
+        long itemsSeen, long? itemsTotal, long bytesHydrated, EnumerationPhase phase)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        ProgressChanged?.Invoke(
+            this, new DriveEnumerationProgress(_driveId, itemsSeen, itemsTotal, bytesHydrated, phase));
+    }
 
     private void BeginOperationCore()
     {

@@ -150,7 +150,8 @@ public sealed class SyncEnginePollTests : IAsyncLifetime
     }
 
     private SyncEngine NewEngine(
-        IDS3SessionAccess session, Action<string, string, ILogger>? deletePlaceholder = null)
+        IDS3SessionAccess session, Action<string, string, ILogger>? deletePlaceholder = null,
+        PrefixAnchorStore? anchorStore = null)
     {
         var drive = new DS3DriveModel(
             _driveId, "Drive A",
@@ -163,7 +164,63 @@ public sealed class SyncEnginePollTests : IAsyncLifetime
             config: null, isPaused: null, logger: null,
             conflictKeyFactory: (key, device) => key + ".conflict-" + device,
             localRootPath: _localRoot,
-            deletePlaceholder: deletePlaceholder);
+            deletePlaceholder: deletePlaceholder,
+            anchorStore: anchorStore);
+    }
+
+    [Fact]
+    public async Task PollOnce_UnchangedAnchor_SkipsDiffAndApply()
+    {
+        // D-06: with an anchor store, a second poll over an IDENTICAL remote listing must
+        // short-circuit before ComputeDelta/ApplyDelta. We prove the skip by deleting a local row
+        // out-of-band between the two polls: a short-circuited poll never re-adds it (it skips
+        // apply), whereas a poll that re-diffed would see local-missing/remote-present and restore it.
+        var anchors = new PrefixAnchorStore(_db);
+        List<DS3Object> remote = BuildObjects(2);
+        foreach (DS3Object o in remote)
+        {
+            await SeedFileAsync(o.Key, o.ETag);
+        }
+
+        var session = new FakePagedSession(remote, PageSize);
+        await using SyncEngine engine = NewEngine(session, anchorStore: anchors);
+
+        await engine.ForcePollAsync(CancellationToken.None); // reconciles + stores the anchor
+        Assert.NotNull(await anchors.GetAsync(_driveId, "", CancellationToken.None));
+
+        // Local drift the poll would normally repair — but the anchor is unchanged, so it won't.
+        await _store.DeleteAsync(_driveId, Key(0), CancellationToken.None);
+
+        await engine.ForcePollAsync(CancellationToken.None); // same listing => anchor match => skip
+
+        Assert.Null(await _store.FindAsync(_driveId, Key(0), CancellationToken.None)); // NOT re-added
+    }
+
+    [Fact]
+    public async Task PollOnce_ChangedEtag_AppliesAndStoresNewAnchor()
+    {
+        // The contrast to the short-circuit: a changed remote etag yields a different anchor, so the
+        // poll re-diffs, applies (updating the row's etag), and stores the new anchor.
+        var anchors = new PrefixAnchorStore(_db);
+        await SeedFileAsync(Key(0), "etag-old");
+
+        await using SyncEngine first = NewEngine(
+            new FakePagedSession(new List<DS3Object> { Obj(Key(0), "etag-old") }, PageSize),
+            anchorStore: anchors);
+        await first.ForcePollAsync(CancellationToken.None);
+        string? anchor1 = await anchors.GetAsync(_driveId, "", CancellationToken.None);
+        Assert.NotNull(anchor1);
+
+        await using SyncEngine second = NewEngine(
+            new FakePagedSession(new List<DS3Object> { Obj(Key(0), "etag-new") }, PageSize),
+            anchorStore: anchors);
+        await second.ForcePollAsync(CancellationToken.None);
+
+        PlaceholderRecord? row = await _store.FindAsync(_driveId, Key(0), CancellationToken.None);
+        Assert.NotNull(row);
+        Assert.Equal("etag-new", row!.ETag); // apply ran
+        string? anchor2 = await anchors.GetAsync(_driveId, "", CancellationToken.None);
+        Assert.NotEqual(anchor1, anchor2);   // new anchor stored
     }
 
     [Fact]
@@ -203,6 +260,9 @@ public sealed class SyncEnginePollTests : IAsyncLifetime
     }
 
     private static string Key(int i) => $"file{i:D5}";
+
+    private static DS3Object Obj(string key, string etag) =>
+        new(key, etag, DateTime.UtcNow, 100, "application/octet-stream");
 
     private static List<DS3Object> BuildObjects(int count)
     {

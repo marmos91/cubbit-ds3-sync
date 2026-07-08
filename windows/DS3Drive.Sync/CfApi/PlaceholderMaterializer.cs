@@ -73,13 +73,28 @@ internal static class PlaceholderMaterializer
     /// consume pages as they arrive so the first children show before the last page is listed.
     /// </summary>
     public static IEnumerable<Level> EnumerateLevelPages(
-        IDS3SessionAccess session, string bucket, string s3Prefix, CancellationToken ct)
+        IDS3SessionAccess session, string bucket, string s3Prefix, CancellationToken ct,
+        BucketListingLimiter? limiter = null)
     {
+        BucketListingLimiter gate = limiter ?? BucketListingLimiter.Shared;
         string? token = null;
         do
         {
             ct.ThrowIfCancellationRequested();
-            DS3ObjectListing listing = session.ListObjectsListing(bucket, s3Prefix, "/", token);
+
+            // D-05: bound concurrent list calls per bucket (S3 SlowDown guard, macOS parity). The
+            // permit is held ONLY around the network call, never across the yield — the consumer's
+            // per-page work (create/upsert) must not occupy a listing slot.
+            gate.Enter(bucket, ct);
+            DS3ObjectListing listing;
+            try
+            {
+                listing = session.ListObjectsListing(bucket, s3Prefix, "/", token);
+            }
+            finally
+            {
+                gate.Exit(bucket);
+            }
 
             var folders = new List<string>();
             foreach (string cp in listing.CommonPrefixes)
@@ -249,7 +264,8 @@ internal static class PlaceholderMaterializer
     public static async Task<int> MaterializeAsync(
         IDS3SessionAccess session, string bucket, string rootPrefix, string localRootPath,
         PlaceholderStore store, Guid driveId, ILogger logger, CancellationToken ct,
-        Action<string, List<CF_PLACEHOLDER_CREATE_INFO>, ILogger>? createPlaceholders = null)
+        Action<string, List<CF_PLACEHOLDER_CREATE_INFO>, ILogger>? createPlaceholders = null,
+        Action<long>? reportItemsSeen = null)
     {
         ct.ThrowIfCancellationRequested();
         Action<string, List<CF_PLACEHOLDER_CREATE_INFO>, ILogger> create = createPlaceholders ?? CreatePlaceholders;
@@ -286,6 +302,8 @@ internal static class PlaceholderMaterializer
             }
 
             total += rows.Count;
+            // D-04: aggregate, file-name-free progress — one tick per page as the root fills in.
+            reportItemsSeen?.Invoke(total);
         }
 
         return total;

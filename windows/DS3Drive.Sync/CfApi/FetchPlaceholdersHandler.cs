@@ -109,6 +109,9 @@ internal sealed class FetchPlaceholdersHandler
                     await EmitPageAsync(connectionKey, transferKey, prev, markComplete: false).ConfigureAwait(false);
                     totalFolders += prev.Folders.Count;
                     totalFiles += prev.Files.Count;
+                    // D-04: aggregate, file-name-free progress — one tick per page as it renders.
+                    _status.ReportEnumerationProgress(
+                        totalFolders + totalFiles, itemsTotal: null, bytesHydrated: 0, EnumerationPhase.Enumerating);
                 }
 
                 pending = page;
@@ -118,6 +121,10 @@ internal sealed class FetchPlaceholdersHandler
             await EmitPageAsync(connectionKey, transferKey, last, markComplete: true).ConfigureAwait(false);
             totalFolders += last.Folders.Count;
             totalFiles += last.Files.Count;
+            // Final page landed — the total is now known, so report it as ItemsTotal too.
+            _status.ReportEnumerationProgress(
+                totalFolders + totalFiles, itemsTotal: totalFolders + totalFiles, bytesHydrated: 0,
+                EnumerationPhase.Enumerating);
 
             _logger.LogInformation(
                 "fetch-placeholders prefix={Prefix} folders={Folders} files={Files}",

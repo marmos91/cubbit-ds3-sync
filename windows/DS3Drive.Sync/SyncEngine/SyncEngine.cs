@@ -40,6 +40,10 @@ public sealed class SyncEngine : IAsyncDisposable
     // PlaceholderMaterializer.DeletePlaceholder; injectable so the delete branch is unit-testable
     // without a registered cfapi sync root.
     private readonly Action<string, string, ILogger> _deletePlaceholder;
+    // Per-(drive, prefix) sync anchor (D-06). When present, a poll whose freshly computed anchor
+    // matches the stored one skips the diff/apply entirely (macOS currentSyncAnchor parity). Null
+    // in tests/hosts that opt out — the poll then always diffs, its pre-D-06 behaviour.
+    private readonly PrefixAnchorStore? _anchorStore;
 
     private CancellationTokenSource? _cts;
     private Task? _loop;
@@ -57,7 +61,8 @@ public sealed class SyncEngine : IAsyncDisposable
         ILogger<SyncEngine>? logger = null,
         Func<string, string, string>? conflictKeyFactory = null,
         string? localRootPath = null,
-        Action<string, string, ILogger>? deletePlaceholder = null)
+        Action<string, string, ILogger>? deletePlaceholder = null,
+        PrefixAnchorStore? anchorStore = null)
     {
         _drive = drive ?? throw new ArgumentNullException(nameof(drive));
         _session = session ?? throw new ArgumentNullException(nameof(session));
@@ -74,6 +79,7 @@ public sealed class SyncEngine : IAsyncDisposable
         _conflictKeyFactory = conflictKeyFactory ?? ConflictResolver.CreateConflictKey;
         _localRootPath = localRootPath;
         _deletePlaceholder = deletePlaceholder ?? PlaceholderMaterializer.DeletePlaceholder;
+        _anchorStore = anchorStore;
     }
 
     /// <summary>Starts the polling loop. Each tick runs <see cref="PollOnceAsync"/>.</summary>
@@ -148,14 +154,43 @@ public sealed class SyncEngine : IAsyncDisposable
                 remoteMap[folder] = null;
             }
 
+            // D-06: fingerprint the full remote key->etag map (folders included, null etag). If it
+            // equals the anchor stored from the last reconciled poll, nothing under this prefix
+            // changed remotely — skip the diff/apply entirely (macOS currentSyncAnchor short-circuit).
+            // Computed over the COMPLETE paginated set (remoteMap), never a single page.
+            string? newAnchor = _anchorStore is null ? null : SyncAnchorHash.Compute(remoteMap);
+            if (newAnchor is not null)
+            {
+                string? storedAnchor = await _anchorStore!.GetAsync(_drive.Id, prefix, ct).ConfigureAwait(false);
+                if (string.Equals(storedAnchor, newAnchor, StringComparison.Ordinal))
+                {
+                    _logger.LogInformation("poll unchanged (anchor match) drive={DriveId}", _drive.Id);
+                    _status.EndOperation(DriveStatus.Idle);
+                    return;
+                }
+            }
+
             var localMap = new Dictionary<string, string?>(StringComparer.Ordinal);
             foreach (PlaceholderRecord r in local)
             {
                 localMap[r.S3Key] = r.ETag;
             }
 
+            // D-04: aggregate, file-name-free progress for the poll's re-enumeration. The full level
+            // is known here (ListLevel buffers every page), so report the total as both seen + total.
+            _status.ReportEnumerationProgress(
+                remoteMap.Count, itemsTotal: remoteMap.Count, bytesHydrated: 0, EnumerationPhase.Enumerating);
+
             EnumerationDelta delta = ComputeDelta(localMap, remoteMap);
             await ApplyDeltaAsync(delta, level.Files, ct).ConfigureAwait(false);
+
+            // Persist the anchor only AFTER a successful reconcile, so a crash between listing and
+            // apply leaves the old (or absent) anchor and the next poll re-diffs rather than
+            // skipping unreconciled changes.
+            if (newAnchor is not null)
+            {
+                await _anchorStore!.SetAsync(_drive.Id, prefix, newAnchor, ct).ConfigureAwait(false);
+            }
 
             _status.EndOperation(DriveStatus.Idle);
         }
