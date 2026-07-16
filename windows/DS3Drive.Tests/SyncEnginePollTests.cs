@@ -151,11 +151,11 @@ public sealed class SyncEnginePollTests : IAsyncLifetime
 
     private SyncEngine NewEngine(
         IDS3SessionAccess session, Action<string, string, ILogger>? deletePlaceholder = null,
-        PrefixAnchorStore? anchorStore = null)
+        PrefixAnchorStore? anchorStore = null, string? prefix = null)
     {
         var drive = new DS3DriveModel(
             _driveId, "Drive A",
-            new DS3SyncAnchor("bucket-a", Prefix: null, ProjectId: "p1", IamUserId: "u1"),
+            new DS3SyncAnchor("bucket-a", Prefix: prefix, ProjectId: "p1", IamUserId: "u1"),
             DateTime.UtcNow);
         var status = new DriveStatusBroadcaster(_driveId, TimeSpan.FromMilliseconds(20));
         var uploads = new UploadQueue(session, _store, status);
@@ -257,6 +257,27 @@ public sealed class SyncEnginePollTests : IAsyncLifetime
 
         Assert.NotNull(await _store.FindAsync(_driveId, "b", CancellationToken.None)); // row kept
         Assert.Empty(removed);                                                          // on-disk file untouched
+    }
+
+    [Fact]
+    public async Task ApplyDelta_RemoteDeletion_PrefixDrive_StripsPrefixForOnDiskDelete()
+    {
+        // Regression: for a prefix-rooted drive the on-disk placeholder lives at <root>/<in-drive key>
+        // (prefix stripped), never <root>/<prefix>/<...>. The remote-delete hook must therefore be
+        // handed the in-drive key, or the real placeholder is missed and an Explorer ghost remains.
+        await SeedFileAsync("team/reports/q1.txt", "e1");
+        var removed = new List<string>();
+        await using SyncEngine engine = NewEngine(
+            new FakePagedSession(new List<DS3Object>(), PageSize),
+            deletePlaceholder: (root, key, log) => removed.Add(key),
+            prefix: "team/");
+
+        var delta = new EnumerationDelta(
+            new HashSet<string>(), new HashSet<string> { "team/reports/q1.txt" });
+        await engine.ApplyDeltaAsync(delta, Array.Empty<DS3Object>(), CancellationToken.None);
+
+        Assert.Null(await _store.FindAsync(_driveId, "team/reports/q1.txt", CancellationToken.None));
+        Assert.Equal(new[] { "reports/q1.txt" }, removed); // prefix stripped for the on-disk delete
     }
 
     private static string Key(int i) => $"file{i:D5}";

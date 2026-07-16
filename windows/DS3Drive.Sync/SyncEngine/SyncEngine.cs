@@ -266,9 +266,12 @@ public sealed class SyncEngine : IAsyncDisposable
                     // CopyObject(key -> conflictKey) would only duplicate the REMOTE object; the
                     // local edits (on disk, never uploaded) would then be overwritten when this
                     // placeholder resets to cloud-only below and re-hydrates the remote version.
+                    // The on-disk path is composed from the in-drive key (prefix stripped); the
+                    // drive prefix never reaches the file system (parity with MaterializeAsync).
                     string? localPath = _localRootPath is null
                         ? null
-                        : PathValidation.ResolveLocalPath(_localRootPath, key);
+                        : PathValidation.ResolveLocalPath(
+                            _localRootPath, PathValidation.InDriveKey(_drive.SyncAnchor.Prefix, key));
 
                     if (localPath is not null && File.Exists(localPath))
                     {
@@ -315,9 +318,12 @@ public sealed class SyncEngine : IAsyncDisposable
 
             // D-03: also remove the on-disk placeholder so Explorer stops showing a ghost entry.
             // Skipped when the sync-root path is unknown (unit tests that never materialize files).
+            // The path is composed from the in-drive key (prefix stripped) so prefix-rooted drives
+            // resolve the real placeholder rather than a phantom <root>/<prefix>/... path.
             if (_localRootPath is not null)
             {
-                _deletePlaceholder(_localRootPath, key, _logger);
+                _deletePlaceholder(
+                    _localRootPath, PathValidation.InDriveKey(_drive.SyncAnchor.Prefix, key), _logger);
             }
         }
     }

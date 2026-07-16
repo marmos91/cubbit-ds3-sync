@@ -14,7 +14,7 @@ using Microsoft.Data.Sqlite;
 ///
 /// SECURITY (STRIDE Tampering, T-17-06-01): every query binds via <see cref="SqliteParameter"/>
 /// (<c>AddWithValue</c>); no SQL is built by string interpolation, so network-controlled prefixes
-/// cannot inject — same discipline as <see cref="SyncEngine.PlaceholderStore"/>.
+/// cannot inject — same discipline as <see cref="PlaceholderStore"/>.
 /// </summary>
 public sealed class PrefixAnchorStore
 {
