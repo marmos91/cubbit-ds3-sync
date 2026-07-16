@@ -33,5 +33,8 @@ Brainstormed 2026-07-16. Turns the direct-to-S3 sync client into a **server-medi
 | 9 | Rust core HTTP: **system-proxy + OS-trust-store** | VPN/proxy + custom CA |
 | — | STS | ✅ confirmed **not** supported — design accounts for it |
 
+## Human-readable spec (for collaborators)
+**[2026-07-16-v3-enterprise-platform-SPEC.md](2026-07-16-v3-enterprise-platform-SPEC.md)** — a single narrative document consolidating the whole set (also exported to a Google Doc). Includes **operations** (Prometheus/Loki/Grafana + feature flags) and a **future-directions** section (v2 in-browser editing + billing + migration + SCIM; zero-knowledge folders; ransomware rollback + compliance/WORM; LAN/delta sync; v4 AI-over-files; OCR; collaboration & mobile polish).
+
 ## Next
 `superpowers:writing-plans` → phased implementation plan for **Layer 0**, once Windows v2.0.0 is done.

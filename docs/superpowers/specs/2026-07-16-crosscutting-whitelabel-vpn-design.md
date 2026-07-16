@@ -42,10 +42,15 @@ CI builds each reseller's artifacts with this injected:
 
 ---
 
-## C. Open items
+## C. Operations — monitoring & feature flags
+
+- **Observability (ship with the deployment):** server exposes **Prometheus** metrics (`/metrics`), structured logs → **Loki**, **Grafana** dashboards, **OpenTelemetry** tracing. Reuse the Rust `tracing` already in core. Underpins the Layer-0 benchmark targets.
+- **Feature flags — lazy:** reuse what exists — **per-org policy toggles in Postgres** (links on/off, self-serve signup) + **per-reseller build-time config**. Cover most needs. Add self-hosted **Unleash** *only if* runtime/gradual/targeted rollout is needed later. `ponytail:` don't add a flag platform for v1.
+
+## D. Open items
 - Rust core HTTP client: confirm **system-proxy + OS-trust-store** support (add config knob if missing).
 - Whitelabel: lock the exact brandable-token set with the first reseller (avoid gold-plating).
 - Mobile store logistics: per-reseller App Store/Play accounts + review process (reseller-owned) — operational, not code.
 
-## D. Next
+## E. Next
 All sections defined. Write the spec **index**, then `writing-plans` for the backend (Layer 0) when Windows wraps.
