@@ -31,7 +31,7 @@ It is also **~12 subsystems = a multi-quarter roadmap**, not one spec. This docu
 | **Bus/cache** | **Redis from day 0** — WebSocket pub/sub fan-out + presence + token/rate cache. | Multi-instance HA is expected immediately at this scale (petabyte target); provisioning it up front avoids a later retrofit. Not a database — a message bus. |
 | **Change/sync** | Server authorizes every write → knows every change → **WebSocket :443 push**, no polling. | Kills polling latency; :443 sails through corporate proxies/VPN. |
 | **Conflicts** | Optimistic concurrency **at authorization time** — server checks expected version before minting a PUT URL. | Rejects stale writes up front; strictly better than today's after-the-fact ETag conflict copies. |
-| **Multi-tenancy** | **Bucket/project per org** via DS3 APIs on signup. | Hard data isolation between orgs, for free. |
+| **Deployment & tenancy** | **Two levels.** (1) Each **reseller** self-hosts a **branded instance** (Docker/K8s) — sync server + Zitadel + Postgres/Redis — connected to **a Cubbit DS3 instance** (Composer on-prem *or* Cubbit cloud — a deployment detail; super-admin configures endpoint + admin creds). (2) Within it, many **organizations** sign up; each org = **project/bucket** provisioned via DS3 management APIs, isolated. | Resellers ship DS3 Drive as their own Dropbox on Cubbit storage. Each instance is itself multi-tenant. Build-time whitelabel. Requires DS3 **management** APIs (project/bucket/IAM CRUD) at the configured endpoint — confirm. |
 
 ### Identity is swappable (not locked to Zitadel)
 Keycloak (or any OIDC IdP) must stay a few-days adapter away, not a rewrite. Honor three rules from day 1:
