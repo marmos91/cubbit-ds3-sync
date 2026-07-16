@@ -54,6 +54,13 @@ internal sealed class FetchDataHandler
     private readonly ILogger _logger;
     private CF_CONNECTION_KEY _connectionKey;
 
+    // D-04 hydration-progress throttle: last tick (ms, Environment.TickCount64) a BytesHydrated
+    // sample was emitted. Shared across concurrent transfers — a cosmetic aggregate, so a benign
+    // race just coalesces ticks. Reports are capped at ≤1/100ms, matching the Rust transfer
+    // progress cadence (STATE 17.1-UAT decision) so the UI channel is never flooded.
+    private long _lastProgressTickMs;
+    private const long ProgressThrottleMs = 100;
+
     // One shared download per S3 key. Concurrent FETCH_DATA callbacks for the same object
     // await the same temp file rather than each pulling the whole object again.
     // S3 keys are case-sensitive, so coalesce on an Ordinal (not OrdinalIgnoreCase) key —
@@ -297,6 +304,7 @@ internal sealed class FetchDataHandler
 
                 offset += filled;
                 CfReportProviderProgress(connectionKey, transferKey, fileLen, offset);
+                ReportHydrationProgress(offset);
             }
         }
         finally
@@ -359,6 +367,24 @@ internal sealed class FetchDataHandler
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Emits a throttled aggregate hydration sample (D-04): <paramref name="bytesHydrated"/> is the
+    /// byte offset served so far — an opaque counter, never a file name (T-17-10-05). Capped at
+    /// ≤1/100ms across all concurrent transfers so the progress channel is never flooded.
+    /// </summary>
+    private void ReportHydrationProgress(long bytesHydrated)
+    {
+        long now = Environment.TickCount64;
+        if (now - _lastProgressTickMs < ProgressThrottleMs)
+        {
+            return;
+        }
+
+        _lastProgressTickMs = now;
+        _status.ReportEnumerationProgress(
+            itemsSeen: 0, itemsTotal: null, bytesHydrated: bytesHydrated, EnumerationPhase.Hydrating);
     }
 
     private void TryDelete(string path)

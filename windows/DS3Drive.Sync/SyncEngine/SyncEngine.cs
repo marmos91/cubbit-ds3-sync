@@ -36,6 +36,14 @@ public sealed class SyncEngine : IAsyncDisposable
     // Sync-root path for this drive; used to locate the local file when materializing a
     // conflict copy. Null only in tests that never exercise the conflict branch.
     private readonly string? _localRootPath;
+    // Removes the on-disk placeholder for a remote-deleted key (D-03). Defaults to the native
+    // PlaceholderMaterializer.DeletePlaceholder; injectable so the delete branch is unit-testable
+    // without a registered cfapi sync root.
+    private readonly Action<string, string, ILogger> _deletePlaceholder;
+    // Per-(drive, prefix) sync anchor (D-06). When present, a poll whose freshly computed anchor
+    // matches the stored one skips the diff/apply entirely (macOS currentSyncAnchor parity). Null
+    // in tests/hosts that opt out — the poll then always diffs, its pre-D-06 behaviour.
+    private readonly PrefixAnchorStore? _anchorStore;
 
     private CancellationTokenSource? _cts;
     private Task? _loop;
@@ -52,7 +60,9 @@ public sealed class SyncEngine : IAsyncDisposable
         Func<bool>? isPaused = null,
         ILogger<SyncEngine>? logger = null,
         Func<string, string, string>? conflictKeyFactory = null,
-        string? localRootPath = null)
+        string? localRootPath = null,
+        Action<string, string, ILogger>? deletePlaceholder = null,
+        PrefixAnchorStore? anchorStore = null)
     {
         _drive = drive ?? throw new ArgumentNullException(nameof(drive));
         _session = session ?? throw new ArgumentNullException(nameof(session));
@@ -68,6 +78,8 @@ public sealed class SyncEngine : IAsyncDisposable
         // Category!=Integration (no ds3_ffi.dll dependency).
         _conflictKeyFactory = conflictKeyFactory ?? ConflictResolver.CreateConflictKey;
         _localRootPath = localRootPath;
+        _deletePlaceholder = deletePlaceholder ?? PlaceholderMaterializer.DeletePlaceholder;
+        _anchorStore = anchorStore;
     }
 
     /// <summary>Starts the polling loop. Each tick runs <see cref="PollOnceAsync"/>.</summary>
@@ -113,38 +125,49 @@ public sealed class SyncEngine : IAsyncDisposable
             string bucket = _drive.SyncAnchor.Bucket;
             string prefix = _drive.SyncAnchor.Prefix ?? string.Empty;
 
-            // List the level under this prefix as objects AND common-prefix "folders". The folders
-            // matter: the placeholder store holds a folder row per common prefix (created at
-            // registration), so omitting them from the remote set would make every folder look like
-            // a remote deletion and prune it on the first poll. Drop the prefix-self marker, any
-            // trailing-slash folder placeholders, and internal .ds3keep markers.
-            DS3ObjectListing listing = _session.ListObjectsListing(bucket, prefix, "/", null);
-            var remote = new List<DS3Object>(listing.Objects.Count);
-            foreach (DS3Object o in listing.Objects)
-            {
-                if (o.Key.Equals(prefix, StringComparison.Ordinal) || o.Key.EndsWith('/') ||
-                    PlaceholderMaterializer.IsInternalMarker(o.Key))
-                {
-                    continue;
-                }
-
-                remote.Add(o);
-            }
+            // List the FULL level under this prefix — every page — as objects AND common-prefix
+            // "folders", chasing IsTruncated/NextContinuationToken to completion via the shared
+            // ListLevel helper (the same token-following loop the placeholder materializer uses).
+            // D-01: before this, the poll issued a single ListObjectsListing and never followed the
+            // continuation token, so a prefix with more than one page of direct children
+            // (LIST_BATCH_SIZE keys) treated every object past page 1 as absent-from-remote and
+            // pruned it as a phantom deletion — silent data loss at scale. The folders matter too:
+            // the placeholder store holds a folder row per common prefix (created at registration),
+            // so omitting them from the remote set would make every folder look like a remote
+            // deletion. ListLevel already drops the prefix-self marker, trailing-slash folder
+            // placeholders, .ds3keep markers, and hidden system folders.
+            PlaceholderMaterializer.Level level = PlaceholderMaterializer.ListLevel(_session, bucket, prefix, ct);
 
             IReadOnlyList<PlaceholderRecord> local = await _store.ListByPrefixAsync(_drive.Id, prefix, ct)
                 .ConfigureAwait(false);
 
             var remoteMap = new Dictionary<string, string?>(StringComparer.Ordinal);
-            foreach (DS3Object o in remote)
+            foreach (DS3Object o in level.Files)
             {
                 remoteMap[o.Key] = o.ETag;
             }
 
             // Folder common prefixes have no ETag; key them with null so they match the folder rows
             // (also null ETag) in the local snapshot and are neither re-applied nor pruned.
-            foreach (string folder in listing.CommonPrefixes)
+            foreach (string folder in level.Folders)
             {
                 remoteMap[folder] = null;
+            }
+
+            // D-06: fingerprint the full remote key->etag map (folders included, null etag). If it
+            // equals the anchor stored from the last reconciled poll, nothing under this prefix
+            // changed remotely — skip the diff/apply entirely (macOS currentSyncAnchor short-circuit).
+            // Computed over the COMPLETE paginated set (remoteMap), never a single page.
+            string? newAnchor = _anchorStore is null ? null : SyncAnchorHash.Compute(remoteMap);
+            if (newAnchor is not null)
+            {
+                string? storedAnchor = await _anchorStore!.GetAsync(_drive.Id, prefix, ct).ConfigureAwait(false);
+                if (string.Equals(storedAnchor, newAnchor, StringComparison.Ordinal))
+                {
+                    _logger.LogInformation("poll unchanged (anchor match) drive={DriveId}", _drive.Id);
+                    _status.EndOperation(DriveStatus.Idle);
+                    return;
+                }
             }
 
             var localMap = new Dictionary<string, string?>(StringComparer.Ordinal);
@@ -153,8 +176,21 @@ public sealed class SyncEngine : IAsyncDisposable
                 localMap[r.S3Key] = r.ETag;
             }
 
+            // D-04: aggregate, file-name-free progress for the poll's re-enumeration. The full level
+            // is known here (ListLevel buffers every page), so report the total as both seen + total.
+            _status.ReportEnumerationProgress(
+                remoteMap.Count, itemsTotal: remoteMap.Count, bytesHydrated: 0, EnumerationPhase.Enumerating);
+
             EnumerationDelta delta = ComputeDelta(localMap, remoteMap);
-            await ApplyDeltaAsync(delta, remote, ct).ConfigureAwait(false);
+            await ApplyDeltaAsync(delta, level.Files, ct).ConfigureAwait(false);
+
+            // Persist the anchor only AFTER a successful reconcile, so a crash between listing and
+            // apply leaves the old (or absent) anchor and the next poll re-diffs rather than
+            // skipping unreconciled changes.
+            if (newAnchor is not null)
+            {
+                await _anchorStore!.SetAsync(_drive.Id, prefix, newAnchor, ct).ConfigureAwait(false);
+            }
 
             _status.EndOperation(DriveStatus.Idle);
         }
@@ -230,9 +266,12 @@ public sealed class SyncEngine : IAsyncDisposable
                     // CopyObject(key -> conflictKey) would only duplicate the REMOTE object; the
                     // local edits (on disk, never uploaded) would then be overwritten when this
                     // placeholder resets to cloud-only below and re-hydrates the remote version.
+                    // The on-disk path is composed from the in-drive key (prefix stripped); the
+                    // drive prefix never reaches the file system (parity with MaterializeAsync).
                     string? localPath = _localRootPath is null
                         ? null
-                        : PathValidation.ResolveLocalPath(_localRootPath, key);
+                        : PathValidation.ResolveLocalPath(
+                            _localRootPath, PathValidation.InDriveKey(_drive.SyncAnchor.Prefix, key));
 
                     if (localPath is not null && File.Exists(localPath))
                     {
@@ -264,7 +303,28 @@ public sealed class SyncEngine : IAsyncDisposable
         foreach (string key in delta.Deleted)
         {
             ct.ThrowIfCancellationRequested();
+
+            // A dirty local edit whose remote object was deleted must be preserved, not pruned —
+            // dropping it would discard the user's un-uploaded work (D-03). Leave both the DB row and
+            // the on-disk file; a steady-state re-poll simply re-skips it.
+            PlaceholderRecord? existing = await _store.FindAsync(_drive.Id, key, ct).ConfigureAwait(false);
+            if (existing is { IsDirty: true })
+            {
+                _logger.LogWarning("remote delete of {Key} skipped: local edit is dirty, preserving", key);
+                continue;
+            }
+
             await _store.DeleteAsync(_drive.Id, key, ct).ConfigureAwait(false);
+
+            // D-03: also remove the on-disk placeholder so Explorer stops showing a ghost entry.
+            // Skipped when the sync-root path is unknown (unit tests that never materialize files).
+            // The path is composed from the in-drive key (prefix stripped) so prefix-rooted drives
+            // resolve the real placeholder rather than a phantom <root>/<prefix>/... path.
+            if (_localRootPath is not null)
+            {
+                _deletePlaceholder(
+                    _localRootPath, PathValidation.InDriveKey(_drive.SyncAnchor.Prefix, key), _logger);
+            }
         }
     }
 

@@ -15,9 +15,10 @@ using Xunit;
 /// </summary>
 public sealed class SyncDatabaseTests
 {
-    // Number of embedded migration scripts: 001_initial + 002_singleton_state (Plan 09).
-    // Each script inserts one schema_version row, so a fully-migrated db has this many rows.
-    private const long MigrationCount = 2L;
+    // Number of embedded migration scripts: 001_initial + 002_singleton_state (Plan 09) +
+    // 003_prefix_anchor (Plan 17.3-04, D-06). Each script inserts one schema_version row, so a
+    // fully-migrated db has this many rows.
+    private const long MigrationCount = 3L;
 
     private static string NewTempDbPath() =>
         Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "sync.db");

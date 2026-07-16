@@ -63,21 +63,40 @@ internal static class PlaceholderMaterializer
     }
 
     /// <summary>
-    /// Lists the direct children of <paramref name="s3Prefix"/> with a delimiter, chasing the
-    /// continuation token across pages (mirrors the macOS <c>listAllRemoteChildren</c>). Drops the
-    /// prefix-self marker object, trailing-slash folder placeholders (folders arrive as common
-    /// prefixes), and <c>.ds3keep</c> markers.
+    /// Streams the direct children of <paramref name="s3Prefix"/> ONE S3 page at a time, chasing the
+    /// continuation token across pages (mirrors the macOS per-page <c>finishEnumerating(upTo:)</c>).
+    /// Each yielded <see cref="Level"/> is a single page carrying the same filtering
+    /// <see cref="ListLevel"/> applies: the prefix-self marker object, trailing-slash folder
+    /// placeholders (folders arrive as common prefixes), <c>.ds3keep</c> markers, and hidden system
+    /// folders are dropped. Callers that must diff the whole level (the poll) buffer via
+    /// <see cref="ListLevel"/>; callers that render progressively (root materialize, on-demand fetch)
+    /// consume pages as they arrive so the first children show before the last page is listed.
     /// </summary>
-    public static Level ListLevel(IDS3SessionAccess session, string bucket, string s3Prefix, CancellationToken ct)
+    public static IEnumerable<Level> EnumerateLevelPages(
+        IDS3SessionAccess session, string bucket, string s3Prefix, CancellationToken ct,
+        BucketListingLimiter? limiter = null)
     {
-        var folders = new List<string>();
-        var files = new List<DS3Object>();
+        BucketListingLimiter gate = limiter ?? BucketListingLimiter.Shared;
         string? token = null;
         do
         {
             ct.ThrowIfCancellationRequested();
-            DS3ObjectListing listing = session.ListObjectsListing(bucket, s3Prefix, "/", token);
 
+            // D-05: bound concurrent list calls per bucket (S3 SlowDown guard, macOS parity). The
+            // permit is held ONLY around the network call, never across the yield — the consumer's
+            // per-page work (create/upsert) must not occupy a listing slot.
+            gate.Enter(bucket, ct);
+            DS3ObjectListing listing;
+            try
+            {
+                listing = session.ListObjectsListing(bucket, s3Prefix, "/", token);
+            }
+            finally
+            {
+                gate.Exit(bucket);
+            }
+
+            var folders = new List<string>();
             foreach (string cp in listing.CommonPrefixes)
             {
                 if (!cp.Equals(s3Prefix, StringComparison.Ordinal) && !IsHiddenSystemKey(cp))
@@ -86,6 +105,7 @@ internal static class PlaceholderMaterializer
                 }
             }
 
+            var files = new List<DS3Object>();
             foreach (DS3Object obj in listing.Objects)
             {
                 if (obj.Key.Equals(s3Prefix, StringComparison.Ordinal) || obj.Key.EndsWith('/') ||
@@ -97,9 +117,28 @@ internal static class PlaceholderMaterializer
                 files.Add(obj);
             }
 
+            yield return new Level(folders, files);
+
             token = listing.IsTruncated ? listing.NextContinuationToken : null;
         }
         while (!string.IsNullOrEmpty(token));
+    }
+
+    /// <summary>
+    /// Lists the direct children of <paramref name="s3Prefix"/> across ALL pages, buffered into one
+    /// <see cref="Level"/> (folders + files) with internal markers and the prefix-self entry already
+    /// filtered out. Thin "collect every page" wrapper over <see cref="EnumerateLevelPages"/>; used
+    /// by the poll, which needs the complete set to diff.
+    /// </summary>
+    public static Level ListLevel(IDS3SessionAccess session, string bucket, string s3Prefix, CancellationToken ct)
+    {
+        var folders = new List<string>();
+        var files = new List<DS3Object>();
+        foreach (Level page in EnumerateLevelPages(session, bucket, s3Prefix, ct))
+        {
+            folders.AddRange(page.Folders);
+            files.AddRange(page.Files);
+        }
 
         return new Level(folders, files);
     }
@@ -207,47 +246,67 @@ internal static class PlaceholderMaterializer
     }
 
     /// <summary>
-    /// Eagerly creates on-disk placeholders for ONE directory level (the drive's root prefix) via
-    /// <c>CfCreatePlaceholders</c>, so the drive shows its top-level content immediately. It does
-    /// NOT recurse: subdirectories populate lazily on first open through the FETCH_PLACEHOLDERS
-    /// callback (macOS S3Enumerator parity) — a full-tree walk here was slow and fought the
-    /// platform's own on-demand population. On-disk paths are relative to the drive's prefix; the
-    /// placeholder index stores full S3 keys. Returns the count of file + folder placeholders.
+    /// Eagerly creates on-disk placeholders for ONE directory level (the drive's root prefix), so the
+    /// drive shows its top-level content immediately. It does NOT recurse: subdirectories populate
+    /// lazily on first open through the FETCH_PLACEHOLDERS callback (macOS S3Enumerator parity) — a
+    /// full-tree walk here was slow and fought the platform's own on-demand population.
+    /// <para>
+    /// D-02: the level is created PER S3 PAGE as pages arrive (<see cref="EnumerateLevelPages"/> +
+    /// one <c>CfCreatePlaceholders</c> per page), so the first page renders in Explorer before later
+    /// pages are even listed rather than freezing on a single giant batch at scale. Each page's
+    /// pinned identity buffers are freed and its rows upserted before the next page lists. On-disk
+    /// paths are relative to the drive's prefix; the placeholder index stores full S3 keys.
+    /// <paramref name="createPlaceholders"/> defaults to the native <c>CfCreatePlaceholders</c> batch
+    /// and is injectable so the streaming split is unit-testable. Returns the total count of file +
+    /// folder placeholders across all pages.
+    /// </para>
     /// </summary>
     public static async Task<int> MaterializeAsync(
         IDS3SessionAccess session, string bucket, string rootPrefix, string localRootPath,
-        PlaceholderStore store, Guid driveId, ILogger logger, CancellationToken ct)
+        PlaceholderStore store, Guid driveId, ILogger logger, CancellationToken ct,
+        Action<string, List<CF_PLACEHOLDER_CREATE_INFO>, ILogger>? createPlaceholders = null,
+        Action<long>? reportItemsSeen = null)
     {
         ct.ThrowIfCancellationRequested();
-        Level level = ListLevel(session, bucket, rootPrefix, ct);
+        Action<string, List<CF_PLACEHOLDER_CREATE_INFO>, ILogger> create = createPlaceholders ?? CreatePlaceholders;
 
-        var infos = new List<CF_PLACEHOLDER_CREATE_INFO>(level.Folders.Count + level.Files.Count);
-        var pins = new List<GCHandle>(infos.Capacity);
-        var rows = new List<PlaceholderRecord>(infos.Capacity);
-
-        try
+        int total = 0;
+        foreach (Level page in EnumerateLevelPages(session, bucket, rootPrefix, ct))
         {
-            BuildLevel(driveId, rootPrefix, level, logger, infos, pins, rows);
+            var infos = new List<CF_PLACEHOLDER_CREATE_INFO>(page.Folders.Count + page.Files.Count);
+            var pins = new List<GCHandle>(infos.Capacity);
+            var rows = new List<PlaceholderRecord>(infos.Capacity);
 
-            if (infos.Count > 0)
+            try
             {
-                CreatePlaceholders(localRootPath, infos, logger);
+                BuildLevel(driveId, rootPrefix, page, logger, infos, pins, rows);
+
+                if (infos.Count > 0)
+                {
+                    create(localRootPath, infos, logger);
+                }
             }
-        }
-        finally
-        {
-            foreach (GCHandle pin in pins)
+            finally
             {
-                pin.Free();
+                foreach (GCHandle pin in pins)
+                {
+                    pin.Free();
+                }
             }
+
+            // Upsert this page's rows before the next page lists, so the sync engine's baseline grows
+            // incrementally and a crash mid-enumeration still records everything already shown.
+            foreach (PlaceholderRecord row in rows)
+            {
+                await store.UpsertAsync(row, ct).ConfigureAwait(false);
+            }
+
+            total += rows.Count;
+            // D-04: aggregate, file-name-free progress — one tick per page as the root fills in.
+            reportItemsSeen?.Invoke(total);
         }
 
-        foreach (PlaceholderRecord row in rows)
-        {
-            await store.UpsertAsync(row, ct).ConfigureAwait(false);
-        }
-
-        return rows.Count;
+        return total;
     }
 
     /// <summary>
@@ -282,6 +341,51 @@ internal static class PlaceholderMaterializer
         catch (Exception ex)
         {
             logger.LogWarning(ex, "CfCreatePlaceholders threw for base={Base}", baseDir);
+        }
+    }
+
+    /// <summary>
+    /// Removes the on-disk placeholder for <paramref name="s3Key"/> under
+    /// <paramref name="localRootPath"/> after a remote deletion (D-03), so Explorer stops showing a
+    /// ghost entry whose object is gone. Files are deleted directly; folders are removed only when
+    /// empty (a non-recursive delete) so a preserved dirty child is never destroyed. Tolerates an
+    /// already-absent path (nothing to do) and swallows I/O errors — a failed cosmetic cleanup must
+    /// never crash the poll. The dirty-edit guard lives in the caller (<c>SyncEngine.ApplyDeltaAsync</c>
+    /// skips dirty placeholders entirely), so a placeholder reaching here is safe to drop.
+    /// </summary>
+    public static void DeletePlaceholder(string localRootPath, string s3Key, ILogger logger)
+    {
+        string localPath;
+        try
+        {
+            localPath = PathValidation.ResolveLocalPath(localRootPath, s3Key);
+        }
+        catch (Exception ex)
+        {
+            // An unsafe/escaping key never produced an on-disk placeholder to begin with.
+            logger.LogDebug(ex, "skip on-disk delete for unsafe key {Key}", s3Key);
+            return;
+        }
+
+        try
+        {
+            if (s3Key.EndsWith('/'))
+            {
+                if (Directory.Exists(localPath))
+                {
+                    // Non-recursive: an empty folder is removed; one still holding a preserved dirty
+                    // edit throws IOException and is left intact.
+                    Directory.Delete(localPath, recursive: false);
+                }
+            }
+            else if (File.Exists(localPath))
+            {
+                File.Delete(localPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "on-disk placeholder delete failed for {Key}", s3Key);
         }
     }
 

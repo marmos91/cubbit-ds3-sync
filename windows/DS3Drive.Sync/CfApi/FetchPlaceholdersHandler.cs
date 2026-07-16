@@ -2,6 +2,7 @@ namespace DS3Drive.Sync.CfApi;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,6 +31,13 @@ using DS3DriveModel = DS3Drive.Core.Records.DS3Drive;
 /// </summary>
 internal sealed class FetchPlaceholdersHandler
 {
+    /// <summary>Hands one batch of placeholders to the platform. <paramref name="markComplete"/> is
+    /// set only on the final batch of a fetch (see <see cref="TransferPlaceholders"/>); injectable so
+    /// the multi-batch streaming can be unit-tested without a live cfapi transfer.</summary>
+    internal delegate void PlaceholderTransferFn(
+        CF_CONNECTION_KEY connectionKey, CF_TRANSFER_KEY transferKey,
+        IReadOnlyList<CF_PLACEHOLDER_CREATE_INFO> infos, NTStatus completionStatus, bool markComplete);
+
     // NTSTATUS (ntstatus.h): NTStatus converts implicitly from uint.
     private static readonly NTStatus StatusSuccess = 0x00000000;
     private static readonly NTStatus StatusUnsuccessful = unchecked((int)0xC0000001);
@@ -41,6 +49,7 @@ internal sealed class FetchPlaceholdersHandler
     private readonly PlaceholderStore _store;
     private readonly DriveStatusBroadcaster _status;
     private readonly ILogger _logger;
+    private readonly PlaceholderTransferFn _transfer;
 
     public FetchPlaceholdersHandler(
         DS3DriveModel drive,
@@ -48,7 +57,8 @@ internal sealed class FetchPlaceholdersHandler
         IDS3SessionAccess session,
         PlaceholderStore store,
         DriveStatusBroadcaster status,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        PlaceholderTransferFn? transfer = null)
     {
         _drive = drive ?? throw new ArgumentNullException(nameof(drive));
         _drivePrefix = drive.SyncAnchor.Prefix ?? string.Empty;
@@ -57,6 +67,7 @@ internal sealed class FetchPlaceholdersHandler
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _status = status ?? throw new ArgumentNullException(nameof(status));
         _logger = logger ?? NullLogger.Instance;
+        _transfer = transfer ?? TransferPlaceholders;
     }
 
     /// <summary>cfapi worker-thread entry point: capture the request and defer all I/O so the
@@ -70,7 +81,7 @@ internal sealed class FetchPlaceholdersHandler
         _ = Task.Run(() => HandleAsync(connectionKey, transferKey, normalizedPath));
     }
 
-    private async Task HandleAsync(CF_CONNECTION_KEY connectionKey, CF_TRANSFER_KEY transferKey, string normalizedPath)
+    internal async Task HandleAsync(CF_CONNECTION_KEY connectionKey, CF_TRANSFER_KEY transferKey, string normalizedPath)
     {
         _status.BeginOperation();
 
@@ -81,59 +92,102 @@ internal sealed class FetchPlaceholdersHandler
 
         try
         {
-            PlaceholderMaterializer.Level level =
-                PlaceholderMaterializer.ListLevel(_session, _drive.SyncAnchor.Bucket, s3Prefix, CancellationToken.None);
+            // D-02: stream each S3 page to Explorer as it arrives via the cfapi multi-batch
+            // TRANSFER_PLACEHOLDERS protocol — intermediate batches complete with STATUS_SUCCESS and
+            // do NOT disable on-demand population; only the final batch sets
+            // DISABLE_ON_DEMAND_POPULATION to mark the directory fully populated. We buffer one page
+            // ahead so the last non-empty page is the one flagged complete (EnumerateLevelPages always
+            // yields at least one page, so `pending` is always set by the time the loop ends).
+            int totalFolders = 0, totalFiles = 0;
+            PlaceholderMaterializer.Level? pending = null;
 
-            var infos = new List<CF_PLACEHOLDER_CREATE_INFO>(level.Folders.Count + level.Files.Count);
-            var pins = new List<GCHandle>(infos.Capacity);
-            var rows = new List<PlaceholderRecord>(infos.Capacity);
-
-            PlaceholderMaterializer.BuildLevel(_drive.Id, _drivePrefix, level, _logger, infos, pins, rows);
-
-            try
+            foreach (PlaceholderMaterializer.Level page in PlaceholderMaterializer.EnumerateLevelPages(
+                         _session, _drive.SyncAnchor.Bucket, s3Prefix, CancellationToken.None))
             {
-                TransferPlaceholders(connectionKey, transferKey, infos, StatusSuccess);
-            }
-            finally
-            {
-                foreach (GCHandle pin in pins)
+                if (pending is { } prev)
                 {
-                    pin.Free();
+                    await EmitPageAsync(connectionKey, transferKey, prev, markComplete: false).ConfigureAwait(false);
+                    totalFolders += prev.Folders.Count;
+                    totalFiles += prev.Files.Count;
+                    // D-04: aggregate, file-name-free progress — one tick per page as it renders.
+                    _status.ReportEnumerationProgress(
+                        totalFolders + totalFiles, itemsTotal: null, bytesHydrated: 0, EnumerationPhase.Enumerating);
                 }
+
+                pending = page;
             }
 
-            // Mirror into the placeholder index so the sync engine's diff has an accurate baseline
-            // for this level (matches the macOS enumerator's MetadataStore upsert).
-            foreach (PlaceholderRecord row in rows)
-            {
-                await _store.UpsertAsync(row, CancellationToken.None).ConfigureAwait(false);
-            }
+            PlaceholderMaterializer.Level last = pending!.Value;
+            await EmitPageAsync(connectionKey, transferKey, last, markComplete: true).ConfigureAwait(false);
+            totalFolders += last.Folders.Count;
+            totalFiles += last.Files.Count;
+            // Final page landed — the total is now known, so report it as ItemsTotal too.
+            _status.ReportEnumerationProgress(
+                totalFolders + totalFiles, itemsTotal: totalFolders + totalFiles, bytesHydrated: 0,
+                EnumerationPhase.Enumerating);
 
             _logger.LogInformation(
                 "fetch-placeholders prefix={Prefix} folders={Folders} files={Files}",
-                s3Prefix, level.Folders.Count, level.Files.Count);
+                s3Prefix, totalFolders, totalFiles);
             _status.EndOperation(DriveStatus.Idle);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "fetch-placeholders failed prefix={Prefix}", s3Prefix);
-            // Complete the transfer with a failure status so Explorer stops waiting rather than
-            // hanging on the 30s cfapi watchdog.
-            TransferPlaceholders(connectionKey, transferKey, new List<CF_PLACEHOLDER_CREATE_INFO>(), StatusUnsuccessful);
+            // Complete the transfer with a failure status (final batch) so Explorer stops waiting
+            // rather than hanging on the 30s cfapi watchdog.
+            _transfer(connectionKey, transferKey, Array.Empty<CF_PLACEHOLDER_CREATE_INFO>(), StatusUnsuccessful, markComplete: true);
             _status.EndOperation(DriveStatus.Error);
         }
     }
 
     /// <summary>
+    /// Builds one page's placeholder descriptors, hands them to the platform as a single
+    /// TRANSFER_PLACEHOLDERS batch (<paramref name="markComplete"/> set on the last page only), frees
+    /// the pinned identity buffers, then mirrors the page's rows into the placeholder index so the
+    /// sync engine's diff has an accurate baseline (matches the macOS enumerator's MetadataStore
+    /// upsert). Upserts happen per page so a crash mid-enumeration still records what was shown.
+    /// </summary>
+    private async Task EmitPageAsync(
+        CF_CONNECTION_KEY connectionKey, CF_TRANSFER_KEY transferKey,
+        PlaceholderMaterializer.Level page, bool markComplete)
+    {
+        var infos = new List<CF_PLACEHOLDER_CREATE_INFO>(page.Folders.Count + page.Files.Count);
+        var pins = new List<GCHandle>(infos.Capacity);
+        var rows = new List<PlaceholderRecord>(infos.Capacity);
+
+        PlaceholderMaterializer.BuildLevel(_drive.Id, _drivePrefix, page, _logger, infos, pins, rows);
+
+        try
+        {
+            _transfer(connectionKey, transferKey, infos, StatusSuccess, markComplete);
+        }
+        finally
+        {
+            foreach (GCHandle pin in pins)
+            {
+                pin.Free();
+            }
+        }
+
+        foreach (PlaceholderRecord row in rows)
+        {
+            await _store.UpsertAsync(row, CancellationToken.None).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
     /// Hands one batch of placeholders to the platform via <c>CfExecute(TRANSFER_PLACEHOLDERS)</c>.
-    /// DISABLE_ON_DEMAND_POPULATION marks this directory fully populated so the platform does not
-    /// re-request it; child directories are separate placeholders and still populate lazily on open.
+    /// <paramref name="markComplete"/> toggles DISABLE_ON_DEMAND_POPULATION: set on the FINAL batch
+    /// only, it marks this directory fully populated so the platform stops re-requesting it;
+    /// intermediate batches leave it clear so the fetch stays open for the next page. Child
+    /// directories are separate placeholders and still populate lazily on open.
     /// </summary>
     private void TransferPlaceholders(
         CF_CONNECTION_KEY connectionKey, CF_TRANSFER_KEY transferKey,
-        List<CF_PLACEHOLDER_CREATE_INFO> infos, NTStatus completionStatus)
+        IReadOnlyList<CF_PLACEHOLDER_CREATE_INFO> infos, NTStatus completionStatus, bool markComplete)
     {
-        CF_PLACEHOLDER_CREATE_INFO[] array = infos.ToArray();
+        CF_PLACEHOLDER_CREATE_INFO[] array = infos as CF_PLACEHOLDER_CREATE_INFO[] ?? infos.ToArray();
 
         var opInfo = new CF_OPERATION_INFO
         {
@@ -150,7 +204,11 @@ internal sealed class FetchPlaceholdersHandler
             using var native = new SafeNativeArray<CF_PLACEHOLDER_CREATE_INFO>(array, 0u);
             var opParams = CF_OPERATION_PARAMETERS.Create(new CF_OPERATION_PARAMETERS.TRANSFERPLACEHOLDERS
             {
-                Flags = CF_OPERATION_TRANSFER_PLACEHOLDERS_FLAGS.CF_OPERATION_TRANSFER_PLACEHOLDERS_FLAG_DISABLE_ON_DEMAND_POPULATION,
+                // DISABLE_ON_DEMAND_POPULATION on the final batch only; default (0) = no flags for
+                // intermediate batches so the platform keeps the fetch open for the next page.
+                Flags = markComplete
+                    ? CF_OPERATION_TRANSFER_PLACEHOLDERS_FLAGS.CF_OPERATION_TRANSFER_PLACEHOLDERS_FLAG_DISABLE_ON_DEMAND_POPULATION
+                    : default,
                 CompletionStatus = completionStatus,
                 PlaceholderTotalCount = array.Length,
                 PlaceholderArray = native,

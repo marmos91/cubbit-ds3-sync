@@ -38,10 +38,11 @@ See: .planning/PROJECT.md (updated 2026-05-26)
 
 ## Current Position
 
-Phase: 17.1 complete → 17.2-17.6 planned (not started)
-Plan: Not started
-Status: Phase 17.1 UAT-verified; roadmap extended with Windows productionization phases
-Last activity: 2026-06-02
+Phase: 17.3 Windows Enumeration Performance & UX — ALL 4 waves COMPLETE (Wave 1 D-01, Wave 2 D-02/D-03, Wave 3 D-04/D-05/D-06, Wave 4 integration tests + manual smoke + close-out docs). 5/5 plans. Phase completion pends live integration (CI workflow_dispatch) + manual cfapi/Explorer smoke sign-off, then /gsd:verify-work.
+Plan: 17.3 CONTEXT + RESEARCH + 5 numbered plans written; scope signed off 2026-07-07. Wave 0 (local build) done. Waves 1–4 implemented + unit-verified.
+Status: Wave 1 = full-pagination poll (ListLevel). Wave 2 = per-page streaming (EnumerateLevelPages primitive; MaterializeAsync creates per page; FetchPlaceholdersHandler multi-batch TRANSFER_PLACEHOLDERS, DISABLE_ON_DEMAND_POPULATION only on final batch) + D-03 on-disk ghost removal. Wave 3 = D-04 aggregate progress (DriveEnumerationProgress record + EnumerationPhase, no key/file-name per T-17-10-05; additive DriveStatusBroadcaster.ProgressChanged + ReportEnumerationProgress, gate-free; emitted per page from FetchPlaceholdersHandler/MaterializeAsync + one-shot from poll + throttled BytesHydrated from FetchDataHandler; TrayDriveRowViewModel.UpdateEnumerationProgress/EnumerationSummary — App forwarder+XAML deferred to 17.5), D-05 BucketListingLimiter (per-bucket SemaphoreSlim, maxConcurrent=4, macOS parity; gates the list call inside EnumerateLevelPages, permit not held across yield), D-06 sync anchor (SyncAnchorHash v1 SHA-256 port + migration 003 prefix_anchors + PrefixAnchorStore; PollOnceAsync short-circuits diff/apply when anchor unchanged, stores anchor only after reconcile; wired via SyncHostedService + DI). 173 non-Integration tests green, real Rust FFI diff. NOTE: native cfapi multi-batch + hydration progress verified only via injected seams — needs manual/app smoke. Next: Wave 4 (Plan 05, integration/idempotency tests + manual smoke + verification/docs).
+Last activity: 2026-07-08
+Resume from: .planning/phases/17.3-windows-enumeration-performance-ux/17.3-HANDOFF.md
 
 ```
 Milestone v2.0.0: Phase 17.1 complete (sync + hydration working) — Windows productionization 17.2-17.6 queued
@@ -121,10 +122,10 @@ Milestone v2.0.0: Phase 17.1 complete (sync + hydration working) — Windows pro
 
 yet.
 
-- [17-02] Dev machine lacks MSVC C++ build tools workload — cargo cannot link *-windows-msvc targets (Git's GNU link.exe shadows MSVC linker). Native ds3_ffi.dll build blocked locally; managed scaffold builds clean. Install 'Desktop development with C++' workload to unblock; CI (windows-latest) unaffected.
+- [17-02] ~~Dev machine lacks MSVC C++ build tools workload — cargo cannot link *-windows-msvc targets.~~ **RESOLVED 2026-07-07** (Phase 17.3 Wave 0): installed VS 2026 `Microsoft.VisualStudio.Workload.NativeDesktop` (MSVC `link.exe`) + Rust `stable-x86_64-pc-windows-msvc`. Verified `cargo build -p ds3-ffi` links `ds3_ffi.dll` locally (5m34s, exit 0). This is an x64 (AMD64) box; the ARM64 dev VM remains for cfapi runtime smoke.
 
 ## Session Continuity
 
-Last session: 2026-06-01T20:57:17.687Z
-Stopped at: Completed 17.1-02-PLAN.md
-Resume file: None
+Last session: 2026-07-08
+Stopped at: ALL 4 waves complete on branch gsd/phase-17.3-windows-enumeration. Wave 4 (Plan 05): EnumerationIntegrationTests (D-01 pagination / D-02 idempotency / D-03 ghost+dirty / D-06 anchor against live Cubbit, >2000-key seed) + EnumerationIntegrationFixture (Category=Integration, RequiresCredentials, self-skip); windows/manual-smoke-17.3.md (12-item cfapi/Explorer checklist); 17.3-VALIDATION.md + 17.3-05-SUMMARY.md; ROADMAP 17.3 → 5/5 In Progress. 173 non-Integration green; 7 integration tests self-skip without creds. PENDING: live integration via CI workflow_dispatch (CUBBIT_TEST_* secrets) + manual smoke sign-off (native cfapi streaming/hydration progress + App→tray forwarder/XAML, latter deferred to 17.5), then /gsd:verify-work. Waves 1–4 committed: fc8bb62 (docs), 28dbce4 (D-01), f7511fe (D-02/D-03), bbdaeb2 (D-04/D-05/D-06); Wave 4 commit pending.
+Resume file: .planning/phases/17.3-windows-enumeration-performance-ux/17.3-HANDOFF.md

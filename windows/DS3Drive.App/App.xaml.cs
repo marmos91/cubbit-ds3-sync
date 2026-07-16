@@ -150,6 +150,7 @@ public partial class App : Application
         //   SyncHostedService: registers a sync root + spins a SyncEngine per drive. Started in
         //     OnLaunched AFTER the drive list loads (so existing drives re-register at launch).
         s.AddSingleton<PlaceholderStore>();
+        s.AddSingleton<PrefixAnchorStore>();
         s.AddSingleton<IDriveS3CredentialProvider, DriveS3CredentialProvider>();
         s.AddSingleton<IDriveLifecycleSource, DriveLifecycleSource>();
         s.AddHostedService<SyncHostedService>();
