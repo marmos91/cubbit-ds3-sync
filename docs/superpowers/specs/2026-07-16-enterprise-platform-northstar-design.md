@@ -9,7 +9,7 @@
 
 ## 1. What this is — and why it's a pivot, not a refactor
 
-Today DS3 Drive is a **thick sync client** with a deliberate constraint: *no custom backend — the client talks directly to Cubbit IAM/Composer + S3* (`PROJECT.md`). Every requirement in this effort breaks that constraint.
+Today DS3 Drive is a **thick sync client** with a deliberate constraint: *no custom backend — the client talks directly to Cubbit IAM/Composer + S3* (`.planning/PROJECT.md`). Every requirement in this effort breaks that constraint.
 
 What we're building is a **Dropbox-class enterprise SaaS platform built on Cubbit DS3**: server-mediated identity, sharing, permissions, versioning, web consoles, per-org provisioning, audit, whitelabel. This is a **company-level bet with a different cost structure and threat model** (we now run and secure a backend 24/7), not a client refactor. Naming that up front because it reframes scope for every downstream decision.
 
@@ -195,7 +195,7 @@ CROSS-CUTTING  (thin; wire early, build minimal)
 | 1 | **Sharing + links + permissions** | Web app **shows folders**; downloads issue **presigned URLs** (works for shared + public/anonymous — no proxy). Perms in Postgres, enforced at presign. Roles viewer/editor/owner per folder. Private-share URLs kept short-lived; public-link tokens map to presign-on-validate. |
 | 2 | **Versioning** | **Match incumbents (Dropbox / Google Drive / Nextcloud / Proton Drive):** full version history with preview + restore, time-based retention. S3-native versioning + Postgres version index. |
 | 3 | **Web dashboards** | **Next.js + TypeScript**, on the `/v2` API. Build **in order: super-admin → org-admin → end-user** (configure tenant/system first, then onboarding, then user surface). |
-| 4 | **Mobile in-app browser** | **Dual, like Dropbox** — keep FileProvider **and** add in-app browse/preview/download. Update `PROJECT.md`'s "Files-app-only" out-of-scope entry when Layer 2 starts. |
+| 4 | **Mobile in-app browser** | **Dual, like Dropbox** — keep FileProvider **and** add in-app browse/preview/download. Update `.planning/PROJECT.md`'s "Files-app-only" out-of-scope entry when Layer 2 starts. |
 | 5 | **Audit + force-disconnect** | **Queryable history** (no real-time streaming for v1). Partitioned Postgres audit table; per-user + org views. Force-disconnect = revoke Zitadel session + drop WebSocket (+ rotate org key nuclear option). |
 | 6 | **VPN / proxy** | **Super simple for v1** — honor system proxy + custom CA; :443 WebSocket covers the rest. No dedicated subsystem. |
 | 7 | **Whitelabel** | **Build-time** — per-customer branding baked at build (design tokens + asset bundle + branded Zitadel login). Wire branding-as-config from day 1 so it's not retrofitted. |
@@ -209,7 +209,7 @@ CROSS-CUTTING  (thin; wire early, build minimal)
 - **DS3 versioned deletes are irreversible** — versioning UX must account for this.
 - **Zitadel multi-tenant ops** — per-org config, custom domains, SCIM at scale is new operational surface; validate self-host vs cloud early.
 - **Permission model scale** — start Postgres table; SpiceDB is the escape hatch, not the starting point.
-- **Mobile reversal** — in-app browser contradicts the shipped "Files-app-only" decision; **resolved: dual** (FileProvider + in-app, like Dropbox). Update `PROJECT.md` when Layer 2 starts.
+- **Mobile reversal** — in-app browser contradicts the shipped "Files-app-only" decision; **resolved: dual** (FileProvider + in-app, like Dropbox). Update `.planning/PROJECT.md` when Layer 2 starts.
 - **Running a backend 24/7** — new on-call, security, and compliance burden the current architecture didn't have.
 
 ---

@@ -2,7 +2,7 @@
 
 **Status:** Draft. Sixth per-part deep-dive. Consumes the backend; a *later* client (after web).
 **Date:** 2026-07-16
-**Reverses:** `PROJECT.md` "Files-app-only on iOS" — now **dual** (in-app browser + FileProvider), like Dropbox.
+**Reverses:** `.planning/PROJECT.md` "Files-app-only on iOS" — now **dual** (in-app browser + FileProvider), like Dropbox.
 
 ---
 

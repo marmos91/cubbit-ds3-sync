@@ -16,7 +16,7 @@ Brainstormed 2026-07-16. Turns the direct-to-S3 sync client into a **server-medi
 - **Data plane:** presigned URLs, bytes client↔DS3 direct, no proxy in v1. **Identity:** Zitadel (authN + per-org SSO), Keycloak-swappable seam. **Server:** Rust/axum reusing `core/`. **Data:** Postgres (SoT) + Redis (day 0). **Push:** WebSocket :443 (+ APNs for mobile background).
 - **Tenancy:** two-level — reseller self-hosts a **branded instance** → many SMB **orgs** (each = DS3 project/bucket). Target ~10k orgs × ~10 users × ~10TB → design-to-scale, deploy small.
 - **Perms:** folder-level inherited + flat groups. **Sharing:** internal + admin-governed links (GDrive-style); cross-org deferred. **Versioning:** S3-native + trash. **Audit:** immutable + exportable.
-- **Surfaces:** web dashboards (primary v1 client) → mobile dual. **Whitelabel:** build-time. **i18n + multilanguage:** first-class.
+- **Surfaces:** web dashboards (primary v1 client) → mobile dual. **Whitelabel:** build-time. **i18n + multilingual:** first-class.
 - **Order:** backend (e2e-tested + benchmarked, *flawless*) → web → native.
 
 ## ⚠️ Confirm before execution (DS3 / Zitadel team)

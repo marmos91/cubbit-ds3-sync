@@ -15,7 +15,7 @@
 | Auth | BFF (httpOnly cookie, from Layer-0), calls `/v2`. |
 | Preview (v1) | PDF + image inline; Office = thumbnail + download. **Full GDocs-style editing = v2.** |
 | Build order | **super-admin → org-admin → end-user** (must configure + provision + invite before the user surface is usable). |
-| Multilanguage | **i18n first-class** — `next-intl` (frontend) + **per-user locale** + **localized backend emails/notifications** (invites, shares). Cross-cutting: also applies to mobile. |
+| Multilingual | **i18n first-class** — `next-intl` (frontend) + **per-user locale** + **localized backend emails/notifications** (invites, shares). Cross-cutting: also applies to mobile. |
 
 ## 2. Per-persona scope
 **Super-admin (reseller operator):** first-run config (DS3 endpoint + creds, instance settings), **org lifecycle** (create / suspend / delete org, assign first org-admin), instance **usage/stats** (storage, orgs, users, activity), **instance-wide audit** + export, **force-disconnect** (sessions), health/license.
