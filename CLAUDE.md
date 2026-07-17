@@ -6,6 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 DS3 Drive is a cross-platform app that syncs local files with Cubbit DS3 (S3-compatible) cloud storage on both **macOS** and **iOS**, with **Windows** support in development. It uses Apple's File Provider framework (`NSFileProviderReplicatedExtension`) to integrate with Finder on macOS and the Files app on iOS, presenting remote S3 buckets as native drive locations. A shared Rust core (under `core/`) provides S3 operations and authentication, consumed via UniFFI (Swift) and C ABI (C#).
 
+## Upcoming: v3.0 Enterprise Platform Pivot
+
+**Starts after the v2.0.0 Windows milestone wraps.** DS3 Drive becomes a Dropbox-class, server-mediated enterprise SaaS on Cubbit DS3 — not a thick direct-to-S3 client anymore. Full north-star design: `docs/superpowers/specs/2026-07-16-enterprise-platform-northstar-design.md`. Each area gets its own per-part spec; **Layer 0 (foundation) is first**. Locked directives:
+
+- **Sync server** = Rust + axum, **reusing `core/` crates** (no re-implementing S3/auth). API front door `api.ds3drive.com/v2`.
+- **Identity** = **Zitadel** (branded OIDC Auth-Code+PKCE at `auth.ds3drive.com`). **Never** hand end users raw DS3 keys, and **never** build a `/v2/login` password proxy (kills SSO/MFA). Keep it swappable to Keycloak via an `IdentityProvider` trait seam; key app data on our own Postgres IDs mapped to OIDC `sub`.
+- **Data plane** = **presigned URLs** (DS3-confirmed; no STS). Bytes go client↔DS3 direct. **No proxy tier in v1.** All access enforcement lives in the server's presign gate (DS3 has no bucket policies / no STS).
+- **Data tier** = **Postgres** (namespace source of truth: paths/perms/versions/audit) + **Redis from day 0** (WebSocket pub/sub, HA at petabyte scale). S3 = bytes + native versioning.
+- **Push** = WebSocket on :443 (no polling). **Conflicts** = optimistic concurrency at authorization. **Multi-tenancy** = bucket/project per org via DS3 APIs.
+- **Surfaces** = web dashboards in **Next.js/TS**, built super-admin → org-admin → user; **mobile dual** (FileProvider + in-app browser); **whitelabel = build-time**.
+
 ## Repository Layout
 
 This is a mono-repo with platform-specific directories:
@@ -151,6 +162,19 @@ killall fileproviderd
 ```
 
 **IMPORTANT:** Never use `xcodebuild` with `CODE_SIGN_IDENTITY="-"` (ad-hoc signing) — it strips App Group entitlements and poisons all caches.
+
+### Extension Loads But Drive Missing in Finder (three distinct failures)
+
+"Extension not starting" is usually one of three layers. Each has its own log signature — diagnose in order, don't guess. Extension subsystem logs (`io.cubbit.DS3Drive.provider`) being **empty** means the `.appex` never launched.
+
+**1. Stale domain → app log `cannot be used right now` + `DS3DriveManagerError error 0`.**
+`error 0` = `.driveNotFound`, thrown when `NSFileProviderManager.domains()` itself throws — the app can't self-heal. Cause: `~/Library/Application Support/FileProvider/io.cubbit.DS3Drive.provider/Provider.plist` references a **deleted DerivedData build path**. Check with `plutil -p`. Fix (app stopped): `killall fileproviderd` → `rm -rf` that provider dir → `killall fileproviderd` → relaunch.
+
+**2. Duplicate LaunchServices registrations → owner-app resolves to a dead copy** (same error persists after #1). Find: `lsregister -dump | grep "path:.*DS3Drive-.*Cubbit DS3 Drive.app"` (most point at deleted DerivedData). Fix: `lsregister -u` every stale path, then `lsregister -f` the live build only. (`lsregister` full path is in the recovery block above.)
+
+**3. ⚠️ THE TRAP — `pluginkit -u`/`-a` + `lsregister` churn silently flips the File Provider extension's approval toggle OFF** in System Settings → Login Items & Extensions. Then every `add(domain)` is born `Enabled => false` → `fileproviderd` errors `FP -2011 "Sync is not enabled"` (`NSFileProviderError.domainDisabled`); `fileproviderctl dump` shows `state:disabled` (iCloud/Dropbox stay `enabled`). **`pluginkit -m` still shows `+` — that's plugin match policy, NOT the FileProvider approval. Misleading.** No reliable CLI to re-enable: **manually toggle System Settings → General → Login Items & Extensions → Extensions → File Provider ⓘ → app ON.** Prevention: don't `pluginkit -u`/rebuild-thrash to fix extension issues — that churn is what flips the toggle; prefer `killall fileproviderd` + the provider-dir/LaunchServices reset, and re-check the toggle afterward.
+
+**4. After it loads: `Extension init failed ... credentials.json couldn't be opened` → invalidates.** Per-drive S3 API key missing from the App Group container. Auto-recovery only fires on a `.notAuthenticated` signal, but a missing file makes the extension invalidate instead. **Fix: re-login in the app** — regenerates the API key, writes `credentials.json`. Success signal: extension logs `enumerateItems: N visible items (N from S3)` + a `downloaded successfully`.
 
 ## Git Worktrees
 
