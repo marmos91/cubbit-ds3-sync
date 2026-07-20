@@ -1,8 +1,8 @@
 //! UniFFI exported functions for Swift bindings.
 //!
 //! `DS3SessionHandle` is an opaque UniFFI Object that wraps the authenticated
-//! `DS3Session`. All methods use the shared tokio runtime via `handles::runtime()`
-//! to bridge async Rust code to blocking FFI calls.
+//! `DS3Session`. All methods bridge async Rust to blocking FFI calls via
+//! `handles::block_on()`.
 //!
 //! Function groups:
 //! - Auth (9): authenticate, verify_2fa, refresh_token, forge_iam_token,

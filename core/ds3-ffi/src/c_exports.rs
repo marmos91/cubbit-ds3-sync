@@ -451,7 +451,7 @@ pub unsafe extern "C" fn ds3_delete_api_key(
 /// which supplies no region.
 ///
 /// The constructor performs NO network I/O (it only builds the AWS SDK client
-/// config), so there is no `runtime().block_on`; the only fallible step is the
+/// config), so there is no `block_on` call; the only fallible step is the
 /// UTF-8 decode of the input buffers.
 ///
 /// Returns 0 on success (handle written to `*out_handle`), -1 on error (code in

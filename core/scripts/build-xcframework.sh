@@ -36,7 +36,14 @@ if ! command -v cargo >/dev/null 2>&1; then
         "/nix/var/nix/profiles/default/bin" \
         "/opt/homebrew/bin" \
         "/usr/local/bin"; do
-        [ -x "$dir/cargo" ] && PATH="$dir:$PATH"
+        # Stop at the first match so the probe order = priority order (rustup
+        # first). Without break, the LAST match would be prepended last and win,
+        # inverting priority and possibly selecting a cargo that lacks the iOS
+        # `rustup target add` targets.
+        if [ -x "$dir/cargo" ]; then
+            PATH="$dir:$PATH"
+            break
+        fi
     done
 fi
 if ! command -v cargo >/dev/null 2>&1; then
