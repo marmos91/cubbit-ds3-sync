@@ -1,8 +1,8 @@
 //! UniFFI exported functions for Swift bindings.
 //!
 //! `DS3SessionHandle` is an opaque UniFFI Object that wraps the authenticated
-//! `DS3Session`. All methods use the shared tokio runtime via `handles::runtime()`
-//! to bridge async Rust code to blocking FFI calls.
+//! `DS3Session`. All methods bridge async Rust to blocking FFI calls via
+//! `handles::block_on()`.
 //!
 //! Function groups:
 //! - Auth (9): authenticate, verify_2fa, refresh_token, forge_iam_token,
@@ -27,7 +27,7 @@ use ds3_models::{
 use ds3_s3::DS3S3Client;
 
 use crate::cancellation::CancellationHandle;
-use crate::handles::runtime;
+use crate::handles::block_on;
 use crate::progress::ProgressCallback;
 
 /// Opaque session handle exposed to Swift via UniFFI.
@@ -62,7 +62,7 @@ impl DS3SessionHandle {
         tenant_id: Option<String>,
         coordinator_url: Option<String>,
     ) -> Result<Arc<Self>, DS3Error> {
-        let session = runtime().block_on(DS3Session::authenticate(
+        let session = block_on(DS3Session::authenticate(
             &email,
             &password,
             tenant_id.as_deref(),
@@ -83,7 +83,7 @@ impl DS3SessionHandle {
         tenant_id: Option<String>,
         coordinator_url: Option<String>,
     ) -> Result<Arc<Self>, DS3Error> {
-        let session = runtime().block_on(DS3Session::authenticate_with_2fa(
+        let session = block_on(DS3Session::authenticate_with_2fa(
             &email,
             &password,
             &tfa_code,
@@ -122,13 +122,13 @@ impl DS3SessionHandle {
     /// Refreshes the access token if expired.
     pub fn refresh_token(&self) -> Result<(), DS3Error> {
         let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
-        runtime().block_on(session.refresh_if_needed())
+        block_on(session.refresh_if_needed())
     }
 
     /// Forges an IAM-scoped token for the specified user ID.
     pub fn forge_iam_token(&self, user_id: String) -> Result<Token, DS3Error> {
         let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
-        runtime().block_on(session.forge_iam_token(&user_id))
+        block_on(session.forge_iam_token(&user_id))
     }
 
     /// Returns the authenticated account information.
@@ -144,7 +144,7 @@ impl DS3SessionHandle {
     /// Persistence Boundary", D-04/D-06).
     pub fn current_session(&self) -> Result<AccountSession, DS3Error> {
         let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
-        Ok(runtime().block_on(session.current_session()))
+        Ok(block_on(session.current_session()))
     }
 
     /// Initializes the S3 client for this session with the given credentials.
@@ -178,7 +178,7 @@ impl DS3SessionHandle {
         let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
         self.refresh_token()?;
         let token = self.current_token()?;
-        runtime().block_on(ds3_http::projects::get_projects(
+        block_on(ds3_http::projects::get_projects(
             &session.http,
             &session.urls,
             &token,
@@ -192,7 +192,7 @@ impl DS3SessionHandle {
         iam_token: String,
     ) -> Result<Vec<DS3ApiKey>, DS3Error> {
         let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
-        runtime().block_on(ds3_http::keys::load_api_keys(
+        block_on(ds3_http::keys::load_api_keys(
             &session.http,
             &session.urls,
             &iam_token,
@@ -208,7 +208,7 @@ impl DS3SessionHandle {
         iam_token: String,
     ) -> Result<DS3ApiKey, DS3Error> {
         let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
-        runtime().block_on(ds3_http::keys::create_api_key(
+        block_on(ds3_http::keys::create_api_key(
             &session.http,
             &session.urls,
             &iam_token,
@@ -225,7 +225,7 @@ impl DS3SessionHandle {
         iam_token: String,
     ) -> Result<(), DS3Error> {
         let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
-        runtime().block_on(ds3_http::keys::delete_api_key(
+        block_on(ds3_http::keys::delete_api_key(
             &session.http,
             &session.urls,
             &iam_token,
@@ -250,7 +250,7 @@ impl DS3SessionHandle {
         continuation_token: Option<String>,
     ) -> Result<S3ListingResult, DS3Error> {
         let client = self.require_s3()?;
-        runtime().block_on(client.list_objects(
+        block_on(client.list_objects(
             &bucket,
             prefix.as_deref(),
             delimiter.as_deref(),
@@ -262,7 +262,7 @@ impl DS3SessionHandle {
     /// Lists all buckets accessible with the current S3 credentials.
     pub fn list_buckets(&self) -> Result<Vec<BucketInfo>, DS3Error> {
         let client = self.require_s3()?;
-        let raw = runtime().block_on(client.list_buckets())?;
+        let raw = block_on(client.list_buckets())?;
         Ok(raw
             .into_iter()
             .map(|(name, creation_date)| BucketInfo {
@@ -275,7 +275,7 @@ impl DS3SessionHandle {
     /// Returns metadata for a single S3 object (HeadObject).
     pub fn head_object(&self, bucket: String, key: String) -> Result<S3ObjectMetadata, DS3Error> {
         let client = self.require_s3()?;
-        runtime().block_on(client.head_object(&bucket, &key))
+        block_on(client.head_object(&bucket, &key))
     }
 
     /// Downloads an S3 object to a local file path.
@@ -295,7 +295,7 @@ impl DS3SessionHandle {
         let path = Path::new(&file_path);
         let callback = wrap_progress_callback(progress);
 
-        runtime().block_on(client.download_object(&bucket, &key, path, callback.as_deref()))
+        block_on(client.download_object(&bucket, &key, path, callback.as_deref()))
     }
 
     /// Uploads a local file to S3. Returns the ETag on success (if provided by S3).
@@ -317,19 +317,19 @@ impl DS3SessionHandle {
         let token: Option<Arc<dyn ds3_s3::CancelToken>> =
             cancel_token.map(|h| h as Arc<dyn ds3_s3::CancelToken>);
 
-        runtime().block_on(client.upload_object(&bucket, &key, path, callback.as_deref(), token))
+        block_on(client.upload_object(&bucket, &key, path, callback.as_deref(), token))
     }
 
     /// Deletes a single S3 object.
     pub fn delete_object(&self, bucket: String, key: String) -> Result<(), DS3Error> {
         let client = self.require_s3()?;
-        runtime().block_on(client.delete_object(&bucket, &key))
+        block_on(client.delete_object(&bucket, &key))
     }
 
     /// Deletes multiple S3 objects. Returns the count of successfully deleted objects.
     pub fn delete_objects(&self, bucket: String, keys: Vec<String>) -> Result<i32, DS3Error> {
         let client = self.require_s3()?;
-        let count = runtime().block_on(client.delete_objects(&bucket, &keys))?;
+        let count = block_on(client.delete_objects(&bucket, &keys))?;
         Ok(count as i32)
     }
 
@@ -346,7 +346,7 @@ impl DS3SessionHandle {
         metadata: Option<HashMap<String, String>>,
     ) -> Result<(), DS3Error> {
         let client = self.require_s3()?;
-        runtime().block_on(client.copy_object(&bucket, &source_key, &dest_key, metadata.as_ref()))
+        block_on(client.copy_object(&bucket, &source_key, &dest_key, metadata.as_ref()))
     }
 
     /// Downloads an S3 object directly to an in-memory `Vec<u8>`.
@@ -355,7 +355,7 @@ impl DS3SessionHandle {
     /// For large files, use `download_object` which streams to a file path.
     pub fn download_to_memory(&self, bucket: String, key: String) -> Result<Vec<u8>, DS3Error> {
         let client = self.require_s3()?;
-        runtime().block_on(client.download_to_memory(&bucket, &key))
+        block_on(client.download_to_memory(&bucket, &key))
     }
 
     /// Uploads an in-memory `Vec<u8>` to S3 with optional custom metadata.
@@ -370,7 +370,7 @@ impl DS3SessionHandle {
         metadata: HashMap<String, String>,
     ) -> Result<Option<String>, DS3Error> {
         let client = self.require_s3()?;
-        runtime().block_on(client.upload_from_memory(&bucket, &key, data, metadata))
+        block_on(client.upload_from_memory(&bucket, &key, data, metadata))
     }
 
     /// Generates a presigned GET URL for an S3 object.
@@ -385,7 +385,7 @@ impl DS3SessionHandle {
         expires_in_seconds: i64,
     ) -> Result<String, DS3Error> {
         let client = self.require_s3()?;
-        runtime().block_on(client.presign_get(&bucket, &key, expires_in_seconds))
+        block_on(client.presign_get(&bucket, &key, expires_in_seconds))
     }
 
     /// Generates a presigned PUT URL for a multipart upload part.
@@ -402,7 +402,7 @@ impl DS3SessionHandle {
         expires_in_seconds: i64,
     ) -> Result<String, DS3Error> {
         let client = self.require_s3()?;
-        runtime().block_on(client.presign_upload_part(
+        block_on(client.presign_upload_part(
             &bucket,
             &key,
             &upload_id,
@@ -418,13 +418,13 @@ impl DS3SessionHandle {
         folder_key: String,
     ) -> Result<bool, DS3Error> {
         let client = self.require_s3()?;
-        runtime().block_on(client.probe_folder_exists(&bucket, &folder_key))
+        block_on(client.probe_folder_exists(&bucket, &folder_key))
     }
 
     /// Creates a .ds3keep folder marker for the given folder key.
     pub fn create_folder_marker(&self, bucket: String, folder_key: String) -> Result<(), DS3Error> {
         let client = self.require_s3()?;
-        runtime().block_on(client.create_folder_marker(&bucket, &folder_key))
+        block_on(client.create_folder_marker(&bucket, &folder_key))
     }
 }
 
@@ -448,7 +448,7 @@ pub fn get_challenge(
         None => CubbitAPIURLs::default_coordinator(),
     };
     let http = SharedHttpClient::new()?;
-    runtime().block_on(auth_get_challenge(
+    block_on(auth_get_challenge(
         &http,
         &urls,
         &email,
@@ -576,7 +576,7 @@ impl DS3SessionHandle {
     /// Returns the current access token string.
     fn current_token(&self) -> Result<String, DS3Error> {
         let session = self.session.as_ref().ok_or(DS3Error::LoggedOut)?;
-        let inner = runtime().block_on(session.session.lock());
+        let inner = block_on(session.session.lock());
         Ok(inner.token.token.clone())
     }
 

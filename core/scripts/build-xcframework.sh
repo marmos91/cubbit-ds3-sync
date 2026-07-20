@@ -21,6 +21,62 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
+# Locate the Rust toolchain.
+# Xcode's Run Script Phase runs with a sanitized PATH that omits wherever cargo
+# was installed. Probe the common locations — rustup (~/.cargo/bin), Nix
+# profiles, and Homebrew — so the build works regardless of how Rust was set up,
+# on developer machines and in CI alike.
+# ---------------------------------------------------------------------------
+if ! command -v cargo >/dev/null 2>&1; then
+    for dir in \
+        "$HOME/.cargo/bin" \
+        "$HOME/.nix-profile/bin" \
+        "/etc/profiles/per-user/${USER:-$(id -un)}/bin" \
+        "/run/current-system/sw/bin" \
+        "/nix/var/nix/profiles/default/bin" \
+        "/opt/homebrew/bin" \
+        "/usr/local/bin"; do
+        # Stop at the first match so the probe order = priority order (rustup
+        # first). Without break, the LAST match would be prepended last and win,
+        # inverting priority and possibly selecting a cargo that lacks the iOS
+        # `rustup target add` targets.
+        if [ -x "$dir/cargo" ]; then
+            PATH="$dir:$PATH"
+            break
+        fi
+    done
+fi
+if ! command -v cargo >/dev/null 2>&1; then
+    echo "error: cargo not found. Install Rust (https://rustup.rs) or add it to PATH." >&2
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Normalize the compiler/SDK environment for cross-compilation.
+#
+# Inside an Xcode Run Script Phase, Xcode injects vars (SDKROOT, CFLAGS, …)
+# pinned to the host app's single platform. Left alone they contaminate every
+# cargo target's C builds (ring, aws-lc-sys): an `-isysroot <wrong-sdk>` breaks
+# the compile outright.
+#
+#   * Clear the flag vars — a leaked `-isysroot` in CFLAGS would override the
+#     SDKROOT we set below.
+#   * Pin SDKROOT to the macOS SDK as the default. cc-rs needs a sysroot to find
+#     system headers (<stdio.h>, <TargetConditionals.h>); this covers the macOS
+#     target build AND the host `uniffi-bindgen` tooling build (a plain
+#     `cargo run`, no --target) further down. iOS target builds override this to
+#     *no* SDKROOT per command in the loop, because aws-lc-sys' cmake builder
+#     derives the iOS SDK itself and a forced SDKROOT breaks it.
+#
+# No effect when run from a clean shell beyond making the macOS SDK explicit
+# (e.g. CI), which is harmless.
+# ---------------------------------------------------------------------------
+unset CC CXX CFLAGS CXXFLAGS CPPFLAGS LDFLAGS \
+      CPATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH LIBRARY_PATH \
+      MACOSX_DEPLOYMENT_TARGET IPHONEOS_DEPLOYMENT_TARGET 2>/dev/null || true
+export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+
+# ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 CRATE_NAME="ds3_ffi"
@@ -58,25 +114,24 @@ echo "==> Building ds3-ffi for ${#TARGETS[@]} targets (${BUILD_PROFILE})..."
 # ---------------------------------------------------------------------------
 for target in "${TARGETS[@]}"; do
     echo "    Building for ${target}..."
-    # Set deployment targets for iOS/simulator to avoid __chkstk_darwin
-    # linker errors from aws-lc-sys (macOS-only symbol).
-    # aws-lc-sys requires cmake builder for iOS cross-compilation.
-    # The default build uses macOS-only __chkstk_darwin symbol.
+    # iOS/simulator need a deployment target + the aws-lc-sys cmake builder to
+    # avoid the macOS-only __chkstk_darwin symbol. The cmake builder derives the
+    # iOS SDK itself, so we run its cargo build with NO SDKROOT (CARGO_ENV_PREFIX
+    # = `env -u SDKROOT`) — a forced/leaked SDKROOT breaks it. The macOS target
+    # inherits the macOS SDKROOT set above (cc_builder needs the sysroot).
+    CARGO_ENV_PREFIX=""
     case "${target}" in
-        aarch64-apple-ios)
+        aarch64-apple-ios|aarch64-apple-ios-sim|x86_64-apple-ios)
             export IPHONEOS_DEPLOYMENT_TARGET="17.0"
             export AWS_LC_SYS_CMAKE_BUILDER=1
-            ;;
-        aarch64-apple-ios-sim|x86_64-apple-ios)
-            export IPHONEOS_DEPLOYMENT_TARGET="17.0"
-            export AWS_LC_SYS_CMAKE_BUILDER=1
+            CARGO_ENV_PREFIX="env -u SDKROOT"
             ;;
         aarch64-apple-darwin)
             export MACOSX_DEPLOYMENT_TARGET="15.0"
             unset AWS_LC_SYS_CMAKE_BUILDER 2>/dev/null || true
             ;;
     esac
-    cargo build --manifest-path "${CARGO_MANIFEST}" \
+    ${CARGO_ENV_PREFIX} cargo build --manifest-path "${CARGO_MANIFEST}" \
         --package ds3-ffi \
         ${CARGO_PROFILE_FLAG} \
         --target "${target}"
