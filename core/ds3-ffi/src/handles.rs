@@ -4,9 +4,11 @@
 //! on a shared `tokio::runtime::Runtime` managed via `OnceLock`. This
 //! avoids the overhead of constructing a new runtime per FFI call.
 //!
-//! **Constraint:** FFI callers must NOT call from a tokio thread, or
-//! `block_on` will panic. Platform callers (Swift main thread, C# .NET
-//! thread) are always safe.
+//! FFI functions bridge to async via [`block_on`], which drives the future on
+//! a dedicated worker thread — so it is safe to call from any platform thread
+//! (Swift main thread, C# .NET thread, or Apple's GCD pools). Only a *direct*
+//! `runtime().block_on(...)` (as in this module's tests) would panic if invoked
+//! from within a tokio worker thread.
 
 use std::future::Future;
 use std::sync::OnceLock;
@@ -50,7 +52,7 @@ pub fn runtime() -> &'static Runtime {
 /// locals (the S3 client, session, …) without requiring `'static`, and the
 /// owned thread is never a tokio worker, so `block_on` cannot panic on it.
 ///
-/// ponytail: one short-lived OS thread per FFI call. These calls are network
+/// Tradeoff: one short-lived OS thread per FFI call. These calls are network
 /// round-trips (ms+), so the ~µs spawn cost is noise. If call volume ever makes
 /// it matter, replace with a single long-lived big-stack driver thread fed via
 /// a channel.
@@ -89,11 +91,15 @@ mod tests {
 
     #[test]
     fn test_block_on_drives_to_completion_and_borrows_locals() {
-        // The future borrows a local (`&name`) — proving `block_on` works
-        // without a `'static` bound, which is why FFI call sites can pass
-        // futures that borrow the S3 client / session.
+        // The future captures a borrow of a local (`&name`), so it is not
+        // `'static` — proving `block_on` accepts futures that borrow caller
+        // state, which is why FFI call sites can pass futures borrowing the S3
+        // client / session. `name` remaining usable afterwards confirms the
+        // borrow was scoped to the call, not moved away.
         let name = String::from("ds3");
-        let out = block_on(async { format!("{}-{}", name, 40 + 2) });
+        let borrowed = &name;
+        let out = block_on(async move { format!("{}-{}", borrowed, 40 + 2) });
         assert_eq!(out, "ds3-42");
+        assert_eq!(name, "ds3");
     }
 }
