@@ -232,8 +232,7 @@ pub unsafe extern "C" fn ds3_session_restore(
         let refresh = unsafe { ffi_str(refresh_token, refresh_token_len)? };
         let coordinator = unsafe { ffi_opt_str(coordinator_url, coordinator_url_len)? };
 
-        let session =
-            block_on(DS3Session::restore_from_refresh_token(refresh, coordinator))?;
+        let session = block_on(DS3Session::restore_from_refresh_token(refresh, coordinator))?;
 
         unsafe { *out_handle = Box::into_raw(Box::new(session)) };
         Ok::<i32, DS3Error>(0)
@@ -327,10 +326,7 @@ pub unsafe extern "C" fn ds3_get_projects(
         }
         let session = unsafe { &*handle };
         block_on(session.refresh_if_needed())?;
-        let token = block_on(session.session.lock())
-            .token
-            .token
-            .clone();
+        let token = block_on(session.session.lock()).token.token.clone();
         let projects = block_on(ds3_http::projects::get_projects(
             &session.http,
             &session.urls,
@@ -530,13 +526,8 @@ pub unsafe extern "C" fn ds3_list_objects(
         let max_keys_opt = if max_keys > 0 { Some(max_keys) } else { None };
         let cont_token = unsafe { ffi_opt_str(continuation_token, continuation_token_len)? };
 
-        let result = block_on(client.list_objects(
-            bucket,
-            prefix,
-            delimiter,
-            max_keys_opt,
-            cont_token,
-        ))?;
+        let result =
+            block_on(client.list_objects(bucket, prefix, delimiter, max_keys_opt, cont_token))?;
         let json = serde_json::to_string(&result)?;
         unsafe { write_ffi_string(&json, out_json, out_json_len) };
         Ok(0)
@@ -623,8 +614,7 @@ pub unsafe extern "C" fn ds3_download_object(
 
         let callback = wrap_c_progress_callback(progress_cb, progress_ctx);
 
-        let result =
-            block_on(client.download_object(bucket, key, path, callback.as_deref()))?;
+        let result = block_on(client.download_object(bucket, key, path, callback.as_deref()))?;
         let json = serde_json::to_string(&result)?;
         unsafe { write_ffi_string(&json, out_json, out_json_len) };
         Ok(0)
@@ -659,13 +649,7 @@ pub unsafe extern "C" fn ds3_upload_object(
 
         let callback = wrap_c_progress_callback(progress_cb, progress_ctx);
 
-        let etag = block_on(client.upload_object(
-            bucket,
-            key,
-            path,
-            callback.as_deref(),
-            None,
-        ))?;
+        let etag = block_on(client.upload_object(bucket, key, path, callback.as_deref(), None))?;
 
         if let Some(etag_str) = etag {
             unsafe { write_ffi_string(&etag_str, out_etag, out_etag_len) };
@@ -1087,13 +1071,8 @@ pub unsafe extern "C" fn ds3_presign_upload_part(
         let key = unsafe { ffi_str(key, key_len)? };
         let upload_id = unsafe { ffi_str(upload_id, upload_id_len)? };
 
-        let url = block_on(client.presign_upload_part(
-            bucket,
-            key,
-            upload_id,
-            part_number,
-            ttl_seconds,
-        ))?;
+        let url =
+            block_on(client.presign_upload_part(bucket, key, upload_id, part_number, ttl_seconds))?;
         unsafe { write_ffi_string(&url, out_url, out_url_len) };
         Ok(0)
     })
