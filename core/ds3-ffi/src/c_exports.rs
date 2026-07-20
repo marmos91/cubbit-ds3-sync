@@ -15,7 +15,7 @@
 #![allow(clippy::missing_safety_doc)]
 
 use crate::cancellation::CancellationHandle;
-use crate::handles::runtime;
+use crate::handles::block_on;
 use crate::log_bridge::{self, DS3LogCallbackFn};
 use crate::panic_guard::ffi_guard;
 use crate::progress::DS3ProgressCallbackFn;
@@ -165,7 +165,7 @@ pub unsafe extern "C" fn ds3_authenticate(
         let tenant = unsafe { ffi_opt_str(tenant_id, tenant_id_len)? };
         let coordinator = unsafe { ffi_opt_str(coordinator_url, coordinator_url_len)? };
 
-        let session = runtime().block_on(DS3Session::authenticate(
+        let session = block_on(DS3Session::authenticate(
             email,
             password,
             tenant,
@@ -200,7 +200,7 @@ pub unsafe extern "C" fn ds3_authenticate_2fa(
         let tenant = unsafe { ffi_opt_str(tenant_id, tenant_id_len)? };
         let coordinator = unsafe { ffi_opt_str(coordinator_url, coordinator_url_len)? };
 
-        let session = runtime().block_on(DS3Session::authenticate_with_2fa(
+        let session = block_on(DS3Session::authenticate_with_2fa(
             email,
             password,
             tfa,
@@ -233,7 +233,7 @@ pub unsafe extern "C" fn ds3_session_restore(
         let coordinator = unsafe { ffi_opt_str(coordinator_url, coordinator_url_len)? };
 
         let session =
-            runtime().block_on(DS3Session::restore_from_refresh_token(refresh, coordinator))?;
+            block_on(DS3Session::restore_from_refresh_token(refresh, coordinator))?;
 
         unsafe { *out_handle = Box::into_raw(Box::new(session)) };
         Ok::<i32, DS3Error>(0)
@@ -262,7 +262,7 @@ pub unsafe extern "C" fn ds3_refresh_token(handle: *const DS3Session, out_error:
             return Err(DS3Error::LoggedOut);
         }
         let session = unsafe { &*handle };
-        runtime().block_on(session.refresh_if_needed())?;
+        block_on(session.refresh_if_needed())?;
         Ok(0)
     })
 }
@@ -302,7 +302,7 @@ pub unsafe extern "C" fn ds3_forge_iam_token(
         }
         let session = unsafe { &*handle };
         let user_id = unsafe { ffi_str(user_id, user_id_len)? };
-        let token = runtime().block_on(session.forge_iam_token(user_id))?;
+        let token = block_on(session.forge_iam_token(user_id))?;
         let json = serde_json::to_string(&token)?;
         unsafe { write_ffi_string(&json, out_json, out_json_len) };
         Ok(0)
@@ -326,13 +326,12 @@ pub unsafe extern "C" fn ds3_get_projects(
             return Err(DS3Error::LoggedOut);
         }
         let session = unsafe { &*handle };
-        runtime().block_on(session.refresh_if_needed())?;
-        let token = runtime()
-            .block_on(session.session.lock())
+        block_on(session.refresh_if_needed())?;
+        let token = block_on(session.session.lock())
             .token
             .token
             .clone();
-        let projects = runtime().block_on(ds3_http::projects::get_projects(
+        let projects = block_on(ds3_http::projects::get_projects(
             &session.http,
             &session.urls,
             &token,
@@ -362,7 +361,7 @@ pub unsafe extern "C" fn ds3_load_api_keys(
         let session = unsafe { &*handle };
         let user_id = unsafe { ffi_str(user_id, user_id_len)? };
         let iam_token = unsafe { ffi_str(iam_token, iam_token_len)? };
-        let keys = runtime().block_on(ds3_http::keys::load_api_keys(
+        let keys = block_on(ds3_http::keys::load_api_keys(
             &session.http,
             &session.urls,
             iam_token,
@@ -396,7 +395,7 @@ pub unsafe extern "C" fn ds3_create_api_key(
         let user_id = unsafe { ffi_str(user_id, user_id_len)? };
         let key_name = unsafe { ffi_str(key_name, key_name_len)? };
         let iam_token = unsafe { ffi_str(iam_token, iam_token_len)? };
-        let key = runtime().block_on(ds3_http::keys::create_api_key(
+        let key = block_on(ds3_http::keys::create_api_key(
             &session.http,
             &session.urls,
             iam_token,
@@ -429,7 +428,7 @@ pub unsafe extern "C" fn ds3_delete_api_key(
         let user_id = unsafe { ffi_str(user_id, user_id_len)? };
         let api_key_id = unsafe { ffi_str(api_key_id, api_key_id_len)? };
         let iam_token = unsafe { ffi_str(iam_token, iam_token_len)? };
-        runtime().block_on(ds3_http::keys::delete_api_key(
+        block_on(ds3_http::keys::delete_api_key(
             &session.http,
             &session.urls,
             iam_token,
@@ -531,7 +530,7 @@ pub unsafe extern "C" fn ds3_list_objects(
         let max_keys_opt = if max_keys > 0 { Some(max_keys) } else { None };
         let cont_token = unsafe { ffi_opt_str(continuation_token, continuation_token_len)? };
 
-        let result = runtime().block_on(client.list_objects(
+        let result = block_on(client.list_objects(
             bucket,
             prefix,
             delimiter,
@@ -557,7 +556,7 @@ pub unsafe extern "C" fn ds3_list_buckets(
             return Err(DS3Error::LoggedOut);
         }
         let client = unsafe { &*s3_handle };
-        let buckets = runtime().block_on(client.list_buckets())?;
+        let buckets = block_on(client.list_buckets())?;
         let bucket_objects: Vec<serde_json::Value> = buckets
             .into_iter()
             .map(|(name, creation_date)| {
@@ -589,7 +588,7 @@ pub unsafe extern "C" fn ds3_head_object(
         let client = unsafe { &*s3_handle };
         let bucket = unsafe { ffi_str(bucket, bucket_len)? };
         let key = unsafe { ffi_str(key, key_len)? };
-        let metadata = runtime().block_on(client.head_object(bucket, key))?;
+        let metadata = block_on(client.head_object(bucket, key))?;
         let json = serde_json::to_string(&metadata)?;
         unsafe { write_ffi_string(&json, out_json, out_json_len) };
         Ok(0)
@@ -625,7 +624,7 @@ pub unsafe extern "C" fn ds3_download_object(
         let callback = wrap_c_progress_callback(progress_cb, progress_ctx);
 
         let result =
-            runtime().block_on(client.download_object(bucket, key, path, callback.as_deref()))?;
+            block_on(client.download_object(bucket, key, path, callback.as_deref()))?;
         let json = serde_json::to_string(&result)?;
         unsafe { write_ffi_string(&json, out_json, out_json_len) };
         Ok(0)
@@ -660,7 +659,7 @@ pub unsafe extern "C" fn ds3_upload_object(
 
         let callback = wrap_c_progress_callback(progress_cb, progress_ctx);
 
-        let etag = runtime().block_on(client.upload_object(
+        let etag = block_on(client.upload_object(
             bucket,
             key,
             path,
@@ -697,7 +696,7 @@ pub unsafe extern "C" fn ds3_delete_object(
         let client = unsafe { &*s3_handle };
         let bucket = unsafe { ffi_str(bucket, bucket_len)? };
         let key = unsafe { ffi_str(key, key_len)? };
-        runtime().block_on(client.delete_object(bucket, key))?;
+        block_on(client.delete_object(bucket, key))?;
         Ok(0)
     })
 }
@@ -722,7 +721,7 @@ pub unsafe extern "C" fn ds3_copy_object(
         let bucket = unsafe { ffi_str(bucket, bucket_len)? };
         let source = unsafe { ffi_str(source_key, source_key_len)? };
         let dest = unsafe { ffi_str(dest_key, dest_key_len)? };
-        runtime().block_on(client.copy_object(bucket, source, dest, None))?;
+        block_on(client.copy_object(bucket, source, dest, None))?;
         Ok(0)
     })
 }
@@ -745,7 +744,7 @@ pub unsafe extern "C" fn ds3_probe_folder_exists(
         let client = unsafe { &*s3_handle };
         let bucket = unsafe { ffi_str(bucket, bucket_len)? };
         let folder_key = unsafe { ffi_str(folder_key, folder_key_len)? };
-        let exists = runtime().block_on(client.probe_folder_exists(bucket, folder_key))?;
+        let exists = block_on(client.probe_folder_exists(bucket, folder_key))?;
         unsafe { *out_result = if exists { 1 } else { 0 } };
         Ok(0)
     })
@@ -768,7 +767,7 @@ pub unsafe extern "C" fn ds3_create_folder_marker(
         let client = unsafe { &*s3_handle };
         let bucket = unsafe { ffi_str(bucket, bucket_len)? };
         let folder_key = unsafe { ffi_str(folder_key, folder_key_len)? };
-        runtime().block_on(client.create_folder_marker(bucket, folder_key))?;
+        block_on(client.create_folder_marker(bucket, folder_key))?;
         Ok(0)
     })
 }
@@ -888,7 +887,7 @@ pub unsafe extern "C" fn ds3_get_challenge(
             None => ds3_http::urls::CubbitAPIURLs::default_coordinator(),
         };
         let http = ds3_http::client::SharedHttpClient::new()?;
-        let challenge = runtime().block_on(ds3_auth::challenge::get_challenge(
+        let challenge = block_on(ds3_auth::challenge::get_challenge(
             &http, &urls, email, tenant,
         ))?;
 
@@ -918,7 +917,7 @@ pub unsafe extern "C" fn ds3_current_session(
             return Err(DS3Error::LoggedOut);
         }
         let session = unsafe { &*handle };
-        let snapshot = runtime().block_on(session.current_session());
+        let snapshot = block_on(session.current_session());
         let json = serde_json::to_string(&snapshot)?;
         unsafe { write_ffi_string(&json, out_session_json, out_session_json_len) };
         Ok(0)
@@ -956,7 +955,7 @@ pub unsafe extern "C" fn ds3_download_to_memory(
         let bucket = unsafe { ffi_str(bucket, bucket_len)? };
         let key = unsafe { ffi_str(key, key_len)? };
 
-        let bytes = runtime().block_on(client.download_to_memory(bucket, key))?;
+        let bytes = block_on(client.download_to_memory(bucket, key))?;
         unsafe { write_ffi_bytes(bytes, out_buf, out_len) };
         Ok(0)
     })
@@ -1010,7 +1009,7 @@ pub unsafe extern "C" fn ds3_upload_from_memory(
             metadata.insert("content-type".to_string(), ct.to_string());
         }
 
-        let etag = runtime().block_on(client.upload_from_memory(bucket, key, data, metadata))?;
+        let etag = block_on(client.upload_from_memory(bucket, key, data, metadata))?;
 
         if let Some(etag_str) = etag {
             unsafe { write_ffi_string(&etag_str, out_etag, out_etag_len) };
@@ -1051,7 +1050,7 @@ pub unsafe extern "C" fn ds3_presign_get(
         let bucket = unsafe { ffi_str(bucket, bucket_len)? };
         let key = unsafe { ffi_str(key, key_len)? };
 
-        let url = runtime().block_on(client.presign_get(bucket, key, ttl_seconds))?;
+        let url = block_on(client.presign_get(bucket, key, ttl_seconds))?;
         unsafe { write_ffi_string(&url, out_url, out_url_len) };
         Ok(0)
     })
@@ -1088,7 +1087,7 @@ pub unsafe extern "C" fn ds3_presign_upload_part(
         let key = unsafe { ffi_str(key, key_len)? };
         let upload_id = unsafe { ffi_str(upload_id, upload_id_len)? };
 
-        let url = runtime().block_on(client.presign_upload_part(
+        let url = block_on(client.presign_upload_part(
             bucket,
             key,
             upload_id,
@@ -1125,7 +1124,7 @@ pub unsafe extern "C" fn ds3_delete_objects(
         let keys_str = unsafe { ffi_str(keys_json, keys_json_len)? };
         let keys: Vec<String> = serde_json::from_str(keys_str)?;
 
-        let deleted = runtime().block_on(client.delete_objects(bucket, &keys))?;
+        let deleted = block_on(client.delete_objects(bucket, &keys))?;
         if !out_deleted_count.is_null() {
             unsafe { *out_deleted_count = deleted as i32 };
         }
